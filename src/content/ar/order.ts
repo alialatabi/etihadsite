@@ -18,6 +18,7 @@ export const order = {
     dpi: 'جودة الصورة',
     file: 'الملف الأصلي',
     time: 'الوقت',
+    whatsapp: 'واتساب',
   },
   status: {
     new: 'جديد',
@@ -35,6 +36,7 @@ export const order = {
     ratio_extreme: 'نسبة التصميم ما تدخل بورقة A4.',
     low_dpi: 'دقة الصورة قليلة جداً لهذا القياس.',
     no_alpha: 'الشكل المخصص يحتاج PNG بخلفية شفافة.',
+    too_large: 'حجم الملف أكبر من المسموح.',
     unsupported_type: 'نوع الملف غير مدعوم.',
     corrupt: 'ما قدرنا نقرأ الملف.',
     encrypted: 'ملف PDF محمي بكلمة سر.',
