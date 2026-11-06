@@ -1,0 +1,1641 @@
+[
+  {
+    "name": "circle-30mm-gapX2-gapY0 (owner default)",
+    "spec": {
+      "shape": "circle",
+      "widthUm": 30000,
+      "heightUm": 30000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "circle"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 30000,
+          "heightUm": 30000
+        },
+        "rotated": false,
+        "gapXUm": 2000,
+        "gapYUm": 0,
+        "cols": 6,
+        "rows": 9,
+        "countPerSheet": 54,
+        "block": {
+          "xUm": 10000,
+          "yUm": 13500,
+          "widthUm": 190000,
+          "heightUm": 270000
+        },
+        "placements": [
+          {
+            "xUm": 10000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 13500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 43500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 103500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 133500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 163500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 193500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 10000,
+            "yUm": 253500
+          },
+          {
+            "xUm": 42000,
+            "yUm": 253500
+          },
+          {
+            "xUm": 74000,
+            "yUm": 253500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 253500
+          },
+          {
+            "xUm": 138000,
+            "yUm": 253500
+          },
+          {
+            "xUm": 170000,
+            "yUm": 253500
+          }
+        ],
+        "clip": {
+          "kind": "circle"
+        }
+      }
+    }
+  },
+  {
+    "name": "circle-30mm-gapX0-gapY2 (config alternative)",
+    "spec": {
+      "shape": "circle",
+      "widthUm": 30000,
+      "heightUm": 30000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 0,
+      "gapYUm": 2000,
+      "allowRotate": false,
+      "clip": {
+        "kind": "circle"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 30000,
+          "heightUm": 30000
+        },
+        "rotated": false,
+        "gapXUm": 0,
+        "gapYUm": 2000,
+        "cols": 6,
+        "rows": 8,
+        "countPerSheet": 48,
+        "block": {
+          "xUm": 15000,
+          "yUm": 21500,
+          "widthUm": 180000,
+          "heightUm": 254000
+        },
+        "placements": [
+          {
+            "xUm": 15000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 15000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 45000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 75000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 105000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 135000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 165000,
+            "yUm": 245500
+          }
+        ],
+        "clip": {
+          "kind": "circle"
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-sharp-50x50",
+    "spec": {
+      "shape": "rect",
+      "corners": "sharp",
+      "widthUm": 50000,
+      "heightUm": 50000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 0,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "none"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 50000,
+          "heightUm": 50000
+        },
+        "rotated": false,
+        "gapXUm": 0,
+        "gapYUm": 0,
+        "cols": 3,
+        "rows": 5,
+        "countPerSheet": 15,
+        "block": {
+          "xUm": 30000,
+          "yUm": 23500,
+          "widthUm": 150000,
+          "heightUm": 250000
+        },
+        "placements": [
+          {
+            "xUm": 30000,
+            "yUm": 23500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 23500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 23500
+          },
+          {
+            "xUm": 30000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 73500
+          },
+          {
+            "xUm": 30000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 30000,
+            "yUm": 173500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 173500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 173500
+          },
+          {
+            "xUm": 30000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 223500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 223500
+          }
+        ],
+        "clip": {
+          "kind": "none"
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-rounded-50x50",
+    "spec": {
+      "shape": "rect",
+      "corners": "rounded",
+      "widthUm": 50000,
+      "heightUm": 50000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 2000,
+      "allowRotate": false,
+      "clip": {
+        "kind": "roundedRect",
+        "radiusUm": 3000
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 50000,
+          "heightUm": 50000
+        },
+        "rotated": false,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "cols": 3,
+        "rows": 5,
+        "countPerSheet": 15,
+        "block": {
+          "xUm": 28000,
+          "yUm": 19500,
+          "widthUm": 154000,
+          "heightUm": 258000
+        },
+        "placements": [
+          {
+            "xUm": 28000,
+            "yUm": 19500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 19500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 19500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 71500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 71500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 71500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 123500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 175500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 175500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 175500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 227500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 227500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 227500
+          }
+        ],
+        "clip": {
+          "kind": "roundedRect",
+          "radiusUm": 3000
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-rounded-100x40-upright",
+    "spec": {
+      "shape": "rect",
+      "corners": "rounded",
+      "widthUm": 100000,
+      "heightUm": 40000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 2000,
+      "allowRotate": false,
+      "clip": {
+        "kind": "roundedRect",
+        "radiusUm": 3000
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 100000,
+          "heightUm": 40000
+        },
+        "rotated": false,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "cols": 1,
+        "rows": 6,
+        "countPerSheet": 6,
+        "block": {
+          "xUm": 55000,
+          "yUm": 23500,
+          "widthUm": 100000,
+          "heightUm": 250000
+        },
+        "placements": [
+          {
+            "xUm": 55000,
+            "yUm": 23500
+          },
+          {
+            "xUm": 55000,
+            "yUm": 65500
+          },
+          {
+            "xUm": 55000,
+            "yUm": 107500
+          },
+          {
+            "xUm": 55000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 55000,
+            "yUm": 191500
+          },
+          {
+            "xUm": 55000,
+            "yUm": 233500
+          }
+        ],
+        "clip": {
+          "kind": "roundedRect",
+          "radiusUm": 3000
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-rounded-100x40-allowRotate",
+    "spec": {
+      "shape": "rect",
+      "corners": "rounded",
+      "widthUm": 100000,
+      "heightUm": 40000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 2000,
+      "allowRotate": true,
+      "clip": {
+        "kind": "roundedRect",
+        "radiusUm": 3000
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 40000,
+          "heightUm": 100000
+        },
+        "rotated": true,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "cols": 4,
+        "rows": 2,
+        "countPerSheet": 8,
+        "block": {
+          "xUm": 22000,
+          "yUm": 47500,
+          "widthUm": 166000,
+          "heightUm": 202000
+        },
+        "placements": [
+          {
+            "xUm": 22000,
+            "yUm": 47500
+          },
+          {
+            "xUm": 64000,
+            "yUm": 47500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 47500
+          },
+          {
+            "xUm": 148000,
+            "yUm": 47500
+          },
+          {
+            "xUm": 22000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 64000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 106000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 148000,
+            "yUm": 149500
+          }
+        ],
+        "clip": {
+          "kind": "roundedRect",
+          "radiusUm": 3000
+        }
+      }
+    }
+  },
+  {
+    "name": "custom-50x30",
+    "spec": {
+      "shape": "custom",
+      "widthUm": 50000,
+      "heightUm": 30000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 2000,
+      "allowRotate": false,
+      "clip": {
+        "kind": "none"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 50000,
+          "heightUm": 30000
+        },
+        "rotated": false,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "cols": 3,
+        "rows": 8,
+        "countPerSheet": 24,
+        "block": {
+          "xUm": 28000,
+          "yUm": 21500,
+          "widthUm": 154000,
+          "heightUm": 254000
+        },
+        "placements": [
+          {
+            "xUm": 28000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 21500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 53500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 85500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 117500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 149500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 181500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 213500
+          },
+          {
+            "xUm": 28000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 245500
+          },
+          {
+            "xUm": 132000,
+            "yUm": 245500
+          }
+        ],
+        "clip": {
+          "kind": "none"
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-sharp-190x277-exact-fit",
+    "spec": {
+      "shape": "rect",
+      "corners": "sharp",
+      "widthUm": 190000,
+      "heightUm": 277000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 0,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "none"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "rotated": false,
+        "gapXUm": 0,
+        "gapYUm": 0,
+        "cols": 1,
+        "rows": 1,
+        "countPerSheet": 1,
+        "block": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "placements": [
+          {
+            "xUm": 10000,
+            "yUm": 10000
+          }
+        ],
+        "clip": {
+          "kind": "none"
+        }
+      }
+    }
+  },
+  {
+    "name": "rect-sharp-200x50-too-big",
+    "spec": {
+      "shape": "rect",
+      "corners": "sharp",
+      "widthUm": 200000,
+      "heightUm": 50000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 0,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "none"
+      }
+    },
+    "expected": {
+      "ok": false,
+      "reason": "too_big_for_page"
+    }
+  },
+  {
+    "name": "rect-sharp-200x50-fits-when-rotated",
+    "spec": {
+      "shape": "rect",
+      "corners": "sharp",
+      "widthUm": 200000,
+      "heightUm": 50000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 0,
+      "gapYUm": 0,
+      "allowRotate": true,
+      "clip": {
+        "kind": "none"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 50000,
+          "heightUm": 200000
+        },
+        "rotated": true,
+        "gapXUm": 0,
+        "gapYUm": 0,
+        "cols": 3,
+        "rows": 1,
+        "countPerSheet": 3,
+        "block": {
+          "xUm": 30000,
+          "yUm": 48500,
+          "widthUm": 150000,
+          "heightUm": 200000
+        },
+        "placements": [
+          {
+            "xUm": 30000,
+            "yUm": 48500
+          },
+          {
+            "xUm": 80000,
+            "yUm": 48500
+          },
+          {
+            "xUm": 130000,
+            "yUm": 48500
+          }
+        ],
+        "clip": {
+          "kind": "none"
+        }
+      }
+    }
+  },
+  {
+    "name": "circle-4mm-too-small",
+    "spec": {
+      "shape": "circle",
+      "widthUm": 4000,
+      "heightUm": 4000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "circle"
+      }
+    },
+    "expected": {
+      "ok": false,
+      "reason": "too_small"
+    }
+  },
+  {
+    "name": "circle-23mm-float-trap",
+    "spec": {
+      "shape": "circle",
+      "widthUm": 23000,
+      "heightUm": 23000
+    },
+    "params": {
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "gapXUm": 2000,
+      "gapYUm": 0,
+      "allowRotate": false,
+      "clip": {
+        "kind": "circle"
+      }
+    },
+    "expected": {
+      "ok": true,
+      "layout": {
+        "page": {
+          "widthUm": 210000,
+          "heightUm": 297000
+        },
+        "marginUm": 10000,
+        "usable": {
+          "xUm": 10000,
+          "yUm": 10000,
+          "widthUm": 190000,
+          "heightUm": 277000
+        },
+        "cell": {
+          "widthUm": 23000,
+          "heightUm": 23000
+        },
+        "rotated": false,
+        "gapXUm": 2000,
+        "gapYUm": 0,
+        "cols": 7,
+        "rows": 12,
+        "countPerSheet": 84,
+        "block": {
+          "xUm": 18500,
+          "yUm": 10500,
+          "widthUm": 173000,
+          "heightUm": 276000
+        },
+        "placements": [
+          {
+            "xUm": 18500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 10500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 33500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 56500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 79500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 102500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 125500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 148500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 171500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 194500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 217500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 240500
+          },
+          {
+            "xUm": 18500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 43500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 68500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 93500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 118500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 143500,
+            "yUm": 263500
+          },
+          {
+            "xUm": 168500,
+            "yUm": 263500
+          }
+        ],
+        "clip": {
+          "kind": "circle"
+        }
+      }
+    }
+  }
+]
