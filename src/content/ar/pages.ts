@@ -1,23 +1,85 @@
-/** Marketing / static pages copy — OWNED BY AGENT E (may extend and edit freely). */
+/**
+ * Marketing / static pages copy — OWNED BY AGENT E (may extend and edit freely).
+ * Placeholders use {name}; numbers filled into them are wrapped in <Ltr> by the page.
+ */
 export const pages = {
   howItWorks: {
     title: 'شلون نشتغل؟',
     hero: 'من الملف إلى الطباعة بثلاث خطوات',
+    heroSub: 'ترفع تصميمك، تحدد القياس، والموقع يرتب ورقة A4 قدامك ويحسب العدد بالضبط. بلا تخمين وبلا مفاجآت.',
+    stepsTitle: 'ثلاث خطوات بس',
     steps: [
       { title: 'اختار الشكل وارفع تصميمك', body: 'دائري، مستطيل، أو شكل مخصص. PNG أو JPG أو PDF.' },
       { title: 'حدد القياس', body: 'اكتب القياس بالسنتيمتر، والموقع يرتب الورقة ويحسب العدد فوراً.' },
       { title: 'اختار الباقة وأرسل', body: 'اختار عدد الأوراق، أدخل عنوانك ورقمك، ونحن نتواصل وياك.' },
     ],
     specTitle: 'مواصفات الورقة',
+    specIntro: 'كل الستيكرات تنطبع على ورقة A4 وحدة بهذي المواصفات:',
+    spec: {
+      size: 'حجم الورقة',
+      margin: 'الهامش من كل جهة',
+      usable: 'المساحة المتاحة للطباعة',
+    },
+    specNote: 'ما نطبع ضمن الهامش حتى تطلع الحواف نظيفة وما ينقص شي من تصميمك.',
+    illustrationTitle: 'هيج تنرتب الورقة',
+    illustrationCaption: 'دوائر قطرها {size} سم: {n} ستيكر بالورقة الوحدة.',
+    illustrationAlt: 'رسم لورقة A4 عليها {n} ستيكر دائري مرتبة بصفوف وأعمدة',
+    rulesTitle: 'شلون نحسب الفراغ بين الستيكرات؟',
+    rulesIntro: 'الفراغ يعتمد على الشكل، حتى يكون القص سهل والورقة تستوعب أكبر عدد.',
+    rules: {
+      circle: {
+        title: 'دائري',
+        columns: 'فراغ {gapX} ملم بين الأعمدة',
+        rowsTouching: 'والصفوف متلاصقة.',
+        rowsGap: 'و{gapY} ملم بين الصفوف.',
+      },
+      rounded: { title: 'مستطيل بزوايا دائرية', body: 'فراغ {gap} ملم بين الستيكرات.' },
+      sharp: { title: 'مستطيل بزوايا حادة', body: 'بدون فراغ ({gap} ملم): الستيكرات متلاصقة.' },
+      custom: {
+        title: 'شكل مخصص',
+        body: 'فراغ {gap} ملم بين الستيكرات. يحتاج ملف PNG بخلفية شفافة حتى نقص على حدود تصميمك.',
+      },
+    },
+    examplesTitle: 'شكد يدخل بالورقة؟',
+    examplesIntro: 'هذي الأرقام يحسبها الموقع نفسه بنفس قواعد الترتيب اللي تشوفها بالمعاينة:',
+    examplesHeaders: { sticker: 'الستيكر', perSheet: 'العدد بالورقة' },
+    examples: {
+      circle3: 'دائرة {size} سم',
+      circle5: 'دائرة {size} سم',
+      sharp5: 'مستطيل حاد {w}×{h} سم',
+      rounded5: 'مستطيل دائري {w}×{h} سم',
+      custom5: 'شكل مخصص {w}×{h} سم',
+    },
+    perSheetLabel: '{count} بالورقة',
+    exampleUnavailable: 'ما يدخل',
+    offersTitle: 'الباقات',
+    offersIntro: 'تختار عدد الأوراق، ونطبع لك الباقة كاملة بنفس التصميم.',
+    offerSheets: 'ورقة A4',
+    priceUnset: 'السعر يُحدد عند التأكيد',
+    deliveryLabel: 'التوصيل على كل طلب',
+    deliveryValue: '{fee} د.ع',
     cta: 'ابدأ هسة',
+    ctaTitle: 'جاهز؟ صمّم ستيكراتك',
+    ctaBody: 'ما تحتاج حساب. ارفع الملف وشوف الورقة مرتبة بدقيقة.',
   },
   notFound: {
     title: 'الصفحة غير موجودة',
     body: 'يمكن الرابط تغيّر أو انحذف.',
     home: 'ارجع للرئيسية',
+    code: '404',
+  },
+  shell: {
+    menuLabel: 'التنقل الرئيسي',
+    footerLinks: 'روابط',
+    whatsappAria: 'تواصل معنا على واتساب',
+    homeAria: 'الرئيسية',
+    footerArea: 'المنطقة',
   },
   seo: {
     title: 'الاتحاد برنت | طباعة ستيكرات على قياسك',
     description: 'ارفع تصميمك، حدد القياس بالسنتيمتر، وشوف ورقة A4 مرتبة فوراً. طباعة ستيكرات دائرية ومستطيلة وبأشكال مخصصة في العراق.',
+    howItWorksDescription: 'شلون نرتب الستيكرات على ورقة A4: المواصفات، الفراغات، وشكد ستيكر يدخل بالورقة حسب القياس.',
+    ogAlt: 'الاتحاد برنت',
+    manifestShort: 'الاتحاد برنت',
   },
 } as const;
