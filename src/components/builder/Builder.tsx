@@ -1,0 +1,139 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react';
+import { builder, common } from '@/content/ar';
+import { Button } from '@/components/ui/button';
+import { whatsappUrl } from '@/lib/parse/phone';
+import type { ShopSettings } from '@/lib/types';
+import { MobilePreviewStrip, PreviewPanel } from './PreviewPanels';
+import { Stepper } from './Stepper';
+import { DesignStep } from './steps/DesignStep';
+import { DetailsStep } from './steps/DetailsStep';
+import { OfferStep } from './steps/OfferStep';
+import { ShapeStep } from './steps/ShapeStep';
+import { SizeStep } from './steps/SizeStep';
+import { STEPS } from './logic';
+import { useBuilder } from './useBuilder';
+import { useSubmitOrder } from './useSubmitOrder';
+
+const TITLES = {
+  shape: builder.shape.title,
+  design: builder.upload.title,
+  size: builder.size.title,
+  offer: builder.offer.title,
+  details: builder.details.title,
+} as const;
+
+const FIELD_IDS = [
+  ['phone', 'cust-phone'],
+  ['governorate', 'cust-gov'],
+  ['district', 'cust-district'],
+  ['landmark', 'cust-landmark'],
+] as const;
+
+export function Builder({ settings }: { settings: ShopSettings }) {
+  const b = useBuilder(settings);
+  const sub = useSubmitOrder(settings.quality.targetDpi);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const firstRender = useRef(true);
+
+  // Move focus to the new step's heading when the step changes (not on first paint).
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    headingRef.current?.focus({ preventScroll: false });
+  }, [b.step]);
+
+  const handleSubmit = () => {
+    b.setShowErrors(true);
+    const { errors, phoneE164 } = b.validation;
+    const firstBad = FIELD_IDS.find(([k]) => errors[k]);
+    if (firstBad) {
+      document.getElementById(firstBad[1])?.focus();
+      return;
+    }
+    if (!b.design || !b.spec || !b.offer || !b.layout || !phoneE164) return;
+    const f = b.fields;
+    void sub.submit({
+      design: b.design,
+      spec: b.spec,
+      offerId: b.offer.id,
+      customer: {
+        name: f.name.trim() || undefined,
+        phone: phoneE164,
+        governorate: f.governorate,
+        district: f.district.trim(),
+        landmark: f.landmark.trim(),
+        notes: f.notes.trim() || undefined,
+      },
+    });
+  };
+
+  const isLast = b.step === STEPS.length - 1;
+  const showStrip = b.stepId === 'size' || b.stepId === 'offer';
+  const inquiry = settings.whatsapp ? whatsappUrl(settings.whatsapp) : null;
+
+  return (
+    <div id="builder" className="scroll-mt-4">
+      {showStrip && <MobilePreviewStrip b={b} />}
+
+      <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
+        <div className="min-w-0 space-y-6">
+          <Stepper b={b} />
+
+          <div className="rounded-3xl border bg-background p-4 shadow-sm sm:p-6">
+            <h2 ref={headingRef} tabIndex={-1} className="font-heading mb-5 text-2xl font-bold outline-none">
+              {TITLES[b.stepId]}
+            </h2>
+
+            {b.stepId === 'shape' && <ShapeStep b={b} />}
+            {b.stepId === 'design' && <DesignStep b={b} />}
+            {b.stepId === 'size' && <SizeStep b={b} />}
+            {b.stepId === 'offer' && <OfferStep b={b} />}
+            {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} onRetry={handleSubmit} />}
+
+            <div className="cut-line mt-6 h-px text-border" aria-hidden />
+            <div className="mt-4 flex items-center justify-between gap-3">
+              {b.step > 0 ? (
+                <Button type="button" variant="outline" className="h-12 px-5 text-base" onClick={b.back}>
+                  <ArrowRight className="size-5" aria-hidden />
+                  {common.actions.back}
+                </Button>
+              ) : (
+                <span />
+              )}
+              {!isLast && (
+                <Button
+                  type="button"
+                  disabled={!b.stepOk[b.stepId]}
+                  onClick={b.next}
+                  className="h-12 bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90"
+                >
+                  {common.actions.next}
+                  <ArrowLeft className="size-5" aria-hidden />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <PreviewPanel b={b} />
+      </div>
+
+      {inquiry && (
+        <a
+          href={inquiry}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-4 start-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-bold text-white shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <MessageCircle className="size-5" aria-hidden />
+          {common.nav.inquiry}
+        </a>
+      )}
+    </div>
+  );
+}
