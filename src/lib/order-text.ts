@@ -13,24 +13,39 @@
  *   الأوراق: 20 ورقة (1080 ستيكر)
  *   السعر: يُحدد عند التأكيد
  *   التوصيل: 5,000 د.ع
+ *
+ * When the total is known, a final "الإجمالي: … د.ع" line is appended.
  */
 import type { OrderSummary } from '@/lib/types';
+import { common } from '@/content/ar/common';
+import { formatCm } from '@/lib/parse/cm';
+import { countLabel } from '@/lib/plural';
+import { formatIqd } from '@/lib/pricing';
+
+const money = (n: number): string => `${formatIqd(n)} ${common.units.iqd}`;
 
 export function orderSummaryText(summary: OrderSummary): string {
-  void summary;
-  throw new Error('NOT_IMPLEMENTED: orderSummaryText (Agent A)');
+  const lines = [
+    `طلب جديد — ${summary.displayNo}`,
+    `الشكل: ${shapeLabel(summary.shape, summary.corners)}`,
+    `القياس: ${sizeLabel(summary.widthUm, summary.heightUm)}`,
+    `بالورقة: ${countLabel(summary.countPerSheet, common.plural.sticker)}`,
+    `الأوراق: ${countLabel(summary.sheets, common.plural.sheet)} (${countLabel(summary.totalStickers, common.plural.sticker)})`,
+    `السعر: ${summary.offerPriceIqd === null ? 'يُحدد عند التأكيد' : money(summary.offerPriceIqd)}`,
+    `التوصيل: ${money(summary.deliveryFeeIqd)}`,
+  ];
+  if (summary.totalIqd !== null) lines.push(`الإجمالي: ${money(summary.totalIqd)}`);
+  return lines.join('\n');
 }
 
 /** Arabic label for a shape (+ corners). 'circle' → "دائري", rect rounded → "مستطيل بزوايا دائرية", … */
 export function shapeLabel(shape: OrderSummary['shape'], corners?: OrderSummary['corners']): string {
-  void shape;
-  void corners;
-  throw new Error('NOT_IMPLEMENTED: shapeLabel (Agent A)');
+  if (shape === 'circle') return 'دائري';
+  if (shape === 'custom') return 'شكل مخصص';
+  return corners === 'sharp' ? 'مستطيل بزوايا حادة' : 'مستطيل بزوايا دائرية';
 }
 
 /** "3 × 4.24 سم" */
 export function sizeLabel(widthUm: number, heightUm: number): string {
-  void widthUm;
-  void heightUm;
-  throw new Error('NOT_IMPLEMENTED: sizeLabel (Agent A)');
+  return `${formatCm(widthUm)} × ${formatCm(heightUm)} ${common.units.cm}`;
 }

@@ -12,17 +12,17 @@
 import type { Offer, PriceBreakdown, ShopSettings } from '@/lib/types';
 
 export function priceFor(offer: Offer, countPerSheet: number, settings: ShopSettings): PriceBreakdown {
-  void offer;
-  void countPerSheet;
-  void settings;
-  throw new Error('NOT_IMPLEMENTED: priceFor (Agent A)');
+  const offerPriceIqd = settings.pricesPublished && offer.priceIqd !== null ? offer.priceIqd : null;
+  const deliveryFeeIqd = settings.deliveryFeeIqd;
+  const totalIqd = offerPriceIqd === null ? null : offerPriceIqd + deliveryFeeIqd;
+  const totalStickers = offer.sheets * countPerSheet;
+  const perStickerIqd = totalIqd === null || totalStickers <= 0 ? null : Math.round(totalIqd / totalStickers);
+  return { offerPriceIqd, deliveryFeeIqd, totalIqd, totalStickers, perStickerIqd };
 }
 
 /** Find an enabled offer by id, or null. */
 export function findOffer(offerId: string, settings: ShopSettings): Offer | null {
-  void offerId;
-  void settings;
-  throw new Error('NOT_IMPLEMENTED: findOffer (Agent A)');
+  return settings.offers.find((o) => o.id === offerId && o.enabled) ?? null;
 }
 
 /** "25,000" — Western digits, Arabic-Iraq grouping. Append the currency in the UI copy. */

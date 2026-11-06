@@ -14,15 +14,13 @@ export interface PluralForms {
   other: string;
 }
 
+const rules = new Intl.PluralRules('ar');
+
 export function count(n: number, forms: PluralForms): string {
-  void n;
-  void forms;
-  throw new Error('NOT_IMPLEMENTED: count (Agent A)');
+  return forms[rules.select(n) as keyof PluralForms];
 }
 
 /** "54 ستيكر" style helper: number (Western digits) + space + plural form. */
 export function countLabel(n: number, forms: PluralForms): string {
-  void n;
-  void forms;
-  throw new Error('NOT_IMPLEMENTED: countLabel (Agent A)');
+  return `${n} ${count(n, forms)}`;
 }
