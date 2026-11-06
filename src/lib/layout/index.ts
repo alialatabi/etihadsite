@@ -72,6 +72,7 @@ function attempt(cellW: number, cellH: number, rotated: boolean, params: LayoutP
 /** Compute the arrangement of `spec` on one A4 sheet with `params`. */
 export function computeLayout(spec: StickerSpec, params: LayoutParams): LayoutOutcome {
   if (!isPosInt(spec.widthUm) || !isPosInt(spec.heightUm)) return { ok: false, reason: 'invalid' };
+  if (!isPosInt(params.minSideUm)) return { ok: false, reason: 'invalid' };
   if (!isNonNegInt(params.gapXUm) || !isNonNegInt(params.gapYUm) || !isNonNegInt(params.marginUm)) {
     return { ok: false, reason: 'invalid' };
   }
@@ -121,10 +122,14 @@ export function deriveLockedSize(
   aspect: number,
   given: { widthUm: number } | { heightUm: number },
 ): { widthUm: number; heightUm: number } {
-  void shape;
-  void aspect;
-  void given;
-  throw new Error('NOT_IMPLEMENTED: deriveLockedSize (Agent A)');
+  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  const atLeast1 = (n: number): number => (Number.isFinite(n) ? Math.max(1, Math.round(n)) : 1);
+  if ('widthUm' in given) {
+    const widthUm = atLeast1(given.widthUm);
+    return { widthUm, heightUm: shape === 'circle' ? widthUm : atLeast1(widthUm / a) };
+  }
+  const heightUm = atLeast1(given.heightUm);
+  return { widthUm: shape === 'circle' ? heightUm : atLeast1(heightUm * a), heightUm };
 }
 
 /**
@@ -133,9 +138,24 @@ export function deriveLockedSize(
  * fits, or when the derived height would be < minSideUm ('ratio_extreme' in the UI).
  */
 export function maxWidthFor(aspect: number, params: LayoutParams): number {
-  void aspect;
-  void params;
-  throw new Error('NOT_IMPLEMENTED: maxWidthFor (Agent A)');
+  if (!Number.isFinite(aspect) || aspect <= 0) return 0;
+  const usableW = A4_UM.widthUm - 2 * params.marginUm;
+  const usableH = A4_UM.heightUm - 2 * params.marginUm;
+  if (!(usableW > 0 && usableH > 0)) return 0;
+  const heightOf = (w: number): number => Math.max(1, Math.round(w / aspect));
+  const spec = (w: number): StickerSpec => ({ shape: 'rect', corners: 'sharp', widthUm: w, heightUm: heightOf(w) });
+  // Geometric fit only (minSide relaxed): fitting is monotone in w, so the upper bound is well defined.
+  const loose: LayoutParams = { ...params, minSideUm: 1 };
+  const fits = (w: number): boolean => computeLayout(spec(w), loose).ok;
+  // Closed-form estimate from the usable area, then exact verification.
+  const upright = Math.min(usableW, usableH * aspect);
+  const turned = params.allowRotate ? Math.min(usableH, usableW * aspect) : 0;
+  let w = Math.floor(Math.max(upright, turned));
+  if (!Number.isFinite(w) || w < 1) w = 1;
+  while (w > 1 && !fits(w)) w--;
+  while (fits(w + 1)) w++;
+  if (!fits(w)) return 0;
+  return w >= params.minSideUm && computeLayout(spec(w), params).ok ? w : 0;
 }
 
 export type { ClipShape };
