@@ -4,11 +4,13 @@ import 'server-only';
  *
  * ORDER_TRANSPORT=console (default): log the Arabic summary, return { telegram: 'skipped' }.
  * ORDER_TRANSPORT=telegram: Bot API sendDocument (multipart) with the PDF as
- * `document` (filename from `pdfFileName`), `caption` = Arabic summary (≤ 1024
- * chars, HTML parse_mode, phone as tel:/wa.me links), chat_id = settings.telegramChatId.
- * Never throw: return { telegram: 'failed', error } on any failure.
+ * `document`, `caption` = Arabic summary (<= 1024 chars, HTML), chat_id =
+ * TELEGRAM_CHAT_ID || settings.telegramChatId (skipped when both are empty).
+ * Never throws: returns { telegram: 'failed', error } on any failure.
  */
+import { getEnv } from '@/lib/env';
 import type { NotifyResult, OrderRecord, ShopSettings } from '@/lib/types';
+import { buildCaption, sendTelegram } from './telegram';
 
 export async function notifyShop(
   record: OrderRecord,
@@ -16,9 +18,17 @@ export async function notifyShop(
   pdfFileName: string,
   settings: ShopSettings,
 ): Promise<NotifyResult> {
-  void record;
-  void pdf;
-  void pdfFileName;
-  void settings;
-  throw new Error('NOT_IMPLEMENTED: notifyShop (Agent D)');
+  try {
+    const env = getEnv();
+    if (env.ORDER_TRANSPORT === 'telegram') {
+      return await sendTelegram(record, pdf, pdfFileName, settings, {
+        token: env.TELEGRAM_BOT_TOKEN,
+        chatId: env.TELEGRAM_CHAT_ID,
+      });
+    }
+    console.log(`[order] ${pdfFileName} (${pdf.byteLength} bytes)\n${buildCaption(record, settings)}`);
+    return { telegram: 'skipped' };
+  } catch (e) {
+    return { telegram: 'failed', error: e instanceof Error ? e.message : String(e) };
+  }
 }
