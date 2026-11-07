@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { builder, common } from '@/content/ar';
-import { Ltr } from '@/components/Ltr';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { fillNodes } from '../fillNodes';
@@ -39,7 +38,7 @@ function SizeField({
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
-          className="h-12 text-center text-lg"
+          className="h-12 text-center text-lg md:text-lg"
         />
         <span className="shrink-0 text-sm text-muted-foreground">{common.units.cm}</span>
       </div>
@@ -105,7 +104,7 @@ export function SizeStep({ b }: { b: BuilderApi }) {
       )}
       {b.layout && !error && (
         <p className="sr-only" aria-live="polite">
-          <Ltr>{b.layout.countPerSheet}</Ltr>
+          {fillNodes(builder.size.countHint, { count: b.layout.countPerSheet })}
         </p>
       )}
     </div>

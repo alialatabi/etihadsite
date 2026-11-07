@@ -8,7 +8,7 @@ import type { BuilderApi } from './useBuilder';
 
 export function Stepper({ b }: { b: BuilderApi }) {
   return (
-    <nav aria-label={builder.hero.title}>
+    <nav aria-label={builder.stepper.label}>
       <ol className="flex items-center gap-1 sm:gap-2">
         {STEPS.map((id, i) => {
           const done = i < b.step;

@@ -1,7 +1,8 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check, MessageCircle } from 'lucide-react';
 import { builder, common } from '@/content/ar';
+import { whatsappUrl } from '@/lib/parse/phone';
 import { Ltr } from '@/components/Ltr';
 import { formatIqd } from '@/lib/pricing';
 import { count } from '@/lib/plural';
@@ -21,6 +22,25 @@ function sheetWord(n: number): string {
 export function OfferStep({ b }: { b: BuilderApi }) {
   const { layout, settings } = b;
   const fee = formatIqd(settings.deliveryFeeIqd);
+  if (b.offers.length === 0) {
+    const wa = settings.whatsapp ? whatsappUrl(settings.whatsapp) : null;
+    return (
+      <div className="space-y-3 rounded-2xl border bg-card p-6 text-center">
+        <p className="text-base font-medium">{builder.offer.noOffers}</p>
+        {wa && (
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 text-base font-bold text-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <MessageCircle className="size-5" aria-hidden />
+            {builder.success.whatsapp}
+          </a>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <div role="radiogroup" aria-label={builder.offer.title} className="grid gap-3 sm:grid-cols-3">

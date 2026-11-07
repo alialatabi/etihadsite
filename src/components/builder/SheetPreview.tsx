@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { builder } from '@/content/ar';
 import { A4_UM } from '@/lib/units';
-import { safeCountLabel } from './safe';
+import { CountLabel } from './labels';
 import { cn } from '@/lib/utils';
 import type { LayoutResult } from '@/lib/types';
 
@@ -73,10 +73,7 @@ export function SheetPreview({ layout, previewUrl, className, hideBadge }: Props
       )}
       {layout && !hideBadge && (
         <span className="absolute bottom-2 start-2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow">
-          <bdi dir="ltr" className="tabular-nums">
-            {safeCountLabel(layout.countPerSheet)}
-          </bdi>{' '}
-          {builder.preview.perSheet}
+          <CountLabel n={layout.countPerSheet} /> {builder.preview.perSheet}
         </span>
       )}
     </div>
@@ -110,7 +107,7 @@ function Cells({ layout, previewUrl, artId, clipId }: { layout: LayoutResult; pr
               y={0}
               width={sw}
               height={sh}
-              preserveAspectRatio={clip.kind === 'circle' ? 'xMidYMid slice' : 'none'}
+              preserveAspectRatio="xMidYMid slice"
               clipPath={clip.kind === 'none' ? undefined : `url(#${clipId})`}
             />
           ) : (

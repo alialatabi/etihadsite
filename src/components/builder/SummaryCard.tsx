@@ -1,7 +1,8 @@
 import { builder, common } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { formatIqd } from '@/lib/pricing';
-import { safeFormatCm, safeShapeLabel, safeCountLabel } from './safe';
+import { safeShapeLabel } from './safe';
+import { CountLabel, SizeLabel } from './labels';
 import type { SummaryData } from './logic';
 
 function Row({ label, children, strong }: { label: string; children: React.ReactNode; strong?: boolean }) {
@@ -27,19 +28,16 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
       <dl className="divide-y">
         <Row label={builder.summary.shape}>{safeShapeLabel(summary.shape, summary.corners)}</Row>
         <Row label={builder.summary.size}>
-          <Ltr>
-            {safeFormatCm(summary.widthUm)} × {safeFormatCm(summary.heightUm)}
-          </Ltr>{' '}
-          {common.units.cm}
+          <SizeLabel widthUm={summary.widthUm} heightUm={summary.heightUm} />
         </Row>
         <Row label={builder.summary.perSheet}>
-          <Ltr>{safeCountLabel(summary.countPerSheet)}</Ltr>
+          <CountLabel n={summary.countPerSheet} />
         </Row>
         <Row label={builder.summary.sheets}>
           <Ltr>{summary.sheets}</Ltr>
         </Row>
         <Row label={builder.summary.totalStickers}>
-          <Ltr>{safeCountLabel(summary.totalStickers)}</Ltr>
+          <CountLabel n={summary.totalStickers} />
         </Row>
         <Row label={builder.summary.price}>{summary.offerPriceIqd == null ? builder.summary.priceUnset : money(summary.offerPriceIqd)}</Row>
         <Row label={builder.summary.delivery}>{money(summary.deliveryFeeIqd)}</Row>

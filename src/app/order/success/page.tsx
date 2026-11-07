@@ -29,7 +29,8 @@ export default function OrderSuccessPage() {
   }, [router]);
 
   if (!res) return null;
-  const waRequired = res.notified.telegram !== 'sent';
+  const hasWa = Boolean(res.whatsappUrl);
+  const waRequired = res.notified.telegram !== 'sent' && hasWa;
   const { displayNo: _no, ...summary } = res.summary;
   void _no;
 

@@ -91,7 +91,8 @@ export function DesignStep({ b }: { b: BuilderApi }) {
               <p className="text-xs text-muted-foreground">
                 <Ltr>
                   {design.pxWidth} × {design.pxHeight}
-                </Ltr>
+                </Ltr>{' '}
+                {builder.upload.pixelsUnit}
               </p>
               <Button type="button" variant="outline" className="h-11 px-4" disabled={decoding} onClick={() => inputRef.current?.click()}>
                 {decoding ? common.status.loading : builder.upload.replace}

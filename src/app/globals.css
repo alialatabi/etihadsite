@@ -58,6 +58,7 @@
 }
 
 :root {
+  --header-h: 3.5rem;
   --paper: oklch(0.985 0.006 85);
   --ink: oklch(0.24 0.045 262);
   --brand: oklch(0.7 0.17 50);
@@ -95,6 +96,12 @@
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --header-h: 4rem;
+  }
 }
 
 .dark {

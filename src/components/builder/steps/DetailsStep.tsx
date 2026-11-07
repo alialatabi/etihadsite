@@ -67,7 +67,7 @@ export function DetailsStep({
         <div className="space-y-2">
           <Label htmlFor="cust-phone">{builder.details.phone}</Label>
           <div dir="ltr" className="flex items-center gap-2">
-            <span className="flex h-12 items-center rounded-lg border bg-muted px-3 text-base font-medium tabular-nums" aria-hidden>
+            <span id="cust-phone-prefix" className="flex h-12 items-center rounded-lg border bg-muted px-3 text-base font-medium tabular-nums">
               +964
             </span>
             <Input
@@ -77,9 +77,9 @@ export function DetailsStep({
               dir="ltr"
               autoComplete="tel-national"
               placeholder={builder.details.phonePlaceholder}
-              className="h-12 text-lg"
+              className="h-12 text-lg md:text-lg"
               aria-invalid={e.phone || undefined}
-              aria-describedby={e.phone ? 'cust-phone-err' : 'cust-phone-hint'}
+              aria-describedby={`cust-phone-prefix ${e.phone ? 'cust-phone-err' : 'cust-phone-hint'}`}
               {...text('phone')}
             />
           </div>
@@ -89,7 +89,7 @@ export function DetailsStep({
         <div className="space-y-2">
           <Label htmlFor="cust-gov">{builder.details.governorate}</Label>
           <Select value={b.fields.governorate || null} onValueChange={(v) => b.setField('governorate', (v as string | null) ?? '')} disabled={busy}>
-            <SelectTrigger id="cust-gov" className="h-12 w-full" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? 'cust-gov-err' : undefined}>
+            <SelectTrigger id="cust-gov" className="w-full data-[size=default]:h-12" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? 'cust-gov-err' : undefined}>
               <SelectValue placeholder={builder.details.governoratePlaceholder} />
             </SelectTrigger>
             <SelectContent dir="rtl" alignItemWithTrigger={false}>
