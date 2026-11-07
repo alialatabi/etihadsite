@@ -1,3 +1,4 @@
+import type { OrderRecord } from '../../src/lib/types';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -54,7 +55,7 @@ export async function fillDetails(page: Page, phone = '07701234567') {
   await page.locator('#cust-landmark').fill('قرب مطعم المنصور');
 }
 
-export function newestOrder(): { file: string; json: any } {
+export function newestOrder(): { file: string; json: OrderRecord } {
   const files = fs.readdirSync(ORDERS_DIR).filter((f) => f.endsWith('.json'));
   if (!files.length) throw new Error('no orders in ' + ORDERS_DIR);
   const all = files

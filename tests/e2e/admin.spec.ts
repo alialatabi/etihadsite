@@ -3,7 +3,7 @@ import { admin, order } from '../../src/content/ar';
 
 // Needs at least one order in data-e2e (created by order-flow.spec.ts). That file sorts AFTER this one
 // alphabetically, so on a clean data dir run `pnpm e2e order-flow` first (or run the suite twice).
-test.beforeEach(({ browserName: _b }, info) => {
+test.beforeEach(({}, info) => {
   test.skip(info.project.name !== 'desktop', 'desktop only');
 });
 

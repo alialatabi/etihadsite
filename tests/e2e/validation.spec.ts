@@ -2,7 +2,7 @@ import { test, expect, builder, makeFixtures, snap, next, chooseShape, upload, s
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
-test.beforeEach(({ browserName: _b }, info) => {
+test.beforeEach(({}, info) => {
   test.skip(info.project.name !== 'desktop', 'desktop only');
 });
 
