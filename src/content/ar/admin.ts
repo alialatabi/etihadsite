@@ -94,6 +94,7 @@ export const admin = {
     deliveryFee: 'سعر التوصيل (د.ع)',
     pricesPublished: 'عرض الأسعار للزبائن',
     layout: 'إعدادات الترتيب',
+    margin: 'هامش الورقة من كل جهة (ملم)',
     circleGapX: 'فراغ الدوائر بين الأعمدة (ملم)',
     circleGapY: 'فراغ الدوائر بين الصفوف (ملم)',
     roundedGap: 'فراغ المستطيل بزوايا دائرية (ملم)',

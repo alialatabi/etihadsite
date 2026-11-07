@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   deliveryFeeIqd: 5_000,
   pricesPublished: false,
   layout: {
-    marginUm: 10_000,
+    marginUm: 7_000,
     // Owner's choice (Q1 = B): 2 mm between columns, rows touching.
     circleGapXUm: 2_000,
     circleGapYUm: 0,

@@ -92,6 +92,7 @@ export async function saveSettingsAction(_prev: SettingsFormState, formData: For
     retentionDays: intOf(formData, 'retentionDays'),
     layout: {
       ...current.layout,
+      marginUm: mmToUm(formData, 'margin'),
       circleGapXUm: mmToUm(formData, 'circleGapX'),
       circleGapYUm: mmToUm(formData, 'circleGapY'),
       rectRoundedGapUm: mmToUm(formData, 'roundedGap'),

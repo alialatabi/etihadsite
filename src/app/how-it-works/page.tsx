@@ -8,7 +8,7 @@ import { countLabel } from '@/lib/plural';
 import { formatIqd } from '@/lib/pricing';
 import { A4_UM, umToMm, umToCm } from '@/lib/units';
 import { computeExamples, illustrationLayout } from './examples';
-import { fillLtr } from './fill-ltr';
+import { fillLtr } from '@/components/fill-ltr';
 import { SheetIllustration } from './SheetIllustration';
 
 export const dynamic = 'force-dynamic';

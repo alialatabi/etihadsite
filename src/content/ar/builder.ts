@@ -25,7 +25,7 @@ export const builder = {
     sheet: 'ورقة A4',
     perSheet: 'بالورقة',
     empty: 'ارفع تصميمك حتى تشوف الورقة مرتبة',
-    marginHint: 'الهامش 10 ملم من كل جهة',
+    marginHint: 'الهامش {margin} ملم من كل جهة',
     expand: 'كبّر المعاينة',
     close: 'إغلاق المعاينة',
     collapse: 'صغّر',

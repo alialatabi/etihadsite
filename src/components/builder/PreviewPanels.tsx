@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 import { builder } from '@/content/ar';
+import { umToMm } from '@/lib/units';
+import { fillLtr } from '@/components/fill-ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SheetPreview } from './SheetPreview';
@@ -28,7 +30,7 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
           </p>
         )}
         {layout?.rotated && <p className="mt-2 text-center text-xs text-muted-foreground">{builder.preview.rotatedHint}</p>}
-        <p className="mt-3 text-center text-xs text-muted-foreground">{builder.preview.marginHint}</p>
+        <p className="mt-3 text-center text-xs text-muted-foreground">{fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) })}</p>
       </div>
     </aside>
   );
@@ -63,7 +65,7 @@ export function MobilePreviewStrip({ b }: { b: BuilderApi }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir="rtl" showCloseButton={false} className="max-h-[94dvh] overflow-y-auto sm:max-w-md">
           <DialogTitle>{builder.preview.title}</DialogTitle>
-          <DialogDescription>{builder.preview.marginHint}</DialogDescription>
+          <DialogDescription>{fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) })}</DialogDescription>
           <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">
             <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
           </div>

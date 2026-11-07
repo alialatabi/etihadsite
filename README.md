@@ -113,7 +113,7 @@ Orders, uploads and generated PDFs live under `./data` (gitignored). Purge anyth
 The PDF contains artwork only: no cut paths, tick marks or text. Print at 100% / "Actual size", never "Fit to page". Cut lines are added by the shop in the plotter software. The order id is stored in the PDF metadata.
 
 ### Layout rules (defaults, editable in settings)
-A4 21 × 29.7 cm, 10 mm margin, block centred. Circle: 2 mm between columns, rows touching. Rounded rectangle: 2 mm. Sharp rectangle: 0. Custom: 2 mm and requires a transparent PNG.
+A4 21 × 29.7 cm, 7 mm margin, block centred. Circle: 2 mm between columns, rows touching. Rounded rectangle: 2 mm. Sharp rectangle: 0. Custom: 2 mm and requires a transparent PNG.
 
 ### Icons and metadata
 `node scripts/make-icons.mjs` regenerates `src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.png` from `public/brand/united-print-logo.jpg`. The Open Graph image (`src/app/opengraph-image.tsx`) draws the logo with Latin text so it needs no Arabic font at build time. Set `metadataBase` in the root layout once a domain exists.

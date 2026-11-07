@@ -14,7 +14,7 @@ Proposal: turn each into a `{placeholder}` filled with `fill()` (numbers inside 
 | `builder.shape.circleHint` | الدوائر متلاصقة بالصف، و2 ملم بين الأعمدة. | الدوائر متلاصقة بالصف، و{gap} ملم بين الأعمدة. | `circleGapXUm` is editable |
 | `builder.shape.roundedHint` | فراغ 2 ملم بين الستيكرات | فراغ {gap} ملم بين الستيكرات | `rectRoundedGapUm` |
 | `builder.shape.customHint`/`sharpHint` | (sharp) بدون فراغ | keep, but derive from `rectSharpGapUm === 0` | |
-| `builder.preview.marginHint` | الهامش 10 ملم من كل جهة | الهامش {margin} ملم من كل جهة | `marginUm` |
+| `builder.preview.marginHint` | ~~الهامش 10 ملم من كل جهة~~ | الهامش {margin} ملم من كل جهة — **done** | `marginUm` |
 | `builder.upload.accepted` / `acceptedCustom` | ... حد أقصى 10 ميغابايت | ... حد أقصى {mb} ميغابايت | `maxUploadBytes` |
 | `builder.upload.errors.too_large` | الملف أكبر من 10 ميغابايت | الملف أكبر من {mb} ميغابايت | same |
 | `builder.size.errors.too_small` | أصغر قياس مسموح 0.5 سم. | أصغر قياس مسموح {min} سم. | `minSideUm` |

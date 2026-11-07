@@ -9,7 +9,8 @@ export { builder, common, expect, test };
 export const TMP = path.join(__dirname, '.tmp');
 export const SCREENS = path.join(__dirname, '..', 'output', 'screens');
 export const ORDERS_DIR = path.join(process.cwd(), 'data-e2e', 'orders');
-export const ADMIN_PASSWORD = 'admin1234';
+// Must match webServer.env.ADMIN_PASSWORD in playwright.config.ts.
+export const ADMIN_PASSWORD = 'e2e-password';
 
 export async function makeFixtures() {
   fs.mkdirSync(TMP, { recursive: true });

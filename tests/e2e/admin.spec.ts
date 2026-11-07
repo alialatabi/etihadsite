@@ -1,5 +1,5 @@
 import { test, expect, snap, newestOrder, ADMIN_PASSWORD, withLock } from './helpers';
-import { admin, order } from '../../src/content/ar';
+import { admin, common, order } from '../../src/content/ar';
 
 // Needs at least one order in data-e2e (created by order-flow.spec.ts). That file sorts AFTER this one
 // alphabetically, so on a clean data dir run `pnpm e2e order-flow` first (or run the suite twice).
@@ -64,5 +64,22 @@ test('admin: auth, orders, detail, pdf, status, settings', async ({ page }, info
   await expect(page.getByText(admin.settings.saved)).toBeVisible();
   await page.goto('/admin/settings');
   await expect(page.getByLabel(admin.settings.deliveryFee)).toHaveValue('5000');
+
+  // Margin round-trip: 7 → 8 mm (reflected on the public how-it-works page) → back to 7.
+  const margin = page.getByLabel(admin.settings.margin);
+  await expect(margin).toHaveValue('7');
+  await margin.fill('8');
+  await page.getByRole('button', { name: admin.settings.save, exact: true }).click();
+  await expect(page.getByText(admin.settings.saved)).toBeVisible();
+  await page.goto('/admin/settings');
+  await expect(page.getByLabel(admin.settings.margin)).toHaveValue('8');
+  await page.goto('/how-it-works');
+  await expect(page.getByText(`8 ${common.units.mm}`, { exact: true })).toBeVisible();
+  await page.goto('/admin/settings');
+  await page.getByLabel(admin.settings.margin).fill('7');
+  await page.getByRole('button', { name: admin.settings.save, exact: true }).click();
+  await expect(page.getByText(admin.settings.saved)).toBeVisible();
+  await page.goto('/admin/settings');
+  await expect(page.getByLabel(admin.settings.margin)).toHaveValue('7');
   });
 });

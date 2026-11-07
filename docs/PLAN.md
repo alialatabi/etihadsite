@@ -29,7 +29,7 @@ Brand, logo (`/brand/united-print-logo.jpg`) and the Iraqi-dialect tone of the c
 
 ## 2. Layout rules
 
-Engine works in **integer micrometres** (no float drift). A4 = 210 × 297 mm. **Margin 10 mm** → usable 190 × 277 mm.
+Engine works in **integer micrometres** (no float drift). A4 = 210 × 297 mm. **Margin 7 mm** → usable 196 × 283 mm.
 
 | Shape | Gap X (between columns) | Gap Y (between rows) | Image clipping | Notes |
 |---|---|---|---|---|
@@ -43,7 +43,7 @@ Rules:
 - Gaps are page-axis properties (never rotate with the sticker).
 - **Auto-rotate is OFF by default** (config flag `allowRotate`). The engine supports it, the UI does not expose it in v1.
 - Size entry: text input, `inputMode="decimal"`, LTR, unit «سم» outside the field. Accepts Arabic-Indic digits and `.` `,` `٫` decimals. Parsed once to µm. The dependent dimension stays unrounded internally and is rounded for display only.
-- Range: min 1 cm; max = fits once inside 190 × 277 mm. Specific Arabic errors for "too big" and "ratio too extreme".
+- Range: min 1 cm; max = fits once inside the usable area (A4 minus the margin). Specific Arabic errors for "too big" and "ratio too extreme".
 - PDF uploads prefill the size from the page's trim/crop box (in cm); user can override.
 - Circle with a non-square image: centre-cropped, visibly, with hint «ارفع صورة مربعة للحصول على أفضل نتيجة».
 - Print resolution: effective DPI = px / (mm / 25.4). Warning below 150 DPI, hard block below 72 DPI (not for vector PDFs). DPI stored in the order.
@@ -63,7 +63,7 @@ Every upload becomes a `DesignSource` before the layout engine sees it:
 - Colour: RGB output; uploaded vector PDFs keep their own colour space. No colour management in v1 (stated in README).
 - No text drawn inside the PDF at all. Order number, shape, size and count go into the PDF metadata (Title/Subject/Keywords).
 - Filename: `EP-251107-AB3C_circle-30mm_x20.pdf` (order no., shape, size, sheets).
-- Acceptance: nothing inside the 10 mm margin; content stream has exactly N image draws; every placement inside the usable area.
+- Acceptance: nothing inside the 7 mm margin; content stream has exactly N image draws; every placement inside the usable area.
 - README line for the shop: print at 100% / «الحجم الفعلي», never «Fit to page».
 
 ## 5. Order flow

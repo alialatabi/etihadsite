@@ -35,7 +35,7 @@ describe('contracts', () => {
 
   it('defaults carry the agreed business rules', () => {
     expect(DEFAULT_SETTINGS.deliveryFeeIqd).toBe(5000);
-    expect(DEFAULT_SETTINGS.layout.marginUm).toBe(10000);
+    expect(DEFAULT_SETTINGS.layout.marginUm).toBe(7000);
     expect(DEFAULT_SETTINGS.offers[0].sheets).toBe(20);
     expect(DEFAULT_SETTINGS.pricesPublished).toBe(false);
     expect(governorates).toHaveLength(19);

@@ -137,6 +137,7 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
           <CardTitle>{s.layout}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field name="margin" label={s.margin} defaultValue={toMm(settings.layout.marginUm)} type="number" dir="ltr" />
           <Field name="circleGapX" label={s.circleGapX} defaultValue={toMm(settings.layout.circleGapXUm)} type="number" dir="ltr" />
           <Field name="circleGapY" label={s.circleGapY} defaultValue={toMm(settings.layout.circleGapYUm)} type="number" dir="ltr" />
           <Field name="roundedGap" label={s.roundedGap} defaultValue={toMm(settings.layout.rectRoundedGapUm)} type="number" dir="ltr" />
