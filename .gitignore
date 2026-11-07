@@ -49,3 +49,5 @@ next-env.d.ts
 /playwright-report/
 /data-e2e/
 /.claude/worktrees/
+/tests/e2e/.tmp/
+/tests/output/
