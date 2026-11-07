@@ -123,3 +123,13 @@ Not deployed for now (owner's decision). When ready: GitHub repo + Vercel projec
 
 ### Copy
 All Arabic text lives in `src/content/ar/*`. Suggested wording changes are tracked in `docs/copy-review.md`.
+
+## ملاحظات أمان وإعدادات إضافية / Security and extra settings
+
+- **كلمة السر والمفتاح السري:** السيرفر يرفض القيم القصيرة أو قيم المثال. `ADMIN_PASSWORD` لازم 8 أحرف على الأقل، و`SESSION_SECRET` 32 حرف على الأقل. ولّد مفتاح عشوائي بهذا الأمر:
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- **`TRUST_PROXY`:** افتراضياً `0`، يعني الموقع يتجاهل ترويسة `x-forwarded-for` ويستخدم حدود عامة لكل مسار. إذا شغّلت الموقع خلف nginx أو Caddy حط `TRUST_PROXY=1` حتى تصير الحدود لكل زبون على حدة.
+- **Secrets:** the server rejects short or placeholder values: `ADMIN_PASSWORD` needs 8+ characters and `SESSION_SECRET` 32+ characters (generate one with the command above).
+- **`TRUST_PROXY`:** default `0` ignores `x-forwarded-for` and applies global per-route rate limits. Behind a reverse proxy (nginx/Caddy) set `TRUST_PROXY=1` for per-IP limits. Details in `docs/STACK_NOTES.md`.
+- **Uploads** must send a `Content-Length` header (browsers always do); bodies are size-capped before parsing.
+- **Tests:** `pnpm test` (unit), `pnpm e2e` (Playwright; starts a dev server on port 3199 with `./data-e2e`).

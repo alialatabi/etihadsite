@@ -170,3 +170,10 @@ Automatic contour cut-lines for custom shapes, multi-design sheets, online payme
 ## 13. Decisions log
 
 All six questions were answered by the owner on 2026-11-07 (see the table at the top). No open questions remain; remaining **[my call]** items can be changed in the admin settings or config.
+
+## 14. Status (2026-11-07, end of build session)
+
+- Phases 0–3 complete. 201 unit tests, 15 Playwright end-to-end tests (mobile + desktop), typecheck, eslint, RTL check and `next build` all pass.
+- Adversarial review: 22 findings raised, 17 confirmed, all 22 addressed (the 3 refuted ones were harmless hardening).
+- Not done by design: deployment (owner's Q6), Vercel Blob storage adapter, Turnstile keys, Telegram bot creation (owner creates it; see README), real offer prices and shop WhatsApp/phone (owner enters them in `/admin/settings`).
+- Follow-ups worth doing later: placeholders for the hard-coded numbers in copy listed in `docs/copy-review.md` §1; a "remove file" action in the design step; a `blob` storage adapter before any serverless deploy.
