@@ -8,6 +8,8 @@
  *  - Placements are row-major (row 0 left→right, then row 1, …).
  *  - Gaps are PAGE-axis properties: rotation swaps cell w/h only.
  *  - allowRotate: try both orientations, keep the higher count; ties → upright.
+ *    Then also search MIXED layouts (upright + turned blocks, see ./pack.ts) and use one
+ *    only when it fits STRICTLY more; such placements carry `turned: true`.
  *  - Failures: any side < minSideUm → 'too_small'; cols<1 || rows<1 in every
  *    allowed orientation → 'too_big_for_page'; NaN/negative/non-finite → 'invalid'.
  *  - Expected outputs for the fixtures in src/lib/__fixtures__/layout-cases.json
@@ -18,6 +20,7 @@
  * validation, add exhaustive tests, and implement the remaining helpers.
  */
 import { A4_UM } from '@/lib/units';
+import { packMixed, type PackResult } from './pack';
 import type {
   ClipShape,
   LayoutOutcome,
@@ -58,6 +61,7 @@ function attempt(cellW: number, cellH: number, rotated: boolean, params: LayoutP
     usable,
     cell: { widthUm: cellW, heightUm: cellH },
     rotated,
+    turnedCount: 0,
     gapXUm: params.gapXUm,
     gapYUm: params.gapYUm,
     cols,
@@ -84,7 +88,91 @@ export function computeLayout(spec: StickerSpec, params: LayoutParams): LayoutOu
   let best = upright;
   if (rotated && (!best || rotated.countPerSheet > best.countPerSheet)) best = rotated;
   if (!best) return { ok: false, reason: 'too_big_for_page' };
+  if (params.allowRotate && spec.widthUm !== spec.heightUm) {
+    const mixed = mixedLayout(spec.widthUm, spec.heightUm, params);
+    if (mixed && mixed.countPerSheet > best.countPerSheet) best = mixed;
+  }
   return { ok: true, layout: best };
+}
+
+const packCache = new Map<string, PackResult | null>();
+const PACK_CACHE_MAX = 48;
+
+function cachedPack(W: number, H: number, aw: number, ah: number, bw: number, bh: number): PackResult | null {
+  const key = `${W},${H},${aw},${ah},${bw},${bh}`;
+  if (packCache.has(key)) return packCache.get(key)!;
+  const r = packMixed(W, H, { w: aw, h: ah }, { w: bw, h: bh });
+  if (packCache.size >= PACK_CACHE_MAX) packCache.delete(packCache.keys().next().value!);
+  packCache.set(key, r);
+  return r;
+}
+
+/** Best mixed-orientation layout (upright + turned cells), or null when nothing fits. */
+function mixedLayout(w: number, h: number, params: LayoutParams): LayoutResult | null {
+  const usable = {
+    xUm: params.marginUm,
+    yUm: params.marginUm,
+    widthUm: A4_UM.widthUm - 2 * params.marginUm,
+    heightUm: A4_UM.heightUm - 2 * params.marginUm,
+  };
+  const gx = params.gapXUm;
+  const gy = params.gapYUm;
+  const pack = cachedPack(usable.widthUm + gx, usable.heightUm + gy, w + gx, h + gy, h + gx, w + gy);
+  if (!pack) return null;
+
+  const base = pack.main.o;
+  const dims = (o: 0 | 1) => (o === 0 ? { w, h } : { w: h, h: w });
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const c of pack.cells) {
+    const d = dims(c.o);
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + d.w);
+    maxY = Math.max(maxY, c.y + d.h);
+  }
+  const blockW = maxX - minX;
+  const blockH = maxY - minY;
+  const bx = usable.xUm + Math.floor((usable.widthUm - blockW) / 2);
+  const by = usable.yUm + Math.floor((usable.heightUm - blockH) / 2);
+  const placements: Placement[] = pack.cells
+    .map((c): Placement => {
+      const p: Placement = { xUm: bx + c.x - minX, yUm: by + c.y - minY };
+      if (c.o !== base) p.turned = true;
+      return p;
+    })
+    .sort((p, q) => p.yUm - q.yUm || p.xUm - q.xUm);
+  const cell = dims(base);
+  return {
+    page: { widthUm: A4_UM.widthUm, heightUm: A4_UM.heightUm },
+    marginUm: params.marginUm,
+    usable,
+    cell: { widthUm: cell.w, heightUm: cell.h },
+    rotated: base === 1,
+    turnedCount: placements.filter((p) => p.turned).length,
+    gapXUm: gx,
+    gapYUm: gy,
+    cols: pack.main.cols,
+    rows: pack.main.rows,
+    countPerSheet: placements.length,
+    block: { xUm: bx, yUm: by, widthUm: blockW, heightUm: blockH },
+    placements,
+    clip: params.clip,
+  };
+}
+
+/** Size of placement `p` on the page (cell swapped when `turned`). */
+export function placementSize(layout: LayoutResult, p: Placement): { widthUm: number; heightUm: number } {
+  return p.turned
+    ? { widthUm: layout.cell.heightUm, heightUm: layout.cell.widthUm }
+    : { widthUm: layout.cell.widthUm, heightUm: layout.cell.heightUm };
+}
+
+/** Whether the artwork in placement `p` is turned 90° clockwise relative to the upload. */
+export function placementRotated(layout: LayoutResult, p: Placement): boolean {
+  return layout.rotated !== Boolean(p.turned);
 }
 
 /**
@@ -146,7 +234,9 @@ export function maxWidthFor(aspect: number, params: LayoutParams): number {
   const spec = (w: number): StickerSpec => ({ shape: 'rect', corners: 'sharp', widthUm: w, heightUm: heightOf(w) });
   // Geometric fit only (minSide relaxed): fitting is monotone in w, so the upper bound is well defined.
   const loose: LayoutParams = { ...params, minSideUm: 1 };
-  const fits = (w: number): boolean => computeLayout(spec(w), loose).ok;
+  // Fitting ONCE never needs a mixed layout, so test the plain grids only (fast).
+  const fits = (w: number): boolean => computeLayout(spec(w), { ...loose, allowRotate: false }).ok ||
+    (params.allowRotate && computeLayout({ ...spec(w), widthUm: heightOf(w), heightUm: w }, { ...loose, allowRotate: false }).ok);
   // Closed-form estimate from the usable area, then exact verification.
   const upright = Math.min(usableW, usableH * aspect);
   const turned = params.allowRotate ? Math.min(usableH, usableW * aspect) : 0;

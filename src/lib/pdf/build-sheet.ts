@@ -10,6 +10,8 @@ import 'server-only';
  *    clockwise ourselves.
  *  - Rotated layouts (layout.rotated): the artwork is turned 90 degrees
  *    CLOCKWISE (CSS rotate(90deg)) about the cell centre to fill the swapped cell.
+ *  - Mixed layouts: placements with `turned` use the cell swapped and flip that
+ *    decision (art turned iff layout.rotated XOR placement.turned).
  *  - Artwork is scaled to COVER the cell and centred; the overflow is hidden by
  *    the clip (circle: centre crop). Clip is applied for circle only, and as a plain
  *    rectangle when the aspect differs from the cell's. roundedRect is NOT clipped in the
@@ -100,31 +102,41 @@ export async function buildSheetPdf(input: SheetPdfInput): Promise<SheetPdfOutpu
     pageRotateCw = artwork.rotate;
   }
 
-  const phi = (((pageRotateCw + (layout.rotated ? 90 : 0)) % 360) + 360) % 360;
-  const rad = (phi * Math.PI) / 180;
-  const cos = Math.round(Math.cos(rad));
-  const sin = Math.round(Math.sin(rad)); // phi is a multiple of 90
-  const swap = phi === 90 || phi === 270;
-  const dispW = swap ? bh : bw;
-  const dispH = swap ? bw : bh;
-
-  const cellW = umToPt(layout.cell.widthUm);
-  const cellH = umToPt(layout.cell.heightUm);
-  const cover = Math.max(cellW / dispW, cellH / dispH);
-  const overflow = Math.max((dispW * cover) / cellW, (dispH * cover) / cellH) - 1;
   // PLAN §2: rounded corners are preview-only. In the print PDF a roundedRect is treated as
   // 'none' (unclipped art is free bleed under the manual cut); only the plain rectangle
   // cover-clip applies when the artwork aspect differs from the cell's.
   const clipKind = layout.clip.kind === 'circle' ? 'circle' : 'none';
-  const extraRectClip = clipKind === 'none' && overflow > 0.002;
+
+  /**
+   * Drawing parameters for one orientation. `turned` cells (mixed layouts) use the cell
+   * swapped and the artwork turned a further 90° clockwise, so both variants are derived
+   * from the same rule and every sticker prints the same way up relative to its cell.
+   */
+  const variant = (turned: boolean) => {
+    const artRotated = layout.rotated !== turned;
+    const phi = (((pageRotateCw + (artRotated ? 90 : 0)) % 360) + 360) % 360;
+    const rad = (phi * Math.PI) / 180;
+    const cos = Math.round(Math.cos(rad));
+    const sin = Math.round(Math.sin(rad)); // phi is a multiple of 90
+    const swap = phi === 90 || phi === 270;
+    const dispW = swap ? bh : bw;
+    const dispH = swap ? bw : bh;
+    const cellW = umToPt(turned ? layout.cell.heightUm : layout.cell.widthUm);
+    const cellH = umToPt(turned ? layout.cell.widthUm : layout.cell.heightUm);
+    const cover = Math.max(cellW / dispW, cellH / dispH);
+    const overflow = Math.max((dispW * cover) / cellW, (dispH * cover) / cellH) - 1;
+    return { cos, sin, cellW, cellH, cover, extraRectClip: clipKind === 'none' && overflow > 0.002 };
+  };
+  const variants = { upright: variant(false), turned: variant(true) };
 
   const placementsPt: { x: number; y: number; w: number; h: number }[] = [];
   let drawCount = 0;
   let clipped = false;
 
   for (const p of layout.placements) {
+    const { cos, sin, cellW, cellH, cover, extraRectClip } = p.turned ? variants.turned : variants.upright;
     const x = umToPt(p.xUm);
-    const y = pageH - umToPt(p.yUm + layout.cell.heightUm);
+    const y = pageH - umToPt(p.yUm + (p.turned ? layout.cell.widthUm : layout.cell.heightUm));
     placementsPt.push({ x, y, w: cellW, h: cellH });
     const cx = x + cellW / 2;
     const cy = y + cellH / 2;

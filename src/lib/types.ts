@@ -53,6 +53,12 @@ export interface Placement {
   /** Top-left corner of the cell, from the page's top-left, in µm. */
   xUm: number;
   yUm: number;
+  /**
+   * Mixed layouts only: this cell is `layout.cell` turned 90° (width/height swapped).
+   * Its artwork is turned 90° clockwise iff `layout.rotated !== turned` (art follows the
+   * cell's orientation). Absent = same orientation as `layout.cell`.
+   */
+  turned?: true;
 }
 
 export interface LayoutResult {
@@ -60,11 +66,15 @@ export interface LayoutResult {
   marginUm: number;
   /** Printable area = page minus margins. */
   usable: { xUm: number; yUm: number; widthUm: number; heightUm: number };
-  /** Cell size actually used (swapped w/h when rotated). */
+  /** Cell size actually used (swapped w/h when rotated). Placements with `turned` use it swapped. */
   cell: { widthUm: number; heightUm: number };
+  /** Orientation of the main block. Mixed layouts also carry `turned` placements. */
   rotated: boolean;
+  /** Number of placements with `turned: true` (0 for a uniform grid). */
+  turnedCount: number;
   gapXUm: number;
   gapYUm: number;
+  /** Grid of the main block (the largest uniform block in a mixed layout). */
   cols: number;
   rows: number;
   countPerSheet: number;
@@ -305,6 +315,8 @@ export interface OrderRecord {
     rows: number;
     countPerSheet: number;
     rotated: boolean;
+    /** Stickers turned against the main block (mixed layout). Absent on older orders. */
+    turnedCount?: number;
     cellWidthUm: number;
     cellHeightUm: number;
     gapXUm: number;
@@ -369,6 +381,16 @@ export type UploadResponse =
   | { ok: true; uploadId: string; kind: DesignKind; bytes: number }
   | { ok: false; error: UploadError; message: string };
 
+/**
+ * POST /api/upload/direct (JSON `{ size, name }`). `direct`: PUT the file to `url`, then
+ * POST /api/upload/direct/commit `{ uploadId, name }` (→ UploadResponse). `server`: the
+ * storage has a disk, use the classic multipart POST /api/upload.
+ */
+export type DirectUploadStart =
+  | { ok: true; mode: 'direct'; uploadId: string; url: string }
+  | { ok: true; mode: 'server' }
+  | { ok: false; error: UploadError; message: string };
+
 /* ────────────────────────────── Storage adapter ────────────────────────── */
 
 export interface StoredFileMeta {
@@ -398,6 +420,18 @@ export interface StorageAdapter {
   /** Returns defaults merged with whatever the owner saved. */
   getSettings(): Promise<ShopSettings>;
   saveSettings(settings: ShopSettings): Promise<void>;
+
+  /**
+   * Optional (cloud storage): one-time signed URL the BROWSER PUTs the file to, landing at
+   * uploads/<uploadId>.bin. The server must validate the bytes before writing the meta.
+   */
+  createDirectUpload?(uploadId: string): Promise<string>;
+  /** Hard size limit of the bucket behind createDirectUpload (bytes). */
+  readonly directUploadMaxBytes?: number;
+  /** Optional: write only the meta of a direct upload whose bytes the server has checked. */
+  saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
+  /** Optional: short-lived signed download URL for an admin download. */
+  signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 }
 
 /* ────────────────────────────── Notification ───────────────────────────── */

@@ -117,7 +117,8 @@ async function check(layout: LayoutResult, artwork: NormalisedArtwork, name: str
   }
   // y flip: first placement (top row) is at the top of the page.
   const first = res.report.placementsPt[0];
-  expect(first.y).toBeCloseTo(A4_PT.heightPt - umToPt(layout.placements[0].yUm + layout.cell.heightUm), 6);
+  const firstH = layout.placements[0].turned ? layout.cell.widthUm : layout.cell.heightUm;
+  expect(first.y).toBeCloseTo(A4_PT.heightPt - umToPt(layout.placements[0].yUm + firstH), 6);
 
   expect(doc.getTitle()).toBe('EP-251107-TEST');
   expect(doc.getSubject()).toBe(name);
@@ -152,13 +153,14 @@ describe('buildSheetPdf', () => {
     expect(stream).not.toMatch(/ c\s/); // no bezier segments: the clip is a plain rectangle
   });
 
-  it('rect-rounded-100x40-allowRotate: 8 draws, artwork turned 90 degrees about each cell centre', async () => {
-    const layout = layoutOf('rect-rounded-100x40-allowRotate');
+  it('rect-sharp-200x50 rotated: 3 draws, artwork turned 90 degrees about each cell centre', async () => {
+    const layout = layoutOf('rect-sharp-200x50-fits-when-rotated');
     expect(layout.rotated).toBe(true);
-    const art = await raster(1000, 400); // sticker orientation: 100 x 40
-    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-rotated-x8', false);
+    expect(layout.turnedCount).toBe(0);
+    const art = await raster(2000, 500); // sticker orientation: 200 x 50
+    const { res, stream } = await check(layout, art, 'rect-sharp-200x50-rotated-x3', false);
     const ms = drawMatrices(stream);
-    expect(ms).toHaveLength(8);
+    expect(ms).toHaveLength(3);
     ms.forEach((m, i) => {
       const cell = res.report.placementsPt[i];
       // 90 degree rotation: no axis-aligned scale terms.
@@ -214,9 +216,44 @@ describe('buildSheetPdf', () => {
     expect(footprintY).toBeGreaterThanOrEqual(c.h - 1e-6);
   });
 
+  it('mixed pinwheel layout (100x40 allowRotate, 11 vs 8 plain): every cell covered exactly, art follows each cell orientation', async () => {
+    const layout = layoutOf('rect-rounded-100x40-allowRotate');
+    expect(layout.countPerSheet).toBe(11);
+    expect(layout.turnedCount).toBeGreaterThan(0);
+    expect(layout.turnedCount).toBeLessThan(layout.countPerSheet);
+    const art = await raster(1000, 400); // sticker orientation: 100 x 40
+    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-mixed-x11', false);
+    const ms = drawMatrices(stream);
+    expect(ms).toHaveLength(11);
+    ms.forEach((m, i) => {
+      const p = layout.placements[i];
+      const cell = res.report.placementsPt[i];
+      const w = umToPt(p.turned ? layout.cell.heightUm : layout.cell.widthUm);
+      const h = umToPt(p.turned ? layout.cell.widthUm : layout.cell.heightUm);
+      expect(cell.w).toBeCloseTo(w, 6);
+      expect(cell.h).toBeCloseTo(h, 6);
+      // Sticker is 100 wide x 40 tall: a wide cell holds upright art, a tall cell turned art.
+      const artTurned = layout.rotated !== Boolean(p.turned);
+      expect(artTurned).toBe(cell.h > cell.w);
+      if (artTurned) {
+        expect(Math.abs(m[0])).toBeLessThan(1e-9);
+        expect(m[1]).toBeLessThan(0); // clockwise
+      } else {
+        expect(Math.abs(m[1])).toBeLessThan(1e-9);
+        expect(m[0]).toBeGreaterThan(0);
+      }
+      const xs = [m[4], m[4] + m[0] + m[2]];
+      const ys = [m[5], m[5] + m[1] + m[3]];
+      expect(Math.min(...xs)).toBeCloseTo(cell.x, 4);
+      expect(Math.max(...xs)).toBeCloseTo(cell.x + cell.w, 4);
+      expect(Math.min(...ys)).toBeCloseTo(cell.y, 4);
+      expect(Math.max(...ys)).toBeCloseTo(cell.y + cell.h, 4);
+    });
+  });
+
   it('PDF artwork in a rotated layout rotates a further 90 degrees (180 total)', async () => {
     const art = await pdfArtwork();
-    const { stream } = await check(layoutOf('rect-rounded-100x40-allowRotate'), art, 'rect-rounded-pdf-rotated-x8', true);
+    const { stream } = await check(layoutOf('rect-sharp-200x50-fits-when-rotated'), art, 'rect-sharp-pdf-rotated-x3', true);
     const m = drawMatrices(stream)[0];
     expect(Math.abs(m[1])).toBeLessThan(1e-9);
     expect(m[0]).toBeLessThan(0);

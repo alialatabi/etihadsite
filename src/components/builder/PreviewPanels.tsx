@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { SheetPreview } from './SheetPreview';
 import { CountLabel, SizeLabel } from './labels';
 import type { BuilderApi } from './useBuilder';
+import type { LayoutResult } from '@/lib/types';
 
 /** Desktop (≥ lg): sticky side panel. */
 export function PreviewPanel({ b }: { b: BuilderApi }) {
@@ -29,7 +30,7 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
             <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
           </p>
         )}
-        {layout?.rotated && <p className="mt-2 text-center text-xs text-muted-foreground">{builder.preview.rotatedHint}</p>}
+        {layout && rotationHint(layout) && <p className="mt-2 text-center text-xs text-muted-foreground">{rotationHint(layout)}</p>}
         <p className="mt-3 text-center text-xs text-muted-foreground">{fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) })}</p>
       </div>
     </aside>
@@ -69,10 +70,16 @@ export function MobilePreviewStrip({ b }: { b: BuilderApi }) {
           <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">
             <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
           </div>
-          {layout.rotated && <p className="text-center text-xs text-muted-foreground">{builder.preview.rotatedHint}</p>}
+          {rotationHint(layout) && <p className="text-center text-xs text-muted-foreground">{rotationHint(layout)}</p>}
           <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full text-base" />}>{builder.preview.close}</DialogClose>
         </DialogContent>
       </Dialog>
     </>
   );
+}
+
+/** Customer hint when some or all stickers are turned 90° to fit more. */
+function rotationHint(layout: LayoutResult): string | null {
+  if (layout.turnedCount > 0) return builder.preview.mixedHint;
+  return layout.rotated ? builder.preview.rotatedHint : null;
 }

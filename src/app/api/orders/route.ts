@@ -174,6 +174,7 @@ async function processOrder(
       rows: layout.rows,
       countPerSheet: layout.countPerSheet,
       rotated: layout.rotated,
+      turnedCount: layout.turnedCount,
       cellWidthUm: layout.cell.widthUm,
       cellHeightUm: layout.cell.heightUm,
       gapXUm: layout.gapXUm,

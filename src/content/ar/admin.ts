@@ -63,6 +63,7 @@ export const admin = {
     layout: 'الترتيب',
     layoutValue: '{cols} أعمدة × {rows} صفوف',
     rotated: 'مدوّر 90°',
+    mixedValue: 'مختلط: {upright} عادي + {rotated} مدوّر 90°',
     dpi: 'جودة الصورة (DPI)',
     vector: 'ملف PDF (فيكتور)',
     originalFile: 'الملف الأصلي',

@@ -20,8 +20,11 @@ describe('contracts', () => {
       for (const p of l.placements) {
         expect(p.xUm).toBeGreaterThanOrEqual(l.usable.xUm);
         expect(p.yUm).toBeGreaterThanOrEqual(l.usable.yUm);
-        expect(p.xUm + l.cell.widthUm).toBeLessThanOrEqual(l.usable.xUm + l.usable.widthUm);
-        expect(p.yUm + l.cell.heightUm).toBeLessThanOrEqual(l.usable.yUm + l.usable.heightUm);
+        const turned = 'turned' in p && p.turned === true;
+        const w = turned ? l.cell.heightUm : l.cell.widthUm;
+        const h = turned ? l.cell.widthUm : l.cell.heightUm;
+        expect(p.xUm + w).toBeLessThanOrEqual(l.usable.xUm + l.usable.widthUm);
+        expect(p.yUm + h).toBeLessThanOrEqual(l.usable.yUm + l.usable.heightUm);
       }
     }
   });

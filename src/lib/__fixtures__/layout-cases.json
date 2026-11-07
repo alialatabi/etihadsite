@@ -35,6 +35,7 @@
           "heightUm": 30000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 2000,
         "gapYUm": 0,
         "cols": 6,
@@ -306,6 +307,7 @@
           "heightUm": 30000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 0,
         "gapYUm": 2000,
         "cols": 6,
@@ -554,6 +556,7 @@
           "heightUm": 50000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 0,
         "gapYUm": 0,
         "cols": 3,
@@ -671,6 +674,7 @@
           "heightUm": 50000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 2000,
         "gapYUm": 2000,
         "cols": 3,
@@ -789,6 +793,7 @@
           "heightUm": 40000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 2000,
         "gapYUm": 2000,
         "cols": 1,
@@ -867,53 +872,72 @@
           "heightUm": 277000
         },
         "cell": {
-          "widthUm": 40000,
-          "heightUm": 100000
+          "widthUm": 100000,
+          "heightUm": 40000
         },
-        "rotated": true,
+        "rotated": false,
+        "turnedCount": 6,
         "gapXUm": 2000,
         "gapYUm": 2000,
-        "cols": 4,
-        "rows": 2,
-        "countPerSheet": 8,
+        "cols": 1,
+        "rows": 4,
+        "countPerSheet": 11,
         "block": {
-          "xUm": 22000,
-          "yUm": 47500,
-          "widthUm": 166000,
-          "heightUm": 202000
+          "xUm": 13000,
+          "yUm": 14500,
+          "widthUm": 184000,
+          "heightUm": 268000
         },
         "placements": [
           {
-            "xUm": 22000,
-            "yUm": 47500
+            "xUm": 13000,
+            "yUm": 14500
           },
           {
-            "xUm": 64000,
-            "yUm": 47500
+            "xUm": 115000,
+            "yUm": 14500,
+            "turned": true
           },
           {
-            "xUm": 106000,
-            "yUm": 47500
+            "xUm": 157000,
+            "yUm": 14500,
+            "turned": true
           },
           {
-            "xUm": 148000,
-            "yUm": 47500
+            "xUm": 13000,
+            "yUm": 56500,
+            "turned": true
           },
           {
-            "xUm": 22000,
-            "yUm": 149500
+            "xUm": 55000,
+            "yUm": 56500,
+            "turned": true
           },
           {
-            "xUm": 64000,
-            "yUm": 149500
+            "xUm": 97000,
+            "yUm": 116500
           },
           {
-            "xUm": 106000,
-            "yUm": 149500
+            "xUm": 13000,
+            "yUm": 158500,
+            "turned": true
           },
           {
-            "xUm": 148000,
-            "yUm": 149500
+            "xUm": 55000,
+            "yUm": 158500,
+            "turned": true
+          },
+          {
+            "xUm": 97000,
+            "yUm": 158500
+          },
+          {
+            "xUm": 97000,
+            "yUm": 200500
+          },
+          {
+            "xUm": 97000,
+            "yUm": 242500
           }
         ],
         "clip": {
@@ -959,6 +983,7 @@
           "heightUm": 30000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 2000,
         "gapYUm": 2000,
         "cols": 3,
@@ -1111,6 +1136,7 @@
           "heightUm": 277000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 0,
         "gapYUm": 0,
         "cols": 1,
@@ -1194,6 +1220,7 @@
           "heightUm": 200000
         },
         "rotated": true,
+        "turnedCount": 0,
         "gapXUm": 0,
         "gapYUm": 0,
         "cols": 3,
@@ -1283,6 +1310,7 @@
           "heightUm": 23000
         },
         "rotated": false,
+        "turnedCount": 0,
         "gapXUm": 2000,
         "gapYUm": 0,
         "cols": 7,

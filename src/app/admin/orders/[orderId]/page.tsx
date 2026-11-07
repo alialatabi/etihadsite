@@ -86,8 +86,15 @@ export default async function OrderDetailPage({
                 <Ltr>{o.layout.countPerSheet}</Ltr>
               </Row>
               <Row label={d.layout}>
-                {fill(d.layoutValue, { cols: o.layout.cols, rows: o.layout.rows })}
-                {o.layout.rotated ? ` · ${d.rotated}` : ''}
+                {o.layout.turnedCount
+                  ? fill(d.mixedValue, {
+                      // `turned` cells are turned against the main block, so they are the upright
+                      // ones when the main block itself is rotated.
+                      upright: o.layout.rotated ? o.layout.turnedCount : o.layout.countPerSheet - o.layout.turnedCount,
+                      rotated: o.layout.rotated ? o.layout.countPerSheet - o.layout.turnedCount : o.layout.turnedCount,
+                    })
+                  : fill(d.layoutValue, { cols: o.layout.cols, rows: o.layout.rows })}
+                {o.layout.rotated && !o.layout.turnedCount ? ` · ${d.rotated}` : ''}
               </Row>
               <Row label={d.sheets}>
                 <Ltr>{o.offer.sheets}</Ltr>

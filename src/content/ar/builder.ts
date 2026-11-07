@@ -18,7 +18,7 @@ export const builder = {
     design: 'التصميم',
     size: 'القياس',
     offer: 'الباقة',
-    details: 'بياناتك',
+    details: 'معلومات التوصيل',
   },
   preview: {
     title: 'المعاينة',
@@ -30,6 +30,7 @@ export const builder = {
     close: 'إغلاق المعاينة',
     collapse: 'صغّر',
     rotatedHint: 'التصميم مدوّر 90° حتى يطلع عدد أكثر بالورقة',
+    mixedHint: 'قسم من التصاميم مدوّر 90° حتى يطلع عدد أكثر بالورقة',
   },
   shape: {
     title: 'شنو شكل الستيكر؟',

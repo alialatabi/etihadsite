@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, deriveLockedSize, layoutParamsFor, maxWidthFor } from './index';
+import { computeLayout, deriveLockedSize, layoutParamsFor, maxWidthFor, placementSize } from './index';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
-import { cmToUm, mmToUm } from '@/lib/units';
-import type { LayoutParams, StickerSpec } from '@/lib/types';
+import { A4_UM, cmToUm, mmToUm } from '@/lib/units';
+import type { LayoutParams, LayoutResult, StickerSpec } from '@/lib/types';
 
 const params = (over: Partial<LayoutParams> = {}): LayoutParams => ({
   marginUm: 10_000,
@@ -15,6 +15,44 @@ const params = (over: Partial<LayoutParams> = {}): LayoutParams => ({
 });
 const rect = (w: number, h: number): StickerSpec => ({ shape: 'rect', corners: 'sharp', widthUm: w, heightUm: h });
 
+/** Margin, gap, integer, ordering and bookkeeping rules every layout must satisfy. */
+function assertValid(l: LayoutResult, p: LayoutParams): void {
+  expect(l.placements).toHaveLength(l.countPerSheet);
+  expect(l.turnedCount).toBe(l.placements.filter((x) => x.turned).length);
+  const boxes = l.placements.map((pl) => ({ ...pl, ...placementSize(l, pl) }));
+  for (const b of boxes) {
+    expect(Number.isInteger(b.xUm) && Number.isInteger(b.yUm)).toBe(true);
+    expect(b.xUm).toBeGreaterThanOrEqual(p.marginUm);
+    expect(b.yUm).toBeGreaterThanOrEqual(p.marginUm);
+    expect(b.xUm + b.widthUm).toBeLessThanOrEqual(A4_UM.widthUm - p.marginUm);
+    expect(b.yUm + b.heightUm).toBeLessThanOrEqual(A4_UM.heightUm - p.marginUm);
+    expect(b.turned === undefined || b.turned === true).toBe(true);
+  }
+  for (let i = 1; i < boxes.length; i++) {
+    const a = boxes[i - 1]!;
+    const b = boxes[i]!;
+    if (!(a.yUm < b.yUm || (a.yUm === b.yUm && a.xUm < b.xUm))) throw new Error(`placements ${i - 1},${i} not row-major`);
+  }
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i]!;
+      const b = boxes[j]!;
+      // Separated horizontally by >= gapX OR vertically by >= gapY.
+      const sepX = a.xUm + a.widthUm + p.gapXUm <= b.xUm || b.xUm + b.widthUm + p.gapXUm <= a.xUm;
+      const sepY = a.yUm + a.heightUm + p.gapYUm <= b.yUm || b.yUm + b.heightUm + p.gapYUm <= a.yUm;
+      if (!(sepX || sepY)) throw new Error(`cells ${i} and ${j} violate the gap rule`);
+    }
+  }
+  // Block = bounding box of all cells, centred in the usable area (floor of the half-remainder).
+  const minX = Math.min(...boxes.map((b) => b.xUm));
+  const minY = Math.min(...boxes.map((b) => b.yUm));
+  const maxX = Math.max(...boxes.map((b) => b.xUm + b.widthUm));
+  const maxY = Math.max(...boxes.map((b) => b.yUm + b.heightUm));
+  expect(l.block).toEqual({ xUm: minX, yUm: minY, widthUm: maxX - minX, heightUm: maxY - minY });
+  expect(l.block.xUm - l.usable.xUm).toBe(Math.floor((l.usable.widthUm - l.block.widthUm) / 2));
+  expect(l.block.yUm - l.usable.yUm).toBe(Math.floor((l.usable.heightUm - l.block.heightUm) / 2));
+}
+
 describe('computeLayout', () => {
   it('rotation tie keeps upright', () => {
     const o = computeLayout(rect(50_000, 50_000), params({ allowRotate: true }));
@@ -25,19 +63,66 @@ describe('computeLayout', () => {
   });
 
   it('rotates when strictly better and keeps gaps on page axes', () => {
-    const o = computeLayout(rect(100_000, 40_000), params({ allowRotate: true, gapXUm: 2_000, gapYUm: 0 }));
+    // 250x60 cannot stand upright on 190x277; rotated 60x250 -> 3x1; the 27 mm left below holds nothing.
+    const o = computeLayout(rect(250_000, 60_000), params({ allowRotate: true, gapXUm: 2_000, gapYUm: 5_000 }));
     expect(o.ok).toBe(true);
     if (!o.ok) return;
     const l = o.layout;
     expect(l.rotated).toBe(true);
-    expect(l.cell).toEqual({ widthUm: 40_000, heightUm: 100_000 });
+    expect(l.turnedCount).toBe(0);
+    expect(l.cell).toEqual({ widthUm: 60_000, heightUm: 250_000 });
     expect(l.gapXUm).toBe(2_000);
-    expect(l.gapYUm).toBe(0);
-    expect(l.cols).toBe(Math.floor((190_000 + 2_000) / 42_000));
-    expect(l.rows).toBe(2);
-    expect(l.placements[1]!.xUm - l.placements[0]!.xUm).toBe(42_000);
-    expect(l.placements[l.cols]!.yUm - l.placements[0]!.yUm).toBe(100_000);
+    expect(l.gapYUm).toBe(5_000);
+    expect(l.cols).toBe(Math.floor((190_000 + 2_000) / 62_000));
+    expect(l.rows).toBe(1);
+    expect(l.placements[1]!.xUm - l.placements[0]!.xUm).toBe(62_000);
   });
+
+  it('mixes orientations when that fits strictly more (100x40, gapX 2, gapY 0)', () => {
+    const p = params({ allowRotate: true, gapXUm: 2_000, gapYUm: 0 });
+    const o = computeLayout(rect(100_000, 40_000), p);
+    expect(o.ok).toBe(true);
+    if (!o.ok) return;
+    // Pure grids: upright 1x6 = 6, rotated 4x2 = 8. Mixed beats both.
+    expect(o.layout.countPerSheet).toBeGreaterThan(8);
+    expect(o.layout.turnedCount).toBeGreaterThan(0);
+    assertValid(o.layout, p);
+  });
+
+  it('never mixes without allowRotate, nor for squares', () => {
+    const a = computeLayout(rect(100_000, 40_000), params({ gapXUm: 2_000, gapYUm: 2_000 }));
+    expect(a.ok && a.layout.turnedCount).toBe(0);
+    const b = computeLayout(rect(37_000, 37_000), params({ allowRotate: true, gapXUm: 2_000, gapYUm: 2_000 }));
+    expect(b.ok && b.layout.turnedCount).toBe(0);
+    expect(b.ok && b.layout.placements.some((x) => x.turned)).toBe(false);
+  });
+
+  it('every layout obeys margin + gap rules and never loses to a plain grid (sweep)', () => {
+    const sizesMm = [
+      [100, 40], [50, 30], [70, 50], [90, 55], [60, 45], [85, 54], [40, 25], [30, 20], [15, 10],
+      [12, 7], [8, 5], [5, 6], [7, 5.3], [55, 35], [120, 80], [148, 105], [33, 21], [190, 20], [27.5, 61.3],
+    ];
+    const gaps = [[0, 0], [2_000, 2_000], [2_000, 0], [0, 3_000], [1_500, 4_000]];
+    for (const marginUm of [4_000, 7_000, 10_000]) {
+      for (const [gx, gy] of gaps) {
+        for (const [wm, hm] of sizesMm) {
+          const spec = rect(Math.round(wm! * 1000), Math.round(hm! * 1000));
+          const p = params({ allowRotate: true, gapXUm: gx, gapYUm: gy, marginUm });
+          const o = computeLayout(spec, p);
+          const up = computeLayout(spec, { ...p, allowRotate: false });
+          const rot = computeLayout(rect(spec.heightUm, spec.widthUm), { ...p, allowRotate: false });
+          const grid = Math.max(up.ok ? up.layout.countPerSheet : 0, rot.ok ? rot.layout.countPerSheet : 0);
+          if (!o.ok) {
+            expect(grid).toBe(0);
+            continue;
+          }
+          expect(o.layout.countPerSheet).toBeGreaterThanOrEqual(grid);
+          if (o.layout.countPerSheet === grid) expect(o.layout.turnedCount).toBe(0);
+          assertValid(o.layout, p);
+        }
+      }
+    }
+  }, 60_000);
 
   it('is not fooled by float traps (2.3 cm)', () => {
     const w = cmToUm(2.3);

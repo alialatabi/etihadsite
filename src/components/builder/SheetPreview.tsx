@@ -3,6 +3,7 @@ import { builder } from '@/content/ar';
 import { A4_UM } from '@/lib/units';
 import { CountLabel } from './labels';
 import { cn } from '@/lib/utils';
+import { placementRotated, placementSize } from '@/lib/layout';
 import type { LayoutResult } from '@/lib/types';
 
 interface Props {
@@ -127,8 +128,10 @@ function Cells({ layout, previewUrl, artId, clipId }: { layout: LayoutResult; pr
         </g>
       </defs>
       {layout.placements.map((p, i) => {
-        const transform = rotated
-          ? `translate(${p.xUm + cell.widthUm / 2} ${p.yUm + cell.heightUm / 2}) rotate(90) translate(${-sw / 2} ${-sh / 2})`
+        // Mixed layouts: a `turned` cell is the cell swapped, and its art flips orientation.
+        const size = placementSize(layout, p);
+        const transform = placementRotated(layout, p)
+          ? `translate(${p.xUm + size.widthUm / 2} ${p.yUm + size.heightUm / 2}) rotate(90) translate(${-sw / 2} ${-sh / 2})`
           : `translate(${p.xUm} ${p.yUm})`;
         return <use key={i} href={`#${artId}`} transform={transform} />;
       })}
