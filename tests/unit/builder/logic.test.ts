@@ -24,7 +24,7 @@ vi.mock('@/lib/parse/cm', () => ({
 }));
 
 import { degradedText, degradedUrl } from '@/components/builder/degraded';
-import { dpiFor, dpiStatus, needsCropNotice, pdfPrefillUm, validateCustomer } from '@/components/builder/logic';
+import { dpiExact, dpiFor, dpiStatus, needsCropNotice, pdfPrefillUm, validateCustomer } from '@/components/builder/logic';
 import type { DesignSource, StickerSpec } from '@/lib/types';
 
 const design = (over: Partial<DesignSource>): DesignSource =>
@@ -40,6 +40,19 @@ describe('dpi', () => {
   });
   it('uses the short side for circles', () => {
     expect(dpiFor(design({ pxWidth: 1800, pxHeight: 900 }), spec(76_200, 'circle'))).toBe(300);
+  });
+  it('gates on the UNROUNDED dpi like the server (71.9 dpi is blocked at blockDpi 72)', () => {
+    const q = { warnDpi: 150, blockDpi: 72, targetDpi: 300 };
+    // 71.9 dpi: 719 px over 10 in (254 000 um)
+    const d = design({ pxWidth: 719, pxHeight: 719 });
+    const s = spec(254_000);
+    expect(dpiExact(d, s)).toBeCloseTo(71.9, 6);
+    expect(dpiStatus(dpiFor(d, s), q)).toBe('block');
+    // 149.6 dpi: warn, not ok
+    expect(dpiStatus(dpiFor(design({ pxWidth: 1496, pxHeight: 1496 }), s), q)).toBe('warn');
+    // exactly on the threshold passes
+    expect(dpiStatus(dpiFor(design({ pxWidth: 720, pxHeight: 720 }), s), q)).toBe('warn');
+    expect(dpiStatus(dpiFor(design({ pxWidth: 1500, pxHeight: 1500 }), s), q)).toBe('ok');
   });
   it('classifies against quality settings', () => {
     const q = { warnDpi: 150, blockDpi: 72, targetDpi: 300 };

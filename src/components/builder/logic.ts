@@ -42,13 +42,23 @@ export const SUCCESS_KEY = 'ub:order-success:v1';
 
 export type DpiStatus = 'ok' | 'warn' | 'block';
 
-/** Effective DPI of the artwork over the ordered width. null for vector PDFs. */
-export function dpiFor(design: DesignSource, spec: StickerSpec): number | null {
+/** Unrounded effective DPI over the ordered width (what the server gates on). null for vector PDFs. */
+export function dpiExact(design: DesignSource, spec: StickerSpec): number | null {
   if (design.kind === 'pdf') return null;
   // A circle is centre-cropped to the shorter side of the artwork.
   const px = spec.shape === 'circle' ? Math.min(design.pxWidth, design.pxHeight) : design.pxWidth;
   if (!(spec.widthUm > 0)) return null;
-  return Math.round(effectiveDpi(px, spec.widthUm));
+  return effectiveDpi(px, spec.widthUm);
+}
+
+/**
+ * DPI for display AND for dpiStatus. Floored (never overstates) so that, for integer
+ * thresholds, `dpiStatus(dpiFor())` equals the server's unrounded comparison
+ * (floor(x) < T  <=>  x < T). Use dpiExact for the raw value.
+ */
+export function dpiFor(design: DesignSource, spec: StickerSpec): number | null {
+  const d = dpiExact(design, spec);
+  return d === null ? null : Math.floor(d + 1e-9);
 }
 
 export function dpiStatus(dpi: number | null, q: QualitySettings): DpiStatus {

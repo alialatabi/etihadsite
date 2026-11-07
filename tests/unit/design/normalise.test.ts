@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { normaliseArtwork, sniffKind } from '@/lib/design/normalise.server';
@@ -76,6 +77,16 @@ describe('normaliseArtwork raster', () => {
     expect([r.pxWidth, r.pxHeight]).toEqual([400, 400]);
   });
 
+  it('circle: effective DPI uses the centre-cropped short side', async () => {
+    const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: { r: 9, g: 9, b: 9 } } }).png().toBuffer();
+    const spec: StickerSpec = { shape: 'circle', widthUm: 50_800, heightUm: 50_800 }; // 2 in
+    const r = await normaliseArtwork(new Uint8Array(png), opts(spec));
+    if (!r.ok || r.artwork.kind !== 'raster') throw new Error('x');
+    expect(r.artwork.effectiveDpi).toBeCloseTo(200, 5); // 400 px / 2 in, not 800 / 2 in
+    // 400 px over 2 in = 200 dpi: blocked when blockDpi is 250
+    expect(await normaliseArtwork(new Uint8Array(png), opts(spec, 250))).toEqual({ ok: false, error: 'low_dpi' });
+  });
+
   it('blocks low DPI (300 px over 200 mm = 38 dpi < 72)', async () => {
     const r = await normaliseArtwork(fx('opaque-300x300.jpg'), opts(rect(200, 200), 72));
     expect(r).toEqual({ ok: false, error: 'low_dpi' });
@@ -103,6 +114,17 @@ describe('normaliseArtwork pdf', () => {
     expect(r.artwork.pageCount).toBe(1);
     expect([r.pxWidth, r.pxHeight]).toEqual([300, 400]);
     expect(r.kind).toBe('pdf');
+  });
+
+  it('keeps fractional PDF points unrounded (aspect lock agrees with the server)', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([141.73, 255.12]); // 50 x 90 mm
+    const bytes = new Uint8Array(await doc.save());
+    const r = await normaliseArtwork(bytes, opts(rect(50, 90)));
+    if (!r.ok || r.artwork.kind !== 'pdf') throw new Error('x');
+    expect(r.pxWidth).toBe(141.73);
+    expect(r.pxHeight).toBe(255.12);
+    expect(r.pxWidth / r.pxHeight).toBeCloseTo(50 / 90, 4);
   });
 
   it('reports the page count of a 2-page PDF', async () => {

@@ -141,15 +141,22 @@ describe('buildSheetPdf', () => {
     await check(layoutOf('rect-sharp-50x50'), await raster(500, 500), 'rect-sharp-50x50-x15', false);
   });
 
-  it('rect-rounded-50x50: 15 draws, rounded clip', async () => {
-    await check(layoutOf('rect-rounded-50x50'), await raster(500, 500, true), 'rect-rounded-50x50-x15', true);
+  it('rect-rounded-50x50: 15 draws, NOT clipped when the aspect matches (corners are preview-only)', async () => {
+    const { stream } = await check(layoutOf('rect-rounded-50x50'), await raster(500, 500, true), 'rect-rounded-50x50-x15', false);
+    expect(stream).not.toMatch(/W\s+n/);
+  });
+
+  it('rect-rounded-50x50 with a non-square artwork: plain rectangle cover-clip only (no curves)', async () => {
+    const { stream } = await check(layoutOf('rect-rounded-50x50'), await raster(500, 400, true), 'rect-rounded-50x50-wide-x15', true);
+    expect(stream).toMatch(/W\s+n/);
+    expect(stream).not.toMatch(/ c\s/); // no bezier segments: the clip is a plain rectangle
   });
 
   it('rect-rounded-100x40-allowRotate: 8 draws, artwork turned 90 degrees about each cell centre', async () => {
     const layout = layoutOf('rect-rounded-100x40-allowRotate');
     expect(layout.rotated).toBe(true);
     const art = await raster(1000, 400); // sticker orientation: 100 x 40
-    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-rotated-x8', true);
+    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-rotated-x8', false);
     const ms = drawMatrices(stream);
     expect(ms).toHaveLength(8);
     ms.forEach((m, i) => {

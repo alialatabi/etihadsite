@@ -15,7 +15,7 @@ import 'server-only';
  *  - Quality gate: effectiveDpi < blockDpi -> 'low_dpi' (rasters only).
  *
  * Outer pxWidth/pxHeight: rasters = oriented, trimmed ORIGINAL pixels; PDFs = box
- * in points rounded, AFTER /Rotate (swapped for 90/270) so the aspect equals the
+ * in exact (unrounded) points, AFTER /Rotate (swapped for 90/270) so the aspect equals the
  * viewer/pdfjs one. `artwork.box` is the raw, unrotated box (what embedPage needs).
  */
 import sharp from 'sharp';
@@ -82,7 +82,8 @@ async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promi
     }
   }
 
-  const dpi = effectiveDpi(width, spec.widthUm);
+  // A circle is centre-cropped to the shorter side of the artwork (matches the client).
+  const dpi = effectiveDpi(spec.shape === 'circle' ? Math.min(width, height) : width, spec.widthUm);
   if (dpi < blockDpi) return fail('low_dpi');
 
   // Resample to the print resolution; never upscale.
@@ -137,8 +138,8 @@ async function normalisePdf(bytes: Uint8Array): Promise<NormaliseOutcome> {
     return {
       ok: true,
       artwork: { kind: 'pdf', bytes, box, rotate, pageCount },
-      pxWidth: Math.round(swap ? box.height : box.width),
-      pxHeight: Math.round(swap ? box.width : box.height),
+      pxWidth: swap ? box.height : box.width,
+      pxHeight: swap ? box.width : box.height,
       kind: 'pdf',
     };
   } catch {

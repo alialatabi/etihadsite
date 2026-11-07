@@ -11,8 +11,9 @@ import 'server-only';
  *  - Rotated layouts (layout.rotated): the artwork is turned 90 degrees
  *    CLOCKWISE (CSS rotate(90deg)) about the cell centre to fill the swapped cell.
  *  - Artwork is scaled to COVER the cell and centred; the overflow is hidden by
- *    the clip (circle: centre crop). Clip is applied for circle / roundedRect, and
- *    also as a plain rectangle when the aspect differs from the cell's.
+ *    the clip (circle: centre crop). Clip is applied for circle only, and as a plain
+ *    rectangle when the aspect differs from the cell's. roundedRect is NOT clipped in the
+ *    PDF (rounded corners are preview-only; PLAN §2).
  */
 import {
   PDFDocument,
@@ -111,7 +112,10 @@ export async function buildSheetPdf(input: SheetPdfInput): Promise<SheetPdfOutpu
   const cellH = umToPt(layout.cell.heightUm);
   const cover = Math.max(cellW / dispW, cellH / dispH);
   const overflow = Math.max((dispW * cover) / cellW, (dispH * cover) / cellH) - 1;
-  const clipKind = layout.clip.kind;
+  // PLAN §2: rounded corners are preview-only. In the print PDF a roundedRect is treated as
+  // 'none' (unclipped art is free bleed under the manual cut); only the plain rectangle
+  // cover-clip applies when the artwork aspect differs from the cell's.
+  const clipKind = layout.clip.kind === 'circle' ? 'circle' : 'none';
   const extraRectClip = clipKind === 'none' && overflow > 0.002;
 
   const placementsPt: { x: number; y: number; w: number; h: number }[] = [];
@@ -138,9 +142,6 @@ export async function buildSheetPdf(input: SheetPdfInput): Promise<SheetPdfOutpu
     const ops: PDFOperator[] = [pushGraphicsState()];
     if (clipKind === 'circle') {
       ops.push(...circlePath(cx, cy, Math.min(cellW, cellH) / 2), clip(), endPath());
-      clipped = true;
-    } else if (clipKind === 'roundedRect') {
-      ops.push(...roundedRectPath(x, y, cellW, cellH, umToPt(layout.clip.radiusUm)), clip(), endPath());
       clipped = true;
     } else if (extraRectClip) {
       ops.push(...roundedRectPath(x, y, cellW, cellH, 0), clip(), endPath());

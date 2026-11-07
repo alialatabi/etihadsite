@@ -234,9 +234,10 @@ async function decodePdf(file: File, opts: DecodeOptions): Promise<DesignDecodeO
     const source: DesignSource = {
       kind: 'pdf',
       file,
-      // Same rounding as normalise.server.ts (box in points, after /Rotate).
-      pxWidth: Math.round(wPt),
-      pxHeight: Math.round(hPt),
+      // Exact points (after /Rotate), NOT rounded: same as normalise.server.ts so the
+      // aspect lock and the server agree.
+      pxWidth: wPt,
+      pxHeight: hPt,
       hasAlpha: false,
       previewUrl: URL.createObjectURL(blob),
       pdf: { pageCount: geo.pageCount, pageWidthPt: wPt, pageHeightPt: hPt },
