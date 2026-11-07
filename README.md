@@ -60,13 +60,13 @@ pnpm tsx scripts/purge-orders.ts
 - رقم الطلب محفوظ بخصائص الملف (Metadata) وليس مطبوعاً على الورقة.
 - مقاس الورقة 21 × 29.7 سم والهامش 10 ملم من كل جهة، والترتيب مركّز بالمنتصف.
 
-### النشر لاحقاً (على الإنترنت)
-حالياً الموقع يشتغل محلياً فقط. لما تقرر تنشره:
-- حساب GitHub ومشروع Vercel باسمك، وباقة **Vercel Pro** (الباقة المجانية ما تسمح بالاستخدام التجاري).
-- التخزين يتحول إلى **Vercel Blob** (`STORAGE=blob`) لأن السيرفر السحابي ما عنده قرص دائم.
-- فعّل **Cloudflare Turnstile** (مجاني) ضد الطلبات الوهمية، وبدّل محدد الطلبات (rate limit) الموجود بالذاكرة بخدمة مستضافة.
-- `ORDER_TRANSPORT=telegram`.
-- الأمر بالتفصيل بالملف `docs/STACK_NOTES.md`.
+### الموقع على الإنترنت
+- الرابط: **https://etihad-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
+- الطلبات والملفات والإعدادات محفوظة بـ **Supabase** (مشروع `etihad`)، مو على الحاسبة.
+- لوحة التحكم: `https://etihad-print.vercel.app/admin` بكلمة السر الخاصة بالموقع المنشور (غير كلمة السر المحلية).
+- كل يوم تنحذف تلقائياً الطلبات والملفات الأقدم من 30 يوم.
+- للنشر من جديد بعد أي تعديل: `vercel deploy --prod`.
+- باقي: باقة **Vercel Pro** للاستخدام التجاري، **Cloudflare Turnstile** ضد الطلبات الوهمية، و `ORDER_TRANSPORT=telegram` حتى توصلك الطلبات على تيليگرام.
 
 ---
 
@@ -95,7 +95,10 @@ Checks: `pnpm typecheck && pnpm test && pnpm lint && pnpm lint:rtl`.
 | `SESSION_SECRET` | Long random string used to sign the admin cookie |
 | `ORDER_TRANSPORT` | `console` (default) or `telegram` |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram delivery |
-| `STORAGE` | `local` (files in `./data`); `blob` later |
+| `STORAGE` | `local` (files in `./data`) or `supabase` (hosting) |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Supabase project URL and **secret** key (server only), for `STORAGE=supabase` |
+| `CRON_SECRET` | Bearer secret Vercel Cron sends to `/api/cron/purge` (16+ chars) |
+| `TRUST_PROXY` | `1` on Vercel (per-customer rate limits from `x-forwarded-for`) |
 
 ### Admin and settings
 `/admin` shows orders and a settings form: shop name, tagline, phone, WhatsApp (international digits, no `+`, e.g. `9647701234567`), hours, offers and prices, delivery fee, layout margin and gaps. Prices stay hidden («السعر يُحدد عند التأكيد») until «publish prices» is on and the offer has a price.
@@ -107,7 +110,11 @@ Checks: `pnpm typecheck && pnpm test && pnpm lint && pnpm lint:rtl`.
 4. Set `ORDER_TRANSPORT=telegram`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `.env.local`, restart.
 
 ### Data and retention
-Orders, uploads and generated PDFs live under `./data` (gitignored). Purge anything older than the retention period (default 30 days) with `pnpm tsx scripts/purge-orders.ts`; schedule it daily.
+Local: orders, uploads and generated PDFs live under `./data` (gitignored). Purge anything older than the retention period (default 30 days) with `pnpm tsx scripts/purge-orders.ts`; schedule it daily.
+
+Hosted (`STORAGE=supabase`): tables `orders` / `settings` and the private bucket `etihad` (schema in `supabase/migrations/`, RLS on with no policies, so only the secret key can touch them). Vercel Cron calls `GET /api/cron/purge` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`; it removes orders, PDFs and designs older than `retentionDays`, plus direct uploads that were never committed (older than 3 h). `?dry=1` only reports.
+
+Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /api/upload/direct`, then `/api/upload/direct/commit`, where the server re-checks size and magic bytes), because Vercel caps request and response bodies at 4.5 MB. Admin downloads redirect to 60-second signed links for the same reason.
 
 ### Printing
 The PDF contains artwork only: no cut paths, tick marks or text. Print at 100% / "Actual size", never "Fit to page". Cut lines are added by the shop in the plotter software. The order id is stored in the PDF metadata.
@@ -118,8 +125,10 @@ A4 21 × 29.7 cm, 7 mm margin, block centred. Circle: 2 mm between columns, rows
 ### Icons and metadata
 `node scripts/make-icons.mjs` regenerates `src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.png` from `public/brand/united-print-logo.jpg`. The Open Graph image (`src/app/opengraph-image.tsx`) draws the logo with Latin text so it needs no Arabic font at build time. Set `metadataBase` in the root layout once a domain exists.
 
-### Deploying later
-Not deployed for now (owner's decision). When ready: GitHub repo + Vercel project under the owner's accounts, Vercel **Pro** (Hobby forbids commercial use), the `blob` storage adapter (serverless has no persistent disk; the `StorageAdapter` interface in `src/lib/types.ts` is the seam), Cloudflare Turnstile keys, a hosted rate limiter instead of the in-memory one, and `ORDER_TRANSPORT=telegram`. Details: `docs/STACK_NOTES.md`.
+### Deployment
+Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
+
+Still open: Vercel **Pro** (Hobby forbids commercial use), Cloudflare Turnstile keys, `ORDER_TRANSPORT=telegram`, and a cross-instance rate limiter (the in-memory one is per serverless instance; a Vercel Firewall rate-limit rule on `/api/upload/direct` and `/api/orders` covers it).
 
 ### Copy
 All Arabic text lives in `src/content/ar/*`. Suggested wording changes are tracked in `docs/copy-review.md`.

@@ -1,0 +1,13 @@
+# Never upload local data, secrets or build/test leftovers to Vercel.
+data
+data-e2e
+.env
+.env.*
+!.env.example
+.next
+node_modules
+playwright-report
+test-results
+tests/output
+tsconfig.tsbuildinfo
+.claude

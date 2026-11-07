@@ -10,6 +10,7 @@ import { logClient } from './logClient';
 import type {
   CustomerInfo,
   DesignSource,
+  DirectUploadStart,
   OrderError,
   OrderRequest,
   OrderResponse,
@@ -104,27 +105,93 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
   }
 }
 
-/** XHR (not fetch) so the browser reports upload progress. Rejects on network failure. */
-export function uploadWithProgress(file: File, onProgress: (fraction: number) => void): Promise<UploadResponse> {
+/**
+ * Upload the design. Asks the server first: with cloud storage the file goes straight from
+ * the browser to the bucket through a one-time signed URL (hosting caps request bodies at
+ * 4.5 MB), then the server checks the stored bytes. With local storage it is the classic
+ * multipart POST /api/upload. Rejects on network failure.
+ */
+export async function uploadWithProgress(file: File, onProgress: (fraction: number) => void): Promise<UploadResponse> {
+  const startRes = await fetch('/api/upload/direct', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ size: file.size, name: file.name }),
+  });
+  let start: DirectUploadStart;
+  try {
+    start = (await startRes.json()) as DirectUploadStart;
+  } catch {
+    throw new Error(`bad_upload_start_${startRes.status}`);
+  }
+  if (!start.ok) return start;
+  if (start.mode === 'server') return xhrSend('POST', '/api/upload', multipart(file), onProgress, true);
+
+  try {
+    await xhrSend('PUT', start.url, file, onProgress, false);
+  } catch (e) {
+    // The bucket refuses files over its limit (413, or 400 with "Payload too large").
+    if (e instanceof Error && /^direct_upload_(413|400)$/.test(e.message) && file.size > 0) {
+      return { ok: false, error: 'too_large', message: order.errors.too_large };
+    }
+    throw e;
+  }
+  const commit = await fetch('/api/upload/direct/commit', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ uploadId: start.uploadId, name: file.name }),
+  });
+  try {
+    return (await commit.json()) as UploadResponse;
+  } catch {
+    throw new Error(`bad_upload_commit_${commit.status}`);
+  }
+}
+
+function multipart(file: File): FormData {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  return form;
+}
+
+/** XHR (not fetch) so the browser reports upload progress. */
+function xhrSend(
+  method: 'POST' | 'PUT',
+  url: string,
+  body: FormData | File,
+  onProgress: (fraction: number) => void,
+  parseJson: true,
+): Promise<UploadResponse>;
+function xhrSend(method: 'POST' | 'PUT', url: string, body: FormData | File, onProgress: (fraction: number) => void, parseJson: false): Promise<void>;
+function xhrSend(
+  method: 'POST' | 'PUT',
+  url: string,
+  body: FormData | File,
+  onProgress: (fraction: number) => void,
+  parseJson: boolean,
+): Promise<UploadResponse | void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload');
+    xhr.open(method, url);
     xhr.responseType = 'text';
+    if (body instanceof File) xhr.setRequestHeader('content-type', 'application/octet-stream');
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
     };
     xhr.onerror = () => reject(new Error('network'));
     xhr.ontimeout = () => reject(new Error('timeout'));
     xhr.onload = () => {
+      if (!parseJson) {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`direct_upload_${xhr.status}`));
+        return;
+      }
       try {
         resolve(JSON.parse(xhr.responseText) as UploadResponse);
       } catch {
         reject(new Error(`bad_upload_response_${xhr.status}`));
       }
     };
-    const form = new FormData();
-    form.append('file', file, file.name);
-    xhr.send(form);
+    xhr.send(body);
   });
 }
 

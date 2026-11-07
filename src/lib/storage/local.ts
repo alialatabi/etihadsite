@@ -155,7 +155,7 @@ export class LocalStorage implements StorageAdapter {
   async listOrders(): Promise<OrderRecord[]> {
     let names: string[];
     try {
-      names = await fs.readdir(path.join(this.root, "orders"));
+      names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "orders"));
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw e;
@@ -243,7 +243,7 @@ export class LocalStorage implements StorageAdapter {
     }
     const list = async (dir: string): Promise<string[]> => {
       try {
-        return await fs.readdir(path.join(this.root, dir));
+        return await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, dir));
       } catch {
         return []; // directory does not exist
       }
@@ -253,7 +253,7 @@ export class LocalStorage implements StorageAdapter {
       for (const name of await list(dir)) {
         if (!name.endsWith(".tmp")) continue;
         const stat = await fs
-          .stat(path.join(this.root, dir, name))
+          .stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, dir, name))
           .catch(() => null);
         if (stat && stat.mtime < cutoff) {
           removed.push(`${dir}/${name}`);
@@ -264,7 +264,7 @@ export class LocalStorage implements StorageAdapter {
     for (const name of await list("uploads")) {
       if (!name.endsWith(".bin")) continue;
       if (kept.has(`uploads/${name}`)) continue;
-      const stat = await fs.stat(path.join(this.root, "uploads", name));
+      const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name));
       if (stat.mtime < cutoff) {
         await drop(`uploads/${name}`);
         await drop(`uploads/${name.replace(/\.bin$/, ".json")}`);

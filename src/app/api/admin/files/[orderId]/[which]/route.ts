@@ -39,6 +39,12 @@ export async function GET(
     name = `${record.displayNo}_design.${DESIGN_EXT[record.design.kind]}`;
     mime = DESIGN_MIME[record.design.kind];
   }
+  // Cloud storage: hand out a 60-second signed link (serverless responses are capped at 4.5 MB).
+  if (storage.signedDownloadUrl) {
+    const url = await storage.signedDownloadUrl(path, name.replace(/[^A-Za-z0-9._-]/g, "_"), 60);
+    if (!url) return new Response(null, { status: 404 });
+    return new Response(null, { status: 302, headers: { Location: url, "Cache-Control": "private, no-store" } });
+  }
   const bytes = await storage.readFile(path);
   if (!bytes) return new Response(null, { status: 404 });
 

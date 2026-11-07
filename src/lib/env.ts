@@ -20,7 +20,9 @@ const notPlaceholder = (v: string) =>
 const PLACEHOLDER_MSG = "must not be a placeholder value from .env.example";
 
 const orderEnvSchema = z.object({
-  STORAGE: z.preprocess(blank, z.enum(["local"]).default("local")),
+  STORAGE: z.preprocess(blank, z.enum(["local", "supabase"]).default("local")),
+  SUPABASE_URL: optional,
+  SUPABASE_SECRET_KEY: optional,
   DATA_DIR: z.preprocess(blank, z.string().default("./data")),
   ORDER_TRANSPORT: z.preprocess(
     blank,
