@@ -27,3 +27,9 @@
 - Embed the artwork once, draw N times. Embedding per cell multiplies file size by N.
 - `<input type="number">` misbehaves with Arabic keyboards. Use `type="text" inputMode="decimal" dir="ltr"` and `parseCm()`.
 - Vercel function bodies are limited to 4.5 MB; our upload route is multipart on a local Node server, so fine for now, but keep the JSON order route file-free.
+
+## Rate limiting / TRUST_PROXY
+- `x-forwarded-for` is client-controlled, so by default (`TRUST_PROXY=0`) it is **ignored**: every route uses one global bucket with limits x20 (uploads 400/h, orders 100/h, log 1200/h, admin login 200/15 min).
+- Per-IP limiting (uploads 20/h, orders 5/h, log 60/h, login 10/15 min) needs a reverse proxy that appends to `x-forwarded-for` (nginx/Caddy) and `TRUST_PROXY=<hops>`; the n-th value from the END of the header is used (`1` = a single proxy in front).
+- Request bodies are capped before parsing: upload `maxUploadBytes + 64 KiB` with a mandatory `Content-Length` (and a byte-capped stream read), orders 64 KiB, log 8 KiB.
+- Public order/upload/log paths read `getOrderEnv()` only; `ADMIN_PASSWORD`/`SESSION_SECRET` (`getAdminEnv()`) are needed for /admin alone. Placeholder values (`change-me...`) are rejected.

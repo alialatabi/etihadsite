@@ -1,22 +1,30 @@
-import { builder, order } from '@/content/ar';
-import { getEnv } from '@/lib/env';
-import { makeDisplayNo, pdfFileNameFor } from '@/lib/display-no';
-import { normaliseArtwork } from '@/lib/design/normalise.server';
-import { computeLayout, layoutParamsFor } from '@/lib/layout';
-import { notifyShop } from '@/lib/notify';
-import { orderRequestSchema } from '@/lib/order-schema';
-import { orderSummaryText } from '@/lib/order-text';
-import { normalisePhone, whatsappUrl } from '@/lib/parse/phone';
-import { buildSheetPdf } from '@/lib/pdf/build-sheet';
-import { findOffer, priceFor } from '@/lib/pricing';
-import { clientIp, limiters } from '@/lib/rate-limit';
-import { getSettings } from '@/lib/settings';
-import { getStorage } from '@/lib/storage';
-import { uploadPath } from '@/lib/storage/paths';
-import type { OrderError, OrderRecord, OrderRequest, OrderResponse, OrderSummary, ShopSettings } from '@/lib/types';
+import { BodyTooLarge, readJsonCapped } from "../_lib/body";
+import { builder, order } from "@/content/ar";
+import { getOrderEnv } from "@/lib/env";
+import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
+import { normaliseArtwork } from "@/lib/design/normalise.server";
+import { computeLayout, layoutParamsFor } from "@/lib/layout";
+import { notifyShop } from "@/lib/notify";
+import { orderRequestSchema } from "@/lib/order-schema";
+import { orderSummaryText } from "@/lib/order-text";
+import { normalisePhone, whatsappUrl } from "@/lib/parse/phone";
+import { buildSheetPdf } from "@/lib/pdf/build-sheet";
+import { findOffer, priceFor } from "@/lib/pricing";
+import { clientIp, limiters } from "@/lib/rate-limit";
+import { getSettings } from "@/lib/settings";
+import { getStorage } from "@/lib/storage";
+import { uploadPath } from "@/lib/storage/paths";
+import type {
+  OrderError,
+  OrderRecord,
+  OrderRequest,
+  OrderResponse,
+  OrderSummary,
+  ShopSettings,
+} from "@/lib/types";
 
 export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 const STATUS: Record<OrderError, number> = {
   invalid_request: 400,
@@ -37,8 +45,15 @@ const STATUS: Record<OrderError, number> = {
   server_error: 500,
 };
 
+/** Max JSON body for POST /api/orders (the real payload is a few KiB). */
+const MAX_BODY_BYTES = 64 * 1024;
+
 type Failure = Extract<OrderResponse, { ok: false }>;
-const fail = (error: OrderError): Failure => ({ ok: false, error, message: order.errors[error] });
+const fail = (error: OrderError): Failure => ({
+  ok: false,
+  error,
+  message: order.errors[error],
+});
 
 function summaryOf(record: OrderRecord): OrderSummary {
   return {
@@ -56,7 +71,10 @@ function summaryOf(record: OrderRecord): OrderSummary {
   };
 }
 
-function successFor(record: OrderRecord, settings: ShopSettings): OrderResponse {
+function successFor(
+  record: OrderRecord,
+  settings: ShopSettings,
+): OrderResponse {
   const summary = summaryOf(record);
   const text = `${builder.whatsappText.newOrder}\n${orderSummaryText(summary)}`;
   return {
@@ -64,20 +82,27 @@ function successFor(record: OrderRecord, settings: ShopSettings): OrderResponse 
     orderId: record.orderId,
     displayNo: record.displayNo,
     summary,
-    whatsappUrl: settings.whatsapp ? whatsappUrl(settings.whatsapp, text) : '',
+    whatsappUrl: settings.whatsapp ? whatsappUrl(settings.whatsapp, text) : "",
     notified: record.notified,
   };
 }
 
-async function verifyTurnstile(secret: string, token: string | undefined, ip: string): Promise<boolean> {
+async function verifyTurnstile(
+  secret: string,
+  token: string | undefined,
+  ip: string,
+): Promise<boolean> {
   if (!token) return false;
   try {
     const body = new URLSearchParams({ secret, response: token, remoteip: ip });
-    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      body,
-      signal: AbortSignal.timeout(10_000),
-    });
+    const res = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        body,
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
     const json = (await res.json()) as { success?: boolean };
     return json.success === true;
   } catch {
@@ -85,26 +110,36 @@ async function verifyTurnstile(secret: string, token: string | undefined, ip: st
   }
 }
 
-async function processOrder(req: OrderRequest, ip: string, settings: ShopSettings): Promise<OrderResponse> {
+async function processOrder(
+  req: OrderRequest,
+  ip: string,
+  settings: ShopSettings,
+): Promise<OrderResponse> {
   const storage = getStorage();
-  const env = getEnv();
+  const env = getOrderEnv();
 
-  if (env.TURNSTILE_SECRET_KEY && !(await verifyTurnstile(env.TURNSTILE_SECRET_KEY, req.turnstileToken, ip))) {
-    return fail('captcha_failed');
+  if (
+    env.TURNSTILE_SECRET_KEY &&
+    !(await verifyTurnstile(env.TURNSTILE_SECRET_KEY, req.turnstileToken, ip))
+  ) {
+    return fail("captcha_failed");
   }
 
   const phone = normalisePhone(req.customer.phone);
-  if (!phone) return fail('invalid_phone');
+  if (!phone) return fail("invalid_phone");
 
   const offer = findOffer(req.offerId, settings);
-  if (!offer) return fail('invalid_offer');
+  if (!offer) return fail("invalid_offer");
 
   const upload = await storage.readUpload(req.uploadId);
-  if (!upload) return fail('upload_missing');
+  if (!upload) return fail("upload_missing");
 
   const spec = req.spec;
   const outcome = computeLayout(spec, layoutParamsFor(spec, settings.layout));
-  if (!outcome.ok) return fail(outcome.reason === 'invalid' ? 'invalid_request' : outcome.reason);
+  if (!outcome.ok)
+    return fail(
+      outcome.reason === "invalid" ? "invalid_request" : outcome.reason,
+    );
   const layout = outcome.layout;
 
   const norm = await normaliseArtwork(upload.bytes, {
@@ -132,7 +167,7 @@ async function processOrder(req: OrderRequest, ip: string, settings: ShopSetting
     orderId: req.orderId,
     displayNo,
     createdAt: new Date().toISOString(),
-    status: 'new',
+    status: "new",
     spec,
     layout: {
       cols: layout.cols,
@@ -150,7 +185,8 @@ async function processOrder(req: OrderRequest, ip: string, settings: ShopSetting
       bytes: upload.meta.bytes,
       pxWidth: norm.pxWidth,
       pxHeight: norm.pxHeight,
-      effectiveDpi: norm.artwork.kind === 'raster' ? norm.artwork.effectiveDpi : undefined,
+      effectiveDpi:
+        norm.artwork.kind === "raster" ? norm.artwork.effectiveDpi : undefined,
     },
     offer: { id: offer.id, sheets: offer.sheets, priceIqd: offer.priceIqd },
     price,
@@ -163,21 +199,24 @@ async function processOrder(req: OrderRequest, ip: string, settings: ShopSetting
       notes: req.customer.notes || undefined,
     },
     files: { designPath: uploadPath(req.uploadId), pdfPath },
-    notified: { telegram: 'skipped' },
+    notified: { telegram: "skipped" },
   };
 
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
   await storage.saveOrder(record);
 
-  let notified: OrderRecord['notified'] = { telegram: 'failed' };
+  let notified: OrderRecord["notified"] = { telegram: "failed" };
   try {
     const result = await notifyShop(record, pdf.bytes, fileName, settings);
     notified = { telegram: result.telegram };
-    if (result.error) console.error('[orders] notify failed:', result.error);
+    if (result.error) console.error("[orders] notify failed:", result.error);
   } catch (e) {
-    console.error('[orders] notify threw', e);
+    console.error("[orders] notify threw", e);
   }
-  const updated = (await storage.updateOrder(record.orderId, { notified })) ?? { ...record, notified };
+  const updated = (await storage.updateOrder(record.orderId, { notified })) ?? {
+    ...record,
+    notified,
+  };
   return successFor(updated, settings);
 }
 
@@ -185,18 +224,31 @@ const inflight = new Map<string, Promise<OrderResponse>>();
 
 /** POST JSON OrderRequest → OrderResponse. See docs/PLAN.md §5. */
 export async function POST(request: Request): Promise<Response> {
-  const send = (body: OrderResponse, headers?: HeadersInit) =>
-    Response.json(body, { status: body.ok ? 200 : STATUS[body.error], headers });
+  const send = (body: OrderResponse, headers?: HeadersInit, status?: number) =>
+    Response.json(body, {
+      status: status ?? (body.ok ? 200 : STATUS[body.error]),
+      headers,
+    });
 
   try {
+    // Throttle BEFORE reading anything from the body.
+    const ip = clientIp(request);
+    const rl = limiters().order.check(ip);
+    if (!rl.ok)
+      return send(fail("rate_limited"), {
+        "Retry-After": String(rl.retryAfterSec),
+      });
+
     let json: unknown;
     try {
-      json = await request.json();
-    } catch {
-      return send(fail('invalid_request'));
+      json = await readJsonCapped(request, MAX_BODY_BYTES);
+    } catch (e) {
+      if (e instanceof BodyTooLarge)
+        return send(fail("invalid_request"), undefined, 413);
+      return send(fail("invalid_request"));
     }
     const parsed = orderRequestSchema.safeParse(json);
-    if (!parsed.success) return send(fail('invalid_request'));
+    if (!parsed.success) return send(fail("invalid_request"));
     const req: OrderRequest = parsed.data;
 
     const settings = await getSettings();
@@ -207,10 +259,6 @@ export async function POST(request: Request): Promise<Response> {
     const running = inflight.get(req.orderId);
     if (running) return send(await running);
 
-    const ip = clientIp(request);
-    const rl = limiters().order.check(ip);
-    if (!rl.ok) return send(fail('rate_limited'), { 'Retry-After': String(rl.retryAfterSec) });
-
     const work = processOrder(req, ip, settings);
     inflight.set(req.orderId, work);
     try {
@@ -219,7 +267,7 @@ export async function POST(request: Request): Promise<Response> {
       inflight.delete(req.orderId);
     }
   } catch (e) {
-    console.error('[orders] failed', e);
-    return send(fail('server_error'));
+    console.error("[orders] failed", e);
+    return send(fail("server_error"));
   }
 }

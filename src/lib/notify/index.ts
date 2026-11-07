@@ -1,4 +1,4 @@
-import 'server-only';
+import "server-only";
 /**
  * Shop notification — OWNED BY AGENT D.
  *
@@ -8,9 +8,9 @@ import 'server-only';
  * TELEGRAM_CHAT_ID || settings.telegramChatId (skipped when both are empty).
  * Never throws: returns { telegram: 'failed', error } on any failure.
  */
-import { getEnv } from '@/lib/env';
-import type { NotifyResult, OrderRecord, ShopSettings } from '@/lib/types';
-import { buildCaption, sendTelegram } from './telegram';
+import { getOrderEnv } from "@/lib/env";
+import type { NotifyResult, OrderRecord, ShopSettings } from "@/lib/types";
+import { buildCaption, sendTelegram } from "./telegram";
 
 export async function notifyShop(
   record: OrderRecord,
@@ -19,16 +19,21 @@ export async function notifyShop(
   settings: ShopSettings,
 ): Promise<NotifyResult> {
   try {
-    const env = getEnv();
-    if (env.ORDER_TRANSPORT === 'telegram') {
+    const env = getOrderEnv();
+    if (env.ORDER_TRANSPORT === "telegram") {
       return await sendTelegram(record, pdf, pdfFileName, settings, {
         token: env.TELEGRAM_BOT_TOKEN,
         chatId: env.TELEGRAM_CHAT_ID,
       });
     }
-    console.log(`[order] ${pdfFileName} (${pdf.byteLength} bytes)\n${buildCaption(record, settings)}`);
-    return { telegram: 'skipped' };
+    console.log(
+      `[order] ${pdfFileName} (${pdf.byteLength} bytes)\n${buildCaption(record, settings)}`,
+    );
+    return { telegram: "skipped" };
   } catch (e) {
-    return { telegram: 'failed', error: e instanceof Error ? e.message : String(e) };
+    return {
+      telegram: "failed",
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }
