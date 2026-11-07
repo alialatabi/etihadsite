@@ -22,7 +22,7 @@ export const common = {
     remove: 'حذف',
     retry: 'جرّب مرة ثانية',
     close: 'إغلاق',
-    download: 'حمّل الملف',
+    download: 'نزّل الملف',
     copy: 'نسخ',
     save: 'حفظ',
     cancel: 'إلغاء',
@@ -36,10 +36,10 @@ export const common = {
     a4: 'A4',
   },
   status: {
-    loading: 'جارٍ التحميل…',
-    saving: 'جارٍ الحفظ…',
-    uploading: 'جارٍ رفع الملف…',
-    processing: 'جارٍ تجهيز الطلب…',
+    loading: 'جاري التحميل…',
+    saving: 'جاري الحفظ…',
+    uploading: 'جاري رفع الملف…',
+    processing: 'جاري تجهيز الطلب…',
     done: 'تم',
   },
   errors: {
@@ -48,7 +48,7 @@ export const common = {
     rateLimited: 'طلبات كثيرة بوقت قصير. انتظر شوية وجرّب مرة ثانية.',
   },
   footer: {
-    filesNotice: 'ملفاتك وبياناتك تُستخدم لتنفيذ طلبك فقط.',
+    filesNotice: 'ملفاتك وبياناتك تُستخدم لتنفيذ طلبك فقط وتُحذف بعد 30 يوم من التنفيذ.',
     rights: 'جميع الحقوق محفوظة',
     hours: 'أوقات العمل',
     contact: 'تواصل معنا',
