@@ -201,6 +201,13 @@
     -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
     mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
   }
+  /* Admin pages (marked by src/app/admin/template.tsx): no decorative pattern, calm grey work surface. */
+  body:has([data-admin])::before {
+    display: none;
+  }
+  body:has([data-admin]) {
+    background-color: color-mix(in oklab, var(--muted) 70%, var(--background));
+  }
   html {
     @apply font-sans;
   }

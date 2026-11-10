@@ -85,6 +85,17 @@ export const pages = {
     homeAria: 'الرئيسية',
     footerArea: 'المنطقة',
   },
+  /** "Install as an app" card shown to mobile visitors (PWA). {name} = shop name. */
+  install: {
+    title: 'نزّل تطبيق {name}',
+    body: 'افتحه بلمسة من شاشة موبايلك، بدون متجر.',
+    install: 'ثبّت',
+    later: 'مو هسة',
+    close: 'إغلاق',
+    iosStep1: 'اضغط زر المشاركة',
+    iosStep2: 'واختار «إضافة إلى الشاشة الرئيسية»',
+    region: 'تثبيت التطبيق',
+  },
   seo: {
     title: 'مطبعة سوفتي | طباعة ستيكرات على قياسك',
     description: 'اطبع ستيكرات بقياسك في العراق: ارفع تصميمك وشوف ورقة A4 مرتبة فوراً.',

@@ -385,3 +385,31 @@ describe("POST /api/orders", () => {
     expect(req.bodyUsed).toBe(false);
   });
 });
+
+describe("POST /api/orders analytics + customers", () => {
+  it("upserts the customer and records an order event (not on replay)", async () => {
+    const storage = getStorage() as unknown as Record<string, unknown>;
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    const record = vi.fn().mockResolvedValue(undefined);
+    storage.upsertCustomerFromOrder = upsert;
+    storage.recordEvent = record;
+    const b = body({ orderId: "order-analytics-aaaaaa" });
+    expect((await call(b)).status).toBe(200);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0]).toMatchObject({ customer: { phone: "9647701234567" } });
+    expect(record).toHaveBeenCalledTimes(1);
+    const ev = record.mock.calls[0][0];
+    expect(ev.type).toBe("order");
+    expect(ev.meta).toMatchObject({ material: "paper", sheets: 20, governorate: "بغداد", shape: "circle", widthMm: 30, heightMm: 30 });
+    await call(b);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
+  });
+
+  it("still succeeds when the customer upsert throws", async () => {
+    const storage = getStorage() as unknown as Record<string, unknown>;
+    storage.upsertCustomerFromOrder = vi.fn().mockRejectedValue(new Error("boom"));
+    storage.recordEvent = vi.fn().mockResolvedValue(undefined);
+    expect((await call(body({ orderId: "order-analytics-bbbbbb" }))).status).toBe(200);
+  });
+});

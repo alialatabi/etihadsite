@@ -3,13 +3,17 @@
  * so scripts/purge-orders.ts can use it under tsx.
  *
  * Layout under `root` (DATA_DIR):
- *   uploads/<uploadId>.bin + .json, orders/<orderId>.json + .pdf, settings.json
+ *   uploads/<uploadId>.bin + .json, orders/<orderId>.json + .pdf, settings.json,
+ *   analytics/events-YYYY-MM.jsonl (one JSON event per line, UTC month),
+ *   customers.json (CustomerRecord[] keyed by phone; never purged)
  * All paths in the public API are relative to `root` and traversal-checked.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
+  AnalyticsEvent,
+  CustomerRecord,
   OrderRecord,
   ShopSettings,
   StorageAdapter,
@@ -39,8 +43,13 @@ export function deepMerge<T>(base: T, over: unknown): T {
   return out as T;
 }
 
+const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
+const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
 export class LocalStorage implements StorageAdapter {
   readonly root: string;
+  /** Serialises read-modify-write of customers.json inside this process. */
+  private customersLock: Promise<unknown> = Promise.resolve();
 
   constructor(root: string) {
     this.root = path.resolve(root);
@@ -208,6 +217,126 @@ export class LocalStorage implements StorageAdapter {
 
   async saveSettings(settings: ShopSettings): Promise<void> {
     await this.writeAtomic("settings.json", JSON.stringify(settings, null, 2));
+  }
+
+  /* ───────────── analytics & customers ───────────── */
+
+  async recordEvent(event: AnalyticsEvent): Promise<void> {
+    const t = new Date(event.ts);
+    if (Number.isNaN(t.getTime())) throw new Error("Invalid event timestamp");
+    const abs = this.resolveSafe(`analytics/events-${monthKey(t)}.jsonl`);
+    await fs.mkdir(path.dirname(abs), { recursive: true });
+    await fs.appendFile(abs, JSON.stringify(event) + "\n", "utf8");
+  }
+
+  async listEvents(since: Date): Promise<AnalyticsEvent[]> {
+    let names: string[];
+    try {
+      names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "analytics"));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+    const minMonth = monthKey(since);
+    const out: AnalyticsEvent[] = [];
+    for (const name of names.sort()) {
+      const m = EVENT_FILE_RE.exec(name);
+      if (!m || `${m[1]}-${m[2]}` < minMonth) continue;
+      const raw = await this.readOptional(`analytics/${name}`);
+      if (!raw) continue;
+      for (const line of raw.toString("utf8").split("\n")) {
+        if (!line.trim()) continue;
+        try {
+          const ev = JSON.parse(line) as AnalyticsEvent;
+          if (new Date(ev.ts) >= since) out.push(ev);
+        } catch {
+          // a torn/corrupt line must not hide the rest
+        }
+      }
+    }
+    return out.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  }
+
+  private async readCustomers(): Promise<CustomerRecord[]> {
+    const raw = await this.readOptional("customers.json");
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw.toString("utf8")) as unknown;
+      return Array.isArray(parsed) ? (parsed as CustomerRecord[]) : [];
+    } catch {
+      // Never overwrite an unreadable file with a fresh list: that would lose customers.
+      throw new Error("customers.json is unreadable");
+    }
+  }
+
+  upsertCustomerFromOrder(record: OrderRecord): Promise<void> {
+    const run = async () => {
+      const c = record.customer;
+      const list = await this.readCustomers();
+      const cur = list.find((x) => x.phone === c.phone);
+      const total = record.price.totalIqd ?? 0;
+      if (cur) {
+        if (c.name) cur.name = c.name;
+        cur.governorate = c.governorate;
+        cur.district = c.district;
+        cur.landmark = c.landmark;
+        cur.ordersCount += 1;
+        cur.totalIqd += total;
+        if (record.createdAt >= cur.lastOrderAt) {
+          cur.lastOrderAt = record.createdAt;
+          cur.lastOrderId = record.orderId;
+          cur.lastDisplayNo = record.displayNo;
+        }
+        if (record.createdAt < cur.firstOrderAt) cur.firstOrderAt = record.createdAt;
+      } else {
+        const fresh: CustomerRecord = {
+          phone: c.phone,
+          governorate: c.governorate,
+          district: c.district,
+          landmark: c.landmark,
+          firstOrderAt: record.createdAt,
+          lastOrderAt: record.createdAt,
+          ordersCount: 1,
+          totalIqd: total,
+          lastOrderId: record.orderId,
+          lastDisplayNo: record.displayNo,
+        };
+        if (c.name) fresh.name = c.name;
+        list.push(fresh);
+      }
+      await this.writeAtomic("customers.json", JSON.stringify(list, null, 2));
+    };
+    const next = this.customersLock.then(run, run);
+    this.customersLock = next.catch(() => undefined);
+    return next;
+  }
+
+  async listCustomers(): Promise<CustomerRecord[]> {
+    const list = await this.readCustomers();
+    return list.sort((a, b) => (a.lastOrderAt < b.lastOrderAt ? 1 : a.lastOrderAt > b.lastOrderAt ? -1 : 0));
+  }
+
+  /**
+   * Deletes whole monthly event files that end before `cutoff`. Returns the relative
+   * paths removed (or that would be when dryRun). Customers are never touched.
+   */
+  async purgeEventsOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    let names: string[];
+    try {
+      names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "analytics"));
+    } catch {
+      return [];
+    }
+    const removed: string[] = [];
+    for (const name of names) {
+      const m = EVENT_FILE_RE.exec(name);
+      if (!m) continue;
+      const monthEnd = Date.UTC(Number(m[1]), Number(m[2]), 1); // first instant of the next month
+      if (monthEnd > cutoff.getTime()) continue;
+      removed.push(`analytics/${name}`);
+      if (!dryRun) await this.deleteFile(`analytics/${name}`);
+    }
+    return removed;
   }
 
   /**

@@ -8,7 +8,8 @@ export const builder = {
     badge: 'A4 جاهز للطباعة',
     /** Headline = the order journey, shown as coloured steps joined by arrows. */
     flow: ['ارفع تصميمك', 'شوفه شلون يتصفّط', 'اختار الكمية', 'استلم الطلب'],
-    subtitle: 'ارفع تصميمك وشوف شكد يگعد بورقة A4، اختار العدد اللي تريده، والباقي علينا.',
+    /** Under the journey steps; {shop} = settings.shopName (rendered bold). */
+    subtitle: '{shop}، أجود الخامات بأنسب الأسعار',
     cta: 'صمّم ستيكراتك',
   },
   stepper: {
@@ -133,7 +134,7 @@ export const builder = {
     landmarkPlaceholder: 'مثلاً: قرب مطعم المنصور، شارع الصناعة',
     notes: 'ملاحظات',
     notesOptional: '(اختياري)',
-    consent: 'بياناتك وملفك تُستخدم لتنفيذ طلبك فقط وتُحذف بعد {days} يوم. نطبع حسب الملف المرفوع.',
+    consent: 'ملف تصميمك ينحذف بعد {days} يوم. اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.',
     submit: 'أرسل الطلب',
     errors: {
       invalid_phone: 'اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567',

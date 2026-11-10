@@ -2,6 +2,7 @@ import { z } from "zod";
 import { order } from "@/content/ar";
 import { readCapped } from "../../../_lib/body";
 import { sniffKind } from "@/lib/design/normalise.server";
+import { trackServer } from "@/lib/analytics/server";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 import { ID_RE, uploadPath } from "@/lib/storage/paths";
@@ -75,6 +76,7 @@ export async function POST(request: Request): Promise<Response> {
     // The meta marks the bytes as checked (readUpload needs both files).
     if (storage.saveUploadMeta) await storage.saveUploadMeta(uploadId, meta);
     else await storage.saveUpload(uploadId, bytes, meta);
+    await trackServer(request, { type: "upload", meta: { kind } });
     const body: UploadResponse = { ok: true, uploadId, kind, bytes: bytes.byteLength };
     return Response.json(body);
   } catch (e) {

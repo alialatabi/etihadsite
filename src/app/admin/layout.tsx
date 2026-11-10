@@ -18,6 +18,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin" className={buttonVariants({ variant: 'ghost' })}>
             {admin.nav.orders}
           </Link>
+          <Link href="/admin/stats" className={buttonVariants({ variant: 'ghost' })}>
+            {admin.nav.stats}
+          </Link>
+          <Link href="/admin/customers" className={buttonVariants({ variant: 'ghost' })}>
+            {admin.nav.customers}
+          </Link>
           <Link href="/admin/settings" className={buttonVariants({ variant: 'ghost' })}>
             {admin.nav.settings}
           </Link>

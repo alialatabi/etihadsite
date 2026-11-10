@@ -456,6 +456,15 @@ export interface StorageAdapter {
   getSettings(): Promise<ShopSettings>;
   saveSettings(settings: ShopSettings): Promise<void>;
 
+  /** Append one analytics event (best effort — callers must not fail a request on error). */
+  recordEvent(event: AnalyticsEvent): Promise<void>;
+  /** Events with ts ≥ since, oldest first. */
+  listEvents(since: Date): Promise<AnalyticsEvent[]>;
+  /** Insert or update the customer for this order (increments ordersCount/totalIqd, refreshes address). */
+  upsertCustomerFromOrder(record: OrderRecord): Promise<void>;
+  /** Most recent lastOrderAt first. */
+  listCustomers(): Promise<CustomerRecord[]>;
+
   /**
    * Optional (cloud storage): one-time signed URL the BROWSER PUTs the file to, landing at
    * uploads/<uploadId>.bin. The server must validate the bytes before writing the meta.
@@ -467,6 +476,77 @@ export interface StorageAdapter {
   saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
   /** Optional: short-lived signed download URL for an admin download. */
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
+}
+
+/* ────────────────────────────── Analytics & customers ──────────────────── */
+
+/**
+ * First-party, cookieless analytics event (owner request 2026-11-10). No IP, no user agent,
+ * no personal data is stored: `visitor` is a daily-rotating salted hash, location is city-level
+ * from the hosting edge headers.
+ */
+export type AnalyticsEventType =
+  | 'pageview'
+  /** Builder step reached; `step` = StepId ('shape' | 'design' | 'size' | 'quantity' | 'details'). */
+  | 'step'
+  /** Server-side: a design upload was accepted. */
+  | 'upload'
+  /** Server-side: an order was created. `meta` carries material/sheets/total/governorate/shape. */
+  | 'order'
+  /** PWA install card shown / accepted / app installed. `step` = 'shown' | 'accepted' | 'installed'. */
+  | 'install';
+
+export type DeviceKind = 'mobile' | 'tablet' | 'desktop';
+
+/** Normalised traffic source derived from referrer / utm_source. */
+export type TrafficSource =
+  | 'direct'
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'whatsapp'
+  | 'telegram'
+  | 'google'
+  | 'snapchat'
+  | 'youtube'
+  | 'other';
+
+export interface AnalyticsEvent {
+  /** ISO 8601 UTC. */
+  ts: string;
+  type: AnalyticsEventType;
+  /** sha256(day + ip + ua + salt) truncated — counts unique visitors per day, unlinkable across days. */
+  visitor: string;
+  path?: string;
+  step?: string;
+  source?: TrafficSource;
+  device?: DeviceKind;
+  /** City / region / ISO country from x-vercel-ip-* headers (absent locally). */
+  city?: string;
+  region?: string;
+  country?: string;
+  /** Small, non-personal extras (e.g. order material/sheets/totalIqd/governorate/shape). */
+  meta?: Record<string, string | number | boolean | null>;
+}
+
+/**
+ * One row per customer phone, upserted on every order and NEVER purged by the retention cron
+ * (owner decision 2026-11-10; the consent/footer copy says so). Design files still expire.
+ */
+export interface CustomerRecord {
+  /** Normalised phone "9647XXXXXXXXX" — the key. */
+  phone: string;
+  name?: string;
+  governorate: string;
+  district: string;
+  landmark: string;
+  firstOrderAt: string;
+  lastOrderAt: string;
+  ordersCount: number;
+  /** Sum of order totals (IQD) where the price was known. */
+  totalIqd: number;
+  lastOrderId: string;
+  lastDisplayNo: string;
 }
 
 /* ────────────────────────────── Notification ───────────────────────────── */

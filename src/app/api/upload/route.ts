@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { order } from "@/content/ar";
 import { BodyTooLarge, declaredLength, readCapped } from "../_lib/body";
 import { sniffKind } from "@/lib/design/normalise.server";
+import { trackServer } from "@/lib/analytics/server";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
@@ -80,6 +81,7 @@ export async function POST(request: Request): Promise<Response> {
       createdAt: new Date().toISOString(),
     });
 
+    await trackServer(request, { type: "upload", meta: { kind } });
     const body: UploadResponse = {
       ok: true,
       uploadId,

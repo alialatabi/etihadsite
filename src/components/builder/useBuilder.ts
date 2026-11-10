@@ -1,5 +1,6 @@
 'use client';
 
+import { sendTrack } from '@/components/shell/Tracker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enabledMaterials, validateQuantity } from '@/lib/pricing';
 import { decodeDesign } from '@/lib/design/decode.client';
@@ -283,6 +284,17 @@ export function useBuilder(settings: ShopSettings) {
     [step, stepOk.shape, stepOk.design, stepOk.size, stepOk.quantity],
   );
   const goTo = useCallback((i: number) => canGoTo(i) && setStep(Math.max(0, Math.min(STEPS.length - 1, i))), [canGoTo]);
+  /* analytics: one 'step' event per step per session */
+  const stepName = STEPS[step];
+  useEffect(() => {
+    try {
+      const key = `softy-step-${stepName}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {}
+    sendTrack({ type: 'step', step: stepName, path: window.location.pathname });
+  }, [stepName]);
+
   const next = useCallback(() => goTo(step + 1), [goTo, step]);
   const back = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
 

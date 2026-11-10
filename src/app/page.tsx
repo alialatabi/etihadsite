@@ -87,7 +87,14 @@ export default async function HomePage() {
             <FlowRow />
             <FlowSnake />
           </div>
-          <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">{builder.hero.subtitle}</p>
+          <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
+            {builder.hero.subtitle.split('{shop}').map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && <span className="font-bold text-foreground">{settings.shopName}</span>}
+                {part}
+              </Fragment>
+            ))}
+          </p>
         </div>
       </section>
       <Builder settings={settings} />

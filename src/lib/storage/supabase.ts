@@ -3,7 +3,8 @@ import 'server-only';
  * Supabase StorageAdapter (`STORAGE=supabase`) for serverless hosting (Vercel has no disk).
  *
  *   Postgres  public.orders (order_id, created_at, record jsonb), public.settings (id=1, data jsonb),
- *             rpc patch_order(p_id, p_patch) for atomic status/notified updates
+ *             rpc patch_order(p_id, p_patch) for atomic status/notified updates,
+ *             public.events (analytics), public.customers + rpc upsert_customer (never purged)
  *   Storage   private bucket `etihad`: uploads/<id>.bin + .json, orders/<id>.pdf
  *
  * Schema: supabase/migrations/*.sql. RLS is on with no policies, so only the SECRET key
@@ -17,7 +18,7 @@ import 'server-only';
  * against a strict pattern before any request, so a stored path can never escape the bucket.
  */
 import { DEFAULT_SETTINGS } from '@/config/defaults';
-import type { OrderRecord, ShopSettings, StorageAdapter, StoredFileMeta } from '@/lib/types';
+import type { AnalyticsEvent, CustomerRecord, OrderRecord, ShopSettings, StorageAdapter, StoredFileMeta } from '@/lib/types';
 import { deepMerge } from './local';
 import { ID_RE, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { shopSettingsSchema } from './settings-schema';
@@ -245,6 +246,113 @@ export class SupabaseStorage implements StorageAdapter {
       headers: { 'content-type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ id: 1, data: settings, updated_at: new Date().toISOString() }),
     });
+  }
+
+  /* ───────────── analytics & customers ───────────── */
+
+  async recordEvent(e: AnalyticsEvent): Promise<void> {
+    await this.req('/rest/v1/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        ts: e.ts,
+        type: e.type,
+        visitor: e.visitor,
+        path: e.path ?? null,
+        step: e.step ?? null,
+        source: e.source ?? null,
+        device: e.device ?? null,
+        city: e.city ?? null,
+        region: e.region ?? null,
+        country: e.country ?? null,
+        meta: e.meta ?? null,
+      }),
+    });
+  }
+
+  /** Oldest first; pages through PostgREST's 1000-row cap with Range headers. */
+  async listEvents(since: Date): Promise<AnalyticsEvent[]> {
+    const PAGE = 1000;
+    const iso = encodeURIComponent(since.toISOString());
+    const out: AnalyticsEvent[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const res = await this.req(
+        `/rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.${iso}&order=ts.asc,id.asc`,
+        { headers: { Range: `${from}-${from + PAGE - 1}`, 'Range-Unit': 'items' }, timeoutMs: OBJECT_TIMEOUT_MS },
+      );
+      const rows = (await res.json()) as Record<string, unknown>[];
+      for (const r of rows) {
+        const ev: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(r)) if (v !== null) ev[k] = v;
+        out.push(ev as unknown as AnalyticsEvent);
+      }
+      if (rows.length < PAGE) return out;
+    }
+  }
+
+  async upsertCustomerFromOrder(record: OrderRecord): Promise<void> {
+    const c = record.customer;
+    await this.req('/rest/v1/rpc/upsert_customer', {
+      method: 'POST',
+      ...this.json({
+        p_phone: c.phone,
+        p_name: c.name ?? null,
+        p_governorate: c.governorate,
+        p_district: c.district,
+        p_landmark: c.landmark,
+        p_at: record.createdAt,
+        p_order_id: record.orderId,
+        p_display_no: record.displayNo,
+        p_total_iqd: record.price.totalIqd ?? 0,
+      }),
+    });
+  }
+
+  async listCustomers(): Promise<CustomerRecord[]> {
+    // Page with Range headers: PostgREST caps a single response (max-rows, default 1000).
+    const PAGE = 1000;
+    const rows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const res = await this.req('/rest/v1/customers?select=*&order=last_order_at.desc,phone.asc', {
+        headers: { Range: `${from}-${from + PAGE - 1}`, 'Range-Unit': 'items' },
+        timeoutMs: OBJECT_TIMEOUT_MS,
+      });
+      const page = (await res.json()) as Record<string, unknown>[];
+      rows.push(...page);
+      if (page.length < PAGE) break;
+    }
+    return rows.map((r) => {
+      const out: CustomerRecord = {
+        phone: String(r.phone),
+        governorate: String(r.governorate),
+        district: String(r.district),
+        landmark: String(r.landmark),
+        firstOrderAt: String(r.first_order_at),
+        lastOrderAt: String(r.last_order_at),
+        ordersCount: Number(r.orders_count),
+        totalIqd: Number(r.total_iqd),
+        lastOrderId: String(r.last_order_id),
+        lastDisplayNo: String(r.last_display_no),
+      };
+      if (typeof r.name === 'string' && r.name) out.name = r.name;
+      return out;
+    });
+  }
+
+  /** Deletes analytics events older than `cutoff`. Returns `events:<n>` (empty when none). Never touches customers. */
+  async purgeEventsOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    const iso = encodeURIComponent(cutoff.toISOString());
+    if (dryRun) {
+      const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}&limit=100000`);
+      const n = ((await res.json()) as unknown[]).length;
+      return n ? [`events:${n}`] : [];
+    }
+    const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    const n = ((await res.json().catch(() => [])) as unknown[]).length;
+    return n ? [`events:${n}`] : [];
   }
 
   /* ───────────── retention ───────────── */

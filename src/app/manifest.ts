@@ -8,8 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     description: pages.seo.description,
     lang: 'ar',
     dir: 'rtl',
+    id: '/',
     start_url: '/',
+    scope: '/',
     display: 'standalone',
+    orientation: 'portrait',
     theme_color: '#d01c4a',
     background_color: '#fdfbfa',
     icons: [

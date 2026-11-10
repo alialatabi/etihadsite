@@ -4,6 +4,8 @@ import { DirectionProvider } from '@/components/ui/direction';
 import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/shell/Header';
 import { Footer } from '@/components/shell/Footer';
+import { InstallPrompt } from '@/components/shell/InstallPrompt';
+import { Tracker } from '@/components/shell/Tracker';
 import { getSettings } from '@/lib/settings';
 import { common, pages } from '@/content/ar';
 import './globals.css';
@@ -25,6 +27,12 @@ export const metadata: Metadata = {
     template: `%s | ${common.brand}`,
   },
   description: pages.seo.description,
+  // iOS "Add to Home Screen": open full-screen like an app, with the shop name under the icon.
+  appleWebApp: {
+    capable: true,
+    title: pages.seo.manifestShort,
+    statusBarStyle: 'default',
+  },
 };
 
 export const viewport: Viewport = {
@@ -43,6 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main className="flex-1">{children}</main>
           <Footer settings={settings} />
           <Toaster position="top-center" dir="rtl" />
+          <InstallPrompt shopName={settings.shopName} />
+          <Tracker />
         </DirectionProvider>
       </body>
     </html>

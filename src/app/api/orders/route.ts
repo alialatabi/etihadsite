@@ -1,4 +1,5 @@
 import { BodyTooLarge, readJsonCapped } from "../_lib/body";
+import { trackServer } from "@/lib/analytics/server";
 import { builder, order } from "@/content/ar";
 import { getOrderEnv } from "@/lib/env";
 import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
@@ -114,6 +115,7 @@ async function verifyTurnstile(
 }
 
 async function processOrder(
+  request: Request,
   req: OrderRequest,
   ip: string,
   settings: ShopSettings,
@@ -208,6 +210,25 @@ async function processOrder(
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
   await storage.saveOrder(record);
 
+  // Customer list + analytics: best effort, must never fail the order.
+  try {
+    await storage.upsertCustomerFromOrder(record);
+  } catch (e) {
+    console.error("[orders] customer upsert failed", e);
+  }
+  await trackServer(request, {
+    type: "order",
+    meta: {
+      material: price.material,
+      sheets: price.sheets,
+      totalIqd: price.totalIqd,
+      governorate: record.customer.governorate,
+      shape: spec.shape,
+      widthMm: spec.widthUm / 1000,
+      heightMm: spec.heightUm / 1000,
+    },
+  });
+
   let notified: OrderRecord["notified"] = { telegram: "failed" };
   try {
     const result = await notifyShop(record, pdf.bytes, fileName, settings);
@@ -262,7 +283,7 @@ export async function POST(request: Request): Promise<Response> {
     const running = inflight.get(req.orderId);
     if (running) return send(await running);
 
-    const work = processOrder(req, ip, settings);
+    const work = processOrder(request, req, ip, settings);
     inflight.set(req.orderId, work);
     try {
       return send(await work);
