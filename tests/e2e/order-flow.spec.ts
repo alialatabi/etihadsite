@@ -12,7 +12,7 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
   const { png } = await makeFixtures();
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(builder.hero.title);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(builder.hero.flow.join(' ← '));
   await snap(page, info, '01-home-shape');
 
   await chooseShape(page, builder.shape.circle);

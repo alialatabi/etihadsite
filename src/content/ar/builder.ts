@@ -6,7 +6,8 @@
 export const builder = {
   hero: {
     badge: 'A4 جاهز للطباعة',
-    title: 'ستيكرات بقياسك على ورقة A4',
+    /** Headline = the order journey, shown as coloured steps joined by arrows. */
+    flow: ['ارفع تصميمك', 'شوفه شلون يتصفّط', 'اختار الكمية', 'استلم الطلب'],
     subtitle: 'ارفع تصميمك وشوف شكد يگعد بورقة A4، اختار العدد اللي تريده، والباقي علينا.',
     cta: 'صمّم ستيكراتك',
   },

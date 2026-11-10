@@ -6,7 +6,7 @@ import { Ltr } from '@/components/Ltr';
 export default function NotFound() {
   const t = pages.notFound;
   return (
-    <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-20 text-center sm:py-28">
+    <section className="glass mx-4 my-12 flex flex-col items-center rounded-3xl px-6 py-14 text-center sm:mx-auto sm:my-20 sm:max-w-xl sm:py-20">
       <p className="font-heading text-7xl font-bold text-brand sm:text-8xl">
         <Ltr>{t.code}</Ltr>
       </p>

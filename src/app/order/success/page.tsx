@@ -36,7 +36,7 @@ export default function OrderSuccessPage() {
 
   return (
     <section className="mx-auto max-w-xl space-y-6 px-4 py-10">
-      <div className="text-center">
+      <div className="glass rounded-3xl p-6 text-center">
         <CircleCheck className="mx-auto size-14 text-brand" aria-hidden />
         <h1 className="font-heading mt-3 text-3xl font-bold">{builder.success.title}</h1>
         <p className="mt-4 text-sm text-muted-foreground">{builder.success.subtitle}</p>

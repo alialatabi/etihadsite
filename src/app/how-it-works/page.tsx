@@ -99,7 +99,7 @@ export default async function HowItWorksPage() {
 
       {/* Steps */}
       <section className="mx-auto max-w-6xl px-4 py-12">
-        <h2 className="text-2xl font-bold">{t.stepsTitle}</h2>
+        <h2 className="glass w-fit max-w-full rounded-2xl px-5 py-3 text-2xl font-bold">{t.stepsTitle}</h2>
         <ol className="mt-6 grid gap-4 md:grid-cols-3">
           {t.steps.map((s, i) => (
             <li key={s.title} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -118,8 +118,10 @@ export default async function HowItWorksPage() {
       {/* A4 spec + illustration */}
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-2">
         <div>
-          <h2 className="text-2xl font-bold">{t.specTitle}</h2>
-          <p className="mt-2 text-muted-foreground">{t.specIntro}</p>
+          <div className="glass rounded-2xl px-5 py-4">
+            <h2 className="text-2xl font-bold">{t.specTitle}</h2>
+            <p className="mt-2 text-muted-foreground">{t.specIntro}</p>
+          </div>
           <dl className="mt-5 divide-y divide-border rounded-2xl border border-border bg-card">
             <div className="flex items-center justify-between gap-4 px-5 py-4">
               <dt className="text-muted-foreground">{t.spec.size}</dt>
@@ -201,8 +203,10 @@ export default async function HowItWorksPage() {
 
       {/* Live examples */}
       <section className="mx-auto max-w-3xl px-4 py-12">
-        <h2 className="text-2xl font-bold">{t.examplesTitle}</h2>
-        <p className="mt-2 text-muted-foreground">{t.examplesIntro}</p>
+        <div className="glass rounded-2xl px-5 py-4">
+          <h2 className="text-2xl font-bold">{t.examplesTitle}</h2>
+          <p className="mt-2 text-muted-foreground">{t.examplesIntro}</p>
+        </div>
         <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-start">
             <thead className="bg-muted/60 text-sm text-muted-foreground">
@@ -233,8 +237,10 @@ export default async function HowItWorksPage() {
 
       {/* Pricing */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
-        <h2 className="text-2xl font-bold">{t.pricingTitle}</h2>
-        <p className="mt-2 text-muted-foreground">{t.pricingIntro}</p>
+        <div className="glass rounded-2xl px-5 py-4">
+          <h2 className="text-2xl font-bold">{t.pricingTitle}</h2>
+          <p className="mt-2 text-muted-foreground">{t.pricingIntro}</p>
+        </div>
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {mats.map((m) => (
             <li key={m} className="rounded-2xl border border-border bg-card p-5">
