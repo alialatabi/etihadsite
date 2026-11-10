@@ -269,7 +269,13 @@ export default async function HowItWorksPage() {
                     {r.to === null ? fillLtr(t.rangeFrom, { from: r.from }) : fillLtr(t.rangeTo, { from: r.from, to: r.to })}
                   </th>
                   <td className="px-5 py-3 font-bold">
-                    {r.percent === 0 ? t.noDiscount : fillLtr(t.percentOff, { percent: r.percent })}
+                    {r.percent === 0 ? (
+                      t.noDiscount
+                    ) : (
+                      <span className="inline-block rounded-full bg-discount px-3 py-0.5 text-discount-foreground">
+                        {fillLtr(t.percentOff, { percent: r.percent })}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

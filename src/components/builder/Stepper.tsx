@@ -36,7 +36,7 @@ export function Stepper({ b }: { b: BuilderApi }) {
                 >
                   {done ? <Check className="size-4" aria-hidden /> : i + 1}
                 </span>
-                <span className="truncate">{builder.steps[id]}</span>
+                <span className="text-center leading-tight text-balance sm:text-start">{builder.steps[id]}</span>
               </button>
               {i < STEPS.length - 1 && <span aria-hidden className="cut-line hidden h-px w-3 shrink-0 text-border sm:block" />}
             </li>

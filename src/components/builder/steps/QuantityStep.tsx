@@ -166,7 +166,9 @@ function DiscountLadder({ b }: { b: BuilderApi }) {
             <li
               key={t.minSheets}
               aria-current={on ? 'true' : undefined}
-              className={cn('rounded-full border px-3 py-1 text-xs font-medium', on ? 'border-brand bg-brand text-brand-foreground' : 'bg-background text-muted-foreground')}
+              className={cn('rounded-full border px-3 py-1 text-xs font-medium', on
+                  ? 'border-discount-foreground/40 bg-discount font-bold text-discount-foreground shadow-sm'
+                  : 'border-discount bg-discount/25 text-discount-foreground')}
             >
               <Ltr>{t.minSheets}+</Ltr> {sheetWord(t.minSheets)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
             </li>
@@ -206,7 +208,7 @@ function PriceBox({ b }: { b: BuilderApi }) {
               )}
               <span className="font-bold">{money(p.unitPriceIqd)}</span>
               {p.discountPercent > 0 && (
-                <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-brand-foreground">
+                <span className="rounded-full bg-discount px-2 py-0.5 text-xs font-bold text-discount-foreground">
                   {builder.quantity.discountWord} <Ltr>{p.discountPercent}%</Ltr>
                 </span>
               )}

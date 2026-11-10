@@ -6,7 +6,7 @@ import { builder, common } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { whatsappUrl } from '@/lib/parse/phone';
 import type { ShopSettings } from '@/lib/types';
-import { MobilePreviewStrip, PreviewPanel } from './PreviewPanels';
+import { MobilePreview, PreviewPanel } from './PreviewPanels';
 import { Stepper } from './Stepper';
 import { DesignStep } from './steps/DesignStep';
 import { DetailsStep } from './steps/DetailsStep';
@@ -79,11 +79,11 @@ export function Builder({ settings }: { settings: ShopSettings }) {
 
   return (
     <div id="builder" className="scroll-mt-4">
-      {showStrip && <MobilePreviewStrip b={b} />}
-
       <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
         <div className="min-w-0 space-y-6">
           <Stepper b={b} />
+
+          {showStrip && <MobilePreview b={b} />}
 
           <div className="rounded-3xl border bg-background p-4 shadow-sm sm:p-6">
             <h2 ref={headingRef} tabIndex={-1} className="font-heading mb-5 text-2xl font-bold outline-none">

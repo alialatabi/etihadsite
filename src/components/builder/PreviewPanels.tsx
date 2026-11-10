@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Maximize2 } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { umToMm } from '@/lib/units';
@@ -37,20 +38,65 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
   );
 }
 
-/** Mobile: compact sticky strip, tap to expand into a full-screen preview. */
-export function MobilePreviewStrip({ b }: { b: BuilderApi }) {
+/**
+ * Mobile (< lg): a large inline A4 card above the step, plus a compact strip pinned under the
+ * header that slides in only while the large card is scrolled out of view. Tap either to open
+ * a full-screen preview.
+ */
+export function MobilePreview({ b }: { b: BuilderApi }) {
   const [open, setOpen] = useState(false);
+  const [cardVisible, setCardVisible] = useState(true);
+  const cardRef = useRef<HTMLButtonElement>(null);
   const { layout, design, spec } = b;
+  const ready = Boolean(layout && spec);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    // Treat the card as hidden once less than ~15% of it shows below the sticky header.
+    const io = new IntersectionObserver(([entry]) => setCardVisible(entry.isIntersecting), {
+      rootMargin: '-64px 0px 0px 0px',
+      threshold: 0.15,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ready]);
+
   if (!layout || !spec) return null;
   return (
     <>
       <button
+        ref={cardRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label={builder.preview.expand}
-        className="sticky top-[var(--header-h)] z-30 flex min-h-[110px] w-full items-center gap-4 border-b bg-background/95 px-4 py-2 text-start backdrop-blur outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:hidden"
+        className="relative block w-full rounded-3xl border bg-card p-4 text-start shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:hidden"
       >
-        <div className="h-[90px] w-[64px] shrink-0">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <span className="font-heading text-base font-bold">{builder.preview.title}</span>
+          <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
+        </div>
+        <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">
+          <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
+        </div>
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
+        </p>
+        <Maximize2 className="absolute end-4 bottom-4 size-5 text-muted-foreground" aria-hidden />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={builder.preview.expand}
+        aria-hidden={cardVisible}
+        tabIndex={cardVisible ? -1 : 0}
+        className={cn(
+          'fixed start-0 end-0 top-[var(--header-h)] z-30 flex min-h-[124px] w-full items-center gap-4 border-b bg-background/95 px-4 py-2 text-start shadow-sm backdrop-blur outline-none transition-transform duration-200 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:hidden',
+          cardVisible ? 'pointer-events-none -translate-y-[calc(100%+var(--header-h))]' : 'translate-y-0',
+        )}
+      >
+        <div className="h-[108px] w-[77px] shrink-0">
           <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} hideBadge className="h-full" />
         </div>
         <div className="min-w-0 flex-1">

@@ -13,6 +13,14 @@
  * `bg-brand-gradient` is the full logo gradient (decorative, NO text on it: orange fails contrast).
  * `bg-brand-gradient-cta` is crimson -> purple, safe under white text (>= 4.95:1).
  */
+/* Owner request: small text was hard to read — bump the two smallest steps site-wide. */
+@theme {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -21,6 +29,8 @@
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-discount: var(--discount);
+  --color-discount-foreground: var(--discount-foreground);
   --color-paper: var(--paper);
   --color-ink: var(--ink);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -67,6 +77,9 @@
   --ink: #121f34;
   --brand: #d01c4a;
   --brand-foreground: #ffffff;
+  /* Discount badges: vivid lime (owner request) with dark green text, ~14:1 contrast. */
+  --discount: #b6ff1a;
+  --discount-foreground: #1a2e05;
 
   --background: var(--paper);
   --foreground: var(--ink);
