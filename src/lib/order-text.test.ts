@@ -10,7 +10,10 @@ const base: OrderSummary = {
   countPerSheet: 54,
   sheets: 20,
   totalStickers: 1080,
-  offerPriceIqd: null,
+  material: 'paper',
+  unitPriceIqd: null,
+  discountPercent: 0,
+  subtotalIqd: null,
   deliveryFeeIqd: 5_000,
   totalIqd: null,
 };
@@ -23,6 +26,7 @@ describe('orderSummaryText', () => {
         'الشكل: دائري',
         'القياس: 3 × 3 سم',
         'بالورقة: 54 ستيكر',
+        'الخامة: ورقي',
         'الأوراق: 20 ورقة (1080 ستيكر)',
         'السعر: يُحدد عند التأكيد',
         'التوصيل: 5,000 د.ع',
@@ -39,8 +43,11 @@ describe('orderSummaryText', () => {
       countPerSheet: 1,
       sheets: 2,
       totalStickers: 2,
-      offerPriceIqd: 40_000,
-      totalIqd: 45_000,
+      material: 'plastic',
+      unitPriceIqd: 1_275,
+      discountPercent: 15,
+      subtotalIqd: 2_550,
+      totalIqd: 7_550,
     });
     expect(t).toBe(
       [
@@ -48,10 +55,12 @@ describe('orderSummaryText', () => {
         'الشكل: مستطيل بزوايا حادة',
         'القياس: 3 × 4.24 سم',
         'بالورقة: 1 ستيكر',
+        'الخامة: بلاستك',
         'الأوراق: 2 ورقتين (2 ستيكرين)',
-        'السعر: 40,000 د.ع',
+        'سعر الورقة: 1,275 د.ع (خصم 15%)',
+        'المجموع: 2,550 د.ع',
         'التوصيل: 5,000 د.ع',
-        'الإجمالي: 45,000 د.ع',
+        'الإجمالي: 7,550 د.ع',
       ].join('\n'),
     );
   });

@@ -4,8 +4,8 @@ import { ArrowLeft } from 'lucide-react';
 import { common, fill, pages } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { getSettings } from '@/lib/settings';
-import { countLabel } from '@/lib/plural';
-import { formatIqd } from '@/lib/pricing';
+import { count, countLabel } from '@/lib/plural';
+import { enabledMaterials, formatIqd, priceFor } from '@/lib/pricing';
 import { A4_UM, umToMm, umToCm } from '@/lib/units';
 import { computeExamples, illustrationLayout } from './examples';
 import { fillLtr } from '@/components/fill-ltr';
@@ -53,7 +53,23 @@ export default async function HowItWorksPage() {
     return fillLtr(t.examples[key], { size: e.size ?? '', w: e.w ?? '', h: e.h ?? '' });
   };
 
-  const offers = settings.offers.filter((o) => o.enabled);
+  const pricing = settings.pricing;
+  const mats = enabledMaterials(pricing);
+  const tiers = [...pricing.tiers].sort((a, b) => a.minSheets - b.minSheets);
+  const rows: { from: number; to: number | null; percent: number }[] = [];
+  if (tiers.length === 0 || tiers[0].minSheets > pricing.minSheets) {
+    rows.push({ from: pricing.minSheets, to: tiers.length ? tiers[0].minSheets - 1 : null, percent: 0 });
+  }
+  tiers.forEach((tier, i) => {
+    if (i + 1 < tiers.length && tiers[i + 1].minSheets <= pricing.minSheets) return;
+    rows.push({ from: Math.max(tier.minSheets, pricing.minSheets), to: i + 1 < tiers.length ? tiers[i + 1].minSheets - 1 : null, percent: tier.percent });
+  });
+  const exMaterial = mats.includes('plastic') ? 'plastic' : mats[0];
+  const exSheets = Math.min(Math.max(50, pricing.minSheets), pricing.maxSheets);
+  const example =
+    settings.pricesPublished && exMaterial
+      ? priceFor(exMaterial, exSheets, 1, settings)
+      : null;
 
   return (
     <div>
@@ -215,21 +231,19 @@ export default async function HowItWorksPage() {
         </div>
       </section>
 
-      {/* Offers */}
+      {/* Pricing */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
-        <h2 className="text-2xl font-bold">{t.offersTitle}</h2>
-        <p className="mt-2 text-muted-foreground">{t.offersIntro}</p>
-        <ul className="mt-6 grid gap-4 sm:grid-cols-3">
-          {offers.map((o) => (
-            <li key={o.id} className="rounded-2xl border border-border bg-card p-5">
-              {o.badge ? <p className="mb-2 text-xs font-bold text-brand">{o.badge}</p> : null}
-              <p className="text-xl font-bold">
-                <Ltr>{o.sheets}</Ltr> {t.offerSheets}
-              </p>
+        <h2 className="text-2xl font-bold">{t.pricingTitle}</h2>
+        <p className="mt-2 text-muted-foreground">{t.pricingIntro}</p>
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+          {mats.map((m) => (
+            <li key={m} className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-xl font-bold">{common.materials[m]}</p>
               <p className="mt-2 text-muted-foreground">
-                {settings.pricesPublished && o.priceIqd !== null ? (
+                {settings.pricesPublished ? (
                   <>
-                    <Ltr className="font-bold text-foreground">{formatIqd(o.priceIqd)}</Ltr> {common.units.iqd}
+                    <Ltr className="font-bold text-foreground">{formatIqd(pricing.materials[m].pricePerSheetIqd)}</Ltr>{' '}
+                    {common.units.iqd} {t.perSheet}
                   </>
                 ) : (
                   t.priceUnset
@@ -238,9 +252,46 @@ export default async function HowItWorksPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-sm text-muted-foreground">
-          {t.deliveryLabel}: <span className="font-bold text-foreground">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>
-        </p>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card sm:max-w-md">
+          <table className="w-full text-start">
+            <caption className="bg-muted/60 px-5 py-3 text-start text-sm font-medium text-muted-foreground">{t.discountTitle}</caption>
+            <thead className="sr-only">
+              <tr>
+                <th scope="col">{t.discountHeaders.sheets}</th>
+                <th scope="col">{t.discountHeaders.discount}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => (
+                <tr key={r.from}>
+                  <th scope="row" className="px-5 py-3 text-start font-medium">
+                    {r.to === null ? fillLtr(t.rangeFrom, { from: r.from }) : fillLtr(t.rangeTo, { from: r.from, to: r.to })}
+                  </th>
+                  <td className="px-5 py-3 font-bold">
+                    {r.percent === 0 ? t.noDiscount : fillLtr(t.percentOff, { percent: r.percent })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
+          <li>
+            {t.minOrder} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}
+          </li>
+          <li>
+            {t.deliveryLabel}: <span className="font-bold text-foreground">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>
+          </li>
+          {example && example.subtotalIqd !== null && exMaterial ? (
+            <li>
+              {t.exampleLabel}: <Ltr>{exSheets}</Ltr> {count(exSheets, common.plural.sheet)} {common.materials[exMaterial]} ={' '}
+              <Ltr className="font-bold text-foreground">{formatIqd(example.subtotalIqd)}</Ltr> {common.units.iqd} {t.exampleAnd}{' '}
+              {t.exampleEquals}
+            </li>
+          ) : null}
+        </ul>
       </section>
 
       {/* CTA */}

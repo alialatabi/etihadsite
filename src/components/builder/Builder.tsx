@@ -10,7 +10,7 @@ import { MobilePreviewStrip, PreviewPanel } from './PreviewPanels';
 import { Stepper } from './Stepper';
 import { DesignStep } from './steps/DesignStep';
 import { DetailsStep } from './steps/DetailsStep';
-import { OfferStep } from './steps/OfferStep';
+import { QuantityStep } from './steps/QuantityStep';
 import { ShapeStep } from './steps/ShapeStep';
 import { SizeStep } from './steps/SizeStep';
 import { STEPS } from './logic';
@@ -21,7 +21,7 @@ const TITLES = {
   shape: builder.shape.title,
   design: builder.upload.title,
   size: builder.size.title,
-  offer: builder.offer.title,
+  quantity: builder.quantity.title,
   details: builder.details.title,
 } as const;
 
@@ -55,12 +55,13 @@ export function Builder({ settings }: { settings: ShopSettings }) {
       document.getElementById(firstBad[1])?.focus();
       return;
     }
-    if (!b.design || !b.spec || !b.offer || !b.layout || !phoneE164) return;
+    if (!b.design || !b.spec || !b.material || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
     const f = b.fields;
     void sub.submit({
       design: b.design,
       spec: b.spec,
-      offerId: b.offer.id,
+      material: b.material,
+      sheets: b.sheets,
       customer: {
         name: f.name.trim() || undefined,
         phone: phoneE164,
@@ -73,7 +74,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
   };
 
   const isLast = b.step === STEPS.length - 1;
-  const showStrip = b.stepId === 'size' || b.stepId === 'offer';
+  const showStrip = b.stepId === 'size' || b.stepId === 'quantity';
   const inquiry = settings.whatsapp ? whatsappUrl(settings.whatsapp) : null;
 
   return (
@@ -92,7 +93,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
             {b.stepId === 'shape' && <ShapeStep b={b} />}
             {b.stepId === 'design' && <DesignStep b={b} />}
             {b.stepId === 'size' && <SizeStep b={b} />}
-            {b.stepId === 'offer' && <OfferStep b={b} />}
+            {b.stepId === 'quantity' && <QuantityStep b={b} />}
             {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} onRetry={handleSubmit} />}
 
             <div className="cut-line mt-6 h-px text-border" aria-hidden />

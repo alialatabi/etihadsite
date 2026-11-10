@@ -141,7 +141,7 @@ function Cells({ layout, previewUrl, artId, clipId }: { layout: LayoutResult; pr
 
 const OUTLINE = {
   fill: 'none',
-  stroke: '#1e2a4a',
+  stroke: '#121f34',
   strokeOpacity: 0.25,
   strokeWidth: 1,
   vectorEffect: 'non-scaling-stroke',

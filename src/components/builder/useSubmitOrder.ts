@@ -11,6 +11,7 @@ import type {
   CustomerInfo,
   DesignSource,
   DirectUploadStart,
+  Material,
   OrderError,
   OrderRequest,
   OrderResponse,
@@ -23,7 +24,8 @@ export type OrderOk = Extract<OrderResponse, { ok: true }>;
 export interface SubmitInput {
   design: DesignSource;
   spec: StickerSpec;
-  offerId: string;
+  material: Material;
+  sheets: number;
   customer: CustomerInfo;
 }
 
@@ -75,7 +77,8 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
       orderId: ctx.orderId,
       uploadId: ctx.uploadId as string,
       spec: input.spec,
-      offerId: input.offerId,
+      material: input.material,
+      sheets: input.sheets,
       customer: input.customer,
     });
 
@@ -99,7 +102,9 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
 
     if (res.ok) return { kind: 'ok', response: res };
     if (res.error === 'server_error') return { kind: 'degraded', reason: 'order:server_error' };
-    return { kind: 'error', code: res.error, message: order.errors[res.error] ?? res.message ?? common.errors.generic };
+    const message =
+      res.error === 'invalid_quantity' ? builder.quantity.errors.invalid_quantity : (order.errors[res.error] ?? res.message ?? common.errors.generic);
+    return { kind: 'error', code: res.error, message };
   } catch (e) {
     return { kind: 'degraded', reason: e instanceof Error ? e.message : 'unknown' };
   }

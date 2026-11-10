@@ -1,5 +1,6 @@
 import { verifySession } from "@/lib/auth/session";
 import { pdfFileNameFor } from "@/lib/display-no";
+import { orderPriceView } from "@/app/admin/_lib";
 import { getStorage } from "@/lib/storage";
 import { ID_RE } from "@/lib/storage/paths";
 
@@ -32,7 +33,7 @@ export async function GET(
   let mime: string;
   if (which === "pdf") {
     path = record.files.pdfPath;
-    name = pdfFileNameFor(record.displayNo, record.spec, record.offer.sheets);
+    name = pdfFileNameFor(record.displayNo, record.spec, orderPriceView(record).sheets ?? 0);
     mime = "application/pdf";
   } else {
     path = record.files.designPath;

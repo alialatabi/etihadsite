@@ -16,7 +16,7 @@ export function Header({ settings }: { settings: ShopSettings }) {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
         <Link href="/" aria-label={pages.shell.homeAria} className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Image src="/icon-192.png" alt="" width={36} height={36} className="size-8 rounded-lg sm:size-9" priority />
+          <Image src="/brand/softy-mark.png" alt="" width={36} height={36} className="size-8 rounded-lg sm:size-9" priority />
           <span className="font-heading text-base font-bold text-primary sm:text-lg">{settings.shopName}</span>
         </Link>
 
@@ -26,7 +26,7 @@ export function Header({ settings }: { settings: ShopSettings }) {
           </NavLink>
           <Link
             href="/#builder"
-            className="whitespace-nowrap rounded-lg bg-brand px-3 py-2 font-bold text-brand-foreground shadow-sm transition-colors hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-4"
+            className="whitespace-nowrap rounded-lg bg-brand-gradient-cta px-3 py-2 font-bold text-brand-foreground shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-4"
           >
             {common.nav.start}
           </Link>

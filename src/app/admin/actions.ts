@@ -52,30 +52,50 @@ const mmToUm = (f: FormData, k: string) => {
   return Number.isFinite(mm) ? Math.round(mm * 1000) : NaN;
 };
 
+const s = admin.settings;
+
 export async function saveSettingsAction(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
   if (!(await verifySession())) redirect('/admin/login');
   const storage = getStorage();
   const current = await storage.getSettings();
 
-  let offersRaw: unknown;
+  let tiersRaw: unknown;
   try {
-    offersRaw = JSON.parse(str(formData, 'offers') || '[]');
+    tiersRaw = JSON.parse(str(formData, 'tiers') || '[]');
   } catch {
-    offersRaw = null;
+    tiersRaw = null;
   }
-  const offers = Array.isArray(offersRaw)
-    ? offersRaw.map((o: Record<string, unknown>, i) => {
-        const price = String(o?.priceIqd ?? '').trim();
-        const badge = String(o?.badge ?? '').trim();
-        return {
-          id: String(o?.id || `offer-${Date.now().toString(36)}-${i}`),
-          sheets: Number(o?.sheets),
-          priceIqd: price === '' ? null : Number(price),
-          badge: badge === '' ? undefined : badge,
-          enabled: o?.enabled === true,
-        };
-      })
-    : [];
+  if (!Array.isArray(tiersRaw)) return { error: s.invalid };
+  const tiers = tiersRaw.map((r: Record<string, unknown>) => ({
+    minSheets: r?.minSheets === '' ? NaN : Number(r?.minSheets),
+    percent: r?.percent === '' ? NaN : Number(r?.percent),
+  }));
+  const quickPicks = str(formData, 'quickPicks')
+    .split(/[,،\s]+/)
+    .filter(Boolean)
+    .map(Number);
+
+  const pricing: ShopSettings['pricing'] = {
+    materials: {
+      paper: { enabled: formData.get('paperEnabled') === 'on', pricePerSheetIqd: intOf(formData, 'paperPrice') },
+      plastic: { enabled: formData.get('plasticEnabled') === 'on', pricePerSheetIqd: intOf(formData, 'plasticPrice') },
+    },
+    minSheets: intOf(formData, 'minSheets'),
+    maxSheets: intOf(formData, 'maxSheets'),
+    tiers,
+    quickPicks,
+  };
+
+  const m = pricing.materials;
+  if (!m.paper.enabled && !m.plastic.enabled) return { error: s.errors.noMaterial };
+  if (pricing.minSheets > pricing.maxSheets) return { error: s.errors.minMax };
+  if (tiers.length > 20) return { error: s.errors.tiersMax };
+  if (new Set(tiers.map((x) => x.minSheets)).size !== tiers.length) return { error: s.errors.duplicateTier };
+  if (tiers.some((x) => Number.isInteger(x.percent) && (x.percent < 0 || x.percent > 90))) return { error: s.errors.tierPercent };
+  if (quickPicks.length > 8 || quickPicks.some((n) => !Number.isInteger(n) || n < 1)) return { error: s.errors.quickPicks };
+  if (quickPicks.some((n) => n < pricing.minSheets || n > pricing.maxSheets)) return { error: s.errors.quickPicksRange };
+  const nums = [m.paper.pricePerSheetIqd, m.plastic.pricePerSheetIqd, pricing.minSheets, pricing.maxSheets, ...tiers.flatMap((x) => [x.minSheets, x.percent])];
+  if (nums.some((n) => !Number.isInteger(n))) return { error: s.errors.number };
 
   const candidate: ShopSettings = {
     ...current,
@@ -86,7 +106,7 @@ export async function saveSettingsAction(_prev: SettingsFormState, formData: For
     hours: str(formData, 'hours'),
     area: str(formData, 'area'),
     telegramChatId: str(formData, 'telegramChatId'),
-    offers,
+    pricing,
     deliveryFeeIqd: intOf(formData, 'deliveryFeeIqd'),
     pricesPublished: formData.get('pricesPublished') === 'on',
     retentionDays: intOf(formData, 'retentionDays'),

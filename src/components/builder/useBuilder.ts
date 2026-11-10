@@ -1,15 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { enabledMaterials, validateQuantity } from '@/lib/pricing';
 import { decodeDesign } from '@/lib/design/decode.client';
 import { logClient } from './logClient';
 import {
   EMPTY_FIELDS,
   STEPS,
   buildSummary,
+  clampSheets,
   dpiFor,
   dpiStatus,
   loadForm,
+  parseSheets,
   pdfPrefillUm,
   saveForm,
   validateCustomer,
@@ -18,7 +21,7 @@ import {
   type StepId,
 } from './logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm, safePrice } from './safe';
-import type { Corners, DesignDecodeError, DesignSource, Shape, ShopSettings, StickerSpec } from '@/lib/types';
+import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -41,7 +44,8 @@ export function useBuilder(settings: ShopSettings) {
   const [widthText, setWidthText] = useState('');
   const [heightText, setHeightText] = useState('');
   const [sizeUm, setSizeUm] = useState<SizeUm | null>(null);
-  const [offerId, setOfferId] = useState<string | null>(null);
+  const [materialChoice, setMaterialChoice] = useState<Material | null>(null);
+  const [sheetsText, setSheetsText] = useState(() => String(settings.pricing.minSheets));
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [showErrors, setShowErrors] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -60,7 +64,8 @@ export function useBuilder(settings: ShopSettings) {
       if (typeof saved.widthText === 'string') setWidthText(saved.widthText);
       if (typeof saved.heightText === 'string') setHeightText(saved.heightText);
       if (saved.sizeUm) setSizeUm(saved.sizeUm);
-      if (saved.offerId) setOfferId(saved.offerId);
+      if (saved.material === 'paper' || saved.material === 'plastic') setMaterialChoice(saved.material);
+      if (typeof saved.sheetsText === 'string' && saved.sheetsText.trim()) setSheetsText(saved.sheetsText);
       setFields({
         name: saved.name ?? '',
         phone: saved.phone ?? '',
@@ -76,8 +81,8 @@ export function useBuilder(settings: ShopSettings) {
 
   useEffect(() => {
     if (!hydrated || !shape) return;
-    saveForm({ shape, corners, widthText, heightText, sizeUm, offerId, ...fields });
-  }, [hydrated, shape, corners, widthText, heightText, sizeUm, offerId, fields]);
+    saveForm({ shape, corners, widthText, heightText, sizeUm, material: materialChoice, sheetsText, ...fields });
+  }, [hydrated, shape, corners, widthText, heightText, sizeUm, materialChoice, sheetsText, fields]);
 
   /* ── object URL hygiene ── */
   useEffect(() => {
@@ -241,16 +246,30 @@ export function useBuilder(settings: ShopSettings) {
   const dpi = design && spec ? dpiFor(design, spec) : null;
   const dpiState = dpiStatus(dpi, settings.quality);
 
-  const offers = useMemo(() => settings.offers.filter((o) => o.enabled), [settings.offers]);
-  const offer = offers.find((o) => o.id === offerId) ?? null;
-  const price = offer && layout ? safePrice(offer, layout.countPerSheet, settings) : null;
-  const summary = spec && layout && offer && price ? buildSummary(spec, layout, offer, price) : null;
+  /* ── quantity: material + sheets (price is derived, never stored) ── */
+  const pricing = settings.pricing;
+  const materials = useMemo(() => enabledMaterials(pricing), [pricing]);
+  // Chosen material if still enabled; otherwise paper (or the only/first enabled one).
+  const material: Material | null =
+    materialChoice && materials.includes(materialChoice) ? materialChoice : materials.includes('paper') ? 'paper' : (materials[0] ?? null);
+  const sheets = parseSheets(sheetsText);
+  const quantityError =
+    material === null ? ('material_disabled' as const) : sheets === null ? ('not_integer' as const) : validateQuantity(material, sheets, pricing);
+
+  const setSheets = useCallback((n: number) => setSheetsText(String(clampSheets(n, pricing))), [pricing]);
+  const stepSheets = useCallback(
+    (delta: number) => setSheetsText((t) => String(clampSheets((parseSheets(t) ?? pricing.minSheets) + delta, pricing))),
+    [pricing],
+  );
+
+  const price = material && sheets !== null && !quantityError && layout ? safePrice(material, sheets, layout.countPerSheet, settings) : null;
+  const summary = spec && layout && price ? buildSummary(spec, layout, price) : null;
 
   const stepOk: Record<StepId, boolean> = {
     shape: shape !== null,
     design: design !== null && !decoding,
     size: !!layout && settled && dpiState !== 'block',
-    offer: offer !== null && !!layout,
+    quantity: !quantityError && !!layout,
     details: true,
   };
 
@@ -261,7 +280,7 @@ export function useBuilder(settings: ShopSettings) {
       return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [step, stepOk.shape, stepOk.design, stepOk.size, stepOk.offer],
+    [step, stepOk.shape, stepOk.design, stepOk.size, stepOk.quantity],
   );
   const goTo = useCallback((i: number) => canGoTo(i) && setStep(Math.max(0, Math.min(STEPS.length - 1, i))), [canGoTo]);
   const next = useCallback(() => goTo(step + 1), [goTo, step]);
@@ -302,10 +321,15 @@ export function useBuilder(settings: ShopSettings) {
     maxWidthUm,
     dpi,
     dpiState,
-    offers,
-    offer,
-    offerId,
-    setOfferId,
+    materials,
+    material,
+    setMaterial: setMaterialChoice,
+    sheets,
+    sheetsText,
+    setSheetsText,
+    setSheets,
+    stepSheets,
+    quantityError,
     price,
     summary,
     fields,

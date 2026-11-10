@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, ORDERS_DIR, fakeIpHeaders, withLock } from './helpers';
+import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, ORDERS_DIR, fakeIpHeaders, withLock } from './helpers';
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
@@ -29,8 +29,8 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
   await snap(page, info, '04-size');
   await next(page).click();
 
-  await page.getByRole('radio', { name: /(^|\s)20\s*ورق/ }).click();
-  await snap(page, info, '05-offer');
+  await chooseQuantity(page, 'plastic', 20);
+  await snap(page, info, '05-quantity');
   await next(page).click();
 
   await fillDetails(page);

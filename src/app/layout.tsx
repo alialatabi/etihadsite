@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/shell/Header';
 import { Footer } from '@/components/shell/Footer';
 import { getSettings } from '@/lib/settings';
-import { pages } from '@/content/ar';
+import { common, pages } from '@/content/ar';
 import './globals.css';
 
 /**
@@ -22,7 +22,7 @@ const fontSans = IBM_Plex_Sans_Arabic({
 export const metadata: Metadata = {
   title: {
     default: pages.seo.title,
-    template: `%s | الاتحاد برنت`,
+    template: `%s | ${common.brand}`,
   },
   description: pages.seo.description,
 };
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#1e2a4a',
+  themeColor: '#121f34',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

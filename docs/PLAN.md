@@ -89,7 +89,9 @@ Consent line above submit: «بياناتك وملفك تُستخدم لتنفي
 
 Client errors (decode/preview/upload failures with step, file type/size, UA) posted to a tiny `/api/log` so they show in Vercel runtime logs.
 
-## 6. Offers and prices
+## 6. Offers and prices (superseded, see note)
+
+> **UPDATE 2026-11-10 (owner decision): the fixed offers/packages («الباقات») below are REPLACED by per-sheet pricing.** Customer picks the material and types any whole number of sheets in the same step (quantity step, with − / + and quick picks 10/20/50/100). Minimum 10 sheets. Paper «ورقي» 800 IQD/sheet, plastic «بلاستك» 1,500 IQD/sheet. Volume discount on the whole order: 10-19 = 0%, 20-49 = 10%, 50-99 = 15%, 100+ = 20%. Delivery flat 5,000 IQD to every governorate. All values (material prices/enabled, min/max, tiers, quick picks, delivery, pricesPublished) are editable in /admin/settings (`settings.pricing`). The server recomputes the price from `{material, sheets}` via `priceFor` in `src/lib/pricing.ts`; clients never send prices. Steps are now: الشكل → التصميم → القياس → العدد والخامة → بياناتك. The text below is kept as history.
 
 `Offer = { id, sheets, priceIqd: number | null, badge?: string, enabled: boolean }`, default tiers 20 / 50 / 100 sheets **[my call]**. Cards show sheets, **total stickers** (sheets × per-sheet), offer price and ≈ price per sticker, formatted with `Intl.NumberFormat('ar-IQ-u-nu-latn')`. While `priceIqd` is null the card shows «السعر يُحدد عند التأكيد»; **no fake placeholder prices are ever shown publicly.**
 

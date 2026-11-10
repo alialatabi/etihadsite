@@ -1,4 +1,4 @@
-# الاتحاد برنت — project rules for every agent
+# مطبعة سوفتي (Softy Printing) — project rules for every agent
 
 Arabic-only (RTL, Iraqi dialect) A4 sticker-ordering site for a print shop in Iraq. Next.js 16 App Router, TypeScript, Tailwind v4, shadcn/ui (base-nova, RTL), pnpm. **Local development only for now — no Vercel deploy.** Windows machine.
 

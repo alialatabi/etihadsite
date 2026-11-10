@@ -33,9 +33,13 @@ function record(orderId: string, createdAt: string): OrderRecord {
       pxHeight: 10,
       effectiveDpi: 300,
     },
-    offer: { id: "offer-20", sheets: 20, priceIqd: null },
     price: {
-      offerPriceIqd: null,
+      material: "paper",
+    sheets: 20,
+    unitBaseIqd: null,
+    discountPercent: 0,
+    unitPriceIqd: null,
+    subtotalIqd: null,
       deliveryFeeIqd: 5000,
       totalIqd: null,
       totalStickers: 1080,
@@ -118,7 +122,34 @@ describe("LocalStorage", () => {
     expect(merged.whatsapp).toBe("9647701234567");
     expect(merged.layout.allowRotate).toBe(true);
     expect(merged.layout.marginUm).toBe(DEFAULT_SETTINGS.layout.marginUm);
-    expect(merged.offers).toEqual(DEFAULT_SETTINGS.offers);
+    expect(merged.pricing).toEqual(DEFAULT_SETTINGS.pricing);
+
+    // Legacy file: has "offers", no "pricing" -> pricing from defaults, offers stripped.
+    writeFileSync(
+      path.join(dir, "settings.json"),
+      JSON.stringify({
+        whatsapp: "9647701234567",
+        offers: [{ id: "offer-20", sheets: 20, priceIqd: 25000, enabled: true }],
+      }),
+    );
+    const legacy = await s.getSettings();
+    expect(legacy.pricing).toEqual(DEFAULT_SETTINGS.pricing);
+    expect(legacy.whatsapp).toBe("9647701234567");
+    expect("offers" in legacy).toBe(false);
+
+    // New pricing shape round-trips (partial override merges with defaults).
+    const custom = {
+      ...DEFAULT_SETTINGS,
+      pricing: {
+        ...DEFAULT_SETTINGS.pricing,
+        minSheets: 5,
+        quickPicks: [5, 10],
+        tiers: [{ minSheets: 5, percent: 5 }],
+      },
+    };
+    await s.saveSettings(custom);
+    const back = await s.getSettings();
+    expect(back.pricing).toEqual(custom.pricing);
 
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     writeFileSync(

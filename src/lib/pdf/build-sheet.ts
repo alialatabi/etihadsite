@@ -166,8 +166,8 @@ export async function buildSheetPdf(input: SheetPdfInput): Promise<SheetPdfOutpu
 
   doc.setTitle(meta.displayNo);
   doc.setSubject(meta.description);
-  doc.setProducer('Al-Ittihad Print');
-  doc.setCreator('Al-Ittihad Print');
+  doc.setProducer('Softy Printing');
+  doc.setCreator('Softy Printing');
   doc.setCreationDate(new Date());
 
   const bytes = await doc.save();

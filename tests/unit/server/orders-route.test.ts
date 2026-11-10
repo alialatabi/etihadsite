@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
-import type { OrderResponse, ShopSettings } from "@/lib/types";
+import type { OrderResponse } from "@/lib/types";
 import { setupEnv } from "./helpers";
 
 const normaliseArtwork = vi.fn();
@@ -30,31 +30,6 @@ vi.mock("@/lib/parse/phone", () => ({
   whatsappUrl: (d: string, t?: string) =>
     `https://wa.me/${d}${t ? `?text=${encodeURIComponent(t)}` : ""}`,
 }));
-vi.mock("@/lib/pricing", () => ({
-  findOffer: (id: string, s: ShopSettings) =>
-    s.offers.find((o) => o.id === id && o.enabled) ?? null,
-  priceFor: (
-    o: { sheets: number; priceIqd: number | null },
-    count: number,
-    s: ShopSettings,
-  ) => {
-    const offerPriceIqd =
-      s.pricesPublished && o.priceIqd !== null ? o.priceIqd : null;
-    const totalIqd =
-      offerPriceIqd === null ? null : offerPriceIqd + s.deliveryFeeIqd;
-    const totalStickers = o.sheets * count;
-    return {
-      offerPriceIqd,
-      deliveryFeeIqd: s.deliveryFeeIqd,
-      totalIqd,
-      totalStickers,
-      perStickerIqd:
-        totalIqd === null ? null : Math.round(totalIqd / totalStickers),
-    };
-  },
-  formatIqd: (n: number) => String(n),
-}));
-
 import { POST } from "@/app/api/orders/route";
 import { getStorage } from "@/lib/storage";
 
@@ -67,7 +42,8 @@ function body(over: Record<string, unknown> = {}) {
     orderId: "order-aaaaaaaaaaaaaaaaaa",
     uploadId: "upload-aaaaaaaaaaaaaaaa",
     spec: { shape: "circle", widthUm: 30000, heightUm: 30000 },
-    offerId: "offer-20",
+    material: "paper",
+    sheets: 20,
     customer: {
       name: "علي",
       phone: "07701234567",
@@ -134,7 +110,6 @@ beforeEach(async () => {
     ...DEFAULT_SETTINGS,
     whatsapp: "9647709999999",
     pricesPublished: true,
-    offers: [{ id: "offer-20", sheets: 20, priceIqd: 25000, enabled: true }],
   });
 });
 
@@ -142,14 +117,25 @@ describe("POST /api/orders", () => {
   it("creates an order with the price recomputed from settings", async () => {
     // A hostile client smuggles in its own price; it must be ignored.
     const res = await call(
-      body({ priceIqd: 1, totalIqd: 1, offer: { priceIqd: 1 } }),
+      body({
+        priceIqd: 1,
+        totalIqd: 1,
+        unitPriceIqd: 1,
+        discountPercent: 99,
+        price: { totalIqd: 1 },
+        offer: { priceIqd: 1 },
+      }),
     );
     expect(res.status).toBe(200);
     const r = await json(res);
     if (!r.ok) throw new Error("expected ok");
     expect(r.displayNo).toMatch(/^EP-\d{6}-[A-Z2-9]{4}$/);
-    expect(r.summary.offerPriceIqd).toBe(25000);
-    expect(r.summary.totalIqd).toBe(30000);
+    // paper 800 x 20 sheets, 10% off -> 720 per sheet
+    expect(r.summary.material).toBe("paper");
+    expect(r.summary.unitPriceIqd).toBe(720);
+    expect(r.summary.discountPercent).toBe(10);
+    expect(r.summary.subtotalIqd).toBe(14400);
+    expect(r.summary.totalIqd).toBe(19400);
     expect(r.summary.sheets).toBe(20);
     expect(r.summary.countPerSheet).toBeGreaterThan(0);
     expect(r.notified.telegram).toBe("sent");
@@ -168,6 +154,83 @@ describe("POST /api/orders", () => {
     expect(await getStorage().readFile(stored!.files.pdfPath)).not.toBeNull();
     const fileName = notifyShop.mock.calls[0][2] as string;
     expect(fileName).toBe(`${r.displayNo}_circle-30x30mm_x20.pdf`);
+    expect(stored?.price.totalIqd).toBe(19400);
+    expect(stored).not.toHaveProperty("offer");
+    expect(stored).not.toHaveProperty("priceIqd");
+  });
+
+  it("computes plastic x 50 on the server: 1,275 each, total 68,750", async () => {
+    const r = await json(
+      await call(
+        body({
+          orderId: "order-plastic50aaaaaaaa",
+          material: "plastic",
+          sheets: 50,
+        }),
+      ),
+    );
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary).toMatchObject({
+      material: "plastic",
+      sheets: 50,
+      unitPriceIqd: 1275,
+      discountPercent: 15,
+      subtotalIqd: 63750,
+      deliveryFeeIqd: 5000,
+      totalIqd: 68750,
+    });
+  });
+
+  it("rejects a quantity below the minimum", async () => {
+    const res = await call(
+      body({ orderId: "order-belowminaaaaaaaa", sheets: 9 }),
+    );
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({
+      ok: false,
+      error: "invalid_quantity",
+    });
+    expect(await getStorage().getOrder("order-belowminaaaaaaaa")).toBeNull();
+  });
+
+  it("rejects a quantity above the maximum", async () => {
+    const res = await call(
+      body({
+        orderId: "order-abovemaxaaaaaaaa",
+        sheets: DEFAULT_SETTINGS.pricing.maxSheets + 1,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ error: "invalid_quantity" });
+  });
+
+  it("rejects a disabled material", async () => {
+    await getStorage().saveSettings({
+      ...DEFAULT_SETTINGS,
+      pricing: {
+        ...DEFAULT_SETTINGS.pricing,
+        materials: {
+          ...DEFAULT_SETTINGS.pricing.materials,
+          plastic: { enabled: false, pricePerSheetIqd: 1500 },
+        },
+      },
+    });
+    const res = await call(
+      body({ orderId: "order-disabledaaaaaaaa", material: "plastic" }),
+    );
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ error: "invalid_quantity" });
+  });
+
+  it("rejects an unknown material or fractional sheets as invalid_request", async () => {
+    const m = await call(
+      body({ orderId: "order-badmaterialaaaaa", material: "gold" }),
+    );
+    expect(m.status).toBe(400);
+    const f = await call(
+      body({ orderId: "order-fractionalaaaaaa", sheets: 10.5 }),
+    );
+    expect(f.status).toBe(400);
   });
 
   it("is idempotent on orderId", async () => {
@@ -182,12 +245,14 @@ describe("POST /api/orders", () => {
   it("returns an empty whatsappUrl when the shop has no WhatsApp", async () => {
     await getStorage().saveSettings({
       ...DEFAULT_SETTINGS,
-      offers: [{ id: "offer-20", sheets: 20, priceIqd: null, enabled: true }],
+      pricesPublished: false,
     });
     const r = await json(await call(body()));
     if (!r.ok) throw new Error("expected ok");
     expect(r.whatsappUrl).toBe("");
     expect(r.summary.totalIqd).toBeNull();
+    expect(r.summary.unitPriceIqd).toBeNull();
+    expect(r.summary.deliveryFeeIqd).toBe(5000);
   });
 
   it("maps validation failures to error codes", async () => {
@@ -196,12 +261,12 @@ describe("POST /api/orders", () => {
     );
     expect(bad).toMatchObject({ ok: false, error: "invalid_phone" });
 
-    const offer = await call(
-      body({ orderId: "order-bbbbbbbbbbbbbbbbbb", offerId: "nope" }),
+    const qty = await call(
+      body({ orderId: "order-bbbbbbbbbbbbbbbbbb", sheets: 3 }),
     );
-    expect(await json(offer)).toMatchObject({
+    expect(await json(qty)).toMatchObject({
       ok: false,
-      error: "invalid_offer",
+      error: "invalid_quantity",
     });
 
     const up = await call(

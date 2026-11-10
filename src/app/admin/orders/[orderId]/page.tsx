@@ -11,7 +11,7 @@ import { whatsappUrl } from '@/lib/parse/phone';
 import { formatIqd } from '@/lib/pricing';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import { formatBaghdad, statusVariant, telegramLabel } from '../../_lib';
+import { formatBaghdad, orderPriceView, statusVariant, telegramLabel } from '../../_lib';
 import { StatusForm } from './StatusForm';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +25,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-const money = (v: number | null) =>
+const money = (v: number | null, unpublished = false) =>
   v === null ? (
-    admin.orders.totalUnset
+    unpublished ? admin.orders.totalUnset : admin.orders.missing
   ) : (
     <>
       <Ltr>{formatIqd(v)}</Ltr> {common.units.iqd}
@@ -48,6 +48,7 @@ export default async function OrderDetailPage({
   const o = await getStorage().getOrder(orderId);
   if (!o) notFound();
   const d = admin.detail;
+  const pv = orderPriceView(o);
 
   return (
     <section className="flex flex-col gap-4">
@@ -96,15 +97,18 @@ export default async function OrderDetailPage({
                   : fill(d.layoutValue, { cols: o.layout.cols, rows: o.layout.rows })}
                 {o.layout.rotated && !o.layout.turnedCount ? ` · ${d.rotated}` : ''}
               </Row>
-              <Row label={d.sheets}>
-                <Ltr>{o.offer.sheets}</Ltr>
-              </Row>
+              <Row label={d.material}>{pv.material ? common.materials[pv.material] : admin.orders.missing}</Row>
+              <Row label={d.sheets}>{pv.sheets === null ? admin.orders.missing : <Ltr>{pv.sheets}</Ltr>}</Row>
               <Row label={d.totalStickers}>
-                <Ltr>{o.price.totalStickers}</Ltr>
+                {pv.totalStickers === null ? admin.orders.missing : <Ltr>{pv.totalStickers}</Ltr>}
               </Row>
-              <Row label={d.price}>{money(o.price.offerPriceIqd)}</Row>
-              <Row label={d.delivery}>{money(o.price.deliveryFeeIqd)}</Row>
-              <Row label={d.total}>{money(o.price.totalIqd)}</Row>
+              <Row label={d.unitPrice}>{money(pv.unitPriceIqd, !!pv.material)}</Row>
+              <Row label={d.discount}>
+                {pv.discountPercent === null ? admin.orders.missing : <Ltr>{pv.discountPercent}%</Ltr>}
+              </Row>
+              <Row label={d.subtotal}>{money(pv.subtotalIqd, !!pv.material)}</Row>
+              <Row label={d.delivery}>{money(pv.deliveryFeeIqd)}</Row>
+              <Row label={d.total}>{money(pv.totalIqd, !!pv.material)}</Row>
               <Row label={d.dpi}>
                 {o.design.effectiveDpi !== undefined ? <Ltr>{Math.round(o.design.effectiveDpi)}</Ltr> : d.vector}
               </Row>

@@ -1,4 +1,4 @@
-import { test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, fakeIpHeaders } from './helpers';
+import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, fakeIpHeaders } from './helpers';
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
@@ -20,7 +20,7 @@ test('invalid phone shows error', async ({ page }, info) => {
   await toSizeStep(page, png);
   await setSize(page, '3');
   await next(page).click();
-  await page.getByRole('radio', { name: /(^|\s)20\s*ورق/ }).click();
+  await chooseQuantity(page, 'plastic', 20);
   await next(page).click();
   await fillDetails(page, '0680123456');
   await page.getByRole('button', { name: builder.details.submit, exact: true }).click();
@@ -35,7 +35,7 @@ test('JPEG with custom shape shows no_alpha', async ({ page }, info) => {
   await chooseShape(page, builder.shape.custom);
   await next(page).click();
   await upload(page, jpg);
-  await expect(page.getByRole('alert').filter({ hasText: 'الشكل المخصص يحتاج ملف PNG بخلفية شفافة' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'الشكل المخصص يحتاج PNG شفاف' })).toBeVisible();
   await snap(page, info, 'validation-no-alpha');
 });
 

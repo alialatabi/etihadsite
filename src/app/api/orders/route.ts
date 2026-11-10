@@ -9,7 +9,7 @@ import { orderRequestSchema } from "@/lib/order-schema";
 import { orderSummaryText } from "@/lib/order-text";
 import { normalisePhone, whatsappUrl } from "@/lib/parse/phone";
 import { buildSheetPdf } from "@/lib/pdf/build-sheet";
-import { findOffer, priceFor } from "@/lib/pricing";
+import { priceFor, validateQuantity } from "@/lib/pricing";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
 const STATUS: Record<OrderError, number> = {
   invalid_request: 400,
   upload_missing: 400,
-  invalid_offer: 400,
+  invalid_quantity: 400,
   invalid_phone: 400,
   too_small: 400,
   too_big_for_page: 400,
@@ -63,9 +63,12 @@ function summaryOf(record: OrderRecord): OrderSummary {
     widthUm: record.spec.widthUm,
     heightUm: record.spec.heightUm,
     countPerSheet: record.layout.countPerSheet,
-    sheets: record.offer.sheets,
+    sheets: record.price.sheets,
+    material: record.price.material,
     totalStickers: record.price.totalStickers,
-    offerPriceIqd: record.price.offerPriceIqd,
+    unitPriceIqd: record.price.unitPriceIqd,
+    discountPercent: record.price.discountPercent,
+    subtotalIqd: record.price.subtotalIqd,
     deliveryFeeIqd: record.price.deliveryFeeIqd,
     totalIqd: record.price.totalIqd,
   };
@@ -128,8 +131,8 @@ async function processOrder(
   const phone = normalisePhone(req.customer.phone);
   if (!phone) return fail("invalid_phone");
 
-  const offer = findOffer(req.offerId, settings);
-  if (!offer) return fail("invalid_offer");
+  if (validateQuantity(req.material, req.sheets, settings.pricing) !== null)
+    return fail("invalid_quantity");
 
   const upload = await storage.readUpload(req.uploadId);
   if (!upload) return fail("upload_missing");
@@ -150,7 +153,7 @@ async function processOrder(
   if (!norm.ok) return fail(norm.error);
 
   const displayNo = makeDisplayNo();
-  const fileName = pdfFileNameFor(displayNo, spec, offer.sheets);
+  const fileName = pdfFileNameFor(displayNo, spec, req.sheets);
   const pdf = await buildSheetPdf({
     layout,
     artwork: norm.artwork,
@@ -160,7 +163,7 @@ async function processOrder(
     },
   });
 
-  const price = priceFor(offer, layout.countPerSheet, settings);
+  const price = priceFor(req.material, req.sheets, layout.countPerSheet, settings);
   const pdfPath = await storage.savePdf(req.orderId, pdf.bytes);
 
   const record: OrderRecord = {
@@ -189,7 +192,6 @@ async function processOrder(
       effectiveDpi:
         norm.artwork.kind === "raster" ? norm.artwork.effectiveDpi : undefined,
     },
-    offer: { id: offer.id, sheets: offer.sheets, priceIqd: offer.priceIqd },
     price,
     customer: {
       name: req.customer.name || undefined,

@@ -1,4 +1,4 @@
-# الاتحاد برنت / Al-Ittihad Print
+# مطبعة سوفتي / Softy Printing
 
 موقع عربي (من اليمين لليسار) لطلب ستيكرات مطبوعة على ورق A4. / An Arabic-only (RTL) site for ordering A4 sticker sheets.
 

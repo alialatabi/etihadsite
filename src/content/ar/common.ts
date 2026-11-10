@@ -4,8 +4,8 @@
  * Digits: Western (0-9). Numbers, units, file names and phone numbers are wrapped in <Ltr>.
  */
 export const common = {
-  brand: 'الاتحاد برنت',
-  tagline: 'طباعة ستيكرات على قياسك',
+  brand: 'مطبعة سوفتي',
+  tagline: 'ستيكرات على قياسك',
   nav: {
     home: 'الرئيسية',
     howItWorks: 'شلون نشتغل؟',
@@ -35,6 +35,11 @@ export const common = {
     perSheet: 'بالورقة',
     a4: 'A4',
   },
+  /** Sticker sheet material (keys = Material in src/lib/types.ts). */
+  materials: {
+    paper: 'ورقي',
+    plastic: 'بلاستك',
+  },
   status: {
     loading: 'جاري التحميل…',
     saving: 'جاري الحفظ…',
@@ -43,9 +48,9 @@ export const common = {
     done: 'تم',
   },
   errors: {
-    generic: 'صار خطأ غير متوقع. جرّب مرة ثانية.',
+    generic: 'صار خطأ. جرّب مرة ثانية.',
     network: 'ما قدرنا نوصل للسيرفر. تأكد من الإنترنت وجرّب مرة ثانية.',
-    rateLimited: 'طلبات كثيرة بوقت قصير. انتظر شوية وجرّب مرة ثانية.',
+    rateLimited: 'طلبات كثيرة. انتظر شوية وجرّب مرة ثانية.',
   },
   footer: {
     filesNotice: 'ملفاتك وبياناتك تُستخدم لتنفيذ طلبك فقط وتُحذف بعد 30 يوم من التنفيذ.',

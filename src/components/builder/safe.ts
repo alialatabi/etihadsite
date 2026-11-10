@@ -11,7 +11,7 @@ import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import type {
   LayoutOutcome,
   LayoutSettings,
-  Offer,
+  Material,
   OrderSummary,
   PriceBreakdown,
   Shape,
@@ -79,15 +79,20 @@ export function safeCountLabel(n: number): string {
   }
 }
 
-export function safePrice(offer: Offer, countPerSheet: number, settings: ShopSettings): PriceBreakdown {
+export function safePrice(material: Material, sheets: number, countPerSheet: number, settings: ShopSettings): PriceBreakdown {
   try {
-    return priceFor(offer, countPerSheet, settings);
+    return priceFor(material, sheets, countPerSheet, settings);
   } catch {
     return {
-      offerPriceIqd: null,
+      material,
+      sheets,
+      unitBaseIqd: null,
+      discountPercent: 0,
+      unitPriceIqd: null,
+      subtotalIqd: null,
       deliveryFeeIqd: settings.deliveryFeeIqd,
       totalIqd: null,
-      totalStickers: offer.sheets * countPerSheet,
+      totalStickers: sheets * countPerSheet,
       perStickerIqd: null,
     };
   }

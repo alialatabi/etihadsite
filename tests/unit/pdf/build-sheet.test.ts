@@ -122,7 +122,7 @@ async function check(layout: LayoutResult, artwork: NormalisedArtwork, name: str
 
   expect(doc.getTitle()).toBe('EP-251107-TEST');
   expect(doc.getSubject()).toBe(name);
-  expect(doc.getProducer()).toBe('Al-Ittihad Print');
+  expect(doc.getProducer()).toBe('Softy Printing');
   return { res, stream, page };
 }
 

@@ -18,7 +18,7 @@ export function Footer({ settings }: { settings: ShopSettings }) {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-1">
           <Link href="/" className="inline-flex items-center gap-3">
-            <Image src="/icon-192.png" alt="" width={40} height={40} className="size-10 rounded-lg" />
+            <Image src="/brand/softy-mark.png" alt="" width={40} height={40} className="size-10 rounded-lg" />
             <span className="font-heading text-lg font-bold">{settings.shopName}</span>
           </Link>
           <p className="mt-3 text-primary-foreground/80">{settings.tagline}</p>

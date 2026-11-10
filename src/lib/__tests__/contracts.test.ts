@@ -39,8 +39,13 @@ describe('contracts', () => {
   it('defaults carry the agreed business rules', () => {
     expect(DEFAULT_SETTINGS.deliveryFeeIqd).toBe(5000);
     expect(DEFAULT_SETTINGS.layout.marginUm).toBe(7000);
-    expect(DEFAULT_SETTINGS.offers[0].sheets).toBe(20);
-    expect(DEFAULT_SETTINGS.pricesPublished).toBe(false);
+    const pr = DEFAULT_SETTINGS.pricing;
+    expect(pr.minSheets).toBe(10);
+    expect(pr.materials.paper.pricePerSheetIqd).toBe(800);
+    expect(pr.materials.plastic.pricePerSheetIqd).toBe(1500);
+    expect(pr.tiers.map((t) => [t.minSheets, t.percent])).toEqual([[20, 10], [50, 15], [100, 20]]);
+    expect(pr.quickPicks).toEqual([10, 20, 50, 100]);
+    expect(DEFAULT_SETTINGS.pricesPublished).toBe(true);
     expect(governorates).toHaveLength(19);
     expect(governorates[0]).toBe('بغداد');
   });

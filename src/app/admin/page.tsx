@@ -9,7 +9,7 @@ import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import { whatsappUrl } from '@/lib/parse/phone';
 import { formatIqd } from '@/lib/pricing';
 import { getStorage } from '@/lib/storage';
-import { formatBaghdad, statusVariant, telegramLabel } from './_lib';
+import { formatBaghdad, orderPriceView, statusVariant, telegramLabel } from './_lib';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,13 +33,16 @@ export default async function OrdersPage() {
               <TableHead>{c.phone}</TableHead>
               <TableHead>{c.spec}</TableHead>
               <TableHead>{c.sheets}</TableHead>
+              <TableHead>{c.material}</TableHead>
               <TableHead>{c.total}</TableHead>
               <TableHead>{c.status}</TableHead>
               <TableHead>{c.telegram}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((o) => (
+            {orders.map((o) => {
+              const pv = orderPriceView(o);
+              return (
               <TableRow key={o.orderId}>
                 <TableCell>
                   <Link href={`/admin/orders/${o.orderId}`} className="font-medium underline-offset-4 hover:underline">
@@ -67,14 +70,15 @@ export default async function OrdersPage() {
                   {shapeLabel(o.spec.shape, o.spec.corners)} · {sizeLabel(o.spec.widthUm, o.spec.heightUm)}
                 </TableCell>
                 <TableCell>
-                  <Ltr>{o.offer.sheets}</Ltr>
+                  {pv.sheets === null ? admin.orders.missing : <Ltr>{pv.sheets}</Ltr>}
                 </TableCell>
+                <TableCell>{pv.material ? common.materials[pv.material] : admin.orders.missing}</TableCell>
                 <TableCell>
-                  {o.price.totalIqd === null ? (
-                    admin.orders.totalUnset
+                  {pv.totalIqd === null ? (
+                    admin.orders.missing
                   ) : (
                     <>
-                      <Ltr>{formatIqd(o.price.totalIqd)}</Ltr> {common.units.iqd}
+                      <Ltr>{formatIqd(pv.totalIqd)}</Ltr> {common.units.iqd}
                     </>
                   )}
                 </TableCell>
@@ -83,7 +87,8 @@ export default async function OrdersPage() {
                 </TableCell>
                 <TableCell>{telegramLabel[o.notified.telegram]}</TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       )}

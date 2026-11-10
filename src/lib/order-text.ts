@@ -10,6 +10,7 @@
  *   الشكل: دائري
  *   القياس: 3 × 3 سم
  *   بالورقة: 54 ستيكر
+ *   الخامة: ورقي
  *   الأوراق: 20 ورقة (1080 ستيكر)
  *   السعر: يُحدد عند التأكيد
  *   التوصيل: 5,000 د.ع
@@ -17,7 +18,7 @@
  * When the total is known, a final "الإجمالي: … د.ع" line is appended.
  */
 import type { OrderSummary } from '@/lib/types';
-import { common } from '@/content/ar/common';
+import { common, fill, order } from '@/content/ar';
 import { formatCm } from '@/lib/parse/cm';
 import { countLabel } from '@/lib/plural';
 import { formatIqd } from '@/lib/pricing';
@@ -25,16 +26,24 @@ import { formatIqd } from '@/lib/pricing';
 const money = (n: number): string => `${formatIqd(n)} ${common.units.iqd}`;
 
 export function orderSummaryText(summary: OrderSummary): string {
+  const T = order.text;
   const lines = [
-    `طلب جديد — ${summary.displayNo}`,
-    `الشكل: ${shapeLabel(summary.shape, summary.corners)}`,
-    `القياس: ${sizeLabel(summary.widthUm, summary.heightUm)}`,
-    `بالورقة: ${countLabel(summary.countPerSheet, common.plural.sticker)}`,
-    `الأوراق: ${countLabel(summary.sheets, common.plural.sheet)} (${countLabel(summary.totalStickers, common.plural.sticker)})`,
-    `السعر: ${summary.offerPriceIqd === null ? 'يُحدد عند التأكيد' : money(summary.offerPriceIqd)}`,
-    `التوصيل: ${money(summary.deliveryFeeIqd)}`,
+    `${T.newOrder} — ${summary.displayNo}`,
+    `${T.shape}: ${shapeLabel(summary.shape, summary.corners)}`,
+    `${T.size}: ${sizeLabel(summary.widthUm, summary.heightUm)}`,
+    `${T.perSheet}: ${countLabel(summary.countPerSheet, common.plural.sticker)}`,
+    `${T.material}: ${common.materials[summary.material]}`,
+    `${T.sheets}: ${countLabel(summary.sheets, common.plural.sheet)} (${countLabel(summary.totalStickers, common.plural.sticker)})`,
   ];
-  if (summary.totalIqd !== null) lines.push(`الإجمالي: ${money(summary.totalIqd)}`);
+  if (summary.unitPriceIqd === null) {
+    lines.push(`${T.price}: ${T.priceUnset}`);
+  } else {
+    const disc = summary.discountPercent > 0 ? ` (${fill(T.discount, { percent: summary.discountPercent })})` : '';
+    lines.push(`${T.unitPrice}: ${money(summary.unitPriceIqd)}${disc}`);
+    if (summary.subtotalIqd !== null) lines.push(`${T.subtotal}: ${money(summary.subtotalIqd)}`);
+  }
+  lines.push(`${T.delivery}: ${money(summary.deliveryFeeIqd)}`);
+  if (summary.totalIqd !== null) lines.push(`${T.total}: ${money(summary.totalIqd)}`);
   return lines.join('\n');
 }
 

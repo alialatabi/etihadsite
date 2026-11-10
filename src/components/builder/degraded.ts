@@ -13,9 +13,11 @@ export function manualSummaryText(s: SummaryData): string {
     `${builder.summary.shape}: ${safeShapeLabel(s.shape, s.corners)}`,
     `${builder.summary.size}: ${sizeText}`,
     `${builder.summary.perSheet}: ${s.countPerSheet}`,
+    `${builder.summary.material}: ${common.materials[s.material]}`,
     `${builder.summary.sheets}: ${s.sheets}`,
     `${builder.summary.totalStickers}: ${s.totalStickers}`,
-    `${builder.summary.price}: ${s.offerPriceIqd == null ? builder.summary.priceUnset : money(s.offerPriceIqd)}`,
+    ...(s.discountPercent > 0 ? [`${builder.summary.discount}: ${s.discountPercent}%`] : []),
+    `${builder.summary.unitPrice}: ${s.unitPriceIqd == null ? builder.summary.priceUnset : money(s.unitPriceIqd)}`,
     `${builder.summary.delivery}: ${money(s.deliveryFeeIqd)}`,
     `${builder.summary.total}: ${s.totalIqd == null ? builder.summary.priceUnset : money(s.totalIqd)}`,
   ].join('\n');

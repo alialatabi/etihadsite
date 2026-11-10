@@ -24,7 +24,21 @@ vi.mock('@/lib/parse/cm', () => ({
 }));
 
 import { degradedText, degradedUrl } from '@/components/builder/degraded';
-import { dpiExact, dpiFor, dpiStatus, needsCropNotice, pdfPrefillUm, validateCustomer } from '@/components/builder/logic';
+import {
+  activeTier,
+  clampSheets,
+  dpiExact,
+  dpiFor,
+  dpiStatus,
+  needsCropNotice,
+  nextTierNudge,
+  parseSheets,
+  pdfPrefillUm,
+  quickPicksFor,
+  validateCustomer,
+} from '@/components/builder/logic';
+import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { validateQuantity } from '@/lib/pricing';
 import type { DesignSource, StickerSpec } from '@/lib/types';
 
 const design = (over: Partial<DesignSource>): DesignSource =>
@@ -97,7 +111,10 @@ describe('degraded WhatsApp text', () => {
     countPerSheet: 54,
     sheets: 20,
     totalStickers: 1080,
-    offerPriceIqd: null,
+    material: 'paper' as const,
+    unitPriceIqd: null,
+    discountPercent: 0,
+    subtotalIqd: null,
     deliveryFeeIqd: 5000,
     totalIqd: null,
   };
@@ -109,5 +126,53 @@ describe('degraded WhatsApp text', () => {
   it('returns null without a whatsapp number', () => {
     expect(degradedUrl('', summary)).toBeNull();
     expect(degradedUrl('9647701234567', summary)).toMatch(/^https:\/\/wa\.me\/9647701234567\?text=/);
+  });
+});
+
+describe('quantity logic', () => {
+  const pricing = DEFAULT_SETTINGS.pricing;
+
+  it('parses typed text, incl. Arabic-Indic digits', () => {
+    expect(parseSheets('25')).toBe(25);
+    expect(parseSheets(' ٢٠ ')).toBe(20);
+    expect(parseSheets('')).toBeNull();
+    expect(parseSheets('abc')).toBeNull();
+    expect(parseSheets('12.5')).toBe(12.5);
+  });
+
+  it('clamps into min..max and rounds', () => {
+    expect(clampSheets(3, pricing)).toBe(10);
+    expect(clampSheets(9999, pricing)).toBe(pricing.maxSheets);
+    expect(clampSheets(24.6, pricing)).toBe(25);
+    expect(clampSheets(Number.NaN, pricing)).toBe(10);
+  });
+
+  it('validates quantity against settings', () => {
+    expect(validateQuantity('paper', 10, pricing)).toBeNull();
+    expect(validateQuantity('paper', 9, pricing)).toBe('below_min');
+    expect(validateQuantity('paper', 10.5, pricing)).toBe('not_integer');
+    expect(validateQuantity('paper', pricing.maxSheets + 1, pricing)).toBe('above_max');
+  });
+
+  it('keeps only quick picks inside min..max, unique and sorted', () => {
+    expect(quickPicksFor({ minSheets: 10, maxSheets: 100, quickPicks: [200, 50, 5, 10, 50, 20.5] })).toEqual([10, 50]);
+    expect(quickPicksFor(pricing)).toEqual([10, 20, 50, 100]);
+  });
+
+  it('finds the tier reached', () => {
+    expect(activeTier(10, pricing.tiers)).toBeNull();
+    expect(activeTier(20, pricing.tiers)?.percent).toBe(10);
+    expect(activeTier(99, pricing.tiers)?.percent).toBe(15);
+    expect(activeTier(100, pricing.tiers)?.percent).toBe(20);
+    expect(activeTier(null, pricing.tiers)).toBeNull();
+  });
+
+  it('nudges only when the next tier is close', () => {
+    expect(nextTierNudge(10, pricing.tiers)).toBeNull(); // 10 away from 20 (> 5)
+    expect(nextTierNudge(15, pricing.tiers)).toEqual({ add: 5, percent: 10 });
+    expect(nextTierNudge(45, pricing.tiers)).toEqual({ add: 5, percent: 15 });
+    expect(nextTierNudge(40, pricing.tiers)).toEqual({ add: 10, percent: 15 }); // 25% of 50 = 13
+    expect(nextTierNudge(100, pricing.tiers)).toBeNull();
+    expect(nextTierNudge(null, pricing.tiers)).toBeNull();
   });
 });

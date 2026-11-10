@@ -19,7 +19,8 @@ const okUpload = (id: string): UploadResponse => ({ ok: true, uploadId: id, kind
 const input = (name = 'a.pdf', type = 'application/pdf'): SubmitInput => ({
   design: { kind: type === 'application/pdf' ? 'pdf' : 'png', file: new File(['x'], name, { type }) } as never,
   spec: { shape: 'rect', corners: 'rounded', widthUm: 30_000, heightUm: 30_000 },
-  offerId: 'offer-20',
+  material: 'plastic',
+  sheets: 20,
   customer: { phone: '9647701234567', governorate: 'بغداد', district: 'x', landmark: 'y' },
 });
 
@@ -45,7 +46,8 @@ describe('submitOrderFlow', () => {
       orderId: 'id-1',
       uploadId: 'u1',
       spec: input().spec,
-      offerId: 'offer-20',
+      material: 'plastic',
+  sheets: 20,
       customer: input().customer,
     });
   });

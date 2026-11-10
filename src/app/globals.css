@@ -5,9 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens — FROZEN during Phase 1.
- * Brand: ink navy (primary), warm paper (background), sticker orange (brand = CTA accent).
+ * Design tokens — Softy Printing (مطبعة سوفتي) identity.
+ * Logo: circle gradient orange #FF9A1F -> crimson #EE3A62 -> purple #8A2B8F, wordmark navy #121F34.
+ * Brand: ink navy (primary/foreground), near-white warm background, --brand = logo crimson #D01C4A
+ * (darkened from #EE3A62 so white text passes AA: 5.32:1).
  * Use `bg-brand text-brand-foreground` for the main call-to-action only.
+ * `bg-brand-gradient` is the full logo gradient (decorative, NO text on it: orange fails contrast).
+ * `bg-brand-gradient-cta` is crimson -> purple, safe under white text (>= 4.95:1).
  */
 @theme inline {
   --color-background: var(--background);
@@ -59,10 +63,10 @@
 
 :root {
   --header-h: 3.5rem;
-  --paper: oklch(0.985 0.006 85);
-  --ink: oklch(0.24 0.045 262);
-  --brand: oklch(0.7 0.17 50);
-  --brand-foreground: oklch(0.16 0.03 50);
+  --paper: #fdfbfa;
+  --ink: #121f34;
+  --brand: #d01c4a;
+  --brand-foreground: #ffffff;
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -70,25 +74,25 @@
   --card-foreground: var(--ink);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--ink);
-  --primary: oklch(0.3 0.07 262);
-  --primary-foreground: oklch(0.985 0.006 85);
-  --secondary: oklch(0.95 0.01 85);
+  --primary: #121f34;
+  --primary-foreground: #fdfbfa;
+  --secondary: oklch(0.96 0.008 20);
   --secondary-foreground: var(--ink);
-  --muted: oklch(0.955 0.008 85);
+  --muted: oklch(0.96 0.006 20);
   --muted-foreground: oklch(0.5 0.03 262);
-  --accent: oklch(0.94 0.03 60);
+  --accent: oklch(0.955 0.025 8);
   --accent-foreground: var(--ink);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9 0.01 85);
-  --input: oklch(0.9 0.01 85);
-  --ring: oklch(0.7 0.17 50);
-  --chart-1: oklch(0.7 0.17 50);
-  --chart-2: oklch(0.3 0.07 262);
+  --border: oklch(0.91 0.008 20);
+  --input: oklch(0.91 0.008 20);
+  --ring: #d01c4a;
+  --chart-1: #d01c4a;
+  --chart-2: #121f34;
   --chart-3: oklch(0.6 0.1 200);
   --chart-4: oklch(0.75 0.12 120);
-  --chart-5: oklch(0.55 0.15 330);
+  --chart-5: #8a2b8f;
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0.006 85);
+  --sidebar: #fdfbfa;
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
@@ -111,13 +115,13 @@
   --card-foreground: oklch(0.97 0.006 85);
   --popover: oklch(0.22 0.035 262);
   --popover-foreground: oklch(0.97 0.006 85);
-  --primary: oklch(0.85 0.04 85);
+  --primary: oklch(0.9 0.02 20);
   --primary-foreground: oklch(0.2 0.04 262);
   --secondary: oklch(0.27 0.03 262);
   --secondary-foreground: oklch(0.97 0.006 85);
   --muted: oklch(0.27 0.03 262);
   --muted-foreground: oklch(0.72 0.02 262);
-  --accent: oklch(0.3 0.04 60);
+  --accent: oklch(0.3 0.05 8);
   --accent-foreground: oklch(0.97 0.006 85);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -131,6 +135,15 @@
   --sidebar-accent-foreground: oklch(0.97 0.006 85);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: var(--brand);
+}
+
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, #ff9a1f 0%, #ee3a62 50%, #8a2b8f 100%);
+}
+
+@utility bg-brand-gradient-cta {
+  background-color: #d01c4a;
+  background-image: linear-gradient(135deg, #d01c4a 0%, #8a2b8f 100%);
 }
 
 @layer base {

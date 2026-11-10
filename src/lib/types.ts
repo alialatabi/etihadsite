@@ -195,14 +195,34 @@ export interface SheetPdfOutput {
 
 /* ────────────────────────────── Offers / settings ──────────────────────── */
 
-export interface Offer {
-  id: string;
-  sheets: number;
-  /** Iraqi dinar. null = price not set yet → UI shows «السعر يُحدد عند التأكيد». */
-  priceIqd: number | null;
-  /** Optional badge text, e.g. «الأكثر طلباً». */
-  badge?: string;
+/** Sticker sheet material. The customer picks it together with the sheet count. */
+export type Material = 'paper' | 'plastic';
+export const MATERIALS: readonly Material[] = ['paper', 'plastic'];
+
+export interface MaterialPrice {
   enabled: boolean;
+  /** Full price of ONE A4 sheet, Iraqi dinar, before any volume discount. */
+  pricePerSheetIqd: number;
+}
+
+/** From `minSheets` sheets upward the whole order gets `percent`% off the per-sheet price. */
+export interface DiscountTier {
+  minSheets: number;
+  /** 0–90, integer. */
+  percent: number;
+}
+
+/** Per-sheet pricing with volume discounts (replaces the old fixed "offers"/packages). */
+export interface PricingSettings {
+  materials: Record<Material, MaterialPrice>;
+  /** Smallest order the shop accepts (owner: 10 sheets). */
+  minSheets: number;
+  /** Largest order the site accepts online (sanity cap). */
+  maxSheets: number;
+  /** Sorted ascending by minSheets on save; the highest tier with minSheets ≤ sheets applies. */
+  tiers: DiscountTier[];
+  /** Quick-pick buttons shown next to the number input, e.g. [10, 20, 50, 100]. */
+  quickPicks: number[];
 }
 
 export interface LayoutSettings {
@@ -238,9 +258,10 @@ export interface ShopSettings {
   area: string;
   /** Telegram chat id that receives orders. Empty = Telegram disabled. */
   telegramChatId: string;
-  offers: Offer[];
+  pricing: PricingSettings;
+  /** Flat delivery fee, same for every governorate. */
   deliveryFeeIqd: number;
-  /** When false, all offer prices are hidden even if set. */
+  /** When false, all prices are hidden («السعر يُحدد عند التأكيد»). */
   pricesPublished: boolean;
   layout: LayoutSettings;
   quality: QualitySettings;
@@ -251,9 +272,18 @@ export interface ShopSettings {
 /* ────────────────────────────── Pricing ────────────────────────────────── */
 
 export interface PriceBreakdown {
-  offerPriceIqd: number | null;
+  material: Material;
+  sheets: number;
+  /** Full per-sheet price before discount; null when prices are not published. */
+  unitBaseIqd: number | null;
+  /** Volume discount applied to every sheet (0 when none). */
+  discountPercent: number;
+  /** round(unitBaseIqd × (100 − discountPercent) / 100); null when not published. */
+  unitPriceIqd: number | null;
+  /** unitPriceIqd × sheets (before delivery); null when not published. */
+  subtotalIqd: number | null;
   deliveryFeeIqd: number;
-  /** null when the offer price is not set / not published. */
+  /** subtotalIqd + deliveryFeeIqd; null when not published. */
   totalIqd: number | null;
   /** sheets × countPerSheet */
   totalStickers: number;
@@ -280,7 +310,9 @@ export interface OrderRequest {
   /** Returned by POST /api/upload. */
   uploadId: string;
   spec: StickerSpec;
-  offerId: string;
+  material: Material;
+  /** Integer, pricing.minSheets ≤ sheets ≤ pricing.maxSheets. */
+  sheets: number;
   customer: CustomerInfo;
   /** Optional Turnstile token (enforced only when the server has a secret configured). */
   turnstileToken?: string;
@@ -296,8 +328,11 @@ export interface OrderSummary {
   heightUm: number;
   countPerSheet: number;
   sheets: number;
+  material: Material;
   totalStickers: number;
-  offerPriceIqd: number | null;
+  unitPriceIqd: number | null;
+  discountPercent: number;
+  subtotalIqd: number | null;
   deliveryFeeIqd: number;
   totalIqd: number | null;
 }
@@ -331,7 +366,7 @@ export interface OrderRecord {
     /** Undefined for vector PDFs. */
     effectiveDpi?: number;
   };
-  offer: { id: string; sheets: number; priceIqd: number | null };
+  /** material + sheets live in price (price.material, price.sheets). */
   price: PriceBreakdown;
   customer: CustomerInfo;
   files: {
@@ -346,7 +381,7 @@ export interface OrderRecord {
 export type OrderError =
   | 'invalid_request'
   | 'upload_missing'
-  | 'invalid_offer'
+  | 'invalid_quantity'
   | 'invalid_phone'
   | 'too_small'
   | 'too_big_for_page'

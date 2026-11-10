@@ -50,14 +50,21 @@ export function buildCaption(
       ? `${Math.round(record.design.effectiveDpi)} DPI`
       : record.design.kind.toUpperCase();
 
+  const discount =
+    record.price.unitPriceIqd !== null && record.price.discountPercent > 0
+      ? ` (${fill(L.discount, { percent: record.price.discountPercent })})`
+      : "";
+
   const head = [
     `<b>${L.title} — ${escapeHtml(record.displayNo)}</b>`,
     `${L.shape}: ${escapeHtml(shapeLabel(record.spec.shape, record.spec.corners))}`,
     `${L.size}: ${escapeHtml(sizeLabel(record.spec.widthUm, record.spec.heightUm))}`,
     `${L.perSheet}: ${record.layout.countPerSheet}`,
-    `${L.sheets}: ${record.offer.sheets}`,
+    `${L.material}: ${common.materials[record.price.material]}`,
+    `${L.sheets}: ${record.price.sheets}`,
     `${L.totalStickers}: ${record.price.totalStickers}`,
-    `${L.price}: ${money(record.price.offerPriceIqd)}`,
+    `${L.unitPrice}: ${money(record.price.unitPriceIqd)}${discount}`,
+    `${L.subtotal}: ${money(record.price.subtotalIqd)}`,
     `${L.delivery}: ${money(record.price.deliveryFeeIqd)}`,
     `${L.total}: ${money(record.price.totalIqd)}`,
     `${L.customer}: ${c.name ? escapeHtml(clip(c.name, 60)) : "—"}`,

@@ -15,7 +15,9 @@ export const orderRequestSchema = z.object({
       heightUm: um,
     })
     .refine((s) => s.shape !== 'circle' || s.widthUm === s.heightUm, 'circle must be square'),
-  offerId: z.string().min(1).max(40),
+  material: z.enum(['paper', 'plastic']),
+  // Range against settings (min/max sheets) is checked in the route with validateQuantity().
+  sheets: z.number().int().min(1).max(100_000),
   customer: z.object({
     name: z.string().trim().max(100).optional(),
     phone: z.string().trim().min(5).max(40),

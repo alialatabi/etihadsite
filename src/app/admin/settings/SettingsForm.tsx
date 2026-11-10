@@ -5,33 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { admin } from '@/content/ar';
+import { admin, common } from '@/content/ar';
 import type { ShopSettings } from '@/lib/types';
 import { saveSettingsAction, type SettingsFormState } from '../actions';
 
-interface OfferRow {
-  id: string;
-  sheets: string;
-  priceIqd: string;
-  badge: string;
-  enabled: boolean;
+interface TierRow {
+  minSheets: string;
+  percent: string;
 }
 
 const toMm = (um: number) => String(um / 1000);
 const s = admin.settings;
 
-function Field({ name, label, defaultValue, type = 'text', dir }: { name: string; label: string; defaultValue: string; type?: string; dir?: 'ltr' }) {
+function Field({ name, label, defaultValue, type = 'text', dir, step }: { step?: string; name: string; label: string; defaultValue: string; type?: string; dir?: 'ltr' }) {
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} defaultValue={defaultValue} dir={dir} step={type === 'number' ? 'any' : undefined} />
+      <Input id={name} name={name} type={type} className="h-12" defaultValue={defaultValue} dir={dir} step={step ?? (type === 'number' ? 'any' : undefined)} />
     </div>
   );
 }
 
 function Check({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex min-h-12 items-center gap-2 text-sm">
       <input type="checkbox" name={name} defaultChecked={defaultChecked} className="size-4" />
       {label}
     </label>
@@ -40,20 +37,12 @@ function Check({ name, label, defaultChecked }: { name: string; label: string; d
 
 export function SettingsForm({ settings, saved }: { settings: ShopSettings; saved: boolean }) {
   const [state, formAction, pending] = useActionState<SettingsFormState, FormData>(saveSettingsAction, {});
-  const [offers, setOffers] = useState<OfferRow[]>(
-    settings.offers.map((o) => ({
-      id: o.id,
-      sheets: String(o.sheets),
-      priceIqd: o.priceIqd === null ? '' : String(o.priceIqd),
-      badge: o.badge ?? '',
-      enabled: o.enabled,
-    })),
+  const [tiers, setTiers] = useState<TierRow[]>(
+    settings.pricing.tiers.map((x) => ({ minSheets: String(x.minSheets), percent: String(x.percent) })),
   );
-  const patch = (i: number, p: Partial<OfferRow>) => setOffers((rows) => rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
-
-  const offersJson = JSON.stringify(
-    offers.map((o) => ({ id: o.id, sheets: o.sheets === '' ? NaN : Number(o.sheets), priceIqd: o.priceIqd, badge: o.badge, enabled: o.enabled })),
-  );
+  const patch = (i: number, p: Partial<TierRow>) => setTiers((rows) => rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const tiersJson = JSON.stringify(tiers);
+  const pr = settings.pricing;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -85,50 +74,60 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
 
       <Card>
         <CardHeader>
-          <CardTitle>{s.offers}</CardTitle>
+          <CardTitle>{s.pricing}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <input type="hidden" name="offers" value={offersJson} />
-          {offers.map((o, i) => (
-            <div key={o.id + i} className="grid items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_1.5fr_1fr_auto_auto]">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={`sheets-${i}`}>{s.offerSheets}</Label>
-                <Input id={`sheets-${i}`} type="number" min={1} dir="ltr" value={o.sheets} onChange={(e) => patch(i, { sheets: e.target.value })} />
+        <CardContent className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <h3 className="font-medium">{s.materialsTitle}</h3>
+            {(['paper', 'plastic'] as const).map((k) => (
+              <div key={k} className="grid items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_2fr_auto]">
+                <div className="pb-3 font-medium">{common.materials[k]}</div>
+                <Field name={`${k}Price`} label={s.pricePerSheet} defaultValue={String(pr.materials[k].pricePerSheetIqd)} type="number" dir="ltr" step="1" />
+                <div className="pb-3">
+                  <Check name={`${k}Enabled`} label={s.materialEnabled} defaultChecked={pr.materials[k].enabled} />
+                </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={`price-${i}`}>{s.offerPrice}</Label>
-                <Input id={`price-${i}`} type="number" min={0} dir="ltr" value={o.priceIqd} onChange={(e) => patch(i, { priceIqd: e.target.value })} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={`badge-${i}`}>{s.offerBadge}</Label>
-                <Input id={`badge-${i}`} value={o.badge} maxLength={40} onChange={(e) => patch(i, { badge: e.target.value })} />
-              </div>
-              <label className="flex items-center gap-2 pb-1.5 text-sm">
-                <input type="checkbox" className="size-4" checked={o.enabled} onChange={(e) => patch(i, { enabled: e.target.checked })} />
-                {s.offerEnabled}
-              </label>
-              <Button type="button" variant="outline" onClick={() => setOffers((rows) => rows.filter((_, j) => j !== i))}>
-                {s.removeOffer}
-              </Button>
-            </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() =>
-                setOffers((rows) => [...rows, { id: `offer-${Date.now().toString(36)}`, sheets: '', priceIqd: '', badge: '', enabled: true }])
-              }
-            >
-              {s.addOffer}
-            </Button>
+            ))}
           </div>
+
           <div className="grid gap-4 md:grid-cols-2">
-            <Field name="deliveryFeeIqd" label={s.deliveryFee} defaultValue={String(settings.deliveryFeeIqd)} type="number" dir="ltr" />
-            <div className="flex items-end pb-1.5">
-              <Check name="pricesPublished" label={s.pricesPublished} defaultChecked={settings.pricesPublished} />
-            </div>
+            <Field name="minSheets" label={s.minSheets} defaultValue={String(pr.minSheets)} step="1" type="number" dir="ltr" />
+            <Field name="maxSheets" label={s.maxSheets} defaultValue={String(pr.maxSheets)} step="1" type="number" dir="ltr" />
           </div>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="font-medium">{s.tiersTitle}</h3>
+            <p className="text-sm text-muted-foreground">{s.tiersHint}</p>
+            <input type="hidden" name="tiers" value={tiersJson} />
+            {tiers.map((row, i) => (
+              <div key={i} className="grid items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_1fr_auto]">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`tier-from-${i}`}>{s.tierFrom}</Label>
+                  <Input id={`tier-from-${i}`} className="h-12" type="number" step={1} min={1} dir="ltr" value={row.minSheets} onChange={(e) => patch(i, { minSheets: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`tier-pct-${i}`}>{s.tierPercent}</Label>
+                  <Input id={`tier-pct-${i}`} className="h-12" type="number" step={1} min={0} max={90} dir="ltr" value={row.percent} onChange={(e) => patch(i, { percent: e.target.value })} />
+                </div>
+                <Button type="button" variant="outline" className="h-12" onClick={() => setTiers((rows) => rows.filter((_, j) => j !== i))}>
+                  {s.removeTier}
+                </Button>
+              </div>
+            ))}
+            {tiers.length < 20 ? (
+              <div>
+                <Button type="button" variant="secondary" className="h-12" onClick={() => setTiers((rows) => [...rows, { minSheets: '', percent: '' }])}>
+                  {s.addTier}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field name="quickPicks" label={s.quickPicks} defaultValue={pr.quickPicks.join(',')} dir="ltr" />
+            <Field name="deliveryFeeIqd" label={s.deliveryFee} defaultValue={String(settings.deliveryFeeIqd)} step="1" type="number" dir="ltr" />
+          </div>
+          <Check name="pricesPublished" label={s.pricesPublished} defaultChecked={settings.pricesPublished} />
         </CardContent>
       </Card>
 
@@ -152,7 +151,7 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
       </Card>
 
       <div>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="h-12">
           {s.save}
         </Button>
       </div>

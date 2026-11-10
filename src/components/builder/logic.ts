@@ -3,18 +3,20 @@ import { effectiveDpi, ptToUm } from '@/lib/units';
 import { normalisePhone } from '@/lib/parse/phone';
 import type {
   Corners,
+  DiscountTier,
   DesignSource,
   LayoutResult,
-  Offer,
+  Material,
   OrderResponse,
   OrderSummary,
   PriceBreakdown,
+  PricingSettings,
   QualitySettings,
   Shape,
   StickerSpec,
 } from '@/lib/types';
 
-export const STEPS = ['shape', 'design', 'size', 'offer', 'details'] as const;
+export const STEPS = ['shape', 'design', 'size', 'quantity', 'details'] as const;
 export type StepId = (typeof STEPS)[number];
 
 export interface FormFields {
@@ -32,7 +34,8 @@ export interface PersistedForm extends FormFields {
   widthText: string;
   heightText: string;
   sizeUm: { widthUm: number; heightUm: number } | null;
-  offerId: string | null;
+  material: Material | null;
+  sheetsText: string;
 }
 
 export const EMPTY_FIELDS: FormFields = { name: '', phone: '', governorate: '', district: '', landmark: '', notes: '' };
@@ -111,19 +114,76 @@ export function validateCustomer(f: FormFields): { errors: CustomerErrors; phone
 
 export type SummaryData = Omit<OrderSummary, 'displayNo'>;
 
-export function buildSummary(spec: StickerSpec, layout: LayoutResult, offer: Offer, price: PriceBreakdown): SummaryData {
+export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: PriceBreakdown): SummaryData {
   return {
     shape: spec.shape,
     corners: spec.shape === 'rect' ? spec.corners : undefined,
     widthUm: spec.widthUm,
     heightUm: spec.heightUm,
     countPerSheet: layout.countPerSheet,
-    sheets: offer.sheets,
+    sheets: price.sheets,
+    material: price.material,
     totalStickers: price.totalStickers,
-    offerPriceIqd: price.offerPriceIqd,
+    unitPriceIqd: price.unitPriceIqd,
+    discountPercent: price.discountPercent,
+    subtotalIqd: price.subtotalIqd,
     deliveryFeeIqd: price.deliveryFeeIqd,
     totalIqd: price.totalIqd,
   };
+}
+
+/* ───────────────────────── quantity (sheets) ───────────────────────── */
+
+const ARABIC_INDIC = '٠١٢٣٤٥٦٧٨٩';
+const EASTERN_INDIC = '۰۱۲۳۴۵۶۷۸۹';
+
+/** Typed text → number (accepts Arabic-Indic digits). null when empty or not a number. */
+export function parseSheets(text: string): number | null {
+  const t = text
+    .trim()
+    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(EASTERN_INDIC.indexOf(d)));
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null; // rejects '', '1e2', '0x10', 'Infinity'
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Nearest orderable whole number within min..max (used by the − / + buttons). */
+export function clampSheets(n: number, pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets'>): number {
+  const r = Number.isFinite(n) ? Math.round(n) : pricing.minSheets;
+  return Math.min(pricing.maxSheets, Math.max(pricing.minSheets, r));
+}
+
+/** Quick-pick values that are orderable (min..max), unique, ascending. */
+export function quickPicksFor(pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets' | 'quickPicks'>): number[] {
+  const ok = pricing.quickPicks.filter((n) => Number.isInteger(n) && n >= pricing.minSheets && n <= pricing.maxSheets);
+  return [...new Set(ok)].sort((a, b) => a - b);
+}
+
+/** Tiers sorted ascending by minSheets (defensive copy). */
+export function sortedTiers(tiers: readonly DiscountTier[]): DiscountTier[] {
+  return [...tiers].sort((a, b) => a.minSheets - b.minSheets);
+}
+
+/** Tier currently reached (highest with minSheets <= sheets) or null. */
+export function activeTier(sheets: number | null, tiers: readonly DiscountTier[]): DiscountTier | null {
+  if (sheets === null) return null;
+  let best: DiscountTier | null = null;
+  for (const t of tiers) if (sheets >= t.minSheets && (!best || t.minSheets > best.minSheets)) best = t;
+  return best;
+}
+
+/**
+ * "Add N sheets and get X% off": only when the next tier gives a better discount and is close
+ * (<= 5 sheets, or <= 25% of that tier's threshold).
+ */
+export function nextTierNudge(sheets: number | null, tiers: readonly DiscountTier[]): { add: number; percent: number } | null {
+  if (sheets === null || !Number.isInteger(sheets)) return null;
+  const current = activeTier(sheets, tiers)?.percent ?? 0;
+  const next = sortedTiers(tiers).find((t) => t.minSheets > sheets && t.percent > current);
+  if (!next) return null;
+  const add = next.minSheets - sheets;
+  return add <= Math.max(5, Math.ceil(next.minSheets * 0.25)) ? { add, percent: next.percent } : null;
 }
 
 /* ───────────────────────── sessionStorage (all try/catch) ───────────────────────── */

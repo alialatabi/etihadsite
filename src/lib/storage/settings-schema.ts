@@ -2,13 +2,26 @@ import { z } from 'zod';
 
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
 
-export const offerSchema = z.object({
-  id: z.string().min(1).max(40),
-  sheets: int(1, 100_000),
-  priceIqd: int(0, 1_000_000_000).nullable(),
-  badge: z.string().max(40).optional(),
+const materialPriceSchema = z.object({
   enabled: z.boolean(),
+  pricePerSheetIqd: int(0, 100_000_000),
 });
+
+export const pricingSchema = z
+  .object({
+    materials: z
+      .object({ paper: materialPriceSchema, plastic: materialPriceSchema })
+      .refine((m) => m.paper.enabled || m.plastic.enabled, 'at least one material must be enabled'),
+    minSheets: int(1, 100_000),
+    maxSheets: int(1, 100_000),
+    tiers: z
+      .array(z.object({ minSheets: int(1, 100_000), percent: int(0, 90) }))
+      .max(20)
+      .refine((t) => new Set(t.map((x) => x.minSheets)).size === t.length, 'duplicate tier')
+      .transform((t) => [...t].sort((a, b) => a.minSheets - b.minSheets)),
+    quickPicks: z.array(int(1, 100_000)).max(8),
+  })
+  .refine((p) => p.minSheets <= p.maxSheets, 'minSheets must be ≤ maxSheets');
 
 export const shopSettingsSchema = z.object({
   shopName: z.string().min(1).max(80),
@@ -18,10 +31,7 @@ export const shopSettingsSchema = z.object({
   hours: z.string().max(160),
   area: z.string().max(80),
   telegramChatId: z.string().max(64),
-  offers: z
-    .array(offerSchema)
-    .max(20)
-    .refine((o) => new Set(o.map((x) => x.id)).size === o.length, 'duplicate offer id'),
+  pricing: pricingSchema,
   deliveryFeeIqd: int(0, 1_000_000_000),
   pricesPublished: z.boolean(),
   layout: z.object({
