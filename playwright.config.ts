@@ -31,6 +31,7 @@ export default defineConfig({
       ORDER_TRANSPORT: 'console',
       ADMIN_PASSWORD: 'e2e-password',
       SESSION_SECRET: 'e2e-session-secret-e2e-session-secret-1234',
+      STAFF_PAGE_KEY: 'e2e-staff-key-e2e-staff-key-1234',
     },
   },
 });

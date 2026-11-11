@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SMALL_JSON_MAX_BYTES, readJsonCapped } from '../_lib/body';
 import { classifySource, isBot } from '@/lib/analytics/classify';
+import { isStaffPath } from '@/lib/analytics/paths';
 import { trackServer, visitorHash } from '@/lib/analytics/server';
 import { limiters } from '@/lib/rate-limit';
 import { BUILDER_STEPS, INSTALL_EVENTS } from '@/lib/types';
@@ -33,7 +34,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!parsed.success) return new Response(null, { status: 400 });
     const b = parsed.data;
 
-    if (isBot(ua) || b.path === '/admin' || b.path.startsWith('/admin/')) return noContent();
+    if (isBot(ua) || b.path === '/admin' || b.path.startsWith('/admin/') || isStaffPath(b.path)) return noContent();
 
     const visitor = visitorHash(request);
     if (!limiters().track.check(visitor).ok) return noContent();

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Share, SquarePlus, X } from 'lucide-react';
 import { pages } from '@/content/ar';
 import { sendTrack } from '@/lib/analytics/client';
+import { isStaffPath } from '@/lib/analytics/paths';
 
 const trackInstall = (step: 'shown' | 'accepted' | 'installed') =>
   sendTrack({ type: 'install', step, path: window.location.pathname });
@@ -85,7 +86,7 @@ export function InstallPrompt({ shopName }: { shopName: string }) {
     };
   }, []);
 
-  const visible = mode !== 'hidden' && !pathname.startsWith('/admin');
+  const visible = mode !== 'hidden' && !pathname.startsWith('/admin') && !isStaffPath(pathname);
   useEffect(() => {
     if (visible) trackInstall('shown');
   }, [visible]);

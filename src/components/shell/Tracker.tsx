@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { sendTrack, type TrackPayload } from '@/lib/analytics/client';
+import { isStaffPath } from '@/lib/analytics/paths';
 
 const FIRST_KEY = 'softy-tracked';
 
@@ -11,7 +12,7 @@ export function Tracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith('/admin')) return;
+    if (!pathname || pathname.startsWith('/admin') || isStaffPath(pathname)) return;
     const payload: Extract<TrackPayload, { type: 'pageview' }> = { type: 'pageview', path: pathname.slice(0, 200) };
     let first = true;
     try {

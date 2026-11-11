@@ -867,6 +867,27 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 }
 `;
 
+exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
+"{
+  "title": "ورقة الموظفين",
+  "adminLinkLabel": "رابط صفحة الموظفين (سري، لا تنشره)"
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
+{
+  "arrays": 0,
+  "booleans": 0,
+  "chars": 47,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 1,
+  "sha256OfRawJson": "6be40fdc53582d4ea4913c8f0563cd86f1aa40b632807798f557e346528d0267",
+  "strings": 2,
+}
+`;
+
 exports[`golden: Arabic copy (@/content/ar) > export names 1`] = `
 [
   "admin: object",
@@ -876,6 +897,7 @@ exports[`golden: Arabic copy (@/content/ar) > export names 1`] = `
   "governorates: array",
   "order: object",
   "pages: object",
+  "staff: object",
 ]
 `;
 
