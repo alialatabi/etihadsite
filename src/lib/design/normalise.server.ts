@@ -10,7 +10,8 @@ import 'server-only';
  *    (never upscale beyond the original); PNG when alpha else JPEG q92.
  *    effectiveDpi uses the ORIGINAL oriented (trimmed) pixels over spec.widthUm.
  *  - PDF: pdf-lib load (no ignoreEncryption -> 'encrypted'); page 1;
- *    box = TrimBox ?? CropBox ?? MediaBox; rotate = page /Rotate.
+ *    box = TrimBox ?? CropBox ?? MediaBox; rotate = page /Rotate (pdfArtworkBox in pdf-box.ts,
+ *    shared with the browser's prepare.client.ts).
  *    Unparseable but not encrypted -> 'needs_raster'.
  *  - Quality gate: effectiveDpi < blockDpi -> 'low_dpi' (rasters only).
  *
@@ -23,6 +24,7 @@ import { PDFDocument } from 'pdf-lib';
 import { effectiveDpi, pxForUmAtDpi } from '@/lib/units';
 import type { DesignKind, NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
 import { sniffKind } from './kind';
+import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
 import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha, widthPixelsFor } from './pixels';
 
 // Kept importable from here for existing callers and tests.
@@ -116,28 +118,20 @@ async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promi
   return { ok: true, artwork, pxWidth: width, pxHeight: height, kind: hasAlpha ? 'png' : 'jpeg' };
 }
 
-// instanceof is unreliable when pdf-lib is loaded through both its CJS and ESM builds.
-function isEncryptedError(e: unknown): boolean {
-  return e instanceof Error && (e.constructor.name === 'EncryptedPDFError' || /is encrypted/i.test(e.message));
-}
-
 async function normalisePdf(bytes: Uint8Array): Promise<NormaliseOutcome> {
   let doc: PDFDocument;
   try {
     doc = await PDFDocument.load(bytes); // never ignoreEncryption
   } catch (e) {
-    if (isEncryptedError(e)) return fail('encrypted');
+    if (isEncryptedPdfError(e)) return fail('encrypted');
     return fail('needs_raster');
   }
   try {
     const pageCount = doc.getPageCount();
     if (pageCount < 1) return fail('corrupt');
-    const page = doc.getPage(0);
-    const b = page.node.TrimBox() ? page.getTrimBox() : page.getCropBox(); // CropBox falls back to MediaBox
-    const box = { x: b.x, y: b.y, width: b.width, height: b.height };
-    if (!(box.width > 0) || !(box.height > 0)) return fail('needs_raster');
-    const raw = Math.round(page.getRotation().angle / 90) * 90;
-    const rotate = ((((raw % 360) + 360) % 360) as 0 | 90 | 180 | 270);
+    const a = pdfArtworkBox(doc); // shared with the browser (staff page)
+    if (!a) return fail('needs_raster');
+    const { box, rotate } = a;
     const swap = rotate === 90 || rotate === 270;
     return {
       ok: true,
