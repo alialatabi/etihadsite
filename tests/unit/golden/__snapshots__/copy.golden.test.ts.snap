@@ -133,7 +133,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     },
     "funnel": {
       "title": "وين يطلعون الزبائن؟",
-      "hint": "كل خطوة بالنسبة لاللي قبلها. النسبة الواطية تعني مكان التسرب.",
+      "hint": "كل خطوة بالنسبة للي قبلها. النسبة الواطية تعني مكان التسرب.",
       "visitors": "زاروا الموقع",
       "started": "بدؤوا الطلب",
       "uploaded": "رفعوا تصميم",
@@ -277,12 +277,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2730,
+  "chars": 2728,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "cf5692ee6ae0bbec6b384d4f5d813d2db63d01630a98dd87987170fbd86c5b42",
+  "sha256OfRawJson": "41d0b147cec308becf639eebd1daea5bd038a8fd994eeb1ce1c0445c9868e6be",
   "strings": 202,
 }
 `;
