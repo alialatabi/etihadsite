@@ -26,6 +26,9 @@ export function SheetIllustration({ layout, label, className }: { layout: Layout
         strokeWidth={0.4}
         strokeDasharray="2 2"
       />
+      {layout.marks?.centres.map((c, i) => (
+        <circle key={`mark-${i}`} data-mark cx={mm(c.xUm)} cy={mm(c.yUm)} r={mm(layout.marks!.diameterUm) / 2} fill="#000" />
+      ))}
       {layout.placements.map((p, i) => {
         // Alternate the three brand-adjacent tints so the sheet reads like printed stickers.
         const tone = i % 3 === 0 ? 'fill-brand' : i % 3 === 1 ? 'fill-primary' : 'fill-brand/40';

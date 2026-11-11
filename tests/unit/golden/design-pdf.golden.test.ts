@@ -349,6 +349,8 @@ async function dates(bytes: Uint8Array) {
 
 const D = DEFAULT_SETTINGS.layout;
 const ROT: LayoutSettings = { ...D, allowRotate: true };
+/** Rotation on at the old 7 mm margin: the cases below that must stay MIXED-orientation (at 3 mm they fit upright). */
+const ROT7: LayoutSettings = { ...ROT, marginUm: 7_000 };
 
 function layoutFor(spec: StickerSpec, settings: LayoutSettings): LayoutResult {
   const out = computeLayout(spec, layoutParamsFor(spec, settings));
@@ -367,10 +369,10 @@ const SHEETS: Sheet[] = [
   { name: '1 circle 30mm, alpha PNG', fixture: 'padded-400x400.png', spec: circle(30), settings: D },
   { name: '2 rect rounded 50x50, JPEG (same aspect, no clip)', fixture: 'opaque-300x300.jpg', spec: rect(50, 50, 'rounded'), settings: D },
   { name: '3 rect sharp 120x90 rotated layout, EXIF JPEG (cover clip)', fixture: 'exif6-600x400.jpg', spec: rect(120, 90), settings: ROT },
-  { name: '4 rect rounded 100x40 mixed-orientation layout, JPEG', fixture: 'opaque-300x300.jpg', spec: rect(100, 40, 'rounded'), settings: ROT },
+  { name: '4 rect rounded 100x40 mixed-orientation layout, JPEG', fixture: 'opaque-300x300.jpg', spec: rect(100, 40, 'rounded'), settings: ROT7 },
   { name: '5 custom 50x25, trimmed alpha PNG', fixture: 'padded-400x400.png', spec: custom(50, 25), settings: D },
   { name: '6 rect sharp 30x40, vector PDF with CropBox and /Rotate 90', fixture: 'cropbox-rot90.pdf', spec: rect(30, 40), settings: D },
-  { name: '7 rect rounded 100x50 mixed layout, vector PDF (page 1 of 2)', fixture: 'two-page.pdf', spec: rect(100, 50, 'rounded'), settings: ROT },
+  { name: '7 rect rounded 100x50 mixed layout, vector PDF (page 1 of 2)', fixture: 'two-page.pdf', spec: rect(100, 50, 'rounded'), settings: ROT7 },
   { name: '8 circle 60mm, non-square EXIF JPEG (centre crop)', fixture: 'exif6-600x400.jpg', spec: circle(60), settings: D },
 ];
 

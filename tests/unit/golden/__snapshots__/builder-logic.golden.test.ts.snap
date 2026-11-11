@@ -86,7 +86,7 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
   },
   "rect no corners 10x4 paper x10": {
     "corners": undefined,
-    "countPerSheet": 6,
+    "countPerSheet": 12,
     "deliveryFeeIqd": 5000,
     "discountPercent": 0,
     "heightUm": 40000,
@@ -95,13 +95,13 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "sheets": 10,
     "subtotalIqd": 8000,
     "totalIqd": 13000,
-    "totalStickers": 60,
+    "totalStickers": 120,
     "unitPriceIqd": 800,
     "widthUm": 100000,
   },
   "rect rounded 5x3 plastic x50": {
     "corners": "rounded",
-    "countPerSheet": 24,
+    "countPerSheet": 27,
     "deliveryFeeIqd": 5000,
     "discountPercent": 15,
     "heightUm": 30000,
@@ -110,7 +110,7 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "sheets": 50,
     "subtotalIqd": 64000,
     "totalIqd": 69000,
-    "totalStickers": 1200,
+    "totalStickers": 1350,
     "unitPriceIqd": 1275,
     "widthUm": 50000,
   },
@@ -310,24 +310,24 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 طلب جديد — —
 الشكل: مستطيل بزوايا دائرية
 القياس: 10 × 4 سم
-بالورقة: 6 ستيكرات
+بالورقة: 12 ستيكر
 الخامة: ورقي
-الأوراق: 10 أوراق (60 ستيكر)
+الأوراق: 10 أوراق (120 ستيكر)
 سعر الورقة: 800 د.ع
 المجموع: 8,000 د.ع
 التوصيل: 5,000 د.ع
 الإجمالي: 13,000 د.ع",
     "manual": "الشكل: مستطيل بزوايا دائرية
 القياس: 10 × 4 سم
-بالورقة: 6
+بالورقة: 12
 الخامة: ورقي
 الأوراق: 10
-مجموع الستيكرات: 60
+مجموع الستيكرات: 120
 سعر الورقة: 800 د.ع
 التوصيل: 5,000 د.ع
 الإجمالي: 13,000 د.ع",
     "urlDecodesToDegradedText": true,
-    "urlHash": "cf24fc76a3e09c3f",
+    "urlHash": "393493c17d935df3",
     "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
   },
   "rect rounded 5x3 plastic x50": {
@@ -335,25 +335,25 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 طلب جديد — —
 الشكل: مستطيل بزوايا دائرية
 القياس: 5 × 3 سم
-بالورقة: 24 ستيكر
+بالورقة: 27 ستيكر
 الخامة: بلاستك
-الأوراق: 50 ورقة (1200 ستيكر)
+الأوراق: 50 ورقة (1350 ستيكر)
 سعر الورقة: 1,275 د.ع (خصم 15%)
 المجموع: 64,000 د.ع
 التوصيل: 5,000 د.ع
 الإجمالي: 69,000 د.ع",
     "manual": "الشكل: مستطيل بزوايا دائرية
 القياس: 5 × 3 سم
-بالورقة: 24
+بالورقة: 27
 الخامة: بلاستك
 الأوراق: 50
-مجموع الستيكرات: 1200
+مجموع الستيكرات: 1350
 الخصم: 15%
 سعر الورقة: 1,275 د.ع
 التوصيل: 5,000 د.ع
 الإجمالي: 69,000 د.ع",
     "urlDecodesToDegradedText": true,
-    "urlHash": "b4baca117c452e33",
+    "urlHash": "8276478d0faad5d0",
     "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
   },
   "rect sharp 4.24x3 paper x100": {
@@ -586,19 +586,19 @@ exports[`golden: safe.ts wrappers (happy path = same result as the wrapped funct
     "NaN=>""",
   ],
   "safeLayout": [
-    "ok n=54 6x9 3ebf2984567897bb",
-    "ok n=24 3x8 ad8d69ca71c30f32",
+    "ok n=54 6x9 87d6330db9ab75e9",
+    "ok n=27 3x9 9fb33ca6db8d5cb0",
     "FAIL too_big_for_page",
     "FAIL too_small",
     "FAIL invalid",
   ],
   "safeMaxWidth": [
-    196000,
-    196000,
-    141500,
+    204000,
+    204000,
+    145500,
     0,
     0,
-    283000,
+    291000,
   ],
   "safeParseCm": [
     ""3"=>30000",

@@ -33,6 +33,7 @@ vi.mock("@/lib/parse/phone", () => ({
 import { POST } from "@/app/api/orders/route";
 import { computeLayout, layoutParamsFor } from "@/lib/layout";
 import { getStorage } from "@/lib/storage";
+import { safeLayout } from "@/components/builder/safe";
 import type { StickerSpec } from "@/lib/types";
 
 const PNG = new Uint8Array([
@@ -542,5 +543,25 @@ describe("POST /api/orders with a sticker count", () => {
     expect(record.mock.calls[0][0].meta).toMatchObject({ requestedStickers: 600, sheets: Math.ceil(600 / cps) });
     expect((await call(body({ orderId: "order-stickers-event2" }))).status).toBe(200);
     expect(record.mock.calls[1][0].meta).not.toHaveProperty("requestedStickers");
+  });
+});
+
+describe("POST /api/orders layout agrees with the browser", () => {
+  it("returns the countPerSheet safeLayout() gives (circle 5.8 cm, rotation on, 15)", async () => {
+    const layoutSettings = { ...DEFAULT_SETTINGS.layout, allowRotate: true };
+    await getStorage().saveSettings({
+      ...DEFAULT_SETTINGS,
+      whatsapp: "9647709999999",
+      pricesPublished: true,
+      layout: layoutSettings,
+    });
+    const spec: StickerSpec = { shape: "circle", widthUm: 58000, heightUm: 58000 };
+    const browser = safeLayout(spec, layoutSettings);
+    if (!browser.ok) throw new Error("layout expected");
+    const res = await call(body({ orderId: "order-agree-aaaaaaaaaa", spec }));
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary.countPerSheet).toBe(browser.layout.countPerSheet);
+    expect(r.summary.countPerSheet).toBe(15);
   });
 });

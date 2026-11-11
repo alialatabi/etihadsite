@@ -38,7 +38,7 @@ describe('contracts', () => {
 
   it('defaults carry the agreed business rules', () => {
     expect(DEFAULT_SETTINGS.deliveryFeeIqd).toBe(5000);
-    expect(DEFAULT_SETTINGS.layout.marginUm).toBe(7000);
+    expect(DEFAULT_SETTINGS.layout.marginUm).toBe(3000);
     const pr = DEFAULT_SETTINGS.pricing;
     expect(pr.minSheets).toBe(10);
     expect(pr.materials.paper.pricePerSheetIqd).toBe(800);

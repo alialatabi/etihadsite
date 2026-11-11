@@ -501,7 +501,7 @@ exports[`golden: SupabaseStorage — orders and settings > settings 1`] = `
   },
   "saveSettings": {
     "requests": [
-      "POST /rest/v1/settings?on_conflict=id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=merge-duplicates,return=minimal","content-type":"application/json"} | body={"id":1,"data":{"shopName":"مطبعة","tagline":"طباعة ستيكرات على قياسك","whatsapp":"9647709999999","phone":"","hours":"ال… (849 chars, sha 5fa6b4ae3c6026ea)",
+      "POST /rest/v1/settings?on_conflict=id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=merge-duplicates,return=minimal","content-type":"application/json"} | body={"id":1,"data":{"shopName":"مطبعة","tagline":"طباعة ستيكرات على قياسك","whatsapp":"9647709999999","phone":"","hours":"ال… (849 chars, sha 7767abd7c991b652)",
     ],
     "result": undefined,
     "unusedResponses": 0,

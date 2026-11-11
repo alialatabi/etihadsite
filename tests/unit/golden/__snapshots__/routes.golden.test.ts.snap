@@ -463,7 +463,7 @@ exports[`golden: POST /api/orders — rejected requests > status + JSON for malf
     "missing upload AND too-small size -> upload wins -> 400 [content-type=application/json] {"ok":false,"error":"upload_missing","message":"الملف ما انرفع. ارفعه مرة ثانية."}",
     "circle 4 mm (below the 5 mm minimum) -> 400 [content-type=application/json] {"ok":false,"error":"too_small","message":"القياس أصغر من الحد المسموح."}",
     "rect 300x300 mm (larger than the page) -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
-    "rect 200x50 mm (fits only rotated; rotation is off) -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
+    "rect 250x50 mm (fits only rotated; rotation is off) -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
     "too-big size AND corrupt upload -> layout wins -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
     "300 px JPEG at 120 mm (63.5 dpi) -> 400 [content-type=application/json] {"ok":false,"error":"low_dpi","message":"دقة الصورة قليلة لهذا القياس."}",
     "custom shape with an opaque JPEG -> 400 [content-type=application/json] {"ok":false,"error":"no_alpha","message":"الشكل المخصص يحتاج PNG بخلفية شفافة."}",

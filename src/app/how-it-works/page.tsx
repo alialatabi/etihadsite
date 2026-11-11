@@ -148,6 +148,7 @@ export default async function HowItWorksPage() {
             </SpecRow>
           </dl>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">{t.specNote}</p>
+          {sheet?.marks && <p className="mt-1 text-sm leading-7 text-muted-foreground">{common.marksHint}</p>}
         </div>
 
         {sheet ? (

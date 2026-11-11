@@ -506,6 +506,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
     "back": "رجوع",
     "retry": "جرّب مرة ثانية"
   },
+  "marksHint": "النقاط السودة بالزوايا علامات لمكينة القص، ما تطلع على الستيكر.",
   "units": {
     "cm": "سم",
     "mm": "ملم",
@@ -572,13 +573,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 487,
+  "chars": 550,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 13,
-  "sha256OfRawJson": "3e29e52d1ef26f358f0e7999a67b9b220078a4efa3b5d1dfdcdd38ceb5f8117f",
-  "strings": 48,
+  "sha256OfRawJson": "0a0e79ad9959ec47acb4f738a5195cc9e6c4c649cc02c3c8428bb00c8af1fd97",
+  "strings": 49,
 }
 `;
 

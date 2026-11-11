@@ -53,6 +53,10 @@ export const SheetPreview = memo(function SheetPreview({ layout, previewUrl, cla
               vectorEffect="non-scaling-stroke"
             />
             <Cells layout={layout} previewUrl={previewUrl} artId={artId} clipId={clipId} />
+            {layout.marks &&
+              layout.marks.centres.map((c, i) => (
+                <circle key={`mark-${i}`} data-mark cx={c.xUm} cy={c.yUm} r={layout.marks!.diameterUm / 2} fill="#000" />
+              ))}
           </g>
         )}
         {!layout && (

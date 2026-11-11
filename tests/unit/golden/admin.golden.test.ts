@@ -258,7 +258,7 @@ function settingsForm(over: Record<string, string | null> = {}): FormData {
     quickPicks: '10,20,50,100',
     deliveryFeeIqd: '5000',
     pricesPublished: 'on',
-    margin: '7',
+    margin: '3',
     circleGapX: '2',
     circleGapY: '0',
     roundedGap: '2',

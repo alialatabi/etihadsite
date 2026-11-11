@@ -358,7 +358,7 @@ exports[`golden: saveSettingsAction > form -> saved settings (diff from the defa
       "layout.circleGapXUm: 2000 -> 1250",
       "layout.circleGapYUm: 0 -> 500",
       "layout.customGapUm: 2000 -> 0",
-      "layout.marginUm: 7000 -> 7500",
+      "layout.marginUm: 3000 -> 7500",
       "layout.rectRoundedGapUm: 2000 -> 3000",
       "layout.rectSharpGapUm: 0 -> 1000",
       "layout.roundedRadiusUm: 3000 -> 2300",

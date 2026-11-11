@@ -19,6 +19,8 @@ export const common = {
     back: 'رجوع',
     retry: 'جرّب مرة ثانية',
   },
+  /** Under every sheet preview and on /how-it-works: what the 4 black corner dots are. */
+  marksHint: 'النقاط السودة بالزوايا علامات لمكينة القص، ما تطلع على الستيكر.',
   units: {
     cm: 'سم',
     mm: 'ملم',

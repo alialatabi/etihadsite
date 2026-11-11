@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Maximize2 } from 'lucide-react';
-import { builder } from '@/content/ar';
+import { builder, common } from '@/content/ar';
 import { umToMm } from '@/lib/units';
 import { fillLtr } from '@/components/fill-ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -42,6 +42,7 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
         )}
         {turnHint && <p className="mt-2 text-center text-xs text-muted-foreground">{turnHint}</p>}
         <p className="mt-3 text-center text-xs text-muted-foreground">{marginHint}</p>
+        {layout?.marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
       </div>
     </aside>
   );
@@ -94,6 +95,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         <p className="mt-3 text-center text-sm text-muted-foreground">
           <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
         </p>
+        {layout.marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
         <Maximize2 className="absolute end-4 bottom-4 size-5 text-muted-foreground" aria-hidden />
       </button>
 
@@ -129,6 +131,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
             <SheetPreview layout={layout} previewUrl={previewUrl} />
           </div>
           {turnHint && <p className="text-center text-xs text-muted-foreground">{turnHint}</p>}
+          {layout.marks && <p className="text-center text-xs text-muted-foreground">{common.marksHint}</p>}
           <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full text-base" />}>{builder.preview.close}</DialogClose>
         </DialogContent>
       </Dialog>
