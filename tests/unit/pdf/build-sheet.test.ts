@@ -142,15 +142,16 @@ describe('buildSheetPdf', () => {
     await check(layoutOf('rect-sharp-50x50'), await raster(500, 500), 'rect-sharp-50x50-x15', false);
   });
 
-  it('rect-rounded-50x50: 15 draws, NOT clipped when the aspect matches (corners are preview-only)', async () => {
-    const { stream } = await check(layoutOf('rect-rounded-50x50'), await raster(500, 500, true), 'rect-rounded-50x50-x15', false);
-    expect(stream).not.toMatch(/W\s+n/);
+  it('rect-rounded-50x50: 15 draws, each clipped to its rounded rectangle (the camera cuts what is printed)', async () => {
+    const { stream } = await check(layoutOf('rect-rounded-50x50'), await raster(500, 500, true), 'rect-rounded-50x50-x15', true);
+    expect((stream.match(/W\s+n/g) ?? []).length).toBe(15);
+    expect(stream).toMatch(/ c\s/); // Bezier corners
   });
 
-  it('rect-rounded-50x50 with a non-square artwork: plain rectangle cover-clip only (no curves)', async () => {
+  it('rect-rounded-50x50 with a non-square artwork: the rounded clip also hides the cover overflow', async () => {
     const { stream } = await check(layoutOf('rect-rounded-50x50'), await raster(500, 400, true), 'rect-rounded-50x50-wide-x15', true);
-    expect(stream).toMatch(/W\s+n/);
-    expect(stream).not.toMatch(/ c\s/); // no bezier segments: the clip is a plain rectangle
+    expect((stream.match(/W\s+n/g) ?? []).length).toBe(15);
+    expect(stream).toMatch(/ c\s/);
   });
 
   it('rect-sharp-200x50 rotated: 3 draws, artwork turned 90 degrees about each cell centre', async () => {
@@ -222,7 +223,7 @@ describe('buildSheetPdf', () => {
     expect(layout.turnedCount).toBeGreaterThan(0);
     expect(layout.turnedCount).toBeLessThan(layout.countPerSheet);
     const art = await raster(1000, 400); // sticker orientation: 100 x 40
-    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-mixed-x11', false);
+    const { res, stream } = await check(layout, art, 'rect-rounded-100x40-mixed-x11', true);
     const ms = drawMatrices(stream);
     expect(ms).toHaveLength(11);
     ms.forEach((m, i) => {
@@ -274,10 +275,11 @@ describe('buildSheetPdf', () => {
     const perCell = (operators: string, count: number): string => Array.from({ length: count }, () => operators).join(' ');
 
     expect(await operatorsOf(layoutOf('rect-sharp-50x50'), await raster(500, 500))).toBe(perCell('q cm Do Q', 15));
-    // Cover clip of a rounded-rect layout: a plain five-operator rectangle (move, three lines, close).
+    // Rounded-rect layout: the cell's rounded rectangle (4 sides, 4 Bezier corners), whatever the artwork aspect.
     expect(await operatorsOf(layoutOf('rect-rounded-50x50'), await raster(500, 400, true))).toBe(
-      perCell('q m l l l h W n cm Do Q', 15),
+      perCell('q m l c l c l c l c h W n cm Do Q', 15),
     );
+    expect(await operatorsOf(layoutOf('rect-rounded-50x50'), await raster(500, 500))).toBe(perCell('q m l c l c l c l c h W n cm Do Q', 15));
     expect(await operatorsOf(layoutOf('circle-30mm-gapX2-gapY0'), jpg)).toBe(perCell('q m c c c c h W n cm Do Q', 54));
     expect(await operatorsOf(layoutOf('circle-30mm-gapX2-gapY0'), await pdfArtwork())).toBe(perCell('q m c c c c h W n cm Do Q', 54));
   });

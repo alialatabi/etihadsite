@@ -944,8 +944,8 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
     "summaryKeyOrder": "displayNo,shape,widthUm,heightUm,countPerSheet,sheets,material,totalStickers,unitPriceIqd,discountPercent,subtotalIqd,deliveryFeeIqd,totalIqd",
   },
   "pdf": {
-    "contentLength": 32442,
-    "contentSha256": "625ae66c25afe14322c5979e29690873308fd1fe403d9c989552b332de6a5e2b",
+    "contentLength": 34436,
+    "contentSha256": "2551845300b328676e6a2ce4f893ef8c5efb6131ac80fdae00ec4b56dd721cb7",
     "creationDate": "2026-11-10T09:00:00.000Z",
     "draws": 54,
     "pages": 1,
