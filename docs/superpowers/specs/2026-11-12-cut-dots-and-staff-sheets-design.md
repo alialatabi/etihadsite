@@ -8,7 +8,7 @@ The shop cuts stickers on a cutting plotter with a camera. **The machine reads o
 
 1. A **separate, hidden page for employees**. They upload sticker designs (from WhatsApp customers, or the shop's own designs), type a size for each file, and the app arranges each design on an A4 sheet with the same rules as the website, **plus the 4 dots**, and gives a PDF ready to print and cut.
 2. **The same dots on customer orders from the website**, so a customer order PDF also goes straight to the printer and the cutter.
-3. Stickers may now go **up to 3 mm from the paper edge** (today the margin is a setting: 7 mm by default, 4 mm on the live site), so more stickers fit, but **never near the dots**.
+3. Stickers may now go **up to 3 mm from the paper edge** (today the margin is a setting: 7 mm by default, 4 mm on the live site), but **never near the dots**. Correction (final review, 2026-11-12): against the live site (4 mm, no dots) the dots cost stickers on many sizes, so **fewer stickers fit on about 30 % of sizes and a customer may pay for more sheets**. See section 8a; the owner approves that table before the deploy.
 
 Success: an employee drops in 5 files, types 5 sizes, presses one button and gets one PDF with 5 pages that print and cut without opening CorelDRAW. A customer order PDF arriving on Telegram or in the admin is the same: print, cut, done.
 
@@ -165,8 +165,38 @@ Built in the browser with pdf-lib (dynamic import, only on this page), using the
 - Golden snapshots that are **expected** to change because the owner asked (update one file at a time and read every line of the diff; any change not explained by "dots added, margin 3 mm, counts per sheet changed, new strings" is a bug): layout, builder logic, design/PDF hashes, settings/schemas, copy, page metadata if the staff page adds an entry, routes (counts and prices in order answers), order text if it prints counts. `src/lib/__fixtures__/layout-cases.json` must **not** change; new mark cases go in a new fixture file.
 - `CI=1 pnpm check` and `pnpm build` green before the deploy.
 
+## 8a. Price impact: owner approval needed before the deploy
+
+The price is per sheet, and sheets = stickers ÷ stickers per sheet, rounded up. So when fewer stickers fit on a sheet, the same order needs more sheets and costs more. The 3 mm margin wins space, but the 4 dots and the white space around them (each dot keeps stickers 12.5 mm away from both edges in its corner) take more than that on most sizes. This is the cost of putting the dots on every customer sheet (D4), not a coding mistake.
+
+Stickers per A4 sheet, live settings (rotation on, gaps as today):
+
+| Size | Live today (4 mm, no dots) | After the deploy (4 mm + dots) | After the migration (3 mm + dots) |
+|---|---|---|---|
+| Circle 2 cm | 126 | 122 | 122 |
+| Circle 5.8 cm | 12 | 12 | **15** |
+| Rounded or custom 3 × 3 cm | 54 | 50 | 50 |
+| Sharp 4 × 4 cm | 35 | 31 | 31 |
+| Rounded or custom 5 × 3 cm | 34 | 32 | 32 |
+| Sharp 5 × 3 cm | 37 | 36 | 36 |
+| Rounded or custom 6 × 4 cm | 20 | 19 | 20 |
+| Sharp 6 × 4 cm | 23 | 21 | 21 |
+| Any rectangle or custom 8.5 × 5.5 cm | 11 | 10 | 10 |
+| Rounded or custom 9 × 5 cm | 11 | 10 | 10 |
+| Sharp 10 × 4 cm | 14 | 13 | 13 |
+| Any rectangle or custom 7 × 10 cm | **8** | **6** | **6** |
+
+Example: 48 stickers of 7 × 10 cm are 6 sheets today and 8 sheets after the change (33 % more sheets, so about 33 % more money before discounts and rounding).
+
+Over every shape and every size from 1 to 20 cm in 0.5 cm steps (4 602 cases): **1 385 fit fewer** (30 %), 106 fit more, 3 111 stay the same. Only some circles gain (5.8 cm: 12 → 15, the `example.pdf` sheet).
+
+The unit test "pins the per-sheet counts against the live site" in `src/lib/layout/marks.test.ts` keeps these numbers fixed, so any later change to the layout engine that moves them shows up.
+
+**Owner decision needed before the deploy (rollout step 0):** accept this price impact, or choose another way (for example: dots only on the staff page, or a lower price per sheet). If the owner does not accept, do not deploy; the engine is not changed until the owner decides.
+
 ## 8. Rollout
 
+0. **Owner reads section 8a and accepts the price impact** (or decides otherwise). No deploy before that.
 1. Owner adds `STAFF_PAGE_KEY` on Vercel (I give the exact command).
 2. Owner deploys (`! vercel deploy --prod --yes`), as usual.
 3. Apply the margin migration (3 mm) to live; smoke check: a 5.8 cm circle on the live site shows 15 per sheet with dots; one test order PDF has the dots; `/staff/<key>` works, `/staff/wrong` is 404, the stats show no `/staff` path.

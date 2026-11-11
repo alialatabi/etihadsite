@@ -176,6 +176,50 @@ describe('computeLayout with marks', () => {
     expect(countAt(sharp(40_000, 100_000), 3_000)).toBeGreaterThanOrEqual(12);
   }, 120_000);
 
+  it('pins the per-sheet counts against the live site (4 mm, no dots) for common sizes', () => {
+    // The dots cost stickers on many sizes, so a customer may need more sheets than today.
+    // The owner sees this table before the deploy (design spec, section 8a). A change here changes prices: report it.
+    const live = { ...DEFAULT_SETTINGS.layout, allowRotate: true, marginUm: 4_000 };
+    const countFor = (spec: StickerSpec, marginUm: number, dots: boolean): number => {
+      const p = layoutParamsFor(spec, { ...live, marginUm });
+      if (!dots) delete p.marks;
+      const o = computeLayout(spec, p);
+      return o.ok ? o.layout.countPerSheet : 0;
+    };
+    const SIZES: [string, StickerSpec][] = [
+      ['circle 20', { shape: 'circle', widthUm: 20_000, heightUm: 20_000 }],
+      ['circle 58', { shape: 'circle', widthUm: 58_000, heightUm: 58_000 }],
+      ['rounded 30x30', { shape: 'rect', corners: 'rounded', widthUm: 30_000, heightUm: 30_000 }],
+      ['custom 30x30', { shape: 'custom', widthUm: 30_000, heightUm: 30_000 }],
+      ['sharp 40x40', sharp(40_000, 40_000)],
+      ['rounded 50x30', { shape: 'rect', corners: 'rounded', widthUm: 50_000, heightUm: 30_000 }],
+      ['sharp 50x30', sharp(50_000, 30_000)],
+      ['rounded 60x40', { shape: 'rect', corners: 'rounded', widthUm: 60_000, heightUm: 40_000 }],
+      ['rounded 85x55', { shape: 'rect', corners: 'rounded', widthUm: 85_000, heightUm: 55_000 }],
+      ['sharp 85x55', sharp(85_000, 55_000)],
+      ['rounded 70x100', { shape: 'rect', corners: 'rounded', widthUm: 70_000, heightUm: 100_000 }],
+      ['sharp 70x100', sharp(70_000, 100_000)],
+      ['custom 70x100', { shape: 'custom', widthUm: 70_000, heightUm: 100_000 }],
+    ];
+    const rows = SIZES.map(([name, s]) => `${name}: ${countFor(s, 4_000, false)} / ${countFor(s, 4_000, true)} / ${countFor(s, 3_000, true)}`);
+    // live (4 mm, no dots) / after the deploy (4 mm + dots) / after the migration (3 mm + dots)
+    expect(rows).toEqual([
+      'circle 20: 126 / 122 / 122',
+      'circle 58: 12 / 12 / 15',
+      'rounded 30x30: 54 / 50 / 50',
+      'custom 30x30: 54 / 50 / 50',
+      'sharp 40x40: 35 / 31 / 31',
+      'rounded 50x30: 34 / 32 / 32',
+      'sharp 50x30: 37 / 36 / 36',
+      'rounded 60x40: 20 / 19 / 20',
+      'rounded 85x55: 11 / 10 / 10',
+      'sharp 85x55: 11 / 10 / 10',
+      'rounded 70x100: 8 / 6 / 6',
+      'sharp 70x100: 8 / 6 / 6',
+      'custom 70x100: 8 / 6 / 6',
+    ]);
+  }, 60_000);
+
   it('invalid marks are rejected; too big everywhere is too_big_for_page', () => {
     const bad = { ok: false, reason: 'invalid' };
     expect(computeLayout(sharp(30_000, 30_000), params({ marks: { ...REG_MARKS, diameterUm: 0 } }))).toEqual(bad);
