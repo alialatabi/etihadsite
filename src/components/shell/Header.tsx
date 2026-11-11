@@ -36,7 +36,7 @@ export function Header({ settings }: { settings: ShopSettings }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={pages.shell.whatsappAria}
-              className="hidden size-10 items-center justify-center rounded-lg border border-border text-primary transition-colors hover:bg-muted sm:flex"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border text-primary transition-colors hover:bg-muted min-[400px]:flex sm:size-10"
             >
               <MessageCircle className="size-5" aria-hidden />
             </a>

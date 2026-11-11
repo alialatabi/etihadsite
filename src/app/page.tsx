@@ -3,6 +3,8 @@ import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Upload, type Luci
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
 import { fillLtr } from '@/components/fill-ltr';
+import { WhatsAppButton } from '@/components/WhatsAppButton';
+import { whatsappLink } from '@/components/shell/whatsapp';
 import { getSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +79,7 @@ function FlowSnake() {
 
 export default async function HomePage() {
   const settings = await getSettings();
+  const noDesignWa = whatsappLink(settings.whatsapp, builder.whatsappText.noDesign);
   return (
     <>
       <section className="mx-auto max-w-6xl px-4 pb-4 pt-6 md:pt-10">
@@ -91,6 +94,11 @@ export default async function HomePage() {
           <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
             {fillLtr(builder.hero.subtitle, { shop: <span className="font-bold text-foreground">{settings.shopName}</span> })}
           </p>
+          {noDesignWa && (
+            <WhatsAppButton href={noDesignWa} className="mt-4 w-full sm:w-auto">
+              {builder.noDesign.short}
+            </WhatsAppButton>
+          )}
         </div>
       </section>
       <Builder settings={settings} />

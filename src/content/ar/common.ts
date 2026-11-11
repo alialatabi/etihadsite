@@ -12,7 +12,7 @@ export const common = {
     howItWorks: 'شلون نشتغل؟',
     start: 'صمّم ستيكراتك',
     whatsapp: 'واتساب',
-    inquiry: 'استفسار',
+    inquiry: 'راسلنا على واتساب',
   },
   actions: {
     next: 'التالي',

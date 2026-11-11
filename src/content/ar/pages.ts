@@ -71,6 +71,8 @@ export const pages = {
     deliveryLabel: 'التوصيل',
     deliveryValue: '{fee} د.ع لكل المحافظات',
     cta: 'ابدأ هسة',
+    noDesignTitle: 'ما عندك تصميم؟ نصمملك',
+    noDesignBody: 'راسلنا على واتساب، نصمم لك الستيكر ونرسله لك تشوفه.',
     ctaTitle: 'جاهز؟ صمّم ستيكراتك',
     ctaBody: 'ما تحتاج تحسب شي. ارفع الملف وشوف الورقة مرتبة.',
   },

@@ -462,7 +462,16 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
   },
   "whatsappText": {
     "newOrder": "مرحباً، عندي طلب ستيكرات:",
-    "readyFile": "مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4."
+    "readyFile": "مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4.",
+    "noDesign": "هلا، أريد ستيكرات بس ما عندي تصميم. تكدرون تصمموه إلي؟",
+    "editDesign": "هلا، رفعت تصميم بالموقع بس أحتاج أعدل عليه. تكدرون تساعدوني؟"
+  },
+  "noDesign": {
+    "title": "ما عندك تصميم؟ نصمملك إياه",
+    "hint": "ابعث لنا فكرتك على واتساب ونجهز لك التصميم.",
+    "short": "ما عندك تصميم؟ نصمملك",
+    "cta": "راسلنا على واتساب",
+    "afterUpload": "تحتاج تعديل على التصميم؟ راسلنا على واتساب"
   }
 }"
 `;
@@ -471,13 +480,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2963,
+  "chars": 3226,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 18,
-  "sha256OfRawJson": "9cfccfd7184bdc4f99135029dd7cd18549659798329fe00cfa4549ac0a0363c2",
-  "strings": 137,
+  "objects": 19,
+  "sha256OfRawJson": "d51f8852f7e578d858df50b46a4a9b3a2a9bc102cbf1595012573b047d478cc5",
+  "strings": 144,
 }
 `;
 
@@ -489,7 +498,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
     "howItWorks": "شلون نشتغل؟",
     "start": "صمّم ستيكراتك",
     "whatsapp": "واتساب",
-    "inquiry": "استفسار"
+    "inquiry": "راسلنا على واتساب"
   },
   "actions": {
     "next": "التالي",
@@ -562,12 +571,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 477,
+  "chars": 487,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 13,
-  "sha256OfRawJson": "43bdf8798011d268fed6f0e88d099f99960e95f6ef8c619e08d405eea7b8e20e",
+  "sha256OfRawJson": "3e29e52d1ef26f358f0e7999a67b9b220078a4efa3b5d1dfdcdd38ceb5f8117f",
   "strings": 48,
 }
 `;
@@ -805,6 +814,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
     "deliveryLabel": "التوصيل",
     "deliveryValue": "{fee} د.ع لكل المحافظات",
     "cta": "ابدأ هسة",
+    "noDesignTitle": "ما عندك تصميم؟ نصمملك",
+    "noDesignBody": "راسلنا على واتساب، نصمم لك الستيكر ونرسله لك تشوفه.",
     "ctaTitle": "جاهز؟ صمّم ستيكراتك",
     "ctaBody": "ما تحتاج تحسب شي. ارفع الملف وشوف الورقة مرتبة."
   },
@@ -844,13 +855,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1871,
+  "chars": 1943,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "4d9b559c619693283e16bb24f0eb411af317b612e4dd80e056e3337b7d9bfd1f",
-  "strings": 84,
+  "sha256OfRawJson": "abdc3f4173db650123007b83cbd8b98d87838f89e7927ca1f7566a4df5fac9f3",
+  "strings": 86,
 }
 `;
 

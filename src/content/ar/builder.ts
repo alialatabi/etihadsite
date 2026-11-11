@@ -173,5 +173,19 @@ export const builder = {
   whatsappText: {
     newOrder: 'مرحباً، عندي طلب ستيكرات:',
     readyFile: 'مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4.',
+    /** Prefilled when a customer without a design taps any «we design it for you» button. */
+    noDesign: 'هلا، أريد ستيكرات بس ما عندي تصميم. تكدرون تصمموه إلي؟',
+    /** Prefilled from the small «need an edit?» line shown after a design is uploaded. */
+    editDesign: 'هلا، رفعت تصميم بالموقع بس أحتاج أعدل عليه. تكدرون تساعدوني؟',
+  },
+  /** «No design? We design it» prompts (design step, shape step, home hero). Never mention a price. */
+  noDesign: {
+    title: 'ما عندك تصميم؟ نصمملك إياه',
+    hint: 'ابعث لنا فكرتك على واتساب ونجهز لك التصميم.',
+    /** Short label for the home hero button. */
+    short: 'ما عندك تصميم؟ نصمملك',
+    cta: 'راسلنا على واتساب',
+    /** Smaller line once a design is already uploaded. */
+    afterUpload: 'تحتاج تعديل على التصميم؟ راسلنا على واتساب',
   },
 } as const;
