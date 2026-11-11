@@ -170,6 +170,7 @@ function beats(a: MarkedOption, b: MarkedOption | null): boolean {
  * Best arrangement inside `area` once cells near the dots are dropped. Every option today's
  * engine considers (upright grid; rotated grid and mixed layout when rotation is allowed) is
  * built, filtered and compared on what is left. Ties: fewer removed, then upright < rotated < mixed.
+ * `touched` tells whether ANY option (not only the winner) had a cell near a dot.
  */
 function bestInArea(
   area: Area,
@@ -177,38 +178,44 @@ function bestInArea(
   params: LayoutParams,
   centres: { xUm: number; yUm: number }[],
   m: RegMarks,
-): MarkedOption | null {
+): { best: MarkedOption | null; touched: boolean } {
   const options: (LayoutResult | null)[] = [attempt(area, spec.widthUm, spec.heightUm, false, params)];
   if (params.allowRotate) {
     options.push(attempt(area, spec.heightUm, spec.widthUm, true, params));
     if (spec.widthUm !== spec.heightUm) options.push(mixedLayout(area, spec.widthUm, spec.heightUm, params));
   }
   let best: MarkedOption | null = null;
+  let touched = false;
   for (const built of options) {
     if (!built) continue;
     const option = dropNearMarks(built, centres, m);
+    if (option.removed > 0) touched = true;
     if (beats(option, best)) best = option;
   }
-  return best;
+  return { best, touched };
 }
 
 /**
  * Layout that keeps every sticker clear of the cutter dots (design A2). Area 1 is the usable
- * area; only when its winner lost a cell to a dot are area 2 (left and right moved in past the
- * dots) and area 3 (top and bottom moved in) tried too. Across areas: more kept, then fewer
- * removed, then the lower area number.
+ * area; only when one of its options (upright, rotated or mixed, not only the winner) lost a cell
+ * to a dot are area 2 (left and right moved in past the dots) and area 3 (top and bottom moved in)
+ * tried too. (Checking only the winner let a plain grid that never touches a dot hide a better
+ * inset arrangement, so a smaller margin could fit fewer.) When no option touches a dot, the inset
+ * areas, which lie inside area 1, cannot do better, so the common case stays as fast as before.
+ * Across areas: more kept, then fewer removed, then the lower area number.
  */
 function layoutWithMarks(spec: StickerSpec, params: LayoutParams, m: RegMarks): LayoutOutcome {
   const centres = markCentres(m);
   const usable = usableArea(params.marginUm);
-  let best = bestInArea(usable, spec, params, centres, m);
-  if (best && best.removed > 0) {
+  const first = bestInArea(usable, spec, params, centres, m);
+  let best = first.best;
+  if (first.touched) {
     const inset = Math.max(params.marginUm, markInsetUm(m));
     const areas: Area[] = [];
     if (2 * inset < A4_UM.widthUm) areas.push({ ...usable, xUm: inset, widthUm: A4_UM.widthUm - 2 * inset });
     if (2 * inset < A4_UM.heightUm) areas.push({ ...usable, yUm: inset, heightUm: A4_UM.heightUm - 2 * inset });
     for (const area of areas) {
-      const option = bestInArea(area, spec, params, centres, m);
+      const option = bestInArea(area, spec, params, centres, m).best;
       if (option && beats(option, best)) best = option;
     }
   }

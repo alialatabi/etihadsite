@@ -76,7 +76,7 @@ describe('defaults and copy', () => {
     expect(common.marksHint).toBe('النقاط السودة بالزوايا علامات لمكينة القص، ما تطلع على الستيكر.');
   });
 
-  it('browser and server layouts agree: circle 5.8 cm, default settings, rotation on, 15 per sheet', () => {
+  it('default settings + rotation: circle 5.8 cm gives 15 per sheet (example.pdf)', () => {
     const settings = { ...DEFAULT_SETTINGS.layout, allowRotate: true };
     const out = computeLayout(CIRCLE_58, layoutParamsFor(CIRCLE_58, settings));
     expect(out.ok && out.layout.countPerSheet).toBe(15);

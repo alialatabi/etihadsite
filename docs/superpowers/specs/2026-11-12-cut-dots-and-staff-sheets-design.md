@@ -78,10 +78,12 @@ One home (my call: `src/lib/layout/marks.ts`, pure, isomorphic), not an admin se
 **Search** (pure, deterministic; the browser and the server run the same code, so the preview, the price and the PDF agree):
 1. Candidate area 1: the usable area = page minus margin (with 3 mm: 204 × 291 mm).
 2. In an area, each arrangement today's engine would consider (upright grid; rotated grid and mixed layout when rotation is allowed, with today's rules for each) is built, then every placement near a dot is removed, and **the area's winner is chosen on the count after removal**. Ties: fewer removed placements, then today's order of preference (upright, rotated, mixed). (The builder check found sizes, such as a sharp 21 × 39 mm rectangle with rotation on, where choosing before removal loses 1 or 2 stickers.)
-3. **Only when area 1's winner removed at least one placement**, also run step 2 on:
+3. **Only when at least one of area 1's arrangements (upright, rotated or mixed, not only the winner) had a placement near a dot**, also run step 2 on:
    - candidate area 2: the left and right edges moved in to clear the dots (x from max(margin, 12.5 mm) to 210 mm − that; y as the usable area);
    - candidate area 3: the top and bottom moved in instead.
 4. Keep the area with the most placements. Ties: fewer removed placements, then the lower area number.
+
+Step 3 was widened on 2026-11-12 after the Task 3 review: with "only when the winner removed one", area 1 could pick a plain grid that never touches a dot and hide a better inset arrangement, so going from 7 mm to 3 mm lowered the count for common sizes (sharp 7 × 10 cm with rotation on: 6 → 4). When no arrangement in area 1 touches a dot, areas 2 and 3 (which lie inside area 1) cannot do better, so the common case is still as fast as before. A unit test checks that every golden size fits at least as many at 3 mm as at 7 mm, with rotation on and off.
 
 Step 3's rule is a fixed rule, not a theorem: the mixed packer's search limits depend on the area, so no test may assert that a smaller area never fits more. It keeps the common case as fast as today: rotation is ON on the live site, so the mixed-orientation packer runs, and the browser recomputes while the customer types.
 

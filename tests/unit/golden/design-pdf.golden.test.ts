@@ -349,7 +349,10 @@ async function dates(bytes: Uint8Array) {
 
 const D = DEFAULT_SETTINGS.layout;
 const ROT: LayoutSettings = { ...D, allowRotate: true };
-/** Rotation on at the old 7 mm margin: the cases below that must stay MIXED-orientation (at 3 mm they fit upright). */
+/**
+ * Rotation on at the old 7 mm margin: cases 4 and 7 keep the mixed arrangement they were recorded with.
+ * Cases 9 and 10 cover the default 3 mm margin where the dots decide the arrangement.
+ */
 const ROT7: LayoutSettings = { ...ROT, marginUm: 7_000 };
 
 function layoutFor(spec: StickerSpec, settings: LayoutSettings): LayoutResult {
@@ -374,6 +377,8 @@ const SHEETS: Sheet[] = [
   { name: '6 rect sharp 30x40, vector PDF with CropBox and /Rotate 90', fixture: 'cropbox-rot90.pdf', spec: rect(30, 40), settings: D },
   { name: '7 rect rounded 100x50 mixed layout, vector PDF (page 1 of 2)', fixture: 'two-page.pdf', spec: rect(100, 50, 'rounded'), settings: ROT7 },
   { name: '8 circle 60mm, non-square EXIF JPEG (centre crop)', fixture: 'exif6-600x400.jpg', spec: circle(60), settings: D },
+  { name: '9 rect sharp 51x58 at 3 mm, no rotation: top and bottom moved in past the dots (4x4), JPEG', fixture: 'opaque-300x300.jpg', spec: rect(51, 58), settings: D },
+  { name: '10 rect sharp 100x40 at 3 mm, rotation on: mixed layout clear of the dots (13), JPEG', fixture: 'opaque-300x300.jpg', spec: rect(100, 40), settings: ROT },
 ];
 
 const metaFor = (spec: StickerSpec, layout: LayoutResult) => ({

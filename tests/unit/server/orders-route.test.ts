@@ -34,7 +34,7 @@ import { POST } from "@/app/api/orders/route";
 import { computeLayout, layoutParamsFor } from "@/lib/layout";
 import { getStorage } from "@/lib/storage";
 import { safeLayout } from "@/components/builder/safe";
-import type { StickerSpec } from "@/lib/types";
+import type { LayoutResult, StickerSpec } from "@/lib/types";
 
 const PNG = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3,
@@ -563,5 +563,32 @@ describe("POST /api/orders layout agrees with the browser", () => {
     if (!r.ok) throw new Error("expected ok");
     expect(r.summary.countPerSheet).toBe(browser.layout.countPerSheet);
     expect(r.summary.countPerSheet).toBe(15);
+  });
+
+  it("same arrangement for a mixed layout next to the dots (sharp 85.6 x 53.98 mm, rotation on)", async () => {
+    const layoutSettings = { ...DEFAULT_SETTINGS.layout, allowRotate: true };
+    await getStorage().saveSettings({
+      ...DEFAULT_SETTINGS,
+      whatsapp: "9647709999999",
+      pricesPublished: true,
+      layout: layoutSettings,
+    });
+    const spec: StickerSpec = { shape: "rect", corners: "sharp", widthUm: 85600, heightUm: 53980 };
+    const browser = safeLayout(spec, layoutSettings);
+    if (!browser.ok) throw new Error("layout expected");
+    // The case this test exists for: rotation on, turned cells and the dots together.
+    expect(browser.layout.turnedCount).toBeGreaterThan(0);
+    expect(browser.layout.marks).toBeDefined();
+    const res = await call(body({ orderId: "order-agreemixedaaaaa", spec }));
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary.countPerSheet).toBe(browser.layout.countPerSheet);
+    // The layout the server drew the PDF from: same count, same turned cells, same positions.
+    const drawn = buildSheetPdf.mock.calls[0][0].layout as LayoutResult;
+    expect(drawn.countPerSheet).toBe(browser.layout.countPerSheet);
+    expect(drawn.turnedCount).toBe(browser.layout.turnedCount);
+    expect(drawn.placements).toEqual(browser.layout.placements);
+    const stored = await getStorage().getOrder("order-agreemixedaaaaa");
+    expect(stored?.layout.turnedCount).toBe(browser.layout.turnedCount);
   });
 });

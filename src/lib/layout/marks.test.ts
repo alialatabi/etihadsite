@@ -140,6 +140,42 @@ describe('computeLayout with marks', () => {
     expect(clearOfMarks(l)).toHaveLength(l.countPerSheet);
   });
 
+  it('a smaller margin never fits fewer: every golden size, rotation on and off, 3 mm vs 7 mm', () => {
+    // The dots do not move with the margin, so an arrangement that is valid at 7 mm is valid at 3 mm.
+    // Area 1 picking a plain grid that never touches a dot must not hide a better inset area.
+    const RECT = [10_000, 15_000, 20_000, 25_000, 30_000, 40_000, 50_000, 70_000, 100_000, 150_000, 200_000, 250_000];
+    const CUSTOM = [5_000, 8_500, 12_300, 21_000, 33_300, 47_000, 64_500, 99_000, 140_000, 196_000, 283_000];
+    const CIRCLE = [
+      1_000, 4_000, 4_999, 5_000, 7_500, 10_000, 12_500, 15_000, 20_000, 23_000, 25_000, 30_000, 35_000, 40_000, 45_000,
+      50_000, 60_000, 70_000, 80_000, 90_000, 100_000, 120_000, 150_000, 196_000, 196_001, 210_000, 300_000,
+    ];
+    const specs: StickerSpec[] = [
+      ...CIRCLE.map((d): StickerSpec => ({ shape: 'circle', widthUm: d, heightUm: d })),
+      ...(['rounded', 'sharp'] as const).flatMap((corners) =>
+        RECT.flatMap((w) => RECT.map((h): StickerSpec => ({ shape: 'rect', corners, widthUm: w, heightUm: h }))),
+      ),
+      ...CUSTOM.flatMap((w) => CUSTOM.map((h): StickerSpec => ({ shape: 'custom', widthUm: w, heightUm: h }))),
+    ];
+    const countAt = (spec: StickerSpec, marginUm: number, allowRotate = true): number => {
+      const o = computeLayout(spec, layoutParamsFor(spec, { ...DEFAULT_SETTINGS.layout, allowRotate, marginUm }));
+      return o.ok ? o.layout.countPerSheet : 0;
+    };
+    for (const rot of [true, false]) {
+      const lower = specs
+        .map((s) => ({
+          s: `${s.shape}/${s.corners ?? '-'} ${s.widthUm}x${s.heightUm} rotate=${rot}`,
+          at3: countAt(s, 3_000, rot),
+          at7: countAt(s, 7_000, rot),
+        }))
+        .filter((r) => r.at3 < r.at7);
+      expect(lower).toEqual([]);
+    }
+    expect(countAt(sharp(70_000, 100_000), 3_000)).toBeGreaterThanOrEqual(6);
+    expect(countAt(sharp(100_000, 70_000), 3_000)).toBeGreaterThanOrEqual(6);
+    expect(countAt(sharp(100_000, 40_000), 3_000)).toBeGreaterThanOrEqual(12);
+    expect(countAt(sharp(40_000, 100_000), 3_000)).toBeGreaterThanOrEqual(12);
+  }, 120_000);
+
   it('invalid marks are rejected; too big everywhere is too_big_for_page', () => {
     const bad = { ok: false, reason: 'invalid' };
     expect(computeLayout(sharp(30_000, 30_000), params({ marks: { ...REG_MARKS, diameterUm: 0 } }))).toEqual(bad);

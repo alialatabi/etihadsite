@@ -811,6 +811,208 @@ exports[`golden: buildSheetPdf > 8 circle 60mm, non-square EXIF JPEG (centre cro
 }
 `;
 
+exports[`golden: buildSheetPdf > 9 rect sharp 51x58 at 3 mm, no rotation: top and bottom moved in past the dots (4x4), JPEG 1`] = `
+{
+  "artwork": "image/jpeg 300x300 alpha=false",
+  "dates": {
+    "creationDate": "2026-11-10T09:00:00.000Z",
+    "modificationDate": "2026-11-10T09:00:00.000Z",
+  },
+  "layout": "n=16 grid=4x4 rotated=false turned=0 cell=51000x58000 clip=none",
+  "pdfSha256AtFrozenClock": "056400e9a32e73b3e3b9b3bafebf55abbdbc4d6469f413e4244ffea2c0fed8c9",
+  "report": {
+    "bytes": 6359,
+    "bytesMatchesLength": true,
+    "clipped": true,
+    "drawCount": 16,
+    "keys": "pageWidthPt,pageHeightPt,drawCount,placementsPt,clipped,bytes",
+    "pageHeightPt": 841.8897637795276,
+    "pageWidthPt": 595.275590551181,
+    "placementsPt": {
+      "count": 16,
+      "first": {
+        "h": 164.40944881889763,
+        "w": 144.56692913385825,
+        "x": 8.503937007874015,
+        "y": 585.3543307086615,
+      },
+      "last": {
+        "h": 164.40944881889763,
+        "w": 144.56692913385825,
+        "x": 442.2047244094488,
+        "y": 92.12598425196848,
+      },
+      "second": {
+        "h": 164.40944881889763,
+        "w": 144.56692913385825,
+        "x": 153.0708661417323,
+        "y": 585.3543307086615,
+      },
+      "sha256": "4cd3c1c705f65a867c08aeae745ed8218cb27351bd8995caf6c08e6a53ea04ae",
+    },
+  },
+  "structure": {
+    "content": {
+      "clipCount": 16,
+      "doCount": 16,
+      "firstDraw": [
+        "q",
+        "8.503937007874015 585.3543307086615 m",
+        "153.07086614173227 585.3543307086615 l",
+        "153.07086614173227 749.7637795275591 l",
+        "8.503937007874015 749.7637795275591 l",
+        "h",
+        "W",
+        "n",
+        "164.40944881889763 0 0 164.40944881889763 -1.4173228346456739 585.3543307086615 cm",
+        "/Image-7098480789 Do",
+        "Q",
+      ],
+      "hasText": false,
+      "lastLines": [
+        "f*",
+        "EMC",
+        "Q",
+        "",
+      ],
+      "length": 6246,
+      "lineCount": 207,
+      "saveRestore": "17/17",
+      "sha256": "eeff909c88785bf505b4089571a513d0a5d9f2e1b55a16bf8000996c96490fda",
+    },
+    "header": "%PDF-1.7",
+    "indirectObjects": 8,
+    "info": {
+      "author": undefined,
+      "creator": "Softy Printing",
+      "keywords": undefined,
+      "producer": "Softy Printing",
+      "subject": "rect 51x58mm x16",
+      "title": "EP-261110-GD2N",
+    },
+    "mediaBox": [
+      0,
+      0,
+      595.275590551181,
+      841.8897637795276,
+    ],
+    "otherBoxes": "Crop=null Trim=null Bleed=null Art=null",
+    "pageCount": 1,
+    "resourceKeys": [
+      "/Font",
+      "/XObject",
+      "/ExtGState",
+      "/Properties",
+    ],
+    "rotate": 0,
+    "xobjects": [
+      "/Image-7098480789 dict=<< /Type /XObject /Subtype /Image /BitsPerComponent 8 /Width 300 /Height 300 /ColorSpace /DeviceRGB /Filter /DCTDecode /Length 4527 >> bytes=4527 sha=f3ff8de6567c007b",
+    ],
+  },
+}
+`;
+
+exports[`golden: buildSheetPdf > 10 rect sharp 100x40 at 3 mm, rotation on: mixed layout clear of the dots (13), JPEG 1`] = `
+{
+  "artwork": "image/jpeg 300x300 alpha=false",
+  "dates": {
+    "creationDate": "2026-11-10T09:00:00.000Z",
+    "modificationDate": "2026-11-10T09:00:00.000Z",
+  },
+  "layout": "n=13 grid=5x1 rotated=true turned=8 cell=40000x100000 clip=none",
+  "pdfSha256AtFrozenClock": "331e4bcd7bda9bb175489fc8182d8fd8a6b0053d57b34a0c5c61ad8042ae0d4a",
+  "report": {
+    "bytes": 6370,
+    "bytesMatchesLength": true,
+    "clipped": true,
+    "drawCount": 13,
+    "keys": "pageWidthPt,pageHeightPt,drawCount,placementsPt,clipped,bytes",
+    "pageHeightPt": 841.8897637795276,
+    "pageWidthPt": 595.275590551181,
+    "placementsPt": {
+      "count": 13,
+      "first": {
+        "h": 113.38582677165356,
+        "w": 283.46456692913387,
+        "x": 14.173228346456694,
+        "y": 676.0629921259842,
+      },
+      "last": {
+        "h": 283.46456692913387,
+        "w": 113.38582677165356,
+        "x": 467.7165354330709,
+        "y": 52.44094488188989,
+      },
+      "second": {
+        "h": 113.38582677165356,
+        "w": 283.46456692913387,
+        "x": 297.6377952755905,
+        "y": 676.0629921259842,
+      },
+      "sha256": "d5d3fa5c49fcd2854c034c951c536bf400dd780640bce3200f42a861bbc3c0ff",
+    },
+  },
+  "structure": {
+    "content": {
+      "clipCount": 13,
+      "doCount": 13,
+      "firstDraw": [
+        "q",
+        "14.173228346456694 676.0629921259842 m",
+        "297.6377952755906 676.0629921259842 l",
+        "297.6377952755906 789.4488188976378 l",
+        "14.173228346456694 789.4488188976378 l",
+        "h",
+        "W",
+        "n",
+        "283.46456692913387 0 0 283.46456692913387 14.173228346456682 591.0236220472441 cm",
+        "/Image-7098480789 Do",
+        "Q",
+      ],
+      "hasText": false,
+      "lastLines": [
+        "f*",
+        "EMC",
+        "Q",
+        "",
+      ],
+      "length": 5478,
+      "lineCount": 174,
+      "saveRestore": "14/14",
+      "sha256": "898c03e7757ddd0b69c9e90ea65cccb502f7356def464ce9df83080987c2dc1f",
+    },
+    "header": "%PDF-1.7",
+    "indirectObjects": 8,
+    "info": {
+      "author": undefined,
+      "creator": "Softy Printing",
+      "keywords": undefined,
+      "producer": "Softy Printing",
+      "subject": "rect 100x40mm x13",
+      "title": "EP-261110-GD2N",
+    },
+    "mediaBox": [
+      0,
+      0,
+      595.275590551181,
+      841.8897637795276,
+    ],
+    "otherBoxes": "Crop=null Trim=null Bleed=null Art=null",
+    "pageCount": 1,
+    "resourceKeys": [
+      "/Font",
+      "/XObject",
+      "/ExtGState",
+      "/Properties",
+    ],
+    "rotate": 0,
+    "xobjects": [
+      "/Image-7098480789 dict=<< /Type /XObject /Subtype /Image /BitsPerComponent 8 /Width 300 /Height 300 /ColorSpace /DeviceRGB /Filter /DCTDecode /Length 4527 >> bytes=4527 sha=f3ff8de6567c007b",
+    ],
+  },
+}
+`;
+
 exports[`golden: buildSheetPdf > empty layout (no placements) still produces a one-page PDF 1`] = `
 {
   "content": {
