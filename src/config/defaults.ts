@@ -50,7 +50,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
     blockDpi: 72,
     targetDpi: 300,
   },
-  maxUploadBytes: 10 * 1024 * 1024,
+  maxUploadBytes: 15 * 1024 * 1024,
   retentionDays: 30,
 };
 

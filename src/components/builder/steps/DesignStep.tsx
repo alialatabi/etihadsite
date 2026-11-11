@@ -10,6 +10,7 @@ import { fillLtr } from '@/components/fill-ltr';
 import { WhatsAppButton, WhatsAppCard } from '@/components/WhatsAppButton';
 import { whatsappLink } from '@/components/shell/whatsapp';
 import { cn } from '@/lib/utils';
+import { uploadLimitMb } from '@/lib/upload-limit';
 import { needsCropNotice, pdfPrefillUm } from '../logic';
 import { safeFormatCm } from '../safe';
 import type { BuilderApi } from '../useBuilder';
@@ -27,7 +28,9 @@ export function DesignStep({ b }: { b: BuilderApi }) {
   const prefill = design && shape ? pdfPrefillUm(design, shape) : null;
   const noDesignWa = whatsappLink(b.settings.whatsapp, builder.whatsappText.noDesign);
   const editDesignWa = whatsappLink(b.settings.whatsapp, builder.whatsappText.editDesign);
-  const accepted = shape === 'custom' ? builder.upload.acceptedCustom : builder.upload.accepted;
+  const acceptedCopy = shape === 'custom' ? builder.upload.acceptedCustom : builder.upload.accepted;
+  const limitMb = uploadLimitMb(b.settings.maxUploadBytes);
+  const accepted = fillLtr(acceptedCopy, { mb: limitMb });
 
   return (
     <div className="space-y-4">
@@ -120,7 +123,7 @@ export function DesignStep({ b }: { b: BuilderApi }) {
       {designError && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           <TriangleAlert className="size-5 shrink-0" aria-hidden />
-          <p className="min-w-0 flex-1">{builder.upload.errors[designError]}</p>
+          <p className="min-w-0 flex-1">{fillLtr(builder.upload.errors[designError], { mb: limitMb })}</p>
           {designError === 'no_alpha' && (
             <Button type="button" variant="outline" className="h-11 px-4" onClick={() => b.setShape('rect')}>
               {builder.upload.errors.switchToRect}

@@ -50,8 +50,8 @@ export const builder = {
   upload: {
     title: 'ارفع تصميمك',
     drop: 'اسحب الملف أو اضغط للاختيار',
-    accepted: 'PNG أو JPG أو PDF — حد أقصى 10 ميغابايت',
-    acceptedCustom: 'PNG بخلفية شفافة فقط — حد أقصى 10 ميغابايت',
+    accepted: 'PNG أو JPG أو PDF — حد أقصى {mb} ميغابايت',
+    acceptedCustom: 'PNG بخلفية شفافة فقط — حد أقصى {mb} ميغابايت',
     onlyFirstPage: 'PDF من {pages} صفحة: نستخدم الأولى فقط.',
     detectedSize: 'قياس الصفحة بالملف: {size} سم',
     replace: 'غيّر الملف',
@@ -61,7 +61,7 @@ export const builder = {
     cropNotice: 'الصورة مو مربعة، نقطعها من المنتصف لتصير دائرة.',
     errors: {
       unsupported_type: 'نوع الملف غير مدعوم. ارفع PNG أو JPG أو PDF.',
-      too_large: 'الملف أكبر من 10 ميغابايت. صغّره وجرّب مرة ثانية.',
+      too_large: 'الملف أكبر من {mb} ميغابايت. صغّره وجرّب مرة ثانية.',
       corrupt: 'ما نقدر نقرأ الملف. تأكد إنه سالم وجرّب مرة ثانية.',
       encrypted: 'PDF محمي بكلمة سر. ارفع نسخة بدون حماية.',
       no_alpha: 'الشكل المخصص يحتاج PNG شفاف، أو اختار «مستطيل».',

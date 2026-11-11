@@ -25,7 +25,7 @@ import { parseStoredSettings } from './settings-schema';
 const BUCKET = 'etihad';
 const PATH_RE = /^(uploads|orders)\/[A-Za-z0-9_-]{8,64}\.(bin|json|pdf)$/;
 /** Bucket hard limit (migration). Direct uploads above it cannot be stored. */
-export const SUPABASE_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const SUPABASE_MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const TIMEOUT_MS = 10_000;
 const OBJECT_TIMEOUT_MS = 30_000;
 /** Page size of every paged listing: PostgREST selects (one response is capped at max-rows, default 1000) and the Storage object list. */

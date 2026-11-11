@@ -1,4 +1,4 @@
-import { builder, common, order } from '@/content/ar';
+import { builder, common, fill, order } from '@/content/ar';
 import type {
   CustomerInfo,
   DesignSource,
@@ -44,15 +44,17 @@ export interface FlowDeps {
   onPhase: (phase: 'uploading' | 'processing') => void;
   onProgress: (fraction: number) => void;
   targetDpi: number;
+  /** The shop upload limit in whole MB (settings.maxUploadBytes), for the too-large message. */
+  maxUploadMb: number;
 }
 
 /** Copy for an upload the customer can fix ('server_error' degrades instead). */
-const UPLOAD_ERROR_COPY: Record<Exclude<UploadError, 'server_error'>, string> = {
-  too_large: builder.upload.errors.too_large,
+const uploadErrorCopy = (maxUploadMb: number): Record<Exclude<UploadError, 'server_error'>, string> => ({
+  too_large: fill(builder.upload.errors.too_large, { mb: maxUploadMb }),
   unsupported_type: order.errors.unsupported_type,
   corrupt: order.errors.corrupt,
   rate_limited: common.errors.rateLimited,
-};
+});
 
 /** The upload → order sequence, free of React so it can be unit-tested. */
 export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, deps: FlowDeps): Promise<FlowResult> {
@@ -63,7 +65,7 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
       if (!up.ok) {
         if (up.error === 'server_error') return { kind: 'degraded', reason: `upload:${up.error}` };
         // The `??` fallbacks cover codes a newer server may send that this bundle does not know.
-        const message = UPLOAD_ERROR_COPY[up.error] ?? common.errors.generic;
+        const message = uploadErrorCopy(deps.maxUploadMb)[up.error] ?? common.errors.generic;
         return { kind: 'error', code: 'upload_error', message };
       }
       ctx.uploadId = up.uploadId;

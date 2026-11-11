@@ -477,7 +477,7 @@ exports[`golden: LocalStorage uploads and files > saveUpload / readUpload / save
 exports[`golden: LocalStorage.getSettings > saveSettings writes pretty JSON and round-trips; the result can be mutated safely 1`] = `
 {
   "fileIsPrettyJsonOfInput": true,
-  "fileSha256": "19facbb25e44aeeb021ec29aaad3c37f8627f3c0a6bcddd5c62702f81a03c995",
+  "fileSha256": "316cba79ec6a40606b59a4cce6464a5463b1709126b6237000fcbb5ef6f052b3",
   "filesOnDisk": [
     "settings.json",
   ],
@@ -493,7 +493,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
     "equalsDefaults": true,
     "isFreshObject": true,
     "logged": [],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(b) partial file": {
     "diffFromDefaults": [
@@ -507,7 +507,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
     "equalsDefaults": false,
     "isFreshObject": true,
     "logged": [],
-    "sha256": "97aa95d2662bd9d3782296f6d34a3c1dc5fce9038b4c2a46b61a311d8f2c502c",
+    "sha256": "5a24048d16373dbd066f0cf54295ae016df7d67c97f92c2830aec54e9c62ef86",
   },
   "(b2) partial pricing: arrays replace, objects merge": {
     "diffFromDefaults": [
@@ -529,7 +529,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
     "equalsDefaults": false,
     "isFreshObject": true,
     "logged": [],
-    "sha256": "fffe50f286d36fd68613ff415604fb27ea4460e9d083f63a41296d89b9d89f33",
+    "sha256": "f07fc097c6ce0df60b84d4053b84ec9ede50a23277c99af189b759e291344035",
   },
   "(c) legacy file with offers and no pricing": {
     "diffFromDefaults": [
@@ -543,7 +543,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
     "equalsDefaults": false,
     "isFreshObject": true,
     "logged": [],
-    "sha256": "abc97294eb6538f544d79c3387961b82200681e403c43870e69a84ddd2a1f857",
+    "sha256": "b839b3a90bdbe6cb85750310a89a2100c05a60d753a72b3d97615a16830e76b0",
   },
   "(d) invalid JSON": {
     "diffFromDefaults": [],
@@ -555,7 +555,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "<PARSE_ERROR>",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(d2) empty file": {
     "diffFromDefaults": [],
@@ -567,7 +567,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "<PARSE_ERROR>",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(e) valid JSON, one invalid value -> ALL defaults": {
     "diffFromDefaults": [],
@@ -579,7 +579,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "deliveryFeeIqd",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(e2) valid JSON, several invalid values": {
     "diffFromDefaults": [],
@@ -591,7 +591,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "whatsapp, pricing.minSheets, pricing.tiers.0.percent, layout.minSideUm",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(f) JSON null": {
     "diffFromDefaults": [],
@@ -603,7 +603,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(f2) JSON array": {
     "diffFromDefaults": [],
@@ -615,7 +615,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(f3) JSON number": {
     "diffFromDefaults": [],
@@ -627,7 +627,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(f4) JSON string": {
     "diffFromDefaults": [],
@@ -639,7 +639,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(g) explicit nulls": {
     "diffFromDefaults": [],
@@ -651,14 +651,14 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "tagline, pricing",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(h) full defaults written by saveSettings": {
     "diffFromDefaults": [],
     "equalsDefaults": true,
     "isFreshObject": true,
     "logged": [],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
   "(i) UTF-8 BOM before valid JSON": {
     "diffFromDefaults": [],
@@ -670,7 +670,7 @@ exports[`golden: LocalStorage.getSettings > settings.json variants -> returned s
         "<PARSE_ERROR>",
       ],
     ],
-    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+    "sha256": "38709c2baffe9bf3bb220052295f65a903e823b008ae0a8bdfe419957ebe8c04",
   },
 }
 `;
@@ -692,7 +692,7 @@ exports[`golden: LocalStorage.getSettings > the legacy and partial results in fu
       "rectSharpGapUm": 0,
       "roundedRadiusUm": 3000,
     },
-    "maxUploadBytes": 10485760,
+    "maxUploadBytes": 15728640,
     "phone": "",
     "pricesPublished": false,
     "pricing": {
@@ -755,7 +755,7 @@ exports[`golden: LocalStorage.getSettings > the legacy and partial results in fu
       "rectSharpGapUm": 0,
       "roundedRadiusUm": 3000,
     },
-    "maxUploadBytes": 10485760,
+    "maxUploadBytes": 15728640,
     "phone": "",
     "pricesPublished": true,
     "pricing": {
@@ -977,7 +977,7 @@ exports[`golden: config/defaults > DEFAULT_SETTINGS (key order preserved) and th
     "blockDpi": 72,
     "targetDpi": 300
   },
-  "maxUploadBytes": 10485760,
+  "maxUploadBytes": 15728640,
   "retentionDays": 30
 }"
 `;
@@ -1107,11 +1107,11 @@ exports[`golden: orderRequestSchema > accept / reject table 1`] = `
 
 exports[`golden: shopSettingsSchema > accepted inputs: what the parse changes (relative to the input) 1`] = `
 [
-  "tiers are sorted ascending on parse -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=68113827ee344601",
-  "unknown keys stripped at every level -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=68113827ee344601",
+  "tiers are sorted ascending on parse -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=38709c2baffe9bf3",
+  "unknown keys stripped at every level -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=38709c2baffe9bf3",
   "boundary values accepted -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=50de044394140039",
-  "only one material enabled -> ok pricing={"materials":{"paper":{"enabled":false,"pricePerSheetIqd":0},"plastic":{"enabled":true,"pricePerSheetIqd":1}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=bf28b45b90367cb3",
-  "empty tiers and quickPicks -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[],"tiers":[]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=e48e23eec6daf4f4",
+  "only one material enabled -> ok pricing={"materials":{"paper":{"enabled":false,"pricePerSheetIqd":0},"plastic":{"enabled":true,"pricePerSheetIqd":1}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=cc27d58d1d6a8c2c",
+  "empty tiers and quickPicks -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[],"tiers":[]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=a8f0d93a43299c1d",
 ]
 `;
 

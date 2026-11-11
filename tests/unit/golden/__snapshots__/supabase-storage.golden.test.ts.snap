@@ -117,8 +117,8 @@ exports[`golden: SupabaseStorage — analytics and customers > events 1`] = `
 
 exports[`golden: SupabaseStorage — objects > constants 1`] = `
 {
-  "SUPABASE_MAX_UPLOAD_BYTES": 10485760,
-  "directUploadMaxBytes": 10485760,
+  "SUPABASE_MAX_UPLOAD_BYTES": 15728640,
+  "directUploadMaxBytes": 15728640,
 }
 `;
 
@@ -501,7 +501,7 @@ exports[`golden: SupabaseStorage — orders and settings > settings 1`] = `
   },
   "saveSettings": {
     "requests": [
-      "POST /rest/v1/settings?on_conflict=id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=merge-duplicates,return=minimal","content-type":"application/json"} | body={"id":1,"data":{"shopName":"مطبعة","tagline":"طباعة ستيكرات على قياسك","whatsapp":"9647709999999","phone":"","hours":"ال… (849 chars, sha bc6d9738f2030fbf)",
+      "POST /rest/v1/settings?on_conflict=id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=merge-duplicates,return=minimal","content-type":"application/json"} | body={"id":1,"data":{"shopName":"مطبعة","tagline":"طباعة ستيكرات على قياسك","whatsapp":"9647709999999","phone":"","hours":"ال… (849 chars, sha 5fa6b4ae3c6026ea)",
     ],
     "result": undefined,
     "unusedResponses": 0,

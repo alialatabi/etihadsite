@@ -34,7 +34,7 @@ const CUSTOMER_FIELD_KEYS = Object.keys(CUSTOMER_FIELD_IDS) as (keyof typeof CUS
 
 export function Builder({ settings }: { settings: ShopSettings }) {
   const b = useBuilder(settings);
-  const sub = useSubmitOrder(settings.quality.targetDpi);
+  const sub = useSubmitOrder(settings.quality.targetDpi, settings.maxUploadBytes);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
   const navRowRef = useRef<HTMLDivElement>(null);

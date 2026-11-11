@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
-import { builder, common, order } from '@/content/ar';
+import { builder, common, fill, order } from '@/content/ar';
 import type { OrderError, OrderResponse, UploadResponse } from '@/lib/types';
 
 const okOrder: OrderResponse = {
@@ -31,6 +31,7 @@ function deps(over: Partial<FlowDeps>): FlowDeps {
     onPhase: vi.fn(),
     onProgress: vi.fn(),
     targetDpi: 300,
+    maxUploadMb: 15,
     ...over,
   };
 }
@@ -105,7 +106,7 @@ describe('submitOrderFlow result branches', () => {
     const d = deps({ upload: uploadFail('too_large') });
     const c = ctx();
     const r = await submitOrderFlow(input(), c, d);
-    expect(r).toEqual({ kind: 'error', code: 'upload_error', message: builder.upload.errors.too_large });
+    expect(r).toEqual({ kind: 'error', code: 'upload_error', message: fill(builder.upload.errors.too_large, { mb: 15 }) });
     expect(d.postOrder).not.toHaveBeenCalled();
     expect(c.uploadId).toBeUndefined();
   });

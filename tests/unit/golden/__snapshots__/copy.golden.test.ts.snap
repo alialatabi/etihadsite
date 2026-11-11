@@ -14,6 +14,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{h} x3",
   "{margin} x1",
   "{max} x3",
+  "{mb} x3",
   "{min} x1",
   "{n} x2",
   "{name} x1",
@@ -340,8 +341,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
   "upload": {
     "title": "ارفع تصميمك",
     "drop": "اسحب الملف أو اضغط للاختيار",
-    "accepted": "PNG أو JPG أو PDF — حد أقصى 10 ميغابايت",
-    "acceptedCustom": "PNG بخلفية شفافة فقط — حد أقصى 10 ميغابايت",
+    "accepted": "PNG أو JPG أو PDF — حد أقصى {mb} ميغابايت",
+    "acceptedCustom": "PNG بخلفية شفافة فقط — حد أقصى {mb} ميغابايت",
     "onlyFirstPage": "PDF من {pages} صفحة: نستخدم الأولى فقط.",
     "detectedSize": "قياس الصفحة بالملف: {size} سم",
     "replace": "غيّر الملف",
@@ -351,7 +352,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "cropNotice": "الصورة مو مربعة، نقطعها من المنتصف لتصير دائرة.",
     "errors": {
       "unsupported_type": "نوع الملف غير مدعوم. ارفع PNG أو JPG أو PDF.",
-      "too_large": "الملف أكبر من 10 ميغابايت. صغّره وجرّب مرة ثانية.",
+      "too_large": "الملف أكبر من {mb} ميغابايت. صغّره وجرّب مرة ثانية.",
       "corrupt": "ما نقدر نقرأ الملف. تأكد إنه سالم وجرّب مرة ثانية.",
       "encrypted": "PDF محمي بكلمة سر. ارفع نسخة بدون حماية.",
       "no_alpha": "الشكل المخصص يحتاج PNG شفاف، أو اختار «مستطيل».",
@@ -480,12 +481,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3226,
+  "chars": 3232,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 19,
-  "sha256OfRawJson": "d51f8852f7e578d858df50b46a4a9b3a2a9bc102cbf1595012573b047d478cc5",
+  "sha256OfRawJson": "b577efe932503306982e2c0e3f322d8341878a01433bf35913ea0775ae9f1e1b",
   "strings": 144,
 }
 `;
