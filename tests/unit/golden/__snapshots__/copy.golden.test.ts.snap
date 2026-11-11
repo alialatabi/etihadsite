@@ -5,6 +5,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{cols} x1",
   "{count} x2",
   "{days} x1",
+  "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
   "{from} x2",
@@ -13,12 +14,12 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{gapY} x1",
   "{h} x3",
   "{margin} x1",
-  "{max} x3",
-  "{mb} x3",
+  "{max} x5",
+  "{mb} x4",
   "{min} x1",
   "{n} x2",
-  "{name} x1",
-  "{pages} x1",
+  "{name} x3",
+  "{pages} x2",
   "{percent} x3",
   "{price} x1",
   "{rotated} x1",
@@ -870,7 +871,28 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
 "{
   "title": "ورقة الموظفين",
-  "adminLinkLabel": "رابط صفحة الموظفين (سري، لا تنشره)"
+  "adminLinkLabel": "رابط صفحة الموظفين (سري، لا تنشره)",
+  "intro": "ارفع التصاميم، اكتب قياس كل تصميم، ونطلعلك ملف PDF واحد بصفحة لكل تصميم، جاهز للطباعة والقص.",
+  "drop": "اسحب الملفات هنا أو اضغط للاختيار",
+  "dropMore": "ضيف ملفات ثانية",
+  "accepted": "PNG أو JPG أو PDF، لحد {max} ملف، وكل ملف لحد {mb} ميغابايت. الملفات تبقى عندك بالجهاز وما تنرفع لأي مكان.",
+  "tooMany": "الحد الأقصى {max} ملف. الملفات الزايدة ما انضافت.",
+  "empty": "ما أضفت أي تصميم بعد.",
+  "shapeLabel": "الشكل",
+  "shapes": {
+    "circle": "دائري",
+    "rounded": "مستطيل بزوايا دائرية",
+    "sharp": "مستطيل بزوايا حادة",
+    "custom": "شكل مخصص (PNG شفاف)"
+  },
+  "removeAria": "احذف {name}",
+  "lowDpi": "دقة الصورة قليلة وراح تطلع ضبابية. تكدر تنزّل الملف مع ذلك.",
+  "summary": "{designs}، والملف يطلع بـ {pages}.",
+  "download": "نزّل ملف PDF",
+  "preparing": "جاري تجهيز الملف…",
+  "needValid": "لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.",
+  "prepareFailed": "تعذر تجهيز «{name}».",
+  "printActualSize": "اطبع الملف بحجم 100% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها."
 }"
 `;
 
@@ -878,13 +900,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 47,
+  "chars": 726,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 1,
-  "sha256OfRawJson": "6be40fdc53582d4ea4913c8f0563cd86f1aa40b632807798f557e346528d0267",
-  "strings": 2,
+  "objects": 2,
+  "sha256OfRawJson": "baa281801cefe7efc821be2f6be5cd4fe73f04b8ba86c404f034ead9065ae64c",
+  "strings": 21,
 }
 `;
 
