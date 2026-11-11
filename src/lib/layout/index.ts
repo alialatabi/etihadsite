@@ -14,8 +14,12 @@
  *    allowed orientation → 'too_big_for_page'; NaN/negative/non-finite → 'invalid'.
  *  - Expected outputs for the fixtures in src/lib/__fixtures__/layout-cases.json
  *    must match EXACTLY (deep-equal), including placements order and block origin.
+ *  - params.marks (the cutter dots, ./marks.ts): absent → everything above, unchanged. Present →
+ *    cells near a dot are dropped and the arrangement is chosen on what is left (see
+ *    layoutWithMarks); layoutParamsFor() always adds them.
  */
 import { A4_UM } from '@/lib/units';
+import { REG_MARKS, isNearMark, markCentres, markInsetUm } from './marks';
 import { packMixed, type PackResult } from './pack';
 import type {
   LayoutOutcome,
@@ -23,6 +27,7 @@ import type {
   LayoutResult,
   LayoutSettings,
   Placement,
+  RegMarks,
   Shape,
   StickerSpec,
 } from '@/lib/types';
@@ -84,21 +89,21 @@ function buildResult(
   };
 }
 
-function attempt(cellW: number, cellH: number, rotated: boolean, params: LayoutParams): LayoutResult | null {
-  const usable = usableArea(params.marginUm);
-  const cols = Math.floor((usable.widthUm + params.gapXUm) / (cellW + params.gapXUm));
-  const rows = Math.floor((usable.heightUm + params.gapYUm) / (cellH + params.gapYUm));
+/** Plain grid of cellW × cellH cells centred in `area`, or null when not even one fits. */
+function attempt(area: Area, cellW: number, cellH: number, rotated: boolean, params: LayoutParams): LayoutResult | null {
+  const cols = Math.floor((area.widthUm + params.gapXUm) / (cellW + params.gapXUm));
+  const rows = Math.floor((area.heightUm + params.gapYUm) / (cellH + params.gapYUm));
   if (cols < 1 || rows < 1) return null;
   const blockW = cols * cellW + (cols - 1) * params.gapXUm;
   const blockH = rows * cellH + (rows - 1) * params.gapYUm;
-  const block = centre(usable, blockW, blockH);
+  const block = centre(area, blockW, blockH);
   const placements: Placement[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       placements.push({ xUm: block.xUm + c * (cellW + params.gapXUm), yUm: block.yUm + r * (cellH + params.gapYUm) });
     }
   }
-  return buildResult(params, usable, { cell: { widthUm: cellW, heightUm: cellH }, rotated, cols, rows, block, placements });
+  return buildResult(params, area, { cell: { widthUm: cellW, heightUm: cellH }, rotated, cols, rows, block, placements });
 }
 
 /** Compute the arrangement of `spec` on one A4 sheet with `params`. */
@@ -109,18 +114,116 @@ export function computeLayout(spec: StickerSpec, params: LayoutParams): LayoutOu
     return { ok: false, reason: 'invalid' };
   }
   if (2 * params.marginUm >= A4_UM.widthUm || 2 * params.marginUm >= A4_UM.heightUm) return { ok: false, reason: 'invalid' };
+  const marks = params.marks;
+  if (marks !== undefined && !validMarks(marks)) return { ok: false, reason: 'invalid' };
   if (spec.widthUm < params.minSideUm || spec.heightUm < params.minSideUm) return { ok: false, reason: 'too_small' };
+  if (marks !== undefined) return layoutWithMarks(spec, params, marks);
 
-  const upright = attempt(spec.widthUm, spec.heightUm, false, params);
-  const rotated = params.allowRotate ? attempt(spec.heightUm, spec.widthUm, true, params) : null;
+  const usable = usableArea(params.marginUm);
+  const upright = attempt(usable, spec.widthUm, spec.heightUm, false, params);
+  const rotated = params.allowRotate ? attempt(usable, spec.heightUm, spec.widthUm, true, params) : null;
   let best = upright;
   if (rotated && (!best || rotated.countPerSheet > best.countPerSheet)) best = rotated;
   if (!best) return { ok: false, reason: 'too_big_for_page' };
   if (params.allowRotate && spec.widthUm !== spec.heightUm) {
-    const mixed = mixedLayout(spec.widthUm, spec.heightUm, params);
+    const mixed = mixedLayout(usable, spec.widthUm, spec.heightUm, params);
     if (mixed && mixed.countPerSheet > best.countPerSheet) best = mixed;
   }
   return { ok: true, layout: best };
+}
+
+function validMarks(m: RegMarks): boolean {
+  return (
+    typeof m === 'object' &&
+    m !== null &&
+    isNonNegInt(m.offsetUm) &&
+    isPosInt(m.diameterUm) &&
+    isNonNegInt(m.clearanceUm)
+  );
+}
+
+/** One arrangement after the cells near a dot were dropped. */
+interface MarkedOption {
+  /** The arrangement as built, before removal (cell, rotated, cols, rows, block). */
+  built: LayoutResult;
+  kept: Placement[];
+  removed: number;
+}
+
+/** Drop every placement of `built` whose printed shape comes near one of the dots. */
+function dropNearMarks(built: LayoutResult, centres: { xUm: number; yUm: number }[], m: RegMarks): MarkedOption {
+  const kept = built.placements.filter((p) => {
+    const cell = { xUm: p.xUm, yUm: p.yUm, ...cellSizeFor(built, Boolean(p.turned)) };
+    return !centres.some((c) => isNearMark(cell, built.clip, c, m));
+  });
+  return { built, kept, removed: built.placements.length - kept.length };
+}
+
+/** `a` beats `b`: more cells kept, then fewer removed. On a full tie the earlier candidate stays. */
+function beats(a: MarkedOption, b: MarkedOption | null): boolean {
+  if (!b) return true;
+  if (a.kept.length !== b.kept.length) return a.kept.length > b.kept.length;
+  return a.removed < b.removed;
+}
+
+/**
+ * Best arrangement inside `area` once cells near the dots are dropped. Every option today's
+ * engine considers (upright grid; rotated grid and mixed layout when rotation is allowed) is
+ * built, filtered and compared on what is left. Ties: fewer removed, then upright < rotated < mixed.
+ */
+function bestInArea(
+  area: Area,
+  spec: StickerSpec,
+  params: LayoutParams,
+  centres: { xUm: number; yUm: number }[],
+  m: RegMarks,
+): MarkedOption | null {
+  const options: (LayoutResult | null)[] = [attempt(area, spec.widthUm, spec.heightUm, false, params)];
+  if (params.allowRotate) {
+    options.push(attempt(area, spec.heightUm, spec.widthUm, true, params));
+    if (spec.widthUm !== spec.heightUm) options.push(mixedLayout(area, spec.widthUm, spec.heightUm, params));
+  }
+  let best: MarkedOption | null = null;
+  for (const built of options) {
+    if (!built) continue;
+    const option = dropNearMarks(built, centres, m);
+    if (beats(option, best)) best = option;
+  }
+  return best;
+}
+
+/**
+ * Layout that keeps every sticker clear of the cutter dots (design A2). Area 1 is the usable
+ * area; only when its winner lost a cell to a dot are area 2 (left and right moved in past the
+ * dots) and area 3 (top and bottom moved in) tried too. Across areas: more kept, then fewer
+ * removed, then the lower area number.
+ */
+function layoutWithMarks(spec: StickerSpec, params: LayoutParams, m: RegMarks): LayoutOutcome {
+  const centres = markCentres(m);
+  const usable = usableArea(params.marginUm);
+  let best = bestInArea(usable, spec, params, centres, m);
+  if (best && best.removed > 0) {
+    const inset = Math.max(params.marginUm, markInsetUm(m));
+    const areas: Area[] = [];
+    if (2 * inset < A4_UM.widthUm) areas.push({ ...usable, xUm: inset, widthUm: A4_UM.widthUm - 2 * inset });
+    if (2 * inset < A4_UM.heightUm) areas.push({ ...usable, yUm: inset, heightUm: A4_UM.heightUm - 2 * inset });
+    for (const area of areas) {
+      const option = bestInArea(area, spec, params, centres, m);
+      if (option && beats(option, best)) best = option;
+    }
+  }
+  if (!best || best.kept.length === 0) return { ok: false, reason: 'too_big_for_page' };
+  const { built, kept, removed } = best;
+  const layout: LayoutResult = {
+    ...built,
+    usable,
+    turnedCount: kept.filter((p) => p.turned).length,
+    countPerSheet: kept.length,
+    placements: kept,
+    marks: { diameterUm: m.diameterUm, centres },
+    removedNearMarks: removed,
+  };
+  return { ok: true, layout };
 }
 
 const packCache = new Map<string, PackResult | null>();
@@ -135,9 +238,8 @@ function cachedPack(W: number, H: number, aw: number, ah: number, bw: number, bh
   return r;
 }
 
-/** Best mixed-orientation layout (upright + turned cells), or null when nothing fits. */
-function mixedLayout(w: number, h: number, params: LayoutParams): LayoutResult | null {
-  const usable = usableArea(params.marginUm);
+/** Best mixed-orientation layout (upright + turned cells) centred in `usable`, or null when nothing fits. */
+function mixedLayout(usable: Area, w: number, h: number, params: LayoutParams): LayoutResult | null {
   const gx = params.gapXUm;
   const gy = params.gapYUm;
   const pack = cachedPack(usable.widthUm + gx, usable.heightUm + gy, w + gx, h + gy, h + gx, w + gy);
@@ -195,8 +297,14 @@ export function placementRotated(layout: LayoutResult, p: Placement): boolean {
  * circle → circleGapX/Y + clip circle; rect rounded → rectRoundedGap both axes +
  * clip roundedRect (radius = min(roundedRadiusUm, floor(min(w,h)/2)));
  * rect sharp → rectSharpGap both axes, clip none; custom → customGap both axes, clip none.
+ * Every shape gets the cutter dots (REG_MARKS), so the website, the order route and the staff
+ * page all keep stickers clear of them.
  */
 export function layoutParamsFor(spec: StickerSpec, settings: LayoutSettings): LayoutParams {
+  return { ...shapeParams(spec, settings), marks: { ...REG_MARKS } };
+}
+
+function shapeParams(spec: StickerSpec, settings: LayoutSettings): LayoutParams {
   const base = { marginUm: settings.marginUm, allowRotate: settings.allowRotate, minSideUm: settings.minSideUm };
   switch (spec.shape) {
     case 'circle':
@@ -239,8 +347,13 @@ export function deriveLockedSize(
  * Largest width (µm) that still fits at least once with the given aspect
  * (considering rotation when params.allowRotate). Returns 0 when no width ≥ minSideUm
  * fits, or when the derived height would be < minSideUm ('ratio_extreme' in the UI).
+ *
+ * Fitting once is monotone in the width (also with the cutter dots), so the answer is found by
+ * an exponential search from the closed-form estimate and then a binary search: a bounded number
+ * of layout runs (about 100) instead of a 1 µm walk that the dots can stretch to thousands.
+ * `layout` exists so tests can count the runs; callers leave it out.
  */
-export function maxWidthFor(aspect: number, params: LayoutParams): number {
+export function maxWidthFor(aspect: number, params: LayoutParams, layout: typeof computeLayout = computeLayout): number {
   if (!Number.isFinite(aspect) || aspect <= 0) return 0;
   const { widthUm: usableW, heightUm: usableH } = usableArea(params.marginUm);
   if (!(usableW > 0 && usableH > 0)) return 0;
@@ -249,15 +362,41 @@ export function maxWidthFor(aspect: number, params: LayoutParams): number {
   // Geometric fit only (minSide relaxed): fitting is monotone in w, so the upper bound is well defined.
   const loose: LayoutParams = { ...params, minSideUm: 1 };
   // Fitting ONCE never needs a mixed layout, so test the plain grids only (fast).
-  const fits = (w: number): boolean => computeLayout(spec(w), { ...loose, allowRotate: false }).ok ||
-    (params.allowRotate && computeLayout({ ...spec(w), widthUm: heightOf(w), heightUm: w }, { ...loose, allowRotate: false }).ok);
-  // Closed-form estimate from the usable area, then exact verification.
+  const fits = (w: number): boolean => layout(spec(w), { ...loose, allowRotate: false }).ok ||
+    (params.allowRotate && layout({ ...spec(w), widthUm: heightOf(w), heightUm: w }, { ...loose, allowRotate: false }).ok);
+  // Closed-form estimate from the usable area (ignores the dots), then an exact search.
   const upright = Math.min(usableW, usableH * aspect);
   const turned = params.allowRotate ? Math.min(usableH, usableW * aspect) : 0;
   let w = Math.floor(Math.max(upright, turned));
   if (!Number.isFinite(w) || w < 1) w = 1;
-  while (w > 1 && !fits(w)) w--;
-  while (fits(w + 1)) w++;
-  if (!fits(w)) return 0;
-  return w >= params.minSideUm && computeLayout(spec(w), params).ok ? w : 0;
+  // Bracket the answer: fits(lo) and !fits(hi), lo < hi.
+  let lo: number;
+  let hi: number;
+  if (fits(w)) {
+    lo = w;
+    for (let step = 1; ; step *= 2) {
+      if (!fits(lo + step)) {
+        hi = lo + step;
+        break;
+      }
+      lo += step;
+    }
+  } else {
+    hi = w;
+    for (let step = 1; ; step *= 2) {
+      if (hi === 1) return 0;
+      const c = Math.max(1, hi - step);
+      if (fits(c)) {
+        lo = c;
+        break;
+      }
+      hi = c;
+    }
+  }
+  while (hi - lo > 1) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (fits(mid)) lo = mid;
+    else hi = mid;
+  }
+  return lo >= params.minSideUm && layout(spec(lo), params).ok ? lo : 0;
 }

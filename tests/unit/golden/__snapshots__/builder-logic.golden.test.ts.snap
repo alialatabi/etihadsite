@@ -586,8 +586,8 @@ exports[`golden: safe.ts wrappers (happy path = same result as the wrapped funct
     "NaN=>""",
   ],
   "safeLayout": [
-    "ok n=54 6x9 fdc3bbea38decf16",
-    "ok n=24 3x8 fe943d7718c39993",
+    "ok n=54 6x9 3ebf2984567897bb",
+    "ok n=24 3x8 ad8d69ca71c30f32",
     "FAIL too_big_for_page",
     "FAIL too_small",
     "FAIL invalid",

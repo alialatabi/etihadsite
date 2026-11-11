@@ -50,6 +50,20 @@ export interface LayoutParams {
   minSideUm: number;
   /** Clip applied to the artwork in each cell (preview + PDF). */
   clip: ClipShape;
+  /**
+   * The 4 camera-cutter dots (see src/lib/layout/marks.ts). When present, no sticker is placed
+   * near a dot and the result carries `marks` + `removedNearMarks`. Absent = today's layout exactly.
+   */
+  marks?: RegMarks;
+}
+
+/** Registration dots for the camera cutter, one in each page corner (integer µm). */
+export interface RegMarks {
+  /** Dot centre from each of the two nearest page edges. */
+  offsetUm: number;
+  diameterUm: number;
+  /** Minimum white space between the dot's edge and any printed part of a sticker. */
+  clearanceUm: number;
 }
 
 export interface Placement {
@@ -86,6 +100,14 @@ export interface LayoutResult {
   /** Row-major: row 0 left→right, then row 1, … Length === countPerSheet. */
   placements: Placement[];
   clip: ClipShape;
+  /**
+   * Present iff the params had `marks`: the dots to draw (TL, TR, BL, BR). With marks, `usable` is
+   * still page minus margin, `block`/`cols`/`rows` describe the chosen arrangement BEFORE cells near
+   * a dot were removed, and `countPerSheet`/`turnedCount`/`placements` are AFTER removal.
+   */
+  marks?: { diameterUm: number; centres: { xUm: number; yUm: number }[] };
+  /** Present iff the params had `marks`: how many cells were dropped for being near a dot (diagnostic). */
+  removedNearMarks?: number;
 }
 
 export type LayoutFailure = 'too_small' | 'too_big_for_page' | 'ratio_extreme' | 'invalid';
