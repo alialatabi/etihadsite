@@ -2,27 +2,28 @@
 
 import { sendTrack } from '@/lib/analytics/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { enabledMaterials, validateQuantity } from '@/lib/pricing';
+import { enabledMaterials, sheetsForStickers, validateStickers } from '@/lib/pricing';
 import { decodeDesign } from '@/lib/design/decode.client';
 import { logClient } from './logClient';
 import {
   EMPTY_FIELDS,
   STEPS,
   buildSummary,
-  clampSheets,
   dpiFor,
   dpiStatus,
   loadForm,
-  parseSheets,
+  parseStickers,
   pdfPrefillUm,
   restoredState,
   saveForm,
+  stepStickers,
+  stickersTextFor,
   validateCustomer,
   type CustomerErrors,
   type FormFields,
   type StepId,
 } from './logic';
-import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm, safePrice } from './safe';
+import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm, safePriceForStickers } from './safe';
 import { useDebounced } from './useDebounced';
 import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
@@ -79,7 +80,8 @@ export function useBuilder(settings: ShopSettings) {
   const [heightText, setHeightText] = useState('');
   const [sizeUm, setSizeUm] = useState<SizeUm | null>(null);
   const [materialChoice, setMaterialChoice] = useState<Material | null>(null);
-  const [sheetsText, setSheetsText] = useState(() => String(settings.pricing.minSheets));
+  // null = the customer never typed a count: the box shows the minimum for the current layout.
+  const [typedStickers, setTypedStickers] = useState<string | null>(null);
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [showErrors, setShowErrors] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -99,7 +101,7 @@ export function useBuilder(settings: ShopSettings) {
       if (r.heightText !== undefined) setHeightText(r.heightText);
       if (r.sizeUm !== undefined) setSizeUm(r.sizeUm);
       if (r.material !== undefined) setMaterialChoice(r.material);
-      if (r.sheetsText !== undefined) setSheetsText(r.sheetsText);
+      if (r.stickersText !== undefined) setTypedStickers(r.stickersText);
       setFields(r.fields);
     }
     setHydrated(true);
@@ -108,8 +110,8 @@ export function useBuilder(settings: ShopSettings) {
 
   useEffect(() => {
     if (!hydrated || !shape) return;
-    saveForm({ shape, corners, widthText, heightText, sizeUm, material: materialChoice, sheetsText, ...fields });
-  }, [hydrated, shape, corners, widthText, heightText, sizeUm, materialChoice, sheetsText, fields]);
+    saveForm({ shape, corners, widthText, heightText, sizeUm, material: materialChoice, stickersText: typedStickers ?? '', ...fields });
+  }, [hydrated, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields]);
 
   useRevokeObjectUrl(design?.previewUrl ?? null);
 
@@ -244,23 +246,39 @@ export function useBuilder(settings: ShopSettings) {
   const dpi = design && spec ? dpiFor(design, spec) : null;
   const dpiState = dpiStatus(dpi, settings.quality);
 
-  /* ── quantity: material + sheets (price is derived, never stored) ── */
+  /* ── quantity: material + sticker count (sheets and price are derived, never stored) ── */
   const pricing = settings.pricing;
   const materials = useMemo(() => enabledMaterials(pricing), [pricing]);
   // Chosen material if still enabled; otherwise paper (or the only/first enabled one).
   const material: Material | null =
     materialChoice && materials.includes(materialChoice) ? materialChoice : materials.includes('paper') ? 'paper' : (materials[0] ?? null);
-  const sheets = parseSheets(sheetsText);
+  const countPerSheet = layout ? layout.countPerSheet : null;
+  // What the box shows: the typed text, or (never typed) the minimum for the current layout.
+  const stickersText = stickersTextFor(typedStickers, countPerSheet, pricing);
+  const stickers = parseStickers(stickersText);
   const quantityError =
-    material === null ? ('material_disabled' as const) : sheets === null ? ('not_integer' as const) : validateQuantity(material, sheets, pricing);
+    material === null
+      ? ('material_disabled' as const)
+      : stickers === null
+        ? ('not_integer' as const)
+        : validateStickers(material, stickers, countPerSheet ?? 0, pricing);
+  // Sheets are rounded up: the customer receives the whole last sheet.
+  const sheets = stickers !== null && !quantityError && countPerSheet !== null ? sheetsForStickers(stickers, countPerSheet) : null;
 
-  const setSheets = useCallback((n: number) => setSheetsText(String(clampSheets(n, pricing))), [pricing]);
-  const stepSheets = useCallback(
-    (delta: number) => setSheetsText((t) => String(clampSheets((parseSheets(t) ?? pricing.minSheets) + delta, pricing))),
-    [pricing],
+  const setStickersText = setTypedStickers;
+  /** Set an exact count (the quick picks); it counts as typed. */
+  const setStickers = useCallback((n: number) => setTypedStickers(String(n)), []);
+  /** The − / + buttons: one whole sheet of stickers up or down. */
+  const stepSheet = useCallback(
+    (dir: 1 | -1) => {
+      if (countPerSheet === null) return;
+      setTypedStickers((t) => String(stepStickers(parseStickers(stickersTextFor(t, countPerSheet, pricing)), dir, countPerSheet, pricing)));
+    },
+    [countPerSheet, pricing],
   );
 
-  const price = material && sheets !== null && !quantityError && layout ? safePrice(material, sheets, layout.countPerSheet, settings) : null;
+  const price =
+    material && stickers !== null && !quantityError && layout ? safePriceForStickers(material, stickers, layout.countPerSheet, settings) : null;
   const summary = spec && layout && price ? buildSummary(spec, layout, price) : null;
 
   const stepOk: Record<StepId, boolean> = {
@@ -321,11 +339,13 @@ export function useBuilder(settings: ShopSettings) {
     materials,
     material,
     setMaterial: setMaterialChoice,
+    countPerSheet,
+    stickers,
+    stickersText,
+    setStickersText,
+    setStickers,
+    stepSheet,
     sheets,
-    sheetsText,
-    setSheetsText,
-    setSheets,
-    stepSheets,
     quantityError,
     price,
     summary,

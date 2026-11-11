@@ -6,7 +6,7 @@ import { effectiveDpi, ptToUm } from '@/lib/units';
 import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
-import { activeTier, sortedTiers } from '@/lib/pricing';
+import { activeTier, maxStickers, minStickers, sortedTiers } from '@/lib/pricing';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
   BuilderStep,
@@ -47,7 +47,8 @@ export interface PersistedForm extends FormFields {
   heightText: string;
   sizeUm: { widthUm: number; heightUm: number } | null;
   material: Material | null;
-  sheetsText: string;
+  /** What the customer typed in the sticker count box; '' when they never typed one. */
+  stickersText: string;
 }
 
 export const EMPTY_FIELDS: FormFields = { name: '', phone: '', governorate: '', district: '', landmark: '', notes: '' };
@@ -161,6 +162,7 @@ export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: Pri
     subtotalIqd: price.subtotalIqd,
     deliveryFeeIqd: price.deliveryFeeIqd,
     totalIqd: price.totalIqd,
+    ...(price.requestedStickers !== undefined ? { requestedStickers: price.requestedStickers } : {}),
   };
 }
 
@@ -174,7 +176,7 @@ export interface RestoredState {
   heightText?: string;
   sizeUm?: { widthUm: number; heightUm: number };
   material?: Material;
-  sheetsText?: string;
+  stickersText?: string;
   fields: FormFields;
 }
 
@@ -196,11 +198,12 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   if (typeof saved.heightText === 'string') r.heightText = saved.heightText;
   if (saved.sizeUm) r.sizeUm = saved.sizeUm;
   if (saved.material != null && MATERIALS.includes(saved.material)) r.material = saved.material;
-  if (typeof saved.sheetsText === 'string' && saved.sheetsText.trim()) r.sheetsText = saved.sheetsText;
+  // A form saved by an older page has `sheetsText` (a sheet count): it is ignored on purpose.
+  if (typeof saved.stickersText === 'string' && saved.stickersText.trim()) r.stickersText = saved.stickersText;
   return r;
 }
 
-/* ───────────────────────── quantity (sheets) ───────────────────────── */
+/* ───────────────────────── quantity (stickers, priced in sheets) ───────────────────────── */
 
 /** Typed text → number (accepts Arabic-Indic digits). null when empty or not a number. */
 export function parseSheets(text: string): number | null {
@@ -210,16 +213,59 @@ export function parseSheets(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Nearest orderable whole number within min..max (used by the − / + buttons). */
+/** Thousands written in groups of three: '1,080', '١٬٠٨٠' (U+066C), '1 080'. '12,5' is not one. */
+const GROUPED = /^-?\d{1,3}(?:[,٬  ]\d{3})+(?:\.\d+)?$/;
+
+/**
+ * Sticker count the customer typed: parseSheets() that also accepts thousands grouping
+ * ('1,080', '١٬٠٨٠', '1 080'), since counts now run to 4-7 digits. Anything else parses as parseSheets.
+ */
+export function parseStickers(text: string): number | null {
+  const t = normaliseDigits(text).trim();
+  return parseSheets(GROUPED.test(t) ? t.replace(/[,٬  ]/g, '') : t);
+}
+
+/** Nearest orderable whole number of sheets within min..max. */
 export function clampSheets(n: number, pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets'>): number {
   const r = Number.isFinite(n) ? Math.round(n) : pricing.minSheets;
   return Math.min(pricing.maxSheets, Math.max(pricing.minSheets, r));
 }
 
-/** Quick-pick values that are orderable (min..max), unique, ascending. */
+/** Quick-pick values in SHEETS that are orderable (min..max), unique, ascending. */
 export function quickPicksFor(pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets' | 'quickPicks'>): number[] {
   const ok = pricing.quickPicks.filter((n) => Number.isInteger(n) && n >= pricing.minSheets && n <= pricing.maxSheets);
   return [...new Set(ok)].sort((a, b) => a - b);
+}
+
+/** Quick-pick buttons in STICKERS: each stored sheet pick × countPerSheet. Empty without a usable layout. */
+export function quickPickStickers(
+  pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets' | 'quickPicks'>,
+  countPerSheet: number,
+): number[] {
+  if (!(Number.isInteger(countPerSheet) && countPerSheet > 0)) return [];
+  const max = maxStickers(countPerSheet, pricing);
+  return quickPicksFor(pricing)
+    .map((n) => n * countPerSheet)
+    .filter((n) => n <= max);
+}
+
+/**
+ * The − / + buttons: move to the next (dir 1) or previous (dir -1) whole sheet of stickers.
+ * From any value (typed 600 at 54 per sheet) they snap to a multiple of countPerSheet strictly
+ * above / below it, clamped to the orderable range. `current` null or unusable starts from the minimum.
+ */
+export function stepStickers(
+  current: number | null,
+  dir: 1 | -1,
+  countPerSheet: number,
+  pricing: Pick<PricingSettings, 'minSheets' | 'maxSheets'>,
+): number {
+  if (!(Number.isInteger(countPerSheet) && countPerSheet > 0)) return current ?? 0;
+  const from = current !== null && Number.isFinite(current) ? current : pricing.minSheets * countPerSheet;
+  const sheets = dir === 1 ? Math.floor(from / countPerSheet) + 1 : Math.ceil(from / countPerSheet) - 1;
+  // maxStickers() can hold fewer sheets than maxSheets (the request cap): never step past it.
+  const topSheets = maxStickers(countPerSheet, pricing) / countPerSheet;
+  return Math.min(clampSheets(sheets, pricing), topSheets) * countPerSheet;
 }
 
 // The tier helpers live with the rest of the pricing rules; re-exported for existing importers.
@@ -227,7 +273,7 @@ export { activeTier, sortedTiers };
 
 /**
  * "Add N sheets and get X% off": only when the next tier gives a better discount and is close
- * (<= 5 sheets, or <= 25% of that tier's threshold).
+ * (<= 5 sheets, or <= 25% of that tier's threshold). Counts SHEETS; see nextTierNudgeStickers.
  */
 export function nextTierNudge(sheets: number | null, tiers: readonly DiscountTier[]): { add: number; percent: number } | null {
   if (sheets === null || !Number.isInteger(sheets)) return null;
@@ -236,6 +282,27 @@ export function nextTierNudge(sheets: number | null, tiers: readonly DiscountTie
   if (!next) return null;
   const add = next.minSheets - sheets;
   return add <= Math.max(5, Math.ceil(next.minSheets * 0.25)) ? { add, percent: next.percent } : null;
+}
+
+/**
+ * The nudge in STICKERS: "is it close" is decided on the rounded-up sheets (nextTierNudge), the
+ * number shown is how many more stickers reach the tier: nextTier.minSheets × countPerSheet − stickers.
+ */
+export function nextTierNudgeStickers(
+  stickers: number | null,
+  sheets: number | null,
+  countPerSheet: number,
+  tiers: readonly DiscountTier[],
+): { add: number; percent: number } | null {
+  if (stickers === null || sheets === null || !Number.isInteger(stickers) || !(countPerSheet > 0)) return null;
+  const n = nextTierNudge(sheets, tiers);
+  return n ? { add: (sheets + n.add) * countPerSheet - stickers, percent: n.percent } : null;
+}
+
+/** What the sticker box holds: what the customer typed, else the minimum for this layout ('' without one). */
+export function stickersTextFor(typed: string | null, countPerSheet: number | null, pricing: PricingSettings): string {
+  if (typed !== null) return typed;
+  return countPerSheet === null ? '' : String(minStickers(countPerSheet, pricing));
 }
 
 /* ───────────────────────── sessionStorage (all try/catch) ───────────────────────── */

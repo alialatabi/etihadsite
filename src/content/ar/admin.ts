@@ -58,6 +58,7 @@ export const admin = {
     size: 'القياس',
     perSheet: 'بالورقة',
     sheets: 'عدد الأوراق',
+    requestedStickers: 'العدد المطلوب',
     totalStickers: 'مجموع الستيكرات',
     material: 'الخامة',
     unitPrice: 'سعر الورقة',

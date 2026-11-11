@@ -1055,7 +1055,7 @@ exports[`golden: orderRequestSchema > accept / reject table 1`] = `
   "not an object: null -> REJECT (root):invalid_type",
   "not an object: string -> REJECT (root):invalid_type",
   "not an object: array -> REJECT (root):invalid_type",
-  "empty object -> REJECT orderId:invalid_type, uploadId:invalid_type, spec:invalid_type, material:invalid_value, sheets:invalid_type, customer:invalid_type",
+  "empty object -> REJECT orderId:invalid_type, uploadId:invalid_type, spec:invalid_type, material:invalid_value, customer:invalid_type",
   "orderId too short -> REJECT orderId:invalid_format",
   "orderId 65 chars -> REJECT orderId:invalid_format",
   "orderId with slash -> REJECT orderId:invalid_format",

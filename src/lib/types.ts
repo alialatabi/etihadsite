@@ -279,6 +279,7 @@ export interface ShopSettings {
 
 export interface PriceBreakdown {
   material: Material;
+  /** Sheets printed. For a sticker order: ceil(requestedStickers / countPerSheet). */
   sheets: number;
   /** Full per-sheet price before discount; null when prices are not published. */
   unitBaseIqd: number | null;
@@ -286,15 +287,30 @@ export interface PriceBreakdown {
   discountPercent: number;
   /** round(unitBaseIqd × (100 − discountPercent) / 100); null when not published. */
   unitPriceIqd: number | null;
-  /** unitPriceIqd × sheets (before delivery); null when not published. */
+  /**
+   * Price of the sheets INCLUDING the final rounding: totalIqd − deliveryFeeIqd
+   * (= unitPriceIqd × sheets + roundingIqd); null when not published.
+   * Orders saved before 2026-11-11 have no rounding: there it is exactly unitPriceIqd × sheets.
+   */
   subtotalIqd: number | null;
   deliveryFeeIqd: number;
-  /** subtotalIqd + deliveryFeeIqd; null when not published. */
+  /**
+   * What the customer pays: max(deliveryFeeIqd, unitPriceIqd × sheets + deliveryFeeIqd rounded to
+   * the nearest PRICE_ROUND_IQD, see src/lib/pricing.ts); null when not published.
+   * Orders saved before 2026-11-11 are not rounded.
+   */
   totalIqd: number | null;
-  /** sheets × countPerSheet */
+  /** sheets × countPerSheet: what the customer receives (the whole last sheet). */
   totalStickers: number;
   /** totalIqd / totalStickers, rounded to the dinar; null when totalIqd is null. */
   perStickerIqd: number | null;
+  /**
+   * totalIqd − (unitPriceIqd × sheets + deliveryFeeIqd): the final rounding, may be negative or 0;
+   * null when not published. Absent on orders saved before 2026-11-11.
+   */
+  roundingIqd?: number | null;
+  /** Sticker count the customer typed. Absent on sheet-count orders (all orders before 2026-11-11). */
+  requestedStickers?: number;
 }
 
 /* ────────────────────────────── Orders ─────────────────────────────────── */
@@ -317,8 +333,17 @@ export interface OrderRequest {
   uploadId: string;
   spec: StickerSpec;
   material: Material;
-  /** Integer, pricing.minSheets ≤ sheets ≤ pricing.maxSheets. */
-  sheets: number;
+  /**
+   * Sticker count the customer typed: integer, minSheets × countPerSheet ≤ stickers ≤
+   * maxSheets × countPerSheet. When present the server IGNORES `sheets` and computes
+   * sheets = ceil(stickers / countPerSheet) from its own layout. Sent by clients since 2026-11-11.
+   */
+  stickers?: number;
+  /**
+   * Sheet count (the request before 2026-11-11): integer, pricing.minSheets ≤ sheets ≤ pricing.maxSheets.
+   * Used only when `stickers` is absent. At least one of `stickers` / `sheets` is required.
+   */
+  sheets?: number;
   customer: CustomerInfo;
   /** Optional Turnstile token (enforced only when the server has a secret configured). */
   turnstileToken?: string;
@@ -343,6 +368,8 @@ export interface OrderSummary {
   subtotalIqd: number | null;
   deliveryFeeIqd: number;
   totalIqd: number | null;
+  /** Sticker count the customer typed (price.requestedStickers). Absent on sheet-count orders. */
+  requestedStickers?: number;
 }
 
 export interface OrderRecord {
@@ -513,7 +540,7 @@ export type AnalyticsEventType =
   | 'step'
   /** Server-side: a design upload was accepted. */
   | 'upload'
-  /** Server-side: an order was created. `meta` carries material/sheets/total/governorate/shape. */
+  /** Server-side: an order was created. `meta` carries material/sheets/requestedStickers (sticker orders)/total/governorate/shape. */
   | 'order'
   /** PWA install card shown / accepted / app installed. `step` = 'shown' | 'accepted' | 'installed'. */
   | 'install';

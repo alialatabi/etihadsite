@@ -96,6 +96,9 @@ export default async function OrderDetailPage({
                 {o.layout.rotated && !o.layout.turnedCount ? ` · ${d.rotated}` : ''}
               </Row>
               <Row label={d.material}>{pv.material ? common.materials[pv.material] : admin.orders.missing}</Row>
+              <Row label={d.requestedStickers}>
+                {pv.requestedStickers === null ? admin.orders.missing : <Ltr>{pv.requestedStickers}</Ltr>}
+              </Row>
               <Row label={d.sheets}>{pv.sheets === null ? admin.orders.missing : <Ltr>{pv.sheets}</Ltr>}</Row>
               <Row label={d.totalStickers}>
                 {pv.totalStickers === null ? admin.orders.missing : <Ltr>{pv.totalStickers}</Ltr>}

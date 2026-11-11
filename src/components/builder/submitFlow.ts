@@ -16,6 +16,9 @@ export interface SubmitInput {
   design: DesignSource;
   spec: StickerSpec;
   material: Material;
+  /** What the customer typed. The server works out the sheets from it. */
+  stickers: number;
+  /** ceil(stickers / countPerSheet) from this page's layout; sent for an older server, which ignores `stickers`. */
   sheets: number;
   customer: CustomerInfo;
 }
@@ -72,6 +75,7 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
       uploadId: ctx.uploadId as string,
       spec: input.spec,
       material: input.material,
+      stickers: input.stickers,
       sheets: input.sheets,
       customer: input.customer,
     });

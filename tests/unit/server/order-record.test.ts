@@ -135,3 +135,14 @@ describe("summaryOf", () => {
     );
   });
 });
+
+describe("summaryOf with a sticker-count order", () => {
+  it("appends requestedStickers last, only when the price has it", () => {
+    const rec = buildOrderRecord(input({ price: { ...PRICE, roundingIqd: 0, requestedStickers: 777 } }));
+    expect(rec.price.requestedStickers).toBe(777);
+    const s = summaryOf(rec);
+    expect(Object.keys(s).at(-1)).toBe("requestedStickers");
+    expect(s.requestedStickers).toBe(777);
+    expect("requestedStickers" in summaryOf(buildOrderRecord(input()))).toBe(false);
+  });
+});

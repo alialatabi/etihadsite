@@ -18,6 +18,7 @@ const input = (name = 'a.pdf', type = 'application/pdf'): SubmitInput => ({
   design: { kind: type === 'application/pdf' ? 'pdf' : 'png', file: new File(['x'], name, { type }) } as never,
   spec: { shape: 'rect', corners: 'rounded', widthUm: 30_000, heightUm: 30_000 },
   material: 'plastic',
+  stickers: 1050,
   sheets: 20,
   customer: { phone: '9647701234567', governorate: 'بغداد', district: 'x', landmark: 'y' },
 });
@@ -45,7 +46,8 @@ describe('submitOrderFlow', () => {
       uploadId: 'u1',
       spec: input().spec,
       material: 'plastic',
-  sheets: 20,
+      stickers: 1050,
+      sheets: 20,
       customer: input().customer,
     });
   });

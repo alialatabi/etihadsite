@@ -1,14 +1,14 @@
 import { common } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
-import { count } from '@/lib/plural';
+import { count, formatCount } from '@/lib/plural';
 import { safeFormatCm } from './safe';
 
-/** "54 ستيكر": the number is LTR-isolated, the Arabic word follows it in reading order. */
+/** "1,080 ستيكر": the number is grouped and LTR-isolated, the Arabic word follows it in reading order. */
 export function CountLabel({ n }: { n: number }) {
   const word = count(n, common.plural.sticker);
   return (
     <>
-      <Ltr>{n}</Ltr>
+      <Ltr>{formatCount(n)}</Ltr>
       {word && ` ${word}`}
     </>
   );

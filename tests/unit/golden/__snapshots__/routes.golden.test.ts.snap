@@ -244,7 +244,7 @@ exports[`golden: POST /api/orders — accepted edge cases > custom shape with a 
         "rows": 4,
         "turnedCount": 0,
       },
-      "price": "paper x20 total=19400",
+      "price": "paper x20 total=19000",
       "spec": {
         "corners": "sharp",
         "heightUm": 60000,
@@ -282,7 +282,7 @@ exports[`golden: POST /api/orders — accepted edge cases > custom shape with a 
         "rows": 6,
         "turnedCount": 0,
       },
-      "price": "paper x20 total=19400",
+      "price": "paper x20 total=19000",
       "spec": {
         "heightUm": 40000,
         "shape": "custom",
@@ -357,7 +357,7 @@ exports[`golden: POST /api/orders — accepted edge cases > custom shape with a 
         "rows": 5,
         "turnedCount": 0,
       },
-      "price": "paper x20 total=19400",
+      "price": "paper x20 total=19000",
       "spec": {
         "heightUm": 50000,
         "shape": "rect",
@@ -843,7 +843,7 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
 {
   "concurrentTwin": {
     "customers": [
-      "9647701234567 orders=2 total=38800 name=علي حسين lastOrderId=order-golden-bbbbbbbbbb",
+      "9647701234567 orders=2 total=38000 name=علي حسين lastOrderId=order-golden-bbbbbbbbbb",
     ],
     "identicalBodies": true,
     "orderEvents": 2,
@@ -866,9 +866,9 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
 الأوراق: 20
 مجموع الستيكرات: 1080
 سعر الورقة: 720 د.ع (خصم 10%)
-المجموع: 14,400 د.ع
+المجموع: 14,000 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 19,400 د.ع
+الإجمالي: 19,000 د.ع
 الزبون: علي حسين
 الموبايل: <a href="tel:+9647701234567">+9647701234567</a> | <a href="https://wa.me/9647701234567">واتساب</a>
 العنوان: بغداد - الكرادة - قرب الجسر المعلق
@@ -885,7 +885,7 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
     "firstOrderAt": "2026-11-10T09:00:00.000Z",
     "lastOrderAt": "2026-11-10T09:00:00.000Z",
     "ordersCount": 1,
-    "totalIqd": 19400,
+    "totalIqd": 19000,
     "lastOrderId": "order-golden-aaaaaaaaaa",
     "lastDisplayNo": "EP-261110-<RAND>",
     "name": "علي حسين"
@@ -894,7 +894,7 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
   "errorsLogged": 0,
   "events": [
     "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ab53d85137d2aa74","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","type":"upload","meta":{"kind":"png"}}",
-    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ab53d85137d2aa74","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","type":"order","meta":{"material":"paper","sheets":20,"totalIqd":19400,"governorate":"بغداد","shape":"circle","widthMm":30,"heightMm":30}}",
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ab53d85137d2aa74","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","type":"order","meta":{"material":"paper","sheets":20,"totalIqd":19000,"governorate":"بغداد","shape":"circle","widthMm":30,"heightMm":30}}",
   ],
   "order": {
     "body": {
@@ -913,8 +913,8 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
         "material": "paper",
         "shape": "circle",
         "sheets": 20,
-        "subtotalIqd": 14400,
-        "totalIqd": 19400,
+        "subtotalIqd": 14000,
+        "totalIqd": 19000,
         "totalStickers": 1080,
         "unitPriceIqd": 720,
         "widthUm": 30000,
@@ -930,9 +930,9 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
 الخامة: ورقي
 الأوراق: 20 ورقة (1080 ستيكر)
 سعر الورقة: 720 د.ع (خصم 10%)
-المجموع: 14,400 د.ع
+المجموع: 14,000 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 19,400 د.ع",
+الإجمالي: 19,000 د.ع",
       },
     },
     "displayNoShape": true,
@@ -993,11 +993,12 @@ exports[`golden: full happy path — upload a design, place the order > PNG circ
     "unitBaseIqd": 800,
     "discountPercent": 10,
     "unitPriceIqd": 720,
-    "subtotalIqd": 14400,
+    "subtotalIqd": 14000,
     "deliveryFeeIqd": 5000,
-    "totalIqd": 19400,
+    "totalIqd": 19000,
     "totalStickers": 1080,
-    "perStickerIqd": 18
+    "perStickerIqd": 18,
+    "roundingIqd": -400
   },
   "customer": {
     "name": "علي حسين",
@@ -1100,7 +1101,8 @@ exports[`golden: full happy path — upload a design, place the order > vector P
     "deliveryFeeIqd": 5000,
     "totalIqd": null,
     "totalStickers": 2100,
-    "perStickerIqd": null
+    "perStickerIqd": null,
+    "roundingIqd": null
   },
   "customer": {
     "phone": "9647801112222",

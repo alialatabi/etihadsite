@@ -51,11 +51,12 @@ export function Builder({ settings }: { settings: ShopSettings }) {
       document.getElementById(CUSTOMER_FIELD_IDS[firstBad])?.focus();
       return;
     }
-    if (!b.design || !b.spec || !b.material || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
+    if (!b.design || !b.spec || !b.material || b.stickers === null || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
     void sub.submit({
       design: b.design,
       spec: b.spec,
       material: b.material,
+      stickers: b.stickers,
       sheets: b.sheets,
       customer: toCustomerInfo(b.fields, phoneE164),
     });

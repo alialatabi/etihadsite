@@ -263,7 +263,7 @@ export default async function HowItWorksPage() {
 
         <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
           <li>
-            {t.minOrder} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}
+            {t.minOrder} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}. {t.minOrderNote}
           </li>
           <li>
             {t.deliveryLabel}: <span className="font-bold text-foreground">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>

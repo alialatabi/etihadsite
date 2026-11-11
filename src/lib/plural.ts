@@ -24,3 +24,10 @@ export function count(n: number, forms: PluralForms): string {
 export function countLabel(n: number, forms: PluralForms): string {
   return `${n} ${count(n, forms)}`;
 }
+
+const COUNT_FORMAT = new Intl.NumberFormat('ar-IQ-u-nu-latn', { maximumFractionDigits: 0 });
+
+/** "1,080": a count for display, Western digits grouped like formatIqd(). Not for input values. */
+export function formatCount(n: number): string {
+  return COUNT_FORMAT.format(n);
+}

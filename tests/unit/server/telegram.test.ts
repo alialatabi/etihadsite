@@ -64,6 +64,16 @@ const rec = (over: Partial<OrderRecord["customer"]> = {}): OrderRecord => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("telegram caption", () => {
+  it("shows the typed sticker count next to sheets and total stickers, only when present", () => {
+    const r = rec();
+    const withCount = buildCaption({ ...r, price: { ...r.price, sheets: 12, totalStickers: 648, requestedStickers: 600 } }, DEFAULT_SETTINGS);
+    const lines = withCount.split("\n");
+    const i = lines.indexOf("العدد المطلوب: 600");
+    expect(i).toBeGreaterThan(0);
+    expect(lines.slice(i, i + 3)).toEqual(["العدد المطلوب: 600", "الأوراق: 12", "مجموع الستيكرات: 648"]);
+    expect(buildCaption(r, DEFAULT_SETTINGS)).not.toContain("العدد المطلوب");
+  });
+
   it("stays valid HTML and under 1024 chars when fields are full of < > &", () => {
     const evil = "<<<>>>&&&".repeat(40);
     const c = buildCaption(

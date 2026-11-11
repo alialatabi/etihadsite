@@ -57,6 +57,9 @@ export function buildCaption(
     `${L.size}: ${escapeHtml(sizeLabel(record.spec.widthUm, record.spec.heightUm))}`,
     `${L.perSheet}: ${record.layout.countPerSheet}`,
     `${L.material}: ${common.materials[record.price.material]}`,
+    ...(typeof record.price.requestedStickers === "number"
+      ? [`${L.requestedStickers}: ${record.price.requestedStickers}`]
+      : []),
     `${L.sheets}: ${record.price.sheets}`,
     `${L.totalStickers}: ${record.price.totalStickers}`,
     `${L.unitPrice}: ${money(record.price.unitPriceIqd)}${discount}`,

@@ -20,6 +20,8 @@ export interface OrderPriceView {
   deliveryFeeIqd: number | null;
   totalIqd: number | null;
   totalStickers: number | null;
+  /** Sticker count the customer typed; null on sheet-count orders (all orders before 2026-11-11). */
+  requestedStickers: number | null;
 }
 
 /** Reads price fields from new and legacy stored orders without throwing. */
@@ -35,5 +37,6 @@ export function orderPriceView(record: OrderRecord): OrderPriceView {
     deliveryFeeIqd: p.deliveryFeeIqd ?? null,
     totalIqd: p.totalIqd ?? null,
     totalStickers: p.totalStickers ?? null,
+    requestedStickers: p.requestedStickers ?? null,
   };
 }

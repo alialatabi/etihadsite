@@ -48,19 +48,19 @@ The session is an HS256 JWT (`src/lib/auth/token.ts`) in the HttpOnly cookie `ep
 
 ## 2. Order pipeline
 
-In the browser (`src/components/builder`): `useBuilder.ts` holds the step state, `src/lib/design/decode.client.ts` decodes the file for the preview, and `useSubmitOrder.ts` runs `submitFlow.ts` (the upload and order sequence, free of React) through `orderApi.ts` (the HTTP calls).
+In the browser (`src/components/builder`): `useBuilder.ts` holds the step state, `src/lib/design/decode.client.ts` decodes the file for the preview, and `useSubmitOrder.ts` runs `submitFlow.ts` (the upload and order sequence, free of React) through `orderApi.ts` (the HTTP calls). The quantity step takes a STICKER count: `useBuilder` keeps what was typed (`null` = never typed, the box then shows the minimum for the current layout and follows it when the size changes), and derives sheets, the error (`validateStickers`) and the price (`priceForStickers`). The − / + buttons, quick picks and the discount chips/nudge are in stickers (`logic.ts`: `stepStickers`, `quickPickStickers`, `nextTierNudgeStickers`); the settings stay in sheets. The saved form (`ub:form:v1`) stores `stickersText`; an old `sheetsText` is ignored.
 
 1. **Start the upload.** `POST /api/upload/direct` with the file size and name. On Supabase the answer carries an upload id and a signed URL. On local storage it is `mode: 'server'` and the browser falls back to the multipart `POST /api/upload`.
 2. **Send the file.** The browser PUTs it straight to the bucket (`uploads/<id>.bin`). Vercel caps request bodies at 4.5 MB, so the file never passes through a function.
 3. **Commit.** `POST /api/upload/direct/commit`. The server reads the real bytes back, rejects empty, oversize or unknown files (and deletes them), then writes `uploads/<id>.json`. `readUpload()` needs both files, so an unchecked file can never reach an order.
-4. **Order.** `POST /api/orders` with `{ orderId, uploadId, spec, material, sheets, customer }`. `orderId` is made by the browser and is the idempotency key: a repeat returns the stored result. The route, in this order:
+4. **Order.** `POST /api/orders` with `{ orderId, uploadId, spec, material, stickers, customer }` (`stickers` is the count the customer typed; pages cached before 2026-11-11 send `sheets` instead, and that path still works: see "Pricing" below). `orderId` is made by the browser and is the idempotency key: a repeat returns the stored result. The route, in this order:
    1. rate limit, before the body is read; body capped at 64 KiB; zod validation (`src/lib/order-schema.ts`); then `getSettings()`, then idempotency: an order already stored under this `orderId` is answered as is, and a request still running for it is awaited (none of the checks below run again);
    2. Turnstile check, only when `TURNSTILE_SECRET_KEY` is set (it must not be, see section 4);
-   3. phone normalisation, quantity validation, `readUpload`;
+   3. phone normalisation, quantity validation, `readUpload`. With `stickers` the quantity is checked by `validateStickers` against a layout the route computes right there (pure, the same call as step 4); when that layout fails only the material is checked, so the layout error still comes at step 4. With `sheets` only, `validateQuantity` as before;
    4. **layout**: `computeLayout(spec, layoutParamsFor(spec, settings.layout))` (`src/lib/layout`);
    5. **normalise**: `normaliseArtwork` (`src/lib/design/normalise.server.ts`, sharp and pdf-lib; includes the DPI gate);
    6. **PDF**: `buildSheetPdf` (`src/lib/pdf/build-sheet.ts`);
-   7. price: `priceFor` on the server. The browser never sends a price;
+   7. price: `priceForStickers` (or `priceFor` for a sheets-only request) on the server. The browser never sends a price, and a request with `stickers` never uses the client's `sheets`;
    8. **save**: `savePdf`, then `saveOrder` with the record built by `src/lib/order-record.ts`;
    9. **customer upsert**: `upsertCustomerFromOrder` (best effort, a failure is logged);
    10. **analytics**: an `order` event (best effort);
@@ -68,6 +68,13 @@ In the browser (`src/components/builder`): `useBuilder.ts` holds the step state,
 5. **Answer.** `{ ok: true, orderId, displayNo, summary, whatsappUrl, notified }`. The browser stores it in `sessionStorage` and opens `/order/success`.
 
 Failures are `{ ok: false, error, message }` with the status from the table in the route. Two are handled specially by the browser: `needs_raster` (it renders the PDF page to a PNG, uploads that and retries once) and `server_error` or a network failure (it shows the "degraded" screen with a ready WhatsApp message built by `degraded.ts`).
+
+**Pricing** (`src/lib/pricing.ts`, pure, shared by the builder and the route; owner rules of 2026-11-10 and 2026-11-11):
+
+- The customer types a sticker count. `sheets = ceil(stickers / countPerSheet)` (`sheetsForStickers`); the customer receives the whole last sheet (`totalStickers = sheets × countPerSheet`). Allowed range: `minStickers` = `pricing.minSheets × countPerSheet` to `maxStickers` = `pricing.maxSheets × countPerSheet`, whole numbers only (`validateStickers`). A count per sheet ≤ 0 never divides: it gives 0 sheets and `below_min`.
+- Per-sheet price, volume tiers and quick picks stay in SHEETS in the settings; the tier is chosen on the rounded-up sheet count.
+- `raw = unitPrice × sheets + delivery`; `totalIqd = max(delivery, raw rounded to the nearest PRICE_ROUND_IQD = 1,000, halves up)`; `subtotalIqd = totalIqd − delivery`; `roundingIqd = totalIqd − raw` (may be negative). `perStickerIqd = round(totalIqd / totalStickers)`. Unpublished prices: every money field null. The step is a constant in `pricing.ts`, not a setting.
+- The typed count is stored as `price.requestedStickers` and returned as `summary.requestedStickers`; the Telegram caption, the WhatsApp text and the admin order page show it as «العدد المطلوب». Orders saved before 2026-11-11 have neither `requestedStickers` nor `roundingIqd` and their totals are not rounded; every screen handles that.
 
 The order of steps 8 to 11 is deliberate: the PDF is saved before the order, the order before the notification, and the three side effects run one after another.
 
@@ -122,7 +129,7 @@ The direct reads are deliberate:
 
 First-party and cookieless. Events: `pageview` (sent by `src/components/shell/Tracker.tsx`), `step` (once per builder step per browser session), `install` (the install card), and the server-side `upload` and `order`. The browser part is `src/lib/analytics/client.ts`, the server part `src/lib/analytics/server.ts`.
 
-- **Stored per event:** time, type, visitor hash, path, step, traffic source, device class, city, region and country (from Vercel's `x-vercel-ip-*` headers, absent locally) and a small `meta` object (for an order: material, sheets, total, governorate, shape, size).
+- **Stored per event:** time, type, visitor hash, path, step, traffic source, device class, city, region and country (from Vercel's `x-vercel-ip-*` headers, absent locally) and a small `meta` object (for an order: material, sheets, the typed sticker count when there is one, total, governorate, shape, size).
 - **Never stored:** IP address, user agent, the referrer URL (it is reduced to a source name such as `instagram`), cookies, names or phone numbers.
 - **Visitor hash:** the first 16 hex characters of `sha256(shop day | IP | user agent | salt)`. It changes every day, so one visitor cannot be followed across days. The salt is `SESSION_SECRET`: changing that secret splits the same day's visitors in two.
 - **Dropped:** bots, an empty user agent, every `/admin` path, and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
@@ -149,7 +156,7 @@ Shared helpers that have exactly one home. Use them instead of writing the same 
 | `src/lib/parse/digits.ts` | `normaliseDigits` (Arabic-Indic and Persian digits to 0-9). |
 | `src/lib/analytics/client.ts` | `sendTrack` and the beacon payload type. |
 | `src/lib/order-record.ts` | `buildOrderRecord`, `summaryOf`. Their key order is the key order of the stored JSON and of the API answer. |
-| `src/lib/order-price-view.ts` | `orderPriceView`: price fields of a stored order, including orders saved before per-sheet pricing. |
+| `src/lib/order-price-view.ts` | `orderPriceView`: price fields of a stored order, including orders saved before per-sheet pricing and before sticker counts (`requestedStickers: null`). |
 | `src/lib/auth/guard.ts` | `requireAdmin()` for pages and actions. `adminApiGuard()` for route handlers is in `auth/session.ts`. |
 | `src/app/api/_lib/upload.ts` | Status table, JSON answers and file-name clean-up of the three upload routes, and the size cap of the two direct-upload steps (the multipart route has its own). `_lib/body.ts` has the byte-capped body readers and `SMALL_JSON_MAX_BYTES`, the cap of the small JSON bodies (direct-upload start and commit, analytics beacon). |
 | `src/lib/storage/settings-limits.ts` | Numeric limits shared by the settings schema and the settings form parser. |

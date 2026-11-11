@@ -40,11 +40,11 @@ export async function upload(page: Page, file: string) {
   await page.locator('#design-file').setInputFiles(file);
 }
 
-/** Quantity step: pick a material and type a sheet count. */
-export async function chooseQuantity(page: Page, material: 'paper' | 'plastic', sheets: number) {
+/** Quantity step: pick a material and type a STICKER count (the site rounds it up to whole sheets). */
+export async function chooseQuantity(page: Page, material: 'paper' | 'plastic', stickers: number) {
   // The radio input is visually hidden (sr-only) inside its card label — click the card like a user.
   await page.locator('label').filter({ has: page.locator(`input[name="material"][value="${material}"]`) }).first().click();
-  await page.locator('#sheets-input').fill(String(sheets));
+  await page.locator('#stickers-input').fill(String(stickers));
 }
 
 export async function setSize(page: Page, value: string) {

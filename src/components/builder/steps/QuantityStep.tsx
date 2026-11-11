@@ -9,10 +9,11 @@ import { fillLtr } from '@/components/fill-ltr';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { whatsappUrl } from '@/lib/parse/phone';
-import { formatIqd } from '@/lib/pricing';
-import { count } from '@/lib/plural';
+import { PRICE_ROUND_IQD, maxStickers, minStickers } from '@/lib/pricing';
+import { count, formatCount } from '@/lib/plural';
 import { cn } from '@/lib/utils';
-import { activeTier, nextTierNudge, quickPicksFor, sortedTiers } from '../logic';
+import { activeTier, nextTierNudgeStickers, quickPickStickers, sortedTiers } from '../logic';
+import { CountLabel } from '../labels';
 import type { BuilderApi } from '../useBuilder';
 
 function MaterialPicker({ b }: { b: BuilderApi }) {
@@ -67,37 +68,42 @@ function MaterialPicker({ b }: { b: BuilderApi }) {
   );
 }
 
-function SheetsInput({ b }: { b: BuilderApi }) {
+function StickersInput({ b }: { b: BuilderApi }) {
   const { pricing } = b.settings;
-  const picks = quickPicksFor(pricing);
-  const atMin = b.sheets !== null && b.sheets <= pricing.minSheets;
-  const atMax = b.sheets !== null && b.sheets >= pricing.maxSheets;
+  const cps = b.countPerSheet ?? 0;
+  const minS = minStickers(cps, pricing);
+  const maxS = maxStickers(cps, pricing);
+  const picks = quickPickStickers(pricing, cps);
+  const atMin = b.stickers !== null && b.stickers <= minS;
+  const atMax = b.stickers !== null && b.stickers >= maxS;
 
-  const error = b.quantityError ? fillLtr(builder.quantity.errors[b.quantityError], { min: pricing.minSheets, max: pricing.maxSheets }) : null;
+  const error = b.quantityError
+    ? fillLtr(builder.quantity.errors[b.quantityError], { min: <CountLabel n={minS} />, max: <CountLabel n={maxS} /> })
+    : null;
 
   const stepBtn =
     'flex size-12 shrink-0 items-center justify-center rounded-lg border bg-background outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40';
 
   return (
     <div className="space-y-3">
-      <Label htmlFor="sheets-input">{builder.quantity.sheetsLabel}</Label>
+      <Label htmlFor="stickers-input">{builder.quantity.stickersLabel}</Label>
       <div className="flex items-center gap-2">
-        <button type="button" className={stepBtn} aria-label={builder.quantity.decrease} disabled={atMin} onClick={() => b.stepSheets(-1)}>
+        <button type="button" className={stepBtn} aria-label={builder.quantity.decrease} disabled={atMin} onClick={() => b.stepSheet(-1)}>
           <Minus className="size-5" aria-hidden />
         </button>
         <Input
-          id="sheets-input"
+          id="stickers-input"
           type="text"
           inputMode="numeric"
           dir="ltr"
           autoComplete="off"
-          value={b.sheetsText}
-          onChange={(e) => b.setSheetsText(e.target.value)}
+          value={b.stickersText}
+          onChange={(e) => b.setStickersText(e.target.value)}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'sheets-error' : 'sheets-hint'}
+          aria-describedby={error ? 'stickers-error' : 'stickers-hint'}
           className="h-12 flex-1 text-center text-lg font-bold md:text-lg"
         />
-        <button type="button" className={stepBtn} aria-label={builder.quantity.increase} disabled={atMax} onClick={() => b.stepSheets(1)}>
+        <button type="button" className={stepBtn} aria-label={builder.quantity.increase} disabled={atMax} onClick={() => b.stepSheet(1)}>
           <Plus className="size-5" aria-hidden />
         </button>
       </div>
@@ -108,26 +114,26 @@ function SheetsInput({ b }: { b: BuilderApi }) {
             <button
               key={n}
               type="button"
-              onClick={() => b.setSheets(n)}
-              aria-pressed={b.sheets === n}
+              onClick={() => b.setStickers(n)}
+              aria-pressed={b.stickers === n}
               className={cn(
                 'min-h-11 min-w-14 rounded-full border px-4 text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                b.sheets === n ? 'border-brand bg-brand text-brand-foreground' : 'bg-background hover:bg-muted',
+                b.stickers === n ? 'border-brand bg-brand text-brand-foreground' : 'bg-background hover:bg-muted',
               )}
             >
-              <Ltr>{n}</Ltr>
+              <Ltr>{formatCount(n)}</Ltr>
             </button>
           ))}
         </div>
       )}
 
       {error ? (
-        <p id="sheets-error" role="alert" className="text-sm font-medium text-destructive">
+        <p id="stickers-error" role="alert" className="text-sm font-medium text-destructive">
           {error}
         </p>
       ) : (
-        <p id="sheets-hint" className="text-sm text-muted-foreground">
-          {builder.quantity.minHint} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}
+        <p id="stickers-hint" className="text-sm text-muted-foreground">
+          {builder.quantity.minHint} <CountLabel n={minS} /> (<Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)})
         </p>
       )}
     </div>
@@ -138,7 +144,8 @@ function DiscountLadder({ b }: { b: BuilderApi }) {
   const tiers = sortedTiers(b.settings.pricing.tiers).filter((t) => t.percent > 0);
   if (tiers.length === 0) return null;
   const reached = activeTier(b.sheets, tiers);
-  const nudge = nextTierNudge(b.sheets, tiers);
+  const cps = b.countPerSheet ?? 0;
+  const nudge = nextTierNudgeStickers(b.stickers, b.sheets, cps, tiers);
   return (
     <div className="space-y-2 rounded-2xl border bg-muted/40 p-3">
       <p className="text-sm font-medium">{builder.quantity.discountTitle}</p>
@@ -153,14 +160,14 @@ function DiscountLadder({ b }: { b: BuilderApi }) {
                   ? 'border-discount-foreground/40 bg-discount font-bold text-discount-foreground shadow-sm'
                   : 'border-discount bg-discount/25 text-discount-foreground')}
             >
-              <Ltr>{t.minSheets}+</Ltr> {count(t.minSheets, common.plural.sheet)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
+              <Ltr>{formatCount(t.minSheets * cps)}+</Ltr> {count(t.minSheets * cps, common.plural.sticker)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
             </li>
           );
         })}
       </ul>
       {nudge && (
         <p className="text-sm font-medium text-brand">
-          {builder.quantity.nudgeAdd} <Ltr>{nudge.add}</Ltr> {count(nudge.add, common.plural.sheet)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
+          {builder.quantity.nudgeAdd} <Ltr>{formatCount(nudge.add)}</Ltr> {count(nudge.add, common.plural.sticker)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
         </p>
       )}
     </div>
@@ -199,11 +206,11 @@ function PriceBox({ b }: { b: BuilderApi }) {
             builder.quantity.priceUnset
           )}
         </PriceRow>
-        {p.subtotalIqd !== null && p.unitPriceIqd !== null && (
+        {p.subtotalIqd !== null && (
           <PriceRow
             label={
               <>
-                {builder.quantity.subtotal} (<Ltr>{p.sheets}</Ltr> × <Ltr>{formatIqd(p.unitPriceIqd)}</Ltr>)
+                {builder.quantity.subtotal} (<Ltr>{p.sheets}</Ltr> {count(p.sheets, common.plural.sheet)})
               </>
             }
           >
@@ -215,10 +222,15 @@ function PriceBox({ b }: { b: BuilderApi }) {
           {p.totalIqd !== null ? <Money amount={p.totalIqd} /> : builder.quantity.priceUnset}
         </PriceRow>
       </dl>
-      <p className="mt-2 text-xs text-muted-foreground">
-        <Ltr>{p.totalStickers}</Ltr> {builder.quantity.stickersTotal}
-        {p.perStickerIqd !== null && <> · {fillLtr(builder.quantity.perSticker, { price: <Money amount={p.perStickerIqd} /> })}</>}
+      <p className="mt-2 text-sm font-medium">
+        {builder.quantity.receive} <CountLabel n={p.totalStickers} /> (<Ltr>{p.sheets}</Ltr> {count(p.sheets, common.plural.sheet)})
       </p>
+      {p.perStickerIqd !== null && (
+        <p className="text-xs text-muted-foreground">{fillLtr(builder.quantity.perSticker, { price: <Money amount={p.perStickerIqd} /> })}</p>
+      )}
+      {p.roundingIqd != null && p.roundingIqd !== 0 && (
+        <p className="text-xs text-muted-foreground">{fillLtr(builder.quantity.roundingNote, { step: <Money amount={PRICE_ROUND_IQD} /> })}</p>
+      )}
       <p className="text-xs text-muted-foreground">{builder.quantity.deliveryNote}</p>
     </section>
   );
@@ -248,7 +260,7 @@ export function QuantityStep({ b }: { b: BuilderApi }) {
   return (
     <div className="space-y-5">
       <MaterialPicker b={b} />
-      <SheetsInput b={b} />
+      <StickersInput b={b} />
       <DiscountLadder b={b} />
       <PriceBox b={b} />
     </div>

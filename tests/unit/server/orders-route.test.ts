@@ -31,7 +31,9 @@ vi.mock("@/lib/parse/phone", () => ({
     `https://wa.me/${d}${t ? `?text=${encodeURIComponent(t)}` : ""}`,
 }));
 import { POST } from "@/app/api/orders/route";
+import { computeLayout, layoutParamsFor } from "@/lib/layout";
 import { getStorage } from "@/lib/storage";
+import type { StickerSpec } from "@/lib/types";
 
 const PNG = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3,
@@ -130,12 +132,12 @@ describe("POST /api/orders", () => {
     const r = await json(res);
     if (!r.ok) throw new Error("expected ok");
     expect(r.displayNo).toMatch(/^EP-\d{6}-[A-Z2-9]{4}$/);
-    // paper 800 x 20 sheets, 10% off -> 720 per sheet
+    // paper 800 x 20 sheets, 10% off -> 720 per sheet; 14,400 + 5,000 = 19,400 -> 19,000
     expect(r.summary.material).toBe("paper");
     expect(r.summary.unitPriceIqd).toBe(720);
     expect(r.summary.discountPercent).toBe(10);
-    expect(r.summary.subtotalIqd).toBe(14400);
-    expect(r.summary.totalIqd).toBe(19400);
+    expect(r.summary.subtotalIqd).toBe(14000);
+    expect(r.summary.totalIqd).toBe(19000);
     expect(r.summary.sheets).toBe(20);
     expect(r.summary.countPerSheet).toBeGreaterThan(0);
     expect(r.notified.telegram).toBe("sent");
@@ -154,12 +156,13 @@ describe("POST /api/orders", () => {
     expect(await getStorage().readFile(stored!.files.pdfPath)).not.toBeNull();
     const fileName = notifyShop.mock.calls[0][2] as string;
     expect(fileName).toBe(`${r.displayNo}_circle-30x30mm_x20.pdf`);
-    expect(stored?.price.totalIqd).toBe(19400);
+    expect(stored?.price.totalIqd).toBe(19000);
+    expect(stored?.price.roundingIqd).toBe(-400);
     expect(stored).not.toHaveProperty("offer");
     expect(stored).not.toHaveProperty("priceIqd");
   });
 
-  it("computes plastic x 50 on the server: 1,275 each, total 68,750", async () => {
+  it("computes plastic x 50 on the server: 1,275 each, 68,750 rounded to 69,000", async () => {
     const r = await json(
       await call(
         body({
@@ -175,10 +178,11 @@ describe("POST /api/orders", () => {
       sheets: 50,
       unitPriceIqd: 1275,
       discountPercent: 15,
-      subtotalIqd: 63750,
+      subtotalIqd: 64000,
       deliveryFeeIqd: 5000,
-      totalIqd: 68750,
+      totalIqd: 69000,
     });
+    expect(r.summary).not.toHaveProperty("requestedStickers");
   });
 
   it("rejects a quantity below the minimum", async () => {
@@ -411,5 +415,132 @@ describe("POST /api/orders analytics + customers", () => {
     storage.upsertCustomerFromOrder = vi.fn().mockRejectedValue(new Error("boom"));
     storage.recordEvent = vi.fn().mockResolvedValue(undefined);
     expect((await call(body({ orderId: "order-analytics-bbbbbb" }))).status).toBe(200);
+  });
+});
+
+describe("POST /api/orders with a sticker count", () => {
+  const CIRCLE: StickerSpec = { shape: "circle", widthUm: 30000, heightUm: 30000 };
+  const cpsFor = (spec: StickerSpec): number => {
+    const out = computeLayout(spec, layoutParamsFor(spec, DEFAULT_SETTINGS.layout));
+    if (!out.ok) throw new Error("layout expected");
+    return out.layout.countPerSheet;
+  };
+  const cps = cpsFor(CIRCLE);
+  const P = DEFAULT_SETTINGS.pricing;
+  const stickerBody = (over: Record<string, unknown> = {}) => {
+    const b: Record<string, unknown> = { ...body(), ...over };
+    if (!("sheets" in over)) delete b.sheets;
+    return b;
+  };
+
+  it("rounds the sheets up, ignores the client's sheets and stores the typed count", async () => {
+    // 11 full sheets + 1 sticker -> 12 sheets. The client claims 3 sheets (below the minimum): ignored.
+    const stickers = cps * 11 + 1;
+    const res = await call(stickerBody({ orderId: "order-stickers-aaaaaaa", stickers, sheets: 3, totalIqd: 1 }));
+    expect(res.status).toBe(200);
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    const raw = 800 * 12 + 5000;
+    const total = Math.max(5000, Math.round(raw / 1000) * 1000);
+    expect(r.summary).toMatchObject({
+      sheets: 12,
+      countPerSheet: cps,
+      totalStickers: 12 * cps,
+      requestedStickers: stickers,
+      unitPriceIqd: 800,
+      subtotalIqd: total - 5000,
+      totalIqd: total,
+    });
+    const stored = await getStorage().getOrder("order-stickers-aaaaaaa");
+    expect(stored?.price.requestedStickers).toBe(stickers);
+    expect(stored?.price.sheets).toBe(12);
+    expect(stored?.price.roundingIqd).toBe(total - raw);
+    expect(notifyShop.mock.calls[0][2] as string).toMatch(/_x12\.pdf$/);
+  });
+
+  it("accepts exactly the minimum (stickers of minSheets sheets) and rejects one less", async () => {
+    const ok = await call(stickerBody({ orderId: "order-stickers-minokaa", stickers: P.minSheets * cps }));
+    expect(ok.status).toBe(200);
+    const r = await json(ok);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary.sheets).toBe(P.minSheets);
+    const low = await call(stickerBody({ orderId: "order-stickers-minlowa", stickers: P.minSheets * cps - 1 }));
+    expect(low.status).toBe(400);
+    expect(await json(low)).toMatchObject({ ok: false, error: "invalid_quantity" });
+    expect(await getStorage().getOrder("order-stickers-minlowa")).toBeNull();
+  });
+
+  it("rejects more than the stickers of maxSheets sheets, even with a valid client sheet count", async () => {
+    const res = await call(stickerBody({ orderId: "order-stickers-maxaaaa", stickers: P.maxSheets * cps + 1, sheets: 20 }));
+    expect(await json(res)).toMatchObject({ ok: false, error: "invalid_quantity" });
+  });
+
+  it("rejects a fractional, zero or string sticker count and a request without stickers or sheets", async () => {
+    for (const [i, stickers] of [600.5, 0, -600, "600", 10_000_001].entries()) {
+      const res = await call(stickerBody({ orderId: `order-stickers-bad${i}aa`, stickers }));
+      expect(res.status, String(stickers)).toBe(400);
+      expect(await json(res)).toMatchObject({ ok: false, error: "invalid_request" });
+    }
+    const none = await call(stickerBody({ orderId: "order-stickers-noneaaa" }));
+    expect(await json(none)).toMatchObject({ ok: false, error: "invalid_request" });
+  });
+
+  it("an old sheets-only request still works and stores no requestedStickers", async () => {
+    const r = await json(await call(body({ orderId: "order-sheetsonly-aaaa", sheets: 12 })));
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary.sheets).toBe(12);
+    expect(r.summary).not.toHaveProperty("requestedStickers");
+    const stored = await getStorage().getOrder("order-sheetsonly-aaaa");
+    expect(stored?.price).not.toHaveProperty("requestedStickers");
+  });
+
+  it("unpublished prices: money fields null, counts and typed count kept", async () => {
+    await getStorage().saveSettings({ ...DEFAULT_SETTINGS, pricesPublished: false });
+    const r = await json(await call(stickerBody({ orderId: "order-stickers-hidden", stickers: cps * 10 + 5 })));
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.summary).toMatchObject({ sheets: 11, requestedStickers: cps * 10 + 5, unitPriceIqd: null, subtotalIqd: null, totalIqd: null });
+    expect((await getStorage().getOrder("order-stickers-hidden"))?.price.roundingIqd).toBeNull();
+  });
+
+  it("keeps the error order: captcha -> phone -> quantity -> upload -> layout -> artwork", async () => {
+    // bad phone AND bad stickers -> phone
+    expect(
+      await json(await call(stickerBody({ orderId: "order-prec-phoneaaaaa", stickers: 1, customer: { ...body().customer, phone: "12345" } }))),
+    ).toMatchObject({ error: "invalid_phone" });
+    // bad stickers AND missing upload -> quantity
+    expect(
+      await json(await call(stickerBody({ orderId: "order-prec-qtyaaaaaaa", stickers: 1, uploadId: "upload-zzzzzzzzzzzzzzzz" }))),
+    ).toMatchObject({ error: "invalid_quantity" });
+    // layout too big: the range check is skipped, so a missing upload still wins over the layout ...
+    const big = { shape: "rect", corners: "sharp", widthUm: 300000, heightUm: 300000 };
+    expect(
+      await json(await call(stickerBody({ orderId: "order-prec-uploadaaaa", stickers: 1, spec: big, uploadId: "upload-zzzzzzzzzzzzzzzz" }))),
+    ).toMatchObject({ error: "upload_missing" });
+    // ... and with the upload present the layout error comes at its usual place.
+    expect(await json(await call(stickerBody({ orderId: "order-prec-layoutaaaa", stickers: 1, spec: big })))).toMatchObject({
+      error: "too_big_for_page",
+    });
+    // A disabled material is still a quantity error even when the layout fails.
+    await getStorage().saveSettings({
+      ...DEFAULT_SETTINGS,
+      pricing: { ...P, materials: { ...P.materials, plastic: { enabled: false, pricePerSheetIqd: 1500 } } },
+    });
+    expect(
+      await json(await call(stickerBody({ orderId: "order-prec-materialaa", stickers: 1, material: "plastic", spec: big, uploadId: "upload-zzzzzzzzzzzzzzzz" }))),
+    ).toMatchObject({ error: "invalid_quantity" });
+    // artwork errors come after a valid sticker count
+    normaliseArtwork.mockResolvedValueOnce({ ok: false, error: "low_dpi" });
+    expect(await json(await call(stickerBody({ orderId: "order-prec-artworkaa", stickers: cps * 10 })))).toMatchObject({ error: "low_dpi" });
+    expect(buildSheetPdf).not.toHaveBeenCalled();
+  });
+
+  it("adds requestedStickers to the analytics order event", async () => {
+    const storage = getStorage() as unknown as Record<string, unknown>;
+    const record = vi.fn().mockResolvedValue(undefined);
+    storage.recordEvent = record;
+    expect((await call(stickerBody({ orderId: "order-stickers-event1", stickers: 600 }))).status).toBe(200);
+    expect(record.mock.calls[0][0].meta).toMatchObject({ requestedStickers: 600, sheets: Math.ceil(600 / cps) });
+    expect((await call(body({ orderId: "order-stickers-event2" }))).status).toBe(200);
+    expect(record.mock.calls[1][0].meta).not.toHaveProperty("requestedStickers");
   });
 });

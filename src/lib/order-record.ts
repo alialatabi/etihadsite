@@ -31,6 +31,10 @@ export function summaryOf(record: OrderRecord): OrderSummary {
     subtotalIqd: record.price.subtotalIqd,
     deliveryFeeIqd: record.price.deliveryFeeIqd,
     totalIqd: record.price.totalIqd,
+    // Only on sticker-count orders; older orders keep their exact summary shape.
+    ...(record.price.requestedStickers !== undefined
+      ? { requestedStickers: record.price.requestedStickers }
+      : {}),
   };
 }
 

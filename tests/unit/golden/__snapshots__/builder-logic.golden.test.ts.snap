@@ -48,8 +48,8 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "material": "paper",
     "shape": "circle",
     "sheets": 20,
-    "subtotalIqd": 14400,
-    "totalIqd": 19400,
+    "subtotalIqd": 14000,
+    "totalIqd": 19000,
     "totalStickers": 1080,
     "unitPriceIqd": 720,
     "widthUm": 30000,
@@ -108,8 +108,8 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "material": "plastic",
     "shape": "rect",
     "sheets": 50,
-    "subtotalIqd": 63750,
-    "totalIqd": 68750,
+    "subtotalIqd": 64000,
+    "totalIqd": 69000,
     "totalStickers": 1200,
     "unitPriceIqd": 1275,
     "widthUm": 50000,
@@ -156,7 +156,7 @@ exports[`golden: constants > STEPS, keys, EMPTY_FIELDS 1`] = `
 
 exports[`golden: degraded / manual WhatsApp text > degradedUrl edge cases 1`] = `
 {
-  "full": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%B7%D9%84%D8%A8%20%D8%AC%D8%AF%D9%8A%D8%AF%20%E2%80%94%20%E2%80%94%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%AF%D8%A7%D8%A6%D8%B1%D9%8A%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%203%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2054%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D9%88%D8%B1%D9%82%D9%8A%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2020%20%D9%88%D8%B1%D9%82%D8%A9%20(1080%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1)%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20720%20%D8%AF.%D8%B9%20(%D8%AE%D8%B5%D9%85%2010%25)%0A%D8%A7%D9%84%D9%85%D8%AC%D9%85%D9%88%D8%B9%3A%2014%2C400%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2019%2C400%20%D8%AF.%D8%B9",
+  "full": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%B7%D9%84%D8%A8%20%D8%AC%D8%AF%D9%8A%D8%AF%20%E2%80%94%20%E2%80%94%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%AF%D8%A7%D8%A6%D8%B1%D9%8A%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%203%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2054%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D9%88%D8%B1%D9%82%D9%8A%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2020%20%D9%88%D8%B1%D9%82%D8%A9%20(1080%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1)%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20720%20%D8%AF.%D8%B9%20(%D8%AE%D8%B5%D9%85%2010%25)%0A%D8%A7%D9%84%D9%85%D8%AC%D9%85%D9%88%D8%B9%3A%2014%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2019%2C000%20%D8%AF.%D8%B9",
   "noSummary": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A",
   "noWhatsapp": null,
 }
@@ -240,9 +240,9 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 الخامة: ورقي
 الأوراق: 20 ورقة (1080 ستيكر)
 سعر الورقة: 720 د.ع (خصم 10%)
-المجموع: 14,400 د.ع
+المجموع: 14,000 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 19,400 د.ع",
+الإجمالي: 19,000 د.ع",
     "manual": "الشكل: دائري
 القياس: 3 × 3 سم
 بالورقة: 54
@@ -252,9 +252,9 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 الخصم: 10%
 سعر الورقة: 720 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 19,400 د.ع",
+الإجمالي: 19,000 د.ع",
     "urlDecodesToDegradedText": true,
-    "urlHash": "8158b69fec11e16c",
+    "urlHash": "7fb02562d8f73d46",
     "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
   },
   "custom 5x2.5 (stray corners) paper x20 unpriced": {
@@ -339,9 +339,9 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 الخامة: بلاستك
 الأوراق: 50 ورقة (1200 ستيكر)
 سعر الورقة: 1,275 د.ع (خصم 15%)
-المجموع: 63,750 د.ع
+المجموع: 64,000 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 68,750 د.ع",
+الإجمالي: 69,000 د.ع",
     "manual": "الشكل: مستطيل بزوايا دائرية
 القياس: 5 × 3 سم
 بالورقة: 24
@@ -351,9 +351,9 @@ exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedTe
 الخصم: 15%
 سعر الورقة: 1,275 د.ع
 التوصيل: 5,000 د.ع
-الإجمالي: 68,750 د.ع",
+الإجمالي: 69,000 د.ع",
     "urlDecodesToDegradedText": true,
-    "urlHash": "b468f6092daec60a",
+    "urlHash": "b4baca117c452e33",
     "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
   },
   "rect sharp 4.24x3 paper x100": {
@@ -613,9 +613,10 @@ exports[`golden: safe.ts wrappers (happy path = same result as the wrapped funct
       "discountPercent": 10,
       "material": "paper",
       "perStickerIqd": 18,
+      "roundingIqd": -400,
       "sheets": 20,
-      "subtotalIqd": 14400,
-      "totalIqd": 19400,
+      "subtotalIqd": 14000,
+      "totalIqd": 19000,
       "totalStickers": 1080,
       "unitBaseIqd": 800,
       "unitPriceIqd": 720,
@@ -625,6 +626,7 @@ exports[`golden: safe.ts wrappers (happy path = same result as the wrapped funct
       "discountPercent": 15,
       "material": "plastic",
       "perStickerIqd": null,
+      "roundingIqd": null,
       "sheets": 50,
       "subtotalIqd": null,
       "totalIqd": null,
@@ -674,11 +676,11 @@ exports[`golden: sessionStorage persistence > with a sessionStorage: exact keys 
       "notes": "",
       "phone": "07701234567",
       "shape": "rect",
-      "sheetsText": "20",
       "sizeUm": {
         "heightUm": 30000,
         "widthUm": 50000,
       },
+      "stickersText": "1080",
       "widthText": "5",
     },
     "success": {
@@ -707,7 +709,7 @@ exports[`golden: sessionStorage persistence > with a sessionStorage: exact keys 
     },
   },
   "stored": {
-    "ub:form:v1": "{"name":"علي","phone":"07701234567","governorate":"","district":"","landmark":"","notes":"","shape":"rect","corners":"rounded","widthText":"5","heightText":"3","sizeUm":{"widthUm":50000,"heightUm":30000},"material":"paper","sheetsText":"20"}",
+    "ub:form:v1": "{"name":"علي","phone":"07701234567","governorate":"","district":"","landmark":"","notes":"","shape":"rect","corners":"rounded","widthText":"5","heightText":"3","sizeUm":{"widthUm":50000,"heightUm":30000},"material":"paper","stickersText":"1080"}",
     "ub:order-success:v1": "{"ok":true,"orderId":"order-golden-000000001","displayNo":"EP-251107-AB3C","summary":{"displayNo":"EP-251107-AB3C","shape":"circle","widthUm":30000,"heightUm":30000,"countPerSheet":54,"sheets":20,"material":"paper","totalStickers":1080,"unitPriceIqd":720,"discountPercent":10,"subtotalIqd":14400,"deliveryFeeIqd":5000,"totalIqd":19400},"whatsappUrl":"","notified":{"telegram":"skipped"}}",
   },
   "tolerant": {

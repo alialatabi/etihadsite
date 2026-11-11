@@ -79,3 +79,13 @@ describe('labels', () => {
     expect(sizeLabel(30_000, 42_420)).toBe('3 × 4.24 سم');
   });
 });
+
+describe('orderSummaryText with a typed sticker count', () => {
+  it('shows "العدد المطلوب" before the sheets line', () => {
+    const t = orderSummaryText({ ...base, sheets: 12, totalStickers: 648, requestedStickers: 600 });
+    expect(t.split('\n').slice(4, 7)).toEqual(['الخامة: ورقي', 'العدد المطلوب: 600 ستيكر', 'الأوراق: 12 ورقة (648 ستيكر)']);
+  });
+  it('an order without requestedStickers has no such line', () => {
+    expect(orderSummaryText(base)).not.toContain('العدد المطلوب');
+  });
+});

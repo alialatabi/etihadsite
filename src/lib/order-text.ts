@@ -7,17 +7,19 @@
  * which the admin order pages and the builder summary use too.
  * Western digits; wrap nothing in HTML here — plain text with line breaks.
  *
- * Example (3 cm circle, 20 sheets, price unset):
+ * Example (3 cm circle, 1,050 stickers typed → 20 sheets, price unset):
  *   طلب جديد — EP-251107-AB3C
  *   الشكل: دائري
  *   القياس: 3 × 3 سم
  *   بالورقة: 54 ستيكر
  *   الخامة: ورقي
+ *   العدد المطلوب: 1050 ستيكر
  *   الأوراق: 20 ورقة (1080 ستيكر)
  *   السعر: يُحدد عند التأكيد
  *   التوصيل: 5,000 د.ع
  *
- * When the total is known, a final "الإجمالي: … د.ع" line is appended.
+ * The "العدد المطلوب" line appears only when the summary has requestedStickers (orders placed
+ * as a sticker count). When the total is known, a final "الإجمالي: … د.ع" line is appended.
  */
 import type { OrderSummary } from '@/lib/types';
 import { common, fill, order } from '@/content/ar';
@@ -35,6 +37,9 @@ export function orderSummaryText(summary: OrderSummary): string {
     `${T.size}: ${sizeLabel(summary.widthUm, summary.heightUm)}`,
     `${T.perSheet}: ${countLabel(summary.countPerSheet, common.plural.sticker)}`,
     `${T.material}: ${common.materials[summary.material]}`,
+    ...(typeof summary.requestedStickers === 'number'
+      ? [`${T.requestedStickers}: ${countLabel(summary.requestedStickers, common.plural.sticker)}`]
+      : []),
     `${T.sheets}: ${countLabel(summary.sheets, common.plural.sheet)} (${countLabel(summary.totalStickers, common.plural.sticker)})`,
   ];
   if (summary.unitPriceIqd === null) {

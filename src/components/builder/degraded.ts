@@ -14,6 +14,7 @@ export function manualSummaryText(s: SummaryData): string {
     `${builder.summary.size}: ${sizeText}`,
     `${builder.summary.perSheet}: ${s.countPerSheet}`,
     `${builder.summary.material}: ${common.materials[s.material]}`,
+    ...(s.requestedStickers != null ? [`${builder.summary.requestedStickers}: ${s.requestedStickers}`] : []),
     `${builder.summary.sheets}: ${s.sheets}`,
     `${builder.summary.totalStickers}: ${s.totalStickers}`,
     ...(s.discountPercent > 0 ? [`${builder.summary.discount}: ${s.discountPercent}%`] : []),

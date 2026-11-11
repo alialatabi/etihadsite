@@ -28,6 +28,11 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
           <CountLabel n={summary.countPerSheet} />
         </Row>
         {summary.material in common.materials && <Row label={builder.summary.material}>{common.materials[summary.material]}</Row>}
+        {summary.requestedStickers != null && (
+          <Row label={builder.summary.requestedStickers}>
+            <CountLabel n={summary.requestedStickers} />
+          </Row>
+        )}
         <Row label={builder.summary.sheets}>
           <Ltr>{summary.sheets}</Ltr>
         </Row>

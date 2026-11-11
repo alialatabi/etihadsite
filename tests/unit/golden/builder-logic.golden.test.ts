@@ -401,7 +401,7 @@ describe('golden: sessionStorage persistence', () => {
     heightText: '3',
     sizeUm: { widthUm: 50_000, heightUm: 30_000 },
     material: 'paper',
-    sheetsText: '20',
+    stickersText: '1080',
   };
   const success: Extract<OrderResponse, { ok: true }> = {
     ok: true,

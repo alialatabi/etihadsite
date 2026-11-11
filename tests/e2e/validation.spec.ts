@@ -20,7 +20,7 @@ test('invalid phone shows error', async ({ page }, info) => {
   await toSizeStep(page, png);
   await setSize(page, '3');
   await next(page).click();
-  await chooseQuantity(page, 'plastic', 20);
+  await chooseQuantity(page, 'plastic', 1080); // 20 sheets of 54
   await next(page).click();
   await fillDetails(page, '0680123456');
   await page.getByRole('button', { name: builder.details.submit, exact: true }).click();

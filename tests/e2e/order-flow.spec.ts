@@ -4,7 +4,7 @@ import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, choose
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
-test('customer order flow: circle 3cm, 20 sheets, Baghdad', async ({ page }, info) => {
+test('customer order flow: circle 3cm, 1050 stickers (20 sheets), Baghdad', async ({ page }, info) => {
   await withLock(() => flow(page, info));
 });
 
@@ -29,7 +29,9 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
   await snap(page, info, '04-size');
   await next(page).click();
 
-  await chooseQuantity(page, 'plastic', 20);
+  // 1050 / 54 per sheet = 19.4 -> 20 sheets: the customer receives 1080 stickers.
+  await chooseQuantity(page, 'plastic', 1050);
+  await expect(page.getByText(builder.quantity.receive)).toContainText('1,080');
   await snap(page, info, '05-quantity');
   await next(page).click();
 
@@ -53,6 +55,18 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
   const j = hit!.j;
   expect(j.layout.countPerSheet).toBe(54);
   expect(j.price.deliveryFeeIqd).toBe(5000);
+  expect(j.price.sheets).toBe(20);
+  expect(j.price.totalStickers).toBe(1080);
+  expect(j.price.requestedStickers).toBe(1050);
+  // The local e2e data dir may have prices unpublished (every money field null): check rounding
+  // only when there is a total. The maths itself is pinned by the pricing unit and golden tests.
+  if (j.price.totalIqd === null) {
+    expect(j.price.subtotalIqd).toBeNull();
+    expect(j.price.roundingIqd ?? null).toBeNull();
+  } else {
+    expect(j.price.totalIqd % 1000).toBe(0);
+    expect(j.price.subtotalIqd + j.price.deliveryFeeIqd).toBe(j.price.totalIqd);
+  }
   expect(j.customer.phone).toBe('9647701234567');
   const pdf = path.join(ORDERS_DIR, hit!.f.replace(/\.json$/, '.pdf'));
   expect(fs.existsSync(pdf), pdf).toBe(true);

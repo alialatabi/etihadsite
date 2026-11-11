@@ -11,7 +11,14 @@ import { orderRequestSchema } from "@/lib/order-schema";
 import { orderSummaryText } from "@/lib/order-text";
 import { normalisePhone, whatsappUrl } from "@/lib/parse/phone";
 import { buildSheetPdf } from "@/lib/pdf/build-sheet";
-import { priceFor, validateQuantity } from "@/lib/pricing";
+import {
+  priceFor,
+  priceForStickers,
+  sheetsForStickers,
+  validateQuantity,
+  validateStickers,
+  type QuantityError,
+} from "@/lib/pricing";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
@@ -73,6 +80,31 @@ function successFor(
   };
 }
 
+/**
+ * The quantity check, at its usual place in the pipeline (after the phone, before the upload).
+ * A sticker request is checked against the layout the server computes itself (pure; the full
+ * layout step still runs later). When that layout fails only the material is checked here, so
+ * the layout error keeps its later position. A sheet request (old cached page) is checked as before.
+ */
+function quantityErrorFor(
+  req: OrderRequest,
+  settings: ShopSettings,
+): QuantityError | null {
+  if (req.stickers === undefined)
+    return validateQuantity(req.material, req.sheets ?? Number.NaN, settings.pricing);
+  const early = computeLayout(req.spec, layoutParamsFor(req.spec, settings.layout));
+  if (!early.ok)
+    return settings.pricing.materials[req.material]?.enabled
+      ? null
+      : "material_disabled";
+  return validateStickers(
+    req.material,
+    req.stickers,
+    early.layout.countPerSheet,
+    settings.pricing,
+  );
+}
+
 async function processOrder(
   request: Request,
   req: OrderRequest,
@@ -92,8 +124,7 @@ async function processOrder(
   const phone = normalisePhone(req.customer.phone);
   if (!phone) return fail("invalid_phone");
 
-  if (validateQuantity(req.material, req.sheets, settings.pricing) !== null)
-    return fail("invalid_quantity");
+  if (quantityErrorFor(req, settings) !== null) return fail("invalid_quantity");
 
   const upload = await storage.readUpload(req.uploadId);
   if (!upload) return fail("upload_missing");
@@ -105,6 +136,11 @@ async function processOrder(
       outcome.reason === "invalid" ? "invalid_request" : outcome.reason,
     );
   const layout = outcome.layout;
+  // A sticker request never trusts the client's sheet count.
+  const sheets =
+    req.stickers !== undefined
+      ? sheetsForStickers(req.stickers, layout.countPerSheet)
+      : (req.sheets ?? 0);
 
   const norm = await normaliseArtwork(upload.bytes, {
     spec,
@@ -114,7 +150,7 @@ async function processOrder(
   if (!norm.ok) return fail(norm.error);
 
   const displayNo = makeDisplayNo();
-  const fileName = pdfFileNameFor(displayNo, spec, req.sheets);
+  const fileName = pdfFileNameFor(displayNo, spec, sheets);
   const pdf = await buildSheetPdf({
     layout,
     artwork: norm.artwork,
@@ -124,7 +160,10 @@ async function processOrder(
     },
   });
 
-  const price = priceFor(req.material, req.sheets, layout.countPerSheet, settings);
+  const price =
+    req.stickers !== undefined
+      ? priceForStickers(req.material, req.stickers, layout.countPerSheet, settings)
+      : priceFor(req.material, sheets, layout.countPerSheet, settings);
   const pdfPath = await storage.savePdf(req.orderId, pdf.bytes);
 
   const record = buildOrderRecord({
@@ -153,6 +192,9 @@ async function processOrder(
     meta: {
       material: price.material,
       sheets: price.sheets,
+      ...(price.requestedStickers !== undefined
+        ? { requestedStickers: price.requestedStickers }
+        : {}),
       totalIqd: price.totalIqd,
       governorate: record.customer.governorate,
       shape: spec.shape,

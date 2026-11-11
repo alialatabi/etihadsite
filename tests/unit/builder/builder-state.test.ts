@@ -26,7 +26,7 @@ function restoreBefore(saved: Partial<PersistedForm>): Record<string, unknown> {
   const setHeightText = set('heightText');
   const setSizeUm = set('sizeUm');
   const setMaterialChoice = set('material');
-  const setSheetsText = set('sheetsText');
+  const setStickersText = set('stickersText');
   const setFields = set('fields');
 
   if (saved.shape) setShapeState(saved.shape);
@@ -35,7 +35,7 @@ function restoreBefore(saved: Partial<PersistedForm>): Record<string, unknown> {
   if (typeof saved.heightText === 'string') setHeightText(saved.heightText);
   if (saved.sizeUm) setSizeUm(saved.sizeUm);
   if (saved.material === 'paper' || saved.material === 'plastic') setMaterialChoice(saved.material);
-  if (typeof saved.sheetsText === 'string' && saved.sheetsText.trim()) setSheetsText(saved.sheetsText);
+  if (typeof saved.stickersText === 'string' && saved.stickersText.trim()) setStickersText(saved.stickersText);
   setFields({
     name: saved.name ?? '',
     phone: saved.phone ?? '',
@@ -55,7 +55,7 @@ const FULL: PersistedForm = {
   heightText: '4.5',
   sizeUm: { widthUm: 30_000, heightUm: 45_000 },
   material: 'plastic',
-  sheetsText: '25',
+  stickersText: '25',
   name: 'علي',
   phone: '0770 123 4567',
   governorate: 'بغداد',
@@ -77,30 +77,35 @@ const CASES: { name: string; saved: Partial<PersistedForm>; expected: Record<str
       heightText: '4.5',
       sizeUm: { widthUm: 30_000, heightUm: 45_000 },
       material: 'plastic',
-      sheetsText: '25',
+      stickersText: '25',
       fields: { name: 'علي', phone: '0770 123 4567', governorate: 'بغداد', district: 'الكرادة', landmark: 'قرب الجامع', notes: 'بدون استعجال' },
     },
   },
   { name: 'an empty object', saved: {}, expected: { fields: NO_FIELDS } },
+  {
+    name: 'a form saved by the sheet-count page: its sheetsText is ignored',
+    saved: junk({ shape: 'circle', material: 'paper', sheetsText: '25' }),
+    expected: { shape: 'circle', material: 'paper', fields: NO_FIELDS },
+  },
   { name: 'an array (valid JSON object)', saved: junk([]), expected: { fields: NO_FIELDS } },
   {
-    name: 'a partial form: empty size texts are kept, a blank sheets text is not',
-    saved: { shape: 'circle', widthText: '', heightText: '', sheetsText: '   ', phone: '0770' },
+    name: 'a partial form: empty size texts are kept, a blank sticker text is not',
+    saved: { shape: 'circle', widthText: '', heightText: '', stickersText: '   ', phone: '0770' },
     expected: { shape: 'circle', widthText: '', heightText: '', fields: { ...NO_FIELDS, phone: '0770' } },
   },
   {
-    name: 'a circle with paper and an untrimmed sheets text',
-    saved: { shape: 'circle', corners: 'rounded', sizeUm: { widthUm: 50_000, heightUm: 50_000 }, material: 'paper', sheetsText: ' 20 ' },
-    expected: { shape: 'circle', corners: 'rounded', sizeUm: { widthUm: 50_000, heightUm: 50_000 }, material: 'paper', sheetsText: ' 20 ', fields: NO_FIELDS },
+    name: 'a circle with paper and an untrimmed sticker text',
+    saved: { shape: 'circle', corners: 'rounded', sizeUm: { widthUm: 50_000, heightUm: 50_000 }, material: 'paper', stickersText: ' 20 ' },
+    expected: { shape: 'circle', corners: 'rounded', sizeUm: { widthUm: 50_000, heightUm: 50_000 }, material: 'paper', stickersText: ' 20 ', fields: NO_FIELDS },
   },
   {
     name: 'null and missing values',
-    saved: junk({ shape: null, corners: undefined, widthText: null, sizeUm: null, material: null, sheetsText: '', name: null, notes: undefined }),
+    saved: junk({ shape: null, corners: undefined, widthText: null, sizeUm: null, material: null, stickersText: '', name: null, notes: undefined }),
     expected: { fields: NO_FIELDS },
   },
   {
     name: 'junk types: non-strings and unknown materials are dropped',
-    saved: junk({ corners: 0, widthText: 3, heightText: { a: 1 }, sizeUm: 0, material: 'gold', sheetsText: 12 }),
+    saved: junk({ corners: 0, widthText: 3, heightText: { a: 1 }, sizeUm: 0, material: 'gold', stickersText: 12 }),
     expected: { fields: NO_FIELDS },
   },
   {
@@ -131,7 +136,7 @@ describe('restoredState', () => {
   it('does not copy keys it does not know, and does not change its input', () => {
     const saved = junk({ ...FULL, extra: 'x', step: 3 });
     const before = JSON.stringify(saved);
-    expect(Object.keys(restoredState(saved)).sort()).toEqual(['corners', 'fields', 'heightText', 'material', 'shape', 'sheetsText', 'sizeUm', 'widthText']);
+    expect(Object.keys(restoredState(saved)).sort()).toEqual(['corners', 'fields', 'heightText', 'material', 'shape', 'sizeUm', 'stickersText', 'widthText']);
     expect(JSON.stringify(saved)).toBe(before);
   });
 });

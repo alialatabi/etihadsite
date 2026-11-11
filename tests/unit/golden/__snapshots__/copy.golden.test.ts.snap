@@ -24,6 +24,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{rows} x1",
   "{shop} x1",
   "{size} x4",
+  "{step} x1",
   "{to} x1",
   "{upright} x1",
   "{w} x3",
@@ -90,6 +91,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "size": "القياس",
     "perSheet": "بالورقة",
     "sheets": "عدد الأوراق",
+    "requestedStickers": "العدد المطلوب",
     "totalStickers": "مجموع الستيكرات",
     "material": "الخامة",
     "unitPrice": "سعر الورقة",
@@ -277,13 +279,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2728,
+  "chars": 2741,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "41d0b147cec308becf639eebd1daea5bd038a8fd994eeb1ce1c0445c9868e6be",
-  "strings": 202,
+  "sha256OfRawJson": "4dc66503f98ba155917fd9025e776f9301cb9c4fbc218cb6376428a7758b1fec",
+  "strings": 203,
 }
 `;
 
@@ -379,7 +381,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "title": "اختار الخامة والعدد",
     "materialLabel": "الخامة",
     "perSheetSuffix": "بالورقة",
-    "sheetsLabel": "عدد الورقات",
+    "stickersLabel": "عدد الستيكرات",
     "minHint": "أقل طلب",
     "decrease": "نقّص ورقة",
     "increase": "زيد ورقة",
@@ -393,7 +395,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "delivery": "التوصيل",
     "deliveryNote": "توصيل ثابت لكل المحافظات",
     "total": "الإجمالي",
-    "stickersTotal": "ستيكر بالمجموع",
+    "receive": "ستستلم",
+    "roundingNote": "الإجمالي مقرّب لأقرب {step}",
     "perSticker": "حوالي {price} للستيكر",
     "priceUnset": "السعر يُحدد عند التأكيد",
     "noMaterials": "ماكو خامات متوفرة حالياً. راسلنا على واتساب.",
@@ -434,6 +437,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "size": "القياس",
     "perSheet": "بالورقة",
     "material": "الخامة",
+    "requestedStickers": "العدد المطلوب",
     "sheets": "الأوراق",
     "totalStickers": "مجموع الستيكرات",
     "unitPrice": "سعر الورقة",
@@ -467,13 +471,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2929,
+  "chars": 2963,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "5b65a5e1ca2444eafe41b39593ca5e87fb59ce00fabae97bc1e6acaef7a9bb35",
-  "strings": 135,
+  "sha256OfRawJson": "9cfccfd7184bdc4f99135029dd7cd18549659798329fe00cfa4549ac0a0363c2",
+  "strings": 137,
 }
 `;
 
@@ -631,6 +635,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
     "perSheet": "بالورقة",
     "sheets": "الأوراق",
     "material": "الخامة",
+    "requestedStickers": "العدد المطلوب",
     "unitPrice": "سعر الورقة",
     "discount": "خصم {percent}%",
     "subtotal": "المجموع",
@@ -653,6 +658,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
     "perSheet": "بالورقة",
     "sheets": "الأوراق",
     "material": "الخامة",
+    "requestedStickers": "العدد المطلوب",
     "price": "السعر",
     "unitPrice": "سعر الورقة",
     "discount": "خصم {percent}%",
@@ -699,13 +705,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 814,
+  "chars": 840,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 6,
-  "sha256OfRawJson": "c6fbb40fd13944796b392095db5021d39a23800b0a38d8e7d22cd7447215ea6e",
-  "strings": 58,
+  "sha256OfRawJson": "4d8160468da9439193a12508b8c8c6daa551bee53f30d02afb3acae386fff607",
+  "strings": 60,
 }
 `;
 
@@ -727,7 +733,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
       },
       {
         "title": "اختار الخامة والعدد وأرسل",
-        "body": "ورقي أو بلاستك، واكتب عدد الأوراق. بعدها عنوانك ورقمك ونتواصل وياك."
+        "body": "ورقي أو بلاستك، واكتب عدد الستيكرات. بعدها عنوانك ورقمك ونتواصل وياك."
       }
     ],
     "specTitle": "مواصفات الورقة",
@@ -781,7 +787,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
     "pricingTitle": "الأسعار",
     "pricingIntro": "تختار الخامة والعدد، وكل ما زاد العدد يزيد الخصم.",
     "perSheet": "للورقة",
-    "minOrder": "أقل طلب",
+    "minOrder": "أقل طلب: ستيكرات تعادل",
+    "minOrderNote": "العدد يختلف حسب قياس الستيكر.",
     "discountTitle": "خصم الكمية",
     "discountHeaders": {
       "sheets": "عدد الأوراق",
@@ -837,13 +844,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1825,
+  "chars": 1871,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "3dbb6fc5b4b84368df3324a35ea10c42d87dbde09b54e128398c9c49a58b876f",
-  "strings": 83,
+  "sha256OfRawJson": "4d9b559c619693283e16bb24f0eb411af317b612e4dd80e056e3337b7d9bfd1f",
+  "strings": 84,
 }
 `;
 

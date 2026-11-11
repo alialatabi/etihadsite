@@ -8,7 +8,7 @@ import { builder, common } from '@/content/ar';
 import { computeLayout, layoutParamsFor, deriveLockedSize, maxWidthFor } from '@/lib/layout';
 import { formatCm, parseCm } from '@/lib/parse/cm';
 import { countLabel } from '@/lib/plural';
-import { priceFor } from '@/lib/pricing';
+import { priceFor, priceForStickers } from '@/lib/pricing';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import type {
   LayoutOutcome,
@@ -96,7 +96,18 @@ export function safePrice(material: Material, sheets: number, countPerSheet: num
       totalIqd: null,
       totalStickers: sheets * countPerSheet,
       perStickerIqd: null,
+      roundingIqd: null,
     };
+  }
+}
+
+/** Price of a typed sticker count; on failure a no-price breakdown with sheets = ceil(stickers / countPerSheet). */
+export function safePriceForStickers(material: Material, stickers: number, countPerSheet: number, settings: ShopSettings): PriceBreakdown {
+  try {
+    return priceForStickers(material, stickers, countPerSheet, settings);
+  } catch {
+    const sheets = countPerSheet > 0 ? Math.ceil(stickers / countPerSheet) : 0;
+    return { ...safePrice(material, sheets, countPerSheet, settings), requestedStickers: stickers };
   }
 }
 

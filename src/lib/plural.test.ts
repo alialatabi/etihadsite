@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { common } from '@/content/ar/common';
-import { count, countLabel } from './plural';
+import { count, countLabel, formatCount } from './plural';
 
 const rules = new Intl.PluralRules('ar');
 const S = common.plural.sticker;
@@ -40,5 +40,14 @@ describe('countLabel', () => {
     expect(countLabel(54, S)).toBe('54 ستيكر');
     expect(countLabel(2, H)).toBe('2 ورقتين');
     expect(countLabel(1080, S)).toBe('1080 ستيكر');
+  });
+});
+
+describe('formatCount', () => {
+  it('groups thousands with Western digits, like formatIqd', () => {
+    expect(formatCount(54)).toBe('54');
+    expect(formatCount(1080)).toBe('1,080');
+    expect(formatCount(270000)).toBe('270,000');
+    expect(formatCount(10_000_000)).toBe('10,000,000');
   });
 });
