@@ -1,0 +1,74 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: static metadata functions > each call returns a fresh, equal value 1`] = `
+{
+  "manifest": true,
+  "robots": true,
+  "sitemap": true,
+}
+`;
+
+exports[`golden: static metadata functions > manifest() 1`] = `
+"{
+  "name": "مطبعة سوفتي",
+  "short_name": "مطبعة سوفتي",
+  "description": "اطبع ستيكرات بقياسك في العراق: ارفع تصميمك وشوف ورقة A4 مرتبة فوراً.",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#d01c4a",
+  "background_color": "#fdfbfa",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}"
+`;
+
+exports[`golden: static metadata functions > manifest() 2`] = `"72727fc723b947be2d65b55059cfcd96c0bf657923b4ae91c906d3c647ca32eb"`;
+
+exports[`golden: static metadata functions > robots() 1`] = `
+"{
+  "rules": {
+    "userAgent": "*",
+    "allow": "/",
+    "disallow": [
+      "/admin",
+      "/api"
+    ]
+  }
+}"
+`;
+
+exports[`golden: static metadata functions > sitemap() 1`] = `
+"[
+  {
+    "url": "/",
+    "changeFrequency": "monthly",
+    "priority": 1
+  },
+  {
+    "url": "/how-it-works",
+    "changeFrequency": "monthly",
+    "priority": 0.7
+  }
+]"
+`;

@@ -5,9 +5,11 @@
  * Visitors: `visitor` is a daily-rotating hash, so one distinct hash == one visitor-day.
  * Orders/revenue come from 'order' events (the orders table is purged by the retention cron).
  */
+import { SHOP_TIME_ZONE } from '@/config/defaults';
+import { DAY_MS, shopDayKey } from '@/lib/shop-time';
 import type { AnalyticsEvent, CustomerRecord, DeviceKind, TrafficSource } from '@/lib/types';
 
-export const STATS_TZ = 'Asia/Baghdad';
+export const STATS_TZ = SHOP_TIME_ZONE;
 export const RANGE_OPTIONS = [7, 30, 90] as const;
 export type RangeDays = (typeof RANGE_OPTIONS)[number];
 export const DEFAULT_RANGE: RangeDays = 30;
@@ -18,22 +20,18 @@ export function parseRange(raw: string | string[] | undefined): RangeDays {
   return (RANGE_OPTIONS as readonly number[]).includes(n) ? (n as RangeDays) : DEFAULT_RANGE;
 }
 
-const dayFmt = new Intl.DateTimeFormat('en-CA', {
-  timeZone: STATS_TZ,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
 const partsFmt = new Intl.DateTimeFormat('en-US', {
-  timeZone: STATS_TZ,
+  timeZone: SHOP_TIME_ZONE,
   weekday: 'short',
   hour: '2-digit',
   hourCycle: 'h23',
 });
+/** en-US short weekday names, Saturday first (the shop's week). */
+const WEEKDAY_ORDER = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-/** "YYYY-MM-DD" in Asia/Baghdad. */
+/** "YYYY-MM-DD" in shop time. */
 export function dayKey(d: Date): string {
-  return dayFmt.format(d);
+  return shopDayKey(d);
 }
 
 /** Saturday-first weekday index (0 = Saturday … 6 = Friday) and hour 0-23, Baghdad time. */
@@ -41,20 +39,19 @@ export function weekdayAndHour(d: Date): { weekday: number; hour: number } {
   const parts = partsFmt.formatToParts(d);
   const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Sat';
   const hr = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
-  const order = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  return { weekday: Math.max(0, order.indexOf(wd)), hour: hr };
+  return { weekday: Math.max(0, WEEKDAY_ORDER.indexOf(wd)), hour: hr };
 }
 
 /** Day keys (oldest first) for the `days` days ending at `now` (inclusive). */
 export function rangeDayKeys(now: Date, days: number): string[] {
   const keys: string[] = [];
-  for (let i = days - 1; i >= 0; i--) keys.push(dayKey(new Date(now.getTime() - i * 86_400_000)));
+  for (let i = days - 1; i >= 0; i--) keys.push(dayKey(new Date(now.getTime() - i * DAY_MS)));
   return keys;
 }
 
 /** Lower bound to pass to listEvents (one extra day of slack; events are re-filtered by day key). */
 export function sinceFor(now: Date, days: number): Date {
-  return new Date(now.getTime() - (days + 1) * 86_400_000);
+  return new Date(now.getTime() - (days + 1) * DAY_MS);
 }
 
 export interface CountRow<K extends string = string> {

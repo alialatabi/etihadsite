@@ -1,9 +1,9 @@
 /**
- * Arabic plural agreement — OWNED BY AGENT A. Pure.
+ * Arabic plural agreement. Pure.
  *
  * Uses Intl.PluralRules('ar'): categories zero, one, two, few (3–10), many (11–99), other (100+, 0 handled as zero).
  * `count(n, forms)` returns the text WITHOUT the number; UI composes "<Ltr>{n}</Ltr> {count(...)}".
- * Examples with STICKER_FORMS: 1 → "ستيكر", 2 → "ستيكرين", 3 → "ستيكرات", 11 → "ستيكر", 100 → "ستيكر".
+ * Examples with common.plural.sticker: 1 → "ستيكر", 2 → "ستيكرين", 3 → "ستيكرات", 11 → "ستيكر", 100 → "ستيكر".
  */
 export interface PluralForms {
   zero: string;

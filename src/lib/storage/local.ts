@@ -21,27 +21,15 @@ import type {
 } from "../types";
 import {
   ID_RE,
+  metaPathForDesign,
   orderJsonPath,
   pdfPath,
   uploadMetaPath,
   uploadPath,
 } from "./paths";
-import { shopSettingsSchema } from "./settings-schema";
+import { parseStoredSettings } from "./settings-schema";
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-/** Deep merge; arrays and scalars from `over` replace the base. */
-export function deepMerge<T>(base: T, over: unknown): T {
-  if (!isPlainObject(base) || !isPlainObject(over))
-    return (over === undefined ? base : over) as T;
-  const out: Record<string, unknown> = { ...base };
-  for (const [k, v] of Object.entries(over)) {
-    out[k] = k in base ? deepMerge((base as Record<string, unknown>)[k], v) : v;
-  }
-  return out as T;
-}
+export { deepMerge } from "./settings-schema";
 
 const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -196,15 +184,11 @@ export class LocalStorage implements StorageAdapter {
     const raw = await this.readOptional("settings.json");
     if (!raw) return structuredClone(DEFAULT_SETTINGS);
     try {
-      const merged = deepMerge(
-        structuredClone(DEFAULT_SETTINGS),
-        JSON.parse(raw.toString("utf8")),
-      );
-      const parsed = shopSettingsSchema.safeParse(merged);
-      if (parsed.success) return parsed.data as ShopSettings;
+      const parsed = parseStoredSettings(JSON.parse(raw.toString("utf8")));
+      if (parsed.ok) return parsed.settings;
       console.error(
         "[storage] settings.json is invalid, using defaults:",
-        parsed.error.issues.map((i) => i.path.join(".")).join(", "),
+        parsed.issuePaths,
       );
     } catch (e) {
       console.error(
@@ -367,7 +351,7 @@ export class LocalStorage implements StorageAdapter {
       }
       await drop(order.files.pdfPath);
       await drop(order.files.designPath);
-      await drop(order.files.designPath.replace(/\.bin$/, ".json"));
+      await drop(metaPathForDesign(order.files.designPath));
       await drop(orderJsonPath(order.orderId));
     }
     const list = async (dir: string): Promise<string[]> => {
@@ -396,7 +380,7 @@ export class LocalStorage implements StorageAdapter {
       const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name));
       if (stat.mtime < cutoff) {
         await drop(`uploads/${name}`);
-        await drop(`uploads/${name.replace(/\.bin$/, ".json")}`);
+        await drop(metaPathForDesign(`uploads/${name}`));
       }
     }
     return removed;

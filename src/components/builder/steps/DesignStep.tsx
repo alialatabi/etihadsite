@@ -2,11 +2,12 @@
 
 import { useRef, useState } from 'react';
 import { CloudUpload, FileText, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
+import { fillLtr } from '@/components/fill-ltr';
 import { cn } from '@/lib/utils';
-import { fillNodes } from '../fillNodes';
 import { needsCropNotice, pdfPrefillUm } from '../logic';
 import { safeFormatCm } from '../safe';
 import type { BuilderApi } from '../useBuilder';
@@ -30,7 +31,7 @@ export function DesignStep({ b }: { b: BuilderApi }) {
         ref={inputRef}
         id="design-file"
         type="file"
-        accept=".png,.jpg,.jpeg,.pdf"
+        accept={ACCEPTED_EXTENSIONS.join(',')}
         className="sr-only"
         tabIndex={-1}
         onChange={(e) => {
@@ -103,10 +104,10 @@ export function DesignStep({ b }: { b: BuilderApi }) {
       )}
 
       {design?.pdf && design.pdf.pageCount > 1 && (
-        <Notice>{fillNodes(builder.upload.onlyFirstPage, { pages: design.pdf.pageCount })}</Notice>
+        <Notice>{fillLtr(builder.upload.onlyFirstPage, { pages: design.pdf.pageCount })}</Notice>
       )}
       {prefill && (
-        <Notice>{fillNodes(builder.upload.detectedSize, { size: `${safeFormatCm(prefill.widthUm)} × ${safeFormatCm(prefill.heightUm)}` })}</Notice>
+        <Notice>{fillLtr(builder.upload.detectedSize, { size: `${safeFormatCm(prefill.widthUm)} × ${safeFormatCm(prefill.heightUm)}` })}</Notice>
       )}
       {needsCropNotice(shape ?? 'rect', design) && <Notice>{builder.upload.cropNotice}</Notice>}
       {shape === 'circle' && !design && <p className="text-sm text-muted-foreground">{builder.upload.squareHint}</p>}

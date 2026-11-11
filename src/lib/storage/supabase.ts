@@ -19,9 +19,8 @@ import 'server-only';
  */
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import type { AnalyticsEvent, CustomerRecord, OrderRecord, ShopSettings, StorageAdapter, StoredFileMeta } from '@/lib/types';
-import { deepMerge } from './local';
-import { ID_RE, pdfPath, uploadMetaPath, uploadPath } from './paths';
-import { shopSettingsSchema } from './settings-schema';
+import { ID_RE, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
+import { parseStoredSettings } from './settings-schema';
 
 const BUCKET = 'etihad';
 const PATH_RE = /^(uploads|orders)\/[A-Za-z0-9_-]{8,64}\.(bin|json|pdf)$/;
@@ -29,6 +28,16 @@ const PATH_RE = /^(uploads|orders)\/[A-Za-z0-9_-]{8,64}\.(bin|json|pdf)$/;
 export const SUPABASE_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const TIMEOUT_MS = 10_000;
 const OBJECT_TIMEOUT_MS = 30_000;
+/** Page size of every paged listing: PostgREST selects (one response is capped at max-rows, default 1000) and the Storage object list. */
+const PAGE_ROWS = 1000;
+/** Object paths per bulk-delete request. */
+const DELETE_CHUNK = 500;
+/** The `limit=` sent on both purge selects of orders (the old ones to remove, and the kept ones whose designs must stay); PostgREST's max-rows (default 1000) caps the rows actually read. */
+const PURGE_ORDER_LIMIT = 10_000;
+/** The `limit=` sent on the dry-run purge select of event ids (it counts what would be deleted); PostgREST's max-rows (default 1000) caps the rows actually read. */
+const DRY_RUN_COUNT_LIMIT = 100_000;
+/** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
+const ORPHAN_UPLOAD_MAX_AGE_MS = 3 * 3600_000;
 
 function safePath(rel: string): string {
   if (typeof rel !== 'string' || !PATH_RE.test(rel)) throw new Error('Invalid storage path');
@@ -50,6 +59,49 @@ async function isNotFound(res: Response): Promise<boolean> {
 interface ListedObject {
   name: string;
   created_at?: string;
+}
+
+/** AnalyticsEvent → public.events row: an absent optional field is written as an explicit null. */
+function eventToRow(e: AnalyticsEvent) {
+  return {
+    ts: e.ts,
+    type: e.type,
+    visitor: e.visitor,
+    path: e.path ?? null,
+    step: e.step ?? null,
+    source: e.source ?? null,
+    device: e.device ?? null,
+    city: e.city ?? null,
+    region: e.region ?? null,
+    country: e.country ?? null,
+    meta: e.meta ?? null,
+  };
+}
+
+/** public.events row → AnalyticsEvent: null columns are dropped (those fields are optional). */
+function rowToEvent(r: Record<string, unknown>): AnalyticsEvent {
+  // Filled key by key, in the row's own order; the select list is exactly the event's fields.
+  const ev = {} as AnalyticsEvent & Record<string, unknown>;
+  for (const [k, v] of Object.entries(r)) if (v !== null) ev[k] = v;
+  return ev;
+}
+
+/** public.customers row → CustomerRecord. */
+function rowToCustomer(r: Record<string, unknown>): CustomerRecord {
+  const out: CustomerRecord = {
+    phone: String(r.phone),
+    governorate: String(r.governorate),
+    district: String(r.district),
+    landmark: String(r.landmark),
+    firstOrderAt: String(r.first_order_at),
+    lastOrderAt: String(r.last_order_at),
+    ordersCount: Number(r.orders_count),
+    totalIqd: Number(r.total_iqd),
+    lastOrderId: String(r.last_order_id),
+    lastDisplayNo: String(r.last_display_no),
+  };
+  if (typeof r.name === 'string' && r.name) out.name = r.name;
+  return out;
 }
 
 export class SupabaseStorage implements StorageAdapter {
@@ -84,8 +136,26 @@ export class SupabaseStorage implements StorageAdapter {
     throw new Error(`[supabase] ${rest.method ?? 'GET'} ${path.split('?')[0]} -> ${res.status} ${text.slice(0, 200)}`);
   }
 
-  private json(body: unknown): RequestInit {
-    return { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+  /** JSON request body; `prefer` adds a PostgREST `Prefer` header after the content type. */
+  private json(body: unknown, prefer?: string): RequestInit {
+    return { headers: { 'content-type': 'application/json', ...(prefer ? { Prefer: prefer } : {}) }, body: JSON.stringify(body) };
+  }
+
+  /**
+   * Every row of a PostgREST select. One response is capped (max-rows, default 1000), so the
+   * rows are fetched page after page with Range headers until a short page arrives.
+   */
+  private async selectAllPaged(pathAndQuery: string): Promise<Record<string, unknown>[]> {
+    const rows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE_ROWS) {
+      const res = await this.req(pathAndQuery, {
+        headers: { Range: `${from}-${from + PAGE_ROWS - 1}`, 'Range-Unit': 'items' },
+        timeoutMs: OBJECT_TIMEOUT_MS,
+      });
+      const page = (await res.json()) as Record<string, unknown>[];
+      rows.push(...page);
+      if (page.length < PAGE_ROWS) return rows;
+    }
   }
 
   /* ───────────── objects ───────────── */
@@ -149,8 +219,8 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   private async deleteMany(paths: string[]): Promise<void> {
-    for (let i = 0; i < paths.length; i += 500) {
-      const chunk = paths.slice(i, i + 500).map(safePath);
+    for (let i = 0; i < paths.length; i += DELETE_CHUNK) {
+      const chunk = paths.slice(i, i + DELETE_CHUNK).map(safePath);
       await this.req(`/storage/v1/object/${BUCKET}`, { method: 'DELETE', ...this.json({ prefixes: chunk }) });
     }
   }
@@ -196,8 +266,7 @@ export class SupabaseStorage implements StorageAdapter {
     if (!ID_RE.test(record.orderId)) throw new Error('Invalid order id');
     await this.req('/rest/v1/orders?on_conflict=order_id', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' },
-      body: JSON.stringify({ order_id: record.orderId, created_at: record.createdAt, record }),
+      ...this.json({ order_id: record.orderId, created_at: record.createdAt, record }, 'resolution=ignore-duplicates,return=minimal'),
     });
   }
 
@@ -233,60 +302,38 @@ export class SupabaseStorage implements StorageAdapter {
     const res = await this.req('/rest/v1/settings?select=data&id=eq.1&limit=1');
     const rows = (await res.json()) as { data: unknown }[];
     if (!rows[0]) return structuredClone(DEFAULT_SETTINGS);
-    const merged = deepMerge(structuredClone(DEFAULT_SETTINGS), rows[0].data);
-    const parsed = shopSettingsSchema.safeParse(merged);
-    if (parsed.success) return parsed.data as ShopSettings;
-    console.error('[storage] stored settings are invalid, using defaults:', parsed.error.issues.map((i) => i.path.join('.')).join(', '));
+    const parsed = parseStoredSettings(rows[0].data);
+    if (parsed.ok) return parsed.settings;
+    console.error('[storage] stored settings are invalid, using defaults:', parsed.issuePaths);
     return structuredClone(DEFAULT_SETTINGS);
   }
 
   async saveSettings(settings: ShopSettings): Promise<void> {
     await this.req('/rest/v1/settings?on_conflict=id', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ id: 1, data: settings, updated_at: new Date().toISOString() }),
+      ...this.json({ id: 1, data: settings, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal'),
     });
   }
 
   /* ───────────── analytics & customers ───────────── */
 
   async recordEvent(e: AnalyticsEvent): Promise<void> {
-    await this.req('/rest/v1/events', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        ts: e.ts,
-        type: e.type,
-        visitor: e.visitor,
-        path: e.path ?? null,
-        step: e.step ?? null,
-        source: e.source ?? null,
-        device: e.device ?? null,
-        city: e.city ?? null,
-        region: e.region ?? null,
-        country: e.country ?? null,
-        meta: e.meta ?? null,
-      }),
-    });
+    await this.req('/rest/v1/events', { method: 'POST', ...this.json(eventToRow(e), 'return=minimal') });
   }
 
   /** Oldest first; pages through PostgREST's 1000-row cap with Range headers. */
   async listEvents(since: Date): Promise<AnalyticsEvent[]> {
-    const PAGE = 1000;
     const iso = encodeURIComponent(since.toISOString());
     const out: AnalyticsEvent[] = [];
-    for (let from = 0; ; from += PAGE) {
+    for (let from = 0; ; from += PAGE_ROWS) {
       const res = await this.req(
         `/rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.${iso}&order=ts.asc,id.asc`,
-        { headers: { Range: `${from}-${from + PAGE - 1}`, 'Range-Unit': 'items' }, timeoutMs: OBJECT_TIMEOUT_MS },
+        { headers: { Range: `${from}-${from + PAGE_ROWS - 1}`, 'Range-Unit': 'items' }, timeoutMs: OBJECT_TIMEOUT_MS },
       );
+      // Each page is converted before the next one is requested.
       const rows = (await res.json()) as Record<string, unknown>[];
-      for (const r of rows) {
-        const ev: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(r)) if (v !== null) ev[k] = v;
-        out.push(ev as unknown as AnalyticsEvent);
-      }
-      if (rows.length < PAGE) return out;
+      for (const r of rows) out.push(rowToEvent(r));
+      if (rows.length < PAGE_ROWS) return out;
     }
   }
 
@@ -309,41 +356,15 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   async listCustomers(): Promise<CustomerRecord[]> {
-    // Page with Range headers: PostgREST caps a single response (max-rows, default 1000).
-    const PAGE = 1000;
-    const rows: Record<string, unknown>[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const res = await this.req('/rest/v1/customers?select=*&order=last_order_at.desc,phone.asc', {
-        headers: { Range: `${from}-${from + PAGE - 1}`, 'Range-Unit': 'items' },
-        timeoutMs: OBJECT_TIMEOUT_MS,
-      });
-      const page = (await res.json()) as Record<string, unknown>[];
-      rows.push(...page);
-      if (page.length < PAGE) break;
-    }
-    return rows.map((r) => {
-      const out: CustomerRecord = {
-        phone: String(r.phone),
-        governorate: String(r.governorate),
-        district: String(r.district),
-        landmark: String(r.landmark),
-        firstOrderAt: String(r.first_order_at),
-        lastOrderAt: String(r.last_order_at),
-        ordersCount: Number(r.orders_count),
-        totalIqd: Number(r.total_iqd),
-        lastOrderId: String(r.last_order_id),
-        lastDisplayNo: String(r.last_display_no),
-      };
-      if (typeof r.name === 'string' && r.name) out.name = r.name;
-      return out;
-    });
+    const rows = await this.selectAllPaged('/rest/v1/customers?select=*&order=last_order_at.desc,phone.asc');
+    return rows.map(rowToCustomer);
   }
 
   /** Deletes analytics events older than `cutoff`. Returns `events:<n>` (empty when none). Never touches customers. */
   async purgeEventsOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
     const iso = encodeURIComponent(cutoff.toISOString());
     if (dryRun) {
-      const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}&limit=100000`);
+      const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}&limit=${DRY_RUN_COUNT_LIMIT}`);
       const n = ((await res.json()) as unknown[]).length;
       return n ? [`events:${n}`] : [];
     }
@@ -359,14 +380,14 @@ export class SupabaseStorage implements StorageAdapter {
 
   private async listPrefix(prefix: 'uploads' | 'orders'): Promise<ListedObject[]> {
     const out: ListedObject[] = [];
-    for (let offset = 0; ; offset += 1000) {
+    for (let offset = 0; ; offset += PAGE_ROWS) {
       const res = await this.req(`/storage/v1/object/list/${BUCKET}`, {
         method: 'POST',
-        ...this.json({ prefix, limit: 1000, offset, sortBy: { column: 'created_at', order: 'asc' } }),
+        ...this.json({ prefix, limit: PAGE_ROWS, offset, sortBy: { column: 'created_at', order: 'asc' } }),
       });
       const page = (await res.json()) as ListedObject[];
       out.push(...page);
-      if (page.length < 1000) return out;
+      if (page.length < PAGE_ROWS) return out;
     }
   }
 
@@ -376,12 +397,12 @@ export class SupabaseStorage implements StorageAdapter {
    * never-committed uploads (.bin without .json) older than `orphanCutoff`.
    * Returns the paths (and `order:<id>` rows) removed, or that would be when dryRun.
    */
-  async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - 3 * 3600_000)): Promise<string[]> {
+  async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - ORPHAN_UPLOAD_MAX_AGE_MS)): Promise<string[]> {
     const removed: string[] = [];
     const iso = encodeURIComponent(cutoff.toISOString());
-    const oldRes = await this.req(`/rest/v1/orders?select=order_id,files:record->files&created_at=lt.${iso}&limit=10000`);
+    const oldRes = await this.req(`/rest/v1/orders?select=order_id,files:record->files&created_at=lt.${iso}&limit=${PURGE_ORDER_LIMIT}`);
     const old = (await oldRes.json()) as { order_id: string; files: OrderRecord['files'] | null }[];
-    const keptRes = await this.req(`/rest/v1/orders?select=design:record->files->>designPath&created_at=gte.${iso}&limit=10000`);
+    const keptRes = await this.req(`/rest/v1/orders?select=design:record->files->>designPath&created_at=gte.${iso}&limit=${PURGE_ORDER_LIMIT}`);
     const kept = new Set(((await keptRes.json()) as { design: string | null }[]).map((r) => r.design).filter(Boolean));
 
     const files = new Set<string>();
@@ -390,7 +411,7 @@ export class SupabaseStorage implements StorageAdapter {
       const d = o.files?.designPath;
       if (d && PATH_RE.test(d) && !kept.has(d)) {
         files.add(d);
-        files.add(d.replace(/\.bin$/, '.json'));
+        files.add(metaPathForDesign(d));
       }
       removed.push(`order:${o.order_id}`);
     }
@@ -403,10 +424,10 @@ export class SupabaseStorage implements StorageAdapter {
       if (!PATH_RE.test(rel) || kept.has(rel)) continue;
       const created = u.created_at ? new Date(u.created_at) : null;
       if (!created) continue;
-      const committed = names.has(u.name.replace(/\.bin$/, '.json'));
+      const committed = names.has(metaPathForDesign(u.name));
       if (created < cutoff || (!committed && created < orphanCutoff)) {
         files.add(rel);
-        if (committed) files.add(rel.replace(/\.bin$/, '.json'));
+        if (committed) files.add(metaPathForDesign(rel));
       }
     }
     // Orphan metas (bin already gone) older than the cutoff.

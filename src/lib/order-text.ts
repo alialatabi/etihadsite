@@ -1,8 +1,10 @@
 /**
- * Shared Arabic order-summary text builders — OWNED BY AGENT A (pure, both runtimes).
+ * Arabic order-summary text builders. Pure; used on the server and in the browser.
  *
- * The SAME text is used in: the summary card (C), the WhatsApp pre-filled
- * message (C + D), the Telegram caption (D) and the admin order view (D).
+ * orderSummaryText() is the body of the WhatsApp text that POST /api/orders returns and of
+ * the builder's degraded (send-it-yourself) message. The Telegram caption is built apart, by
+ * buildCaption() in src/lib/notify/telegram.ts; it shares only shapeLabel() and sizeLabel(),
+ * which the admin order pages and the builder summary use too.
  * Western digits; wrap nothing in HTML here — plain text with line breaks.
  *
  * Example (3 cm circle, 20 sheets, price unset):
@@ -49,9 +51,9 @@ export function orderSummaryText(summary: OrderSummary): string {
 
 /** Arabic label for a shape (+ corners). 'circle' → "دائري", rect rounded → "مستطيل بزوايا دائرية", … */
 export function shapeLabel(shape: OrderSummary['shape'], corners?: OrderSummary['corners']): string {
-  if (shape === 'circle') return 'دائري';
-  if (shape === 'custom') return 'شكل مخصص';
-  return corners === 'sharp' ? 'مستطيل بزوايا حادة' : 'مستطيل بزوايا دائرية';
+  if (shape === 'circle') return order.shapes.circle;
+  if (shape === 'custom') return order.shapes.custom;
+  return corners === 'sharp' ? order.shapes.rectSharp : order.shapes.rectRounded;
 }
 
 /** "3 × 4.24 سم" */

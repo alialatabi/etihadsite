@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { DISPLAY_NO_ALPHABET } from "@/config/defaults";
-import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
 import { clientIp, createRateLimiter, limiters } from "@/lib/rate-limit";
 
 describe("rate limiter", () => {
@@ -63,26 +61,62 @@ describe("rate limiter", () => {
       (globalThis as { __epLimiters?: unknown }).__epLimiters = undefined;
     }
   });
-});
 
-describe("displayNo", () => {
-  it("has EP-YYMMDD-XXXX shape with the Baghdad date and safe alphabet", () => {
-    const no = makeDisplayNo(new Date("2025-11-07T21:30:00Z")); // 00:30 on the 8th in Baghdad (UTC+3)
-    expect(no).toMatch(/^EP-\d{6}-[A-Z2-9]{4}$/);
-    expect(no.startsWith("EP-251108-")).toBe(true);
-    for (const ch of no.slice(-4)) expect(DISPLAY_NO_ALPHABET).toContain(ch);
-    expect(makeDisplayNo(new Date("2025-11-07T10:00:00Z"), () => 0)).toBe(
-      "EP-251107-2222",
-    );
+  it("keeps a complete limiter set and adds the track limiter to one that predates it", () => {
+    const slot = globalThis as { __epLimiters?: unknown };
+    const prev = process.env.TRUST_PROXY;
+    try {
+      slot.__epLimiters = undefined;
+      process.env.TRUST_PROXY = "1";
+      const fresh = limiters();
+      expect(limiters()).toBe(fresh);
+      // What a dev server that was started before `track` existed still holds after a hot reload.
+      const upload = createRateLimiter({ limit: 20, windowMs: 1000 });
+      const order = createRateLimiter({ limit: 5, windowMs: 1000 });
+      const log = createRateLimiter({ limit: 60, windowMs: 1000 });
+      const login = createRateLimiter({ limit: 10, windowMs: 1000 });
+      const stale: Record<string, unknown> = { mode: fresh.mode, upload, order, log, login };
+      slot.__epLimiters = stale;
+      const patched = limiters();
+      expect(patched).toBe(stale);
+      expect(patched.upload).toBe(upload);
+      expect(patched.order).toBe(order);
+      expect(patched.log).toBe(log);
+      expect(patched.login).toBe(login);
+      expect(patched.mode).toBe(fresh.mode);
+      expect(patched.track).toBeDefined();
+      expect(patched.track).not.toBe(fresh.track);
+      expect(patched.track.check("visitor").ok).toBe(true);
+      expect(limiters()).toBe(patched);
+      expect(limiters().track).toBe(patched.track);
+    } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+      slot.__epLimiters = undefined;
+    }
   });
 
-  it("builds an ASCII pdf file name", () => {
-    const n = pdfFileNameFor(
-      "EP-251107-ABCD",
-      { shape: "rect", widthUm: 42400, heightUm: 30000 },
-      20,
-    );
-    expect(n).toBe("EP-251107-ABCD_rect-42.4x30mm_x20.pdf");
-    expect(n).toMatch(/^[\x20-\x7e]+$/);
+  it("keeps the same track limiter across a TRUST_PROXY mode change", () => {
+    const slot = globalThis as { __epLimiters?: unknown };
+    const prev = process.env.TRUST_PROXY;
+    try {
+      slot.__epLimiters = undefined;
+      process.env.TRUST_PROXY = "1";
+      const before = limiters();
+      for (let i = 0; i < 300; i++) expect(before.track.check("visitor").ok).toBe(true);
+      expect(before.track.check("visitor").ok).toBe(false);
+      process.env.TRUST_PROXY = "0";
+      const after = limiters();
+      expect(after).not.toBe(before);
+      expect(after.mode).toBe(0);
+      expect(after.order).not.toBe(before.order);
+      expect(after.track).toBe(before.track);
+      // The 300 hits from before the change still count.
+      expect(after.track.check("visitor").ok).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+      slot.__epLimiters = undefined;
+    }
   });
 });

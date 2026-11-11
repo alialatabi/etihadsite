@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Ltr } from '@/components/Ltr';
+import { Money } from '@/components/Money';
 import { admin, common, fill, order } from '@/content/ar';
-import { verifySession } from '@/lib/auth/session';
+import { requireAdmin } from '@/lib/auth/guard';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import { whatsappUrl } from '@/lib/parse/phone';
-import { formatIqd } from '@/lib/pricing';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
 import { formatBaghdad, orderPriceView, statusVariant, telegramLabel } from '../../_lib';
@@ -29,9 +29,7 @@ const money = (v: number | null, unpublished = false) =>
   v === null ? (
     unpublished ? admin.orders.totalUnset : admin.orders.missing
   ) : (
-    <>
-      <Ltr>{formatIqd(v)}</Ltr> {common.units.iqd}
-    </>
+    <Money amount={v} />
   );
 
 export default async function OrderDetailPage({
@@ -41,7 +39,7 @@ export default async function OrderDetailPage({
   params: Promise<{ orderId: string }>;
   searchParams: Promise<{ updated?: string }>;
 }) {
-  if (!(await verifySession())) redirect('/admin/login');
+  await requireAdmin();
   const { orderId } = await params;
   const { updated } = await searchParams;
   if (!ID_RE.test(orderId)) notFound();
@@ -139,9 +137,9 @@ export default async function OrderDetailPage({
                 </a>
               </Row>
               <Row label={d.governorate}>{o.customer.governorate}</Row>
-              <Row label={d.district}>{o.customer.district || admin.orders.noName}</Row>
+              <Row label={d.district}>{o.customer.district || admin.orders.missing}</Row>
               <Row label={d.landmark}>{o.customer.landmark}</Row>
-              <Row label={d.notes}>{o.customer.notes || admin.orders.noName}</Row>
+              <Row label={d.notes}>{o.customer.notes || admin.orders.missing}</Row>
               <Row label={d.originalFile}>
                 <Ltr>{o.design.originalName}</Ltr>
               </Row>

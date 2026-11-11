@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, deriveLockedSize, layoutParamsFor, maxWidthFor, placementSize } from './index';
+import { cellSizeFor, computeLayout, deriveLockedSize, layoutParamsFor, maxWidthFor, placementSize } from './index';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { A4_UM, cmToUm, mmToUm } from '@/lib/units';
 import type { LayoutParams, LayoutResult, StickerSpec } from '@/lib/types';
@@ -262,5 +262,17 @@ describe('maxWidthFor', () => {
   });
   it('respects a larger margin', () => {
     expect(maxWidthFor(1, params({ marginUm: mmToUm(20) }))).toBe(170_000);
+  });
+});
+
+describe('cellSizeFor', () => {
+  it('gives the cell as is, or swapped when turned, and placementSize agrees', () => {
+    const o = computeLayout(rect(100_000, 40_000), params({ allowRotate: true, gapXUm: 2_000, gapYUm: 0 }));
+    if (!o.ok) throw new Error('expected a layout');
+    const l = o.layout;
+    expect(l.turnedCount).toBeGreaterThan(0);
+    expect(cellSizeFor(l, false)).toEqual(l.cell);
+    expect(cellSizeFor(l, true)).toEqual({ widthUm: l.cell.heightUm, heightUm: l.cell.widthUm });
+    for (const p of l.placements) expect(placementSize(l, p)).toEqual(cellSizeFor(l, p.turned === true));
   });
 });

@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { common, fill, pages } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
+import { CtaLink } from '@/components/shell/CtaLink';
 import { getSettings } from '@/lib/settings';
 import { count, countLabel } from '@/lib/plural';
-import { enabledMaterials, formatIqd, priceFor } from '@/lib/pricing';
+import { enabledMaterials, formatIqd } from '@/lib/pricing';
 import { A4_UM, umToMm, umToCm } from '@/lib/units';
-import { computeExamples, illustrationLayout } from './examples';
+import { computeExamples, discountRows, illustrationLayout, priceExample } from './examples';
 import { fillLtr } from '@/components/fill-ltr';
 import { SheetIllustration } from './SheetIllustration';
 
@@ -15,34 +15,50 @@ export const dynamic = 'force-dynamic';
 
 const t = pages.howItWorks;
 
-export function generateMetadata(): Metadata {
-  return {
-    title: t.title,
-    description: pages.seo.howItWorksDescription,
-    alternates: { canonical: '/how-it-works' },
-  };
+export const metadata: Metadata = {
+  title: t.title,
+  description: pages.seo.howItWorksDescription,
+  alternates: { canonical: '/how-it-works' },
+};
+
+/** The glass title + intro block that opens a section. */
+function SectionIntro({ title, intro }: { title: string; intro: string }) {
+  return (
+    <div className="glass rounded-2xl px-5 py-4">
+      <h2 className="text-2xl font-bold">{title}</h2>
+      <p className="mt-2 text-muted-foreground">{intro}</p>
+    </div>
+  );
 }
 
-/** "54 ستيكر" — falls back if the plural module is not available yet. */
-function stickerCount(n: number): string {
-  try {
-    return countLabel(n, common.plural.sticker);
-  } catch {
-    return `${n} ${common.plural.sticker.other}`;
-  }
+/** One row of the A4 spec list. */
+function SpecRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-bold">{children}</dd>
+    </div>
+  );
 }
 
-const CTA_CLASS =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand px-6 text-base font-bold text-brand-foreground transition-colors hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+/** One card of the shape-rules grid. */
+function RuleCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="font-bold">{title}</h3>
+      <p className="mt-2 leading-7 text-muted-foreground">{children}</p>
+    </div>
+  );
+}
 
 export default async function HowItWorksPage() {
   const settings = await getSettings();
   const lay = settings.layout;
   const examples = computeExamples(lay);
   const sheet = illustrationLayout(lay);
+  const sheetLabel = sheet ? fill(t.illustrationAlt, { n: sheet.countPerSheet }) : '';
 
-  const mm = (um: number) => umToMm(um);
-  const marginMm = mm(lay.marginUm);
+  const marginMm = umToMm(lay.marginUm);
   const pageW = umToCm(A4_UM.widthUm);
   const pageH = umToCm(A4_UM.heightUm);
   const usableW = umToCm(A4_UM.widthUm - 2 * lay.marginUm);
@@ -55,21 +71,8 @@ export default async function HowItWorksPage() {
 
   const pricing = settings.pricing;
   const mats = enabledMaterials(pricing);
-  const tiers = [...pricing.tiers].sort((a, b) => a.minSheets - b.minSheets);
-  const rows: { from: number; to: number | null; percent: number }[] = [];
-  if (tiers.length === 0 || tiers[0].minSheets > pricing.minSheets) {
-    rows.push({ from: pricing.minSheets, to: tiers.length ? tiers[0].minSheets - 1 : null, percent: 0 });
-  }
-  tiers.forEach((tier, i) => {
-    if (i + 1 < tiers.length && tiers[i + 1].minSheets <= pricing.minSheets) return;
-    rows.push({ from: Math.max(tier.minSheets, pricing.minSheets), to: i + 1 < tiers.length ? tiers[i + 1].minSheets - 1 : null, percent: tier.percent });
-  });
-  const exMaterial = mats.includes('plastic') ? 'plastic' : mats[0];
-  const exSheets = Math.min(Math.max(50, pricing.minSheets), pricing.maxSheets);
-  const example =
-    settings.pricesPublished && exMaterial
-      ? priceFor(exMaterial, exSheets, 1, settings)
-      : null;
+  const rows = discountRows(pricing);
+  const example = priceExample(settings);
 
   return (
     <div>
@@ -80,16 +83,15 @@ export default async function HowItWorksPage() {
             <p className="mb-3 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-brand-foreground">{common.nav.howItWorks}</p>
             <h1 className="text-3xl font-bold leading-tight md:text-5xl">{t.hero}</h1>
             <p className="mt-4 max-w-xl text-base leading-8 text-primary-foreground/80 md:text-lg">{t.heroSub}</p>
-            <Link href="/#builder" className={`${CTA_CLASS} mt-8`}>
+            <CtaLink href="/#builder" className="text-base mt-8">
               {t.cta}
-              <ArrowLeft className="size-5" aria-hidden />
-            </Link>
+            </CtaLink>
           </div>
           {sheet ? (
             <div className="mx-auto w-full max-w-[16rem] md:max-w-xs">
               <SheetIllustration
                 layout={sheet}
-                label={fill(t.illustrationAlt, { n: sheet.countPerSheet })}
+                label={sheetLabel}
                 className="h-auto w-full -rotate-2 rounded-md shadow-2xl"
               />
             </div>
@@ -118,38 +120,26 @@ export default async function HowItWorksPage() {
       {/* A4 spec + illustration */}
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-2">
         <div>
-          <div className="glass rounded-2xl px-5 py-4">
-            <h2 className="text-2xl font-bold">{t.specTitle}</h2>
-            <p className="mt-2 text-muted-foreground">{t.specIntro}</p>
-          </div>
+          <SectionIntro title={t.specTitle} intro={t.specIntro} />
           <dl className="mt-5 divide-y divide-border rounded-2xl border border-border bg-card">
-            <div className="flex items-center justify-between gap-4 px-5 py-4">
-              <dt className="text-muted-foreground">{t.spec.size}</dt>
-              <dd className="font-bold">
-                <Ltr>
-                  {pageW} × {pageH}
-                </Ltr>{' '}
-                {common.units.cm}
-                <span className="ms-2 text-sm font-normal text-muted-foreground">
-                  (<Ltr>{common.units.a4}</Ltr>)
-                </span>
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 px-5 py-4">
-              <dt className="text-muted-foreground">{t.spec.margin}</dt>
-              <dd className="font-bold">
-                <Ltr>{marginMm}</Ltr> {common.units.mm}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 px-5 py-4">
-              <dt className="text-muted-foreground">{t.spec.usable}</dt>
-              <dd className="font-bold">
-                <Ltr>
-                  {usableW} × {usableH}
-                </Ltr>{' '}
-                {common.units.cm}
-              </dd>
-            </div>
+            <SpecRow label={t.spec.size}>
+              <Ltr>
+                {pageW} × {pageH}
+              </Ltr>{' '}
+              {common.units.cm}
+              <span className="ms-2 text-sm font-normal text-muted-foreground">
+                (<Ltr>{common.units.a4}</Ltr>)
+              </span>
+            </SpecRow>
+            <SpecRow label={t.spec.margin}>
+              <Ltr>{marginMm}</Ltr> {common.units.mm}
+            </SpecRow>
+            <SpecRow label={t.spec.usable}>
+              <Ltr>
+                {usableW} × {usableH}
+              </Ltr>{' '}
+              {common.units.cm}
+            </SpecRow>
           </dl>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">{t.specNote}</p>
         </div>
@@ -158,7 +148,7 @@ export default async function HowItWorksPage() {
           <figure className="rounded-2xl border border-border bg-muted/50 p-5">
             <SheetIllustration
               layout={sheet}
-              label={fill(t.illustrationAlt, { n: sheet.countPerSheet })}
+              label={sheetLabel}
               className="mx-auto h-auto w-full max-w-[14rem]"
             />
             <figcaption className="mt-4 text-center text-sm text-muted-foreground">
@@ -176,37 +166,22 @@ export default async function HowItWorksPage() {
           <h2 className="text-2xl font-bold">{t.rulesTitle}</h2>
           <p className="mt-2 text-muted-foreground">{t.rulesIntro}</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-bold">{t.rules.circle.title}</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">
-                {fillLtr(t.rules.circle.columns, { gapX: mm(lay.circleGapXUm) })}{' '}
-                {lay.circleGapYUm === 0
-                  ? t.rules.circle.rowsTouching
-                  : fillLtr(t.rules.circle.rowsGap, { gapY: mm(lay.circleGapYUm) })}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-bold">{t.rules.rounded.title}</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">{fillLtr(t.rules.rounded.body, { gap: mm(lay.rectRoundedGapUm) })}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-bold">{t.rules.sharp.title}</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">{fillLtr(t.rules.sharp.body, { gap: mm(lay.rectSharpGapUm) })}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-bold">{t.rules.custom.title}</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">{fillLtr(t.rules.custom.body, { gap: mm(lay.customGapUm) })}</p>
-            </div>
+            <RuleCard title={t.rules.circle.title}>
+              {fillLtr(t.rules.circle.columns, { gapX: umToMm(lay.circleGapXUm) })}{' '}
+              {lay.circleGapYUm === 0
+                ? t.rules.circle.rowsTouching
+                : fillLtr(t.rules.circle.rowsGap, { gapY: umToMm(lay.circleGapYUm) })}
+            </RuleCard>
+            <RuleCard title={t.rules.rounded.title}>{fillLtr(t.rules.rounded.body, { gap: umToMm(lay.rectRoundedGapUm) })}</RuleCard>
+            <RuleCard title={t.rules.sharp.title}>{fillLtr(t.rules.sharp.body, { gap: umToMm(lay.rectSharpGapUm) })}</RuleCard>
+            <RuleCard title={t.rules.custom.title}>{fillLtr(t.rules.custom.body, { gap: umToMm(lay.customGapUm) })}</RuleCard>
           </div>
         </div>
       </section>
 
       {/* Live examples */}
       <section className="mx-auto max-w-3xl px-4 py-12">
-        <div className="glass rounded-2xl px-5 py-4">
-          <h2 className="text-2xl font-bold">{t.examplesTitle}</h2>
-          <p className="mt-2 text-muted-foreground">{t.examplesIntro}</p>
-        </div>
+        <SectionIntro title={t.examplesTitle} intro={t.examplesIntro} />
         <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-start">
             <thead className="bg-muted/60 text-sm text-muted-foreground">
@@ -226,7 +201,7 @@ export default async function HowItWorksPage() {
                     {exampleLabel(e)}
                   </th>
                   <td className="px-5 py-4 font-bold">
-                    {e.count === null ? t.exampleUnavailable : fill(t.perSheetLabel, { count: stickerCount(e.count) })}
+                    {e.count === null ? t.exampleUnavailable : fill(t.perSheetLabel, { count: countLabel(e.count, common.plural.sticker) })}
                   </td>
                 </tr>
               ))}
@@ -237,10 +212,7 @@ export default async function HowItWorksPage() {
 
       {/* Pricing */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
-        <div className="glass rounded-2xl px-5 py-4">
-          <h2 className="text-2xl font-bold">{t.pricingTitle}</h2>
-          <p className="mt-2 text-muted-foreground">{t.pricingIntro}</p>
-        </div>
+        <SectionIntro title={t.pricingTitle} intro={t.pricingIntro} />
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {mats.map((m) => (
             <li key={m} className="rounded-2xl border border-border bg-card p-5">
@@ -296,10 +268,10 @@ export default async function HowItWorksPage() {
           <li>
             {t.deliveryLabel}: <span className="font-bold text-foreground">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>
           </li>
-          {example && example.subtotalIqd !== null && exMaterial ? (
+          {example ? (
             <li>
-              {t.exampleLabel}: <Ltr>{exSheets}</Ltr> {count(exSheets, common.plural.sheet)} {common.materials[exMaterial]} ={' '}
-              <Ltr className="font-bold text-foreground">{formatIqd(example.subtotalIqd)}</Ltr> {common.units.iqd} {t.exampleAnd}{' '}
+              {t.exampleLabel}: <Ltr>{example.sheets}</Ltr> {count(example.sheets, common.plural.sheet)} {common.materials[example.material]} ={' '}
+              <Ltr className="font-bold text-foreground">{formatIqd(example.price)}</Ltr> {common.units.iqd} {t.exampleAnd}{' '}
               {t.exampleEquals}
             </li>
           ) : null}
@@ -311,10 +283,9 @@ export default async function HowItWorksPage() {
         <div className="rounded-3xl bg-primary px-6 py-10 text-center text-primary-foreground md:py-14">
           <h2 className="text-2xl font-bold md:text-3xl">{t.ctaTitle}</h2>
           <p className="mx-auto mt-3 max-w-md text-primary-foreground/80">{t.ctaBody}</p>
-          <Link href="/#builder" className={`${CTA_CLASS} mt-6`}>
+          <CtaLink href="/#builder" className="text-base mt-6">
             {t.cta}
-            <ArrowLeft className="size-5" aria-hidden />
-          </Link>
+          </CtaLink>
         </div>
       </section>
     </div>

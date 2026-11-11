@@ -1,28 +1,16 @@
 import { admin } from '@/content/ar';
-import { verifySession } from '@/lib/auth/session';
+import { adminApiGuard } from '@/lib/auth/session';
 import { getStorage } from '@/lib/storage';
-import { customersToCsv } from './csv';
+import { customersCsv } from './csv';
 
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/customers — CSV (UTF-8 + BOM) of every saved customer. Auth re-checked here. */
 export async function GET(): Promise<Response> {
-  if (!(await verifySession())) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  const denied = await adminApiGuard();
+  if (denied) return denied;
   const customers = await getStorage().listCustomers();
-  const c = admin.customers.columns;
-  const headers = [
-    c.name,
-    c.phone,
-    c.governorate,
-    c.district,
-    c.landmark,
-    c.orders,
-    c.spent,
-    admin.customers.firstOrder,
-    c.last,
-    admin.customers.lastNo,
-  ];
-  const body = customersToCsv(headers, customers);
+  const body = customersCsv(customers);
   const stamp = new Date().toISOString().slice(0, 10);
   return new Response(body, {
     headers: {

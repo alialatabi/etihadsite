@@ -1,3 +1,5 @@
+> **Historical; superseded where noted.** This is the plan the first version was built from (2026-11-07). Since then the shop was renamed «مطبعة سوفتي», the site went live on Vercel + Supabase (§11, Q6), pricing became per sheet by material with discount tiers (§6, Q5) and the build phases and agent scopes (§9) ended. §2–§4 still describe the layout, normalisation and PDF rules that the code comments cite. For the current code read `docs/ARCHITECTURE.md`.
+
 # الاتحاد برنت — Rebuild Plan v3 (2026-11-07, approved decisions applied)
 
 v1 was reviewed by four independent reviewer agents (print geometry, Arabic UX, architecture/security, completeness); v2 folded in their findings. **v3 applies the owner's answers (2026-11-07):**

@@ -1,10 +1,9 @@
 /**
- * SHARED CONTRACTS — FROZEN during Phase 1.
- *
- * Every agent codes against these types. Do not add, rename or remove fields
- * here; if you truly need a change, describe it in your final report and the
- * orchestrator will apply it at integration. See docs/PLAN.md §2–§6 for the
- * rules behind each type.
+ * Shared contract: the types (and a few runtime vocabulary lists) that the
+ * builder, the API routes, the storage adapters and the PDF pipeline all code
+ * against. Changing a shape here changes stored JSON (orders, settings,
+ * customers, analytics events) and API payloads, so treat an edit as a data
+ * and API change, not as a local refactor.
  *
  * Units: all `…Um` fields are INTEGER micrometres (see src/lib/units.ts).
  * Page coordinates: origin at the TOP-LEFT of the A4 page, y grows DOWN.
@@ -41,7 +40,11 @@ export interface LayoutParams {
   gapXUm: number;
   /** Gap between ROWS (vertical, page axis). Never rotates with the sticker. */
   gapYUm: number;
-  /** When true the engine also tries the 90°-rotated cell and keeps the better count (ties → upright). */
+  /**
+   * When true the engine also tries the 90°-rotated cell and keeps the better count (ties → upright),
+   * and it may return a mixed layout (some cells turned 90°, see `Placement.turned`) when that fits
+   * strictly more stickers than either uniform grid.
+   */
   allowRotate: boolean;
   /** Smallest allowed side, in µm (default 5 000 = 5 mm). */
   minSideUm: number;
@@ -156,7 +159,10 @@ export type NormalisedArtwork =
       kind: 'pdf';
       /** The original PDF bytes (page 1 is embedded as vector). */
       bytes: Uint8Array;
-      /** Box to embed, in PDF points of page 1 (CropBox/TrimBox, after /Rotate). */
+      /**
+       * Box to embed, in PDF points of page 1: the RAW, unrotated TrimBox (or CropBox when there is
+       * no TrimBox). /Rotate is NOT applied here; the PDF builder applies `rotate` when it draws.
+       */
       box: { x: number; y: number; width: number; height: number };
       /** /Rotate of page 1 in degrees (0, 90, 180, 270). */
       rotate: 0 | 90 | 180 | 270;
@@ -307,7 +313,7 @@ export interface CustomerInfo {
 export interface OrderRequest {
   /** Client-generated nanoid(21); idempotency key. */
   orderId: string;
-  /** Returned by POST /api/upload. */
+  /** Returned by POST /api/upload, or by POST /api/upload/direct/commit after a direct upload. */
   uploadId: string;
   spec: StickerSpec;
   material: Material;
@@ -319,6 +325,8 @@ export interface OrderRequest {
 }
 
 export type OrderStatus = 'new' | 'printing' | 'done' | 'cancelled';
+/** Every OrderStatus, in workflow order (runtime list for validation and menus). */
+export const ORDER_STATUSES = ['new', 'printing', 'done', 'cancelled'] as const satisfies readonly OrderStatus[];
 
 export interface OrderSummary {
   displayNo: string;
@@ -341,7 +349,7 @@ export interface OrderRecord {
   orderId: string;
   /** Human-friendly: EP-YYMMDD-XXXX (alphabet without 0/O/1/I). */
   displayNo: string;
-  /** ISO 8601, UTC. Display in Asia/Baghdad. */
+  /** ISO 8601, UTC. Display in shop time (SHOP_TIME_ZONE, see src/lib/shop-time.ts). */
   createdAt: string;
   status: OrderStatus;
   spec: StickerSpec;
@@ -476,6 +484,20 @@ export interface StorageAdapter {
   saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
   /** Optional: short-lived signed download URL for an admin download. */
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
+
+  /**
+   * Optional (retention purge): removes orders created before `cutoff` together with their PDF
+   * and design upload, plus uploads older than `cutoff` that no kept order uses, and
+   * adapter-specific leftovers (Supabase: direct uploads never committed after 3 hours; local:
+   * interrupted .tmp writes older than `cutoff`). Returns what was removed, or what would be
+   * when `dryRun` is true. Customers are never removed.
+   */
+  purgeOlderThan?(cutoff: Date, dryRun: boolean): Promise<string[]>;
+  /**
+   * Optional (retention purge): removes analytics events older than `cutoff`. Returns what was
+   * removed, or what would be when `dryRun` is true. Customers are never removed.
+   */
+  purgeEventsOlderThan?(cutoff: Date, dryRun: boolean): Promise<string[]>;
 }
 
 /* ────────────────────────────── Analytics & customers ──────────────────── */
@@ -495,6 +517,14 @@ export type AnalyticsEventType =
   | 'order'
   /** PWA install card shown / accepted / app installed. `step` = 'shown' | 'accepted' | 'installed'. */
   | 'install';
+
+/** Builder steps in order: the `step` value of a 'step' event. */
+export const BUILDER_STEPS = ['shape', 'design', 'size', 'quantity', 'details'] as const;
+export type BuilderStep = (typeof BUILDER_STEPS)[number];
+
+/** PWA install funnel: the `step` value of an 'install' event. */
+export const INSTALL_EVENTS = ['shown', 'accepted', 'installed'] as const;
+export type InstallEvent = (typeof INSTALL_EVENTS)[number];
 
 export type DeviceKind = 'mobile' | 'tablet' | 'desktop';
 

@@ -6,6 +6,7 @@ import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
 import { normaliseArtwork } from "@/lib/design/normalise.server";
 import { computeLayout, layoutParamsFor } from "@/lib/layout";
 import { notifyShop } from "@/lib/notify";
+import { buildOrderRecord, summaryOf } from "@/lib/order-record";
 import { orderRequestSchema } from "@/lib/order-schema";
 import { orderSummaryText } from "@/lib/order-text";
 import { normalisePhone, whatsappUrl } from "@/lib/parse/phone";
@@ -14,15 +15,15 @@ import { priceFor, validateQuantity } from "@/lib/pricing";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
-import { uploadPath } from "@/lib/storage/paths";
+import { verifyTurnstile } from "@/lib/turnstile";
 import type {
   OrderError,
   OrderRecord,
   OrderRequest,
   OrderResponse,
-  OrderSummary,
   ShopSettings,
 } from "@/lib/types";
+import { umToMm } from "@/lib/units";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -56,25 +57,6 @@ const fail = (error: OrderError): Failure => ({
   message: order.errors[error],
 });
 
-function summaryOf(record: OrderRecord): OrderSummary {
-  return {
-    displayNo: record.displayNo,
-    shape: record.spec.shape,
-    corners: record.spec.corners,
-    widthUm: record.spec.widthUm,
-    heightUm: record.spec.heightUm,
-    countPerSheet: record.layout.countPerSheet,
-    sheets: record.price.sheets,
-    material: record.price.material,
-    totalStickers: record.price.totalStickers,
-    unitPriceIqd: record.price.unitPriceIqd,
-    discountPercent: record.price.discountPercent,
-    subtotalIqd: record.price.subtotalIqd,
-    deliveryFeeIqd: record.price.deliveryFeeIqd,
-    totalIqd: record.price.totalIqd,
-  };
-}
-
 function successFor(
   record: OrderRecord,
   settings: ShopSettings,
@@ -89,29 +71,6 @@ function successFor(
     whatsappUrl: settings.whatsapp ? whatsappUrl(settings.whatsapp, text) : "",
     notified: record.notified,
   };
-}
-
-async function verifyTurnstile(
-  secret: string,
-  token: string | undefined,
-  ip: string,
-): Promise<boolean> {
-  if (!token) return false;
-  try {
-    const body = new URLSearchParams({ secret, response: token, remoteip: ip });
-    const res = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        body,
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
-    const json = (await res.json()) as { success?: boolean };
-    return json.success === true;
-  } catch {
-    return false;
-  }
 }
 
 async function processOrder(
@@ -161,51 +120,24 @@ async function processOrder(
     artwork: norm.artwork,
     meta: {
       displayNo,
-      description: `${spec.shape} ${spec.widthUm / 1000}x${spec.heightUm / 1000}mm x${layout.countPerSheet}`,
+      description: `${spec.shape} ${umToMm(spec.widthUm)}x${umToMm(spec.heightUm)}mm x${layout.countPerSheet}`,
     },
   });
 
   const price = priceFor(req.material, req.sheets, layout.countPerSheet, settings);
   const pdfPath = await storage.savePdf(req.orderId, pdf.bytes);
 
-  const record: OrderRecord = {
-    orderId: req.orderId,
+  const record = buildOrderRecord({
+    req,
+    phone,
     displayNo,
     createdAt: new Date().toISOString(),
-    status: "new",
-    spec,
-    layout: {
-      cols: layout.cols,
-      rows: layout.rows,
-      countPerSheet: layout.countPerSheet,
-      rotated: layout.rotated,
-      turnedCount: layout.turnedCount,
-      cellWidthUm: layout.cell.widthUm,
-      cellHeightUm: layout.cell.heightUm,
-      gapXUm: layout.gapXUm,
-      gapYUm: layout.gapYUm,
-    },
-    design: {
-      kind: norm.kind,
-      originalName: upload.meta.originalName,
-      bytes: upload.meta.bytes,
-      pxWidth: norm.pxWidth,
-      pxHeight: norm.pxHeight,
-      effectiveDpi:
-        norm.artwork.kind === "raster" ? norm.artwork.effectiveDpi : undefined,
-    },
+    layout,
+    norm,
+    uploadMeta: upload.meta,
     price,
-    customer: {
-      name: req.customer.name || undefined,
-      phone,
-      governorate: req.customer.governorate,
-      district: req.customer.district,
-      landmark: req.customer.landmark,
-      notes: req.customer.notes || undefined,
-    },
-    files: { designPath: uploadPath(req.uploadId), pdfPath },
-    notified: { telegram: "skipped" },
-  };
+    pdfPath,
+  });
 
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
   await storage.saveOrder(record);
@@ -224,8 +156,8 @@ async function processOrder(
       totalIqd: price.totalIqd,
       governorate: record.customer.governorate,
       shape: spec.shape,
-      widthMm: spec.widthUm / 1000,
-      heightMm: spec.heightUm / 1000,
+      widthMm: umToMm(spec.widthUm),
+      heightMm: umToMm(spec.heightUm),
     },
   });
 
@@ -246,7 +178,7 @@ async function processOrder(
 
 const inflight = new Map<string, Promise<OrderResponse>>();
 
-/** POST JSON OrderRequest → OrderResponse. See docs/PLAN.md §5. */
+/** POST JSON OrderRequest → OrderResponse. See docs/ARCHITECTURE.md section 2. */
 export async function POST(request: Request): Promise<Response> {
   const send = (body: OrderResponse, headers?: HeadersInit, status?: number) =>
     Response.json(body, {

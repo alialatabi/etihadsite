@@ -13,7 +13,7 @@ import { DetailsStep } from './steps/DetailsStep';
 import { QuantityStep } from './steps/QuantityStep';
 import { ShapeStep } from './steps/ShapeStep';
 import { SizeStep } from './steps/SizeStep';
-import { STEPS } from './logic';
+import { CUSTOMER_FIELD_IDS, STEPS, toCustomerInfo } from './logic';
 import { useBuilder } from './useBuilder';
 import { useSubmitOrder } from './useSubmitOrder';
 
@@ -25,12 +25,8 @@ const TITLES = {
   details: builder.details.title,
 } as const;
 
-const FIELD_IDS = [
-  ['phone', 'cust-phone'],
-  ['governorate', 'cust-gov'],
-  ['district', 'cust-district'],
-  ['landmark', 'cust-landmark'],
-] as const;
+/** The validated customer fields in form order (the key order of CUSTOMER_FIELD_IDS). */
+const CUSTOMER_FIELD_KEYS = Object.keys(CUSTOMER_FIELD_IDS) as (keyof typeof CUSTOMER_FIELD_IDS)[];
 
 export function Builder({ settings }: { settings: ShopSettings }) {
   const b = useBuilder(settings);
@@ -50,26 +46,18 @@ export function Builder({ settings }: { settings: ShopSettings }) {
   const handleSubmit = () => {
     b.setShowErrors(true);
     const { errors, phoneE164 } = b.validation;
-    const firstBad = FIELD_IDS.find(([k]) => errors[k]);
+    const firstBad = CUSTOMER_FIELD_KEYS.find((k) => errors[k]);
     if (firstBad) {
-      document.getElementById(firstBad[1])?.focus();
+      document.getElementById(CUSTOMER_FIELD_IDS[firstBad])?.focus();
       return;
     }
     if (!b.design || !b.spec || !b.material || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
-    const f = b.fields;
     void sub.submit({
       design: b.design,
       spec: b.spec,
       material: b.material,
       sheets: b.sheets,
-      customer: {
-        name: f.name.trim() || undefined,
-        phone: phoneE164,
-        governorate: f.governorate,
-        district: f.district.trim(),
-        landmark: f.landmark.trim(),
-        notes: f.notes.trim() || undefined,
-      },
+      customer: toCustomerInfo(b.fields, phoneE164),
     });
   };
 
@@ -94,7 +82,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
             {b.stepId === 'design' && <DesignStep b={b} />}
             {b.stepId === 'size' && <SizeStep b={b} />}
             {b.stepId === 'quantity' && <QuantityStep b={b} />}
-            {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} onRetry={handleSubmit} />}
+            {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} />}
 
             <div className="cut-line mt-6 h-px text-border" aria-hidden />
             <div className="mt-4 flex items-center justify-between gap-3">

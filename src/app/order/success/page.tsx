@@ -8,15 +8,12 @@ import { builder } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { buttonVariants } from '@/components/ui/button';
 import { SummaryCard } from '@/components/builder/SummaryCard';
-import { loadSuccess } from '@/components/builder/logic';
+import { loadSuccess, type OrderOk } from '@/components/builder/logic';
 import { cn } from '@/lib/utils';
-import type { OrderResponse } from '@/lib/types';
-
-type Ok = Extract<OrderResponse, { ok: true }>;
 
 export default function OrderSuccessPage() {
   const router = useRouter();
-  const [res, setRes] = useState<Ok | null>(null);
+  const [res, setRes] = useState<OrderOk | null>(null);
 
   useEffect(() => {
     const stored = loadSuccess();
@@ -29,10 +26,7 @@ export default function OrderSuccessPage() {
   }, [router]);
 
   if (!res) return null;
-  const hasWa = Boolean(res.whatsappUrl);
-  const waRequired = res.notified.telegram !== 'sent' && hasWa;
-  const { displayNo: _no, ...summary } = res.summary;
-  void _no;
+  const waRequired = res.notified.telegram !== 'sent' && Boolean(res.whatsappUrl);
 
   return (
     <section className="mx-auto max-w-xl space-y-6 px-4 py-10">
@@ -52,7 +46,7 @@ export default function OrderSuccessPage() {
         </p>
       )}
 
-      <SummaryCard summary={summary} />
+      <SummaryCard summary={res.summary} />
 
       <div className="flex flex-col gap-3">
         {res.whatsappUrl && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { sendTrack } from '@/components/shell/Tracker';
+import { sendTrack } from '@/lib/analytics/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enabledMaterials, validateQuantity } from '@/lib/pricing';
 import { decodeDesign } from '@/lib/design/decode.client';
@@ -15,6 +15,7 @@ import {
   loadForm,
   parseSheets,
   pdfPrefillUm,
+  restoredState,
   saveForm,
   validateCustomer,
   type CustomerErrors,
@@ -22,18 +23,50 @@ import {
   type StepId,
 } from './logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm, safePrice } from './safe';
+import { useDebounced } from './useDebounced';
 import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
+type SizeUm = { widthUm: number; heightUm: number };
+
+/** Object URL hygiene: revokes the previous URL when `url` changes, and the last one on unmount. */
+function useRevokeObjectUrl(url: string | null): void {
+  const urlRef = useRef<string | null>(null);
   useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
+    const prev = urlRef.current;
+    if (prev && prev !== url) {
+      try {
+        URL.revokeObjectURL(prev);
+      } catch {
+        /* ignore */
+      }
+    }
+    urlRef.current = url;
+  }, [url]);
+  useEffect(
+    () => () => {
+      if (urlRef.current) {
+        try {
+          URL.revokeObjectURL(urlRef.current);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    [],
+  );
 }
 
-type SizeUm = { widthUm: number; heightUm: number };
+/** Analytics: one 'step' event per step per session (still sent when sessionStorage throws). */
+function useTrackStepOnce(stepName: StepId): void {
+  useEffect(() => {
+    try {
+      const key = `softy-step-${stepName}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {}
+    sendTrack({ type: 'step', step: stepName, path: window.location.pathname });
+  }, [stepName]);
+}
 
 export function useBuilder(settings: ShopSettings) {
   const [step, setStep] = useState(0);
@@ -53,28 +86,21 @@ export function useBuilder(settings: ShopSettings) {
 
   const lastFile = useRef<File | null>(null);
   const decodeToken = useRef(0);
-  const urlRef = useRef<string | null>(null);
 
   /* ── restore non-file state once on the client ── */
   useEffect(() => {
     const saved = loadForm();
     /* eslint-disable react-hooks/set-state-in-effect -- one-time restore after hydration */
     if (saved) {
-      if (saved.shape) setShapeState(saved.shape);
-      if (saved.corners) setCorners(saved.corners);
-      if (typeof saved.widthText === 'string') setWidthText(saved.widthText);
-      if (typeof saved.heightText === 'string') setHeightText(saved.heightText);
-      if (saved.sizeUm) setSizeUm(saved.sizeUm);
-      if (saved.material === 'paper' || saved.material === 'plastic') setMaterialChoice(saved.material);
-      if (typeof saved.sheetsText === 'string' && saved.sheetsText.trim()) setSheetsText(saved.sheetsText);
-      setFields({
-        name: saved.name ?? '',
-        phone: saved.phone ?? '',
-        governorate: saved.governorate ?? '',
-        district: saved.district ?? '',
-        landmark: saved.landmark ?? '',
-        notes: saved.notes ?? '',
-      });
+      const r = restoredState(saved);
+      if (r.shape !== undefined) setShapeState(r.shape);
+      if (r.corners !== undefined) setCorners(r.corners);
+      if (r.widthText !== undefined) setWidthText(r.widthText);
+      if (r.heightText !== undefined) setHeightText(r.heightText);
+      if (r.sizeUm !== undefined) setSizeUm(r.sizeUm);
+      if (r.material !== undefined) setMaterialChoice(r.material);
+      if (r.sheetsText !== undefined) setSheetsText(r.sheetsText);
+      setFields(r.fields);
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -85,41 +111,22 @@ export function useBuilder(settings: ShopSettings) {
     saveForm({ shape, corners, widthText, heightText, sizeUm, material: materialChoice, sheetsText, ...fields });
   }, [hydrated, shape, corners, widthText, heightText, sizeUm, materialChoice, sheetsText, fields]);
 
-  /* ── object URL hygiene ── */
-  useEffect(() => {
-    const url = design?.previewUrl ?? null;
-    const prev = urlRef.current;
-    if (prev && prev !== url) {
-      try {
-        URL.revokeObjectURL(prev);
-      } catch {
-        /* ignore */
-      }
-    }
-    urlRef.current = url;
-  }, [design]);
-  useEffect(
-    () => () => {
-      if (urlRef.current) {
-        try {
-          URL.revokeObjectURL(urlRef.current);
-        } catch {
-          /* ignore */
-        }
-      }
-    },
-    [],
-  );
+  useRevokeObjectUrl(design?.previewUrl ?? null);
 
   const aspect = design ? design.pxWidth / design.pxHeight : 1;
 
   /* ── size handling ── */
-  const applySizeFromWidth = useCallback((widthUm: number, forShape: Shape, forAspect: number) => {
-    const d = safeDerive(forShape, forAspect, { widthUm });
+  /** Show a size in both inputs (a circle has no height field). */
+  const showSize = useCallback((d: SizeUm, forShape: Shape) => {
     setSizeUm(d);
     setWidthText(safeFormatCm(d.widthUm));
     setHeightText(forShape === 'circle' ? '' : safeFormatCm(d.heightUm));
   }, []);
+
+  const applySizeFromWidth = useCallback(
+    (widthUm: number, forShape: Shape, forAspect: number) => showSize(safeDerive(forShape, forAspect, { widthUm }), forShape),
+    [showSize],
+  );
 
   const onWidthChange = useCallback(
     (text: string) => {
@@ -185,15 +192,13 @@ export function useBuilder(settings: ShopSettings) {
       setDesign(source);
       const prefill = pdfPrefillUm(source, forShape);
       if (prefill) {
-        setSizeUm(prefill);
-        setWidthText(safeFormatCm(prefill.widthUm));
-        setHeightText(forShape === 'circle' ? '' : safeFormatCm(prefill.heightUm));
+        showSize(prefill, forShape);
       } else {
         const w = safeParseCm(widthText);
         if (w) applySizeFromWidth(w, forShape, source.pxWidth / source.pxHeight);
       }
     },
-    [settings.maxUploadBytes, widthText, applySizeFromWidth],
+    [settings.maxUploadBytes, widthText, applySizeFromWidth, showSize],
   );
 
   const setShape = useCallback(
@@ -213,21 +218,13 @@ export function useBuilder(settings: ShopSettings) {
 
   const onFile = useCallback((file: File) => shape && loadDesign(file, shape), [shape, loadDesign]);
 
-  const clearDesign = useCallback(() => {
-    decodeToken.current++;
-    lastFile.current = null;
-    setDesign(null);
-    setDesignError(null);
-    setDecoding(false);
-  }, []);
-
   /* ── derived: spec, layout, quality ── */
   const spec = useMemo<StickerSpec | null>(() => {
     if (!shape || !sizeUm) return null;
     return {
       shape,
       ...(shape === 'rect' ? { corners } : {}),
-      widthUm: shape === 'circle' ? sizeUm.widthUm : sizeUm.widthUm,
+      widthUm: sizeUm.widthUm,
       heightUm: shape === 'circle' ? sizeUm.widthUm : sizeUm.heightUm,
     };
   }, [shape, corners, sizeUm]);
@@ -284,16 +281,7 @@ export function useBuilder(settings: ShopSettings) {
     [step, stepOk.shape, stepOk.design, stepOk.size, stepOk.quantity],
   );
   const goTo = useCallback((i: number) => canGoTo(i) && setStep(Math.max(0, Math.min(STEPS.length - 1, i))), [canGoTo]);
-  /* analytics: one 'step' event per step per session */
-  const stepName = STEPS[step];
-  useEffect(() => {
-    try {
-      const key = `softy-step-${stepName}`;
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, '1');
-    } catch {}
-    sendTrack({ type: 'step', step: stepName, path: window.location.pathname });
-  }, [stepName]);
+  useTrackStepOnce(STEPS[step]);
 
   const next = useCallback(() => goTo(step + 1), [goTo, step]);
   const back = useCallback(() => setStep((s) => Math.max(0, s - 1)), []);
@@ -320,16 +308,13 @@ export function useBuilder(settings: ShopSettings) {
     decoding,
     designError,
     onFile,
-    clearDesign,
     widthText,
     heightText,
     onWidthChange,
     onHeightChange,
-    sizeUm,
     spec,
     outcome: settled ? outcome : null,
     layout,
-    aspect,
     maxWidthUm,
     dpi,
     dpiState,
@@ -348,7 +333,6 @@ export function useBuilder(settings: ShopSettings) {
     setField,
     validation,
     customerErrors,
-    showErrors,
     setShowErrors,
   };
 }

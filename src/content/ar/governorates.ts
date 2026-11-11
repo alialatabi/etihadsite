@@ -1,4 +1,7 @@
-/** Iraq's 19 governorates (Halabja added 2025). Baghdad first, then alphabetical. FROZEN. */
+/**
+ * Iraq's 19 governorates (Halabja added 2025). Baghdad first, then alphabetical.
+ * The chosen name is saved as text in orders and customer records, so renaming one changes data.
+ */
 export const governorates = [
   'بغداد',
   'أربيل',

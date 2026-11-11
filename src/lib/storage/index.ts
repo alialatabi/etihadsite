@@ -1,16 +1,24 @@
 import 'server-only';
 /**
- * Storage adapter factory — OWNED BY AGENT D.
+ * Storage adapter factory. One adapter per process: it is kept on globalThis and rebuilt
+ * only when the backend, SUPABASE_URL or DATA_DIR changes.
  *
- * `STORAGE=local` (default): files + JSON under DATA_DIR (default ./data):
- *   data/uploads/<uploadId>.bin + <uploadId>.json (StoredFileMeta)
- *   data/orders/<orderId>.json (OrderRecord), data/orders/<orderId>.pdf
- *   data/settings.json (ShopSettings)
- * Paths returned by saveUpload/savePdf are RELATIVE to DATA_DIR and are
- * validated against traversal in readFile/deleteFile.
- * getSettings() = DEFAULT_SETTINGS deep-merged with settings.json, validated with zod.
+ * `STORAGE=supabase` (hosting): Postgres tables + a private bucket, see ./supabase.ts.
+ *   Needs SUPABASE_URL and SUPABASE_SECRET_KEY (server only); getStorage() throws without them.
+ * Anything else (the default; local development and tests): files under DATA_DIR
+ *   (default ./data), see ./local.ts:
+ *     uploads/<uploadId>.bin + <uploadId>.json (StoredFileMeta)
+ *     orders/<orderId>.json (OrderRecord) + <orderId>.pdf
+ *     settings.json (ShopSettings), customers.json, analytics/events-YYYY-MM.jsonl
  *
- * `STORAGE=supabase`: same paths inside a private bucket + Postgres tables (./supabase.ts).
+ * Both backends use the same storage paths (./paths.ts): relative to DATA_DIR on disk,
+ * object keys in the bucket. Each adapter validates a path before it touches anything.
+ * getSettings() is DEFAULT_SETTINGS deep-merged with the stored value and validated
+ * (parseStoredSettings in ./settings-schema.ts).
+ *
+ * The variables are read from process.env directly, not through getOrderEnv(): every page
+ * and route needs the adapter, so choosing it must neither fail because an unrelated
+ * variable is invalid nor re-parse the whole environment on every call.
  */
 import type { StorageAdapter } from '@/lib/types';
 import { LocalStorage } from './local';
@@ -18,12 +26,8 @@ import { SupabaseStorage } from './supabase';
 
 const g = globalThis as unknown as { __epStorage?: { key: string; adapter: StorageAdapter } };
 
-/**
- * `STORAGE=supabase` (hosting): Postgres + private bucket, needs SUPABASE_URL and
- * SUPABASE_SECRET_KEY (server-only). Anything else: local files under DATA_DIR.
- */
+/** The adapter for the current environment (see the header). */
 export function getStorage(): StorageAdapter {
-  // Deliberately not the full env schema: the public site must render without admin secrets.
   if (process.env.STORAGE?.trim() === 'supabase') {
     const url = process.env.SUPABASE_URL?.trim();
     const secret = process.env.SUPABASE_SECRET_KEY?.trim();

@@ -1,5 +1,6 @@
 /**
- * Shared unit constants and conversions. FROZEN contract (Phase 0).
+ * Shared unit constants and conversions. Sizes typed by customers, the layout, the DPI check
+ * and the PDF all go through these, so changing a constant or a rounding rule changes output.
  *
  * Every physical dimension in this codebase is an INTEGER number of
  * micrometres (µm) unless the name says otherwise (…Pt, …Cm, …Px).

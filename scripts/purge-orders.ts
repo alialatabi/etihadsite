@@ -1,5 +1,5 @@
 /**
- * Retention purge. Usage: pnpm tsx scripts/purge-orders.ts [--dry-run]
+ * Retention purge. Usage: pnpm purge:orders [--dry-run]  (runs tsx scripts/purge-orders.ts)
  * Deletes orders (record, PDF, original design) and orphan uploads older than
  * settings.retentionDays from DATA_DIR (default ./data).
  */

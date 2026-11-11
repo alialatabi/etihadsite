@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 
-// No domain yet, so URLs are relative paths. When a domain exists, set
-// `metadataBase` in layout.tsx and prefix these with it.
+// URLs are relative paths because `metadataBase` is not set in layout.tsx. To publish
+// absolute URLs, set it there and prefix these with it.
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: '/', changeFrequency: 'monthly', priority: 1 },

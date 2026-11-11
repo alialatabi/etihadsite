@@ -23,7 +23,6 @@ function req(body: unknown, headers: Record<string, string> = {}) {
 beforeEach(() => {
   setupEnv();
   recordEvent.mockReset().mockResolvedValue(undefined);
-  (globalThis as { __epTrackLimiter?: unknown }).__epTrackLimiter = undefined;
 });
 
 describe("visitorHash", () => {
@@ -69,5 +68,11 @@ describe("POST /api/track", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     recordEvent.mockRejectedValue(new Error("db down"));
     expect((await POST(req({ type: "step", path: "/", step: "size" }))).status).toBe(204);
+  });
+  it("records exactly 300 of 301 beacons from one visitor in an hour", async () => {
+    for (let i = 0; i < 301; i++) {
+      expect((await POST(req({ type: "step", path: "/", step: "shape" }))).status).toBe(204);
+    }
+    expect(recordEvent).toHaveBeenCalledTimes(300);
   });
 });

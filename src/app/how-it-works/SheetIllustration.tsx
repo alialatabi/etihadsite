@@ -1,4 +1,5 @@
 import type { LayoutResult } from '@/lib/types';
+import { umToMm } from '@/lib/units';
 
 /**
  * Decorative A4 sheet drawn from a real LayoutResult (positions in µm → viewBox in mm).
@@ -6,7 +7,7 @@ import type { LayoutResult } from '@/lib/types';
  * always consistent with the numbers on the page.
  */
 export function SheetIllustration({ layout, label, className }: { layout: LayoutResult; label: string; className?: string }) {
-  const mm = (um: number) => um / 1000;
+  const mm = umToMm;
   const W = mm(layout.page.widthUm);
   const H = mm(layout.page.heightUm);
   const r = mm(layout.cell.widthUm) / 2;

@@ -1,5 +1,8 @@
 /** Byte-capped request body reading, so oversize/chunked bodies are never fully buffered. */
 
+/** Byte cap for the small JSON bodies (direct-upload start/commit, analytics beacon). */
+export const SMALL_JSON_MAX_BYTES = 4096;
+
 export class BodyTooLarge extends Error {}
 
 /** Declared Content-Length: a non-negative integer, or null when absent/invalid. */

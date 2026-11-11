@@ -1,0 +1,1202 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: LocalStorage analytics events > invalid timestamp is rejected; torn lines and foreign files are ignored 1`] = `
+{
+  "bad": "throws Invalid event timestamp",
+  "empty": [],
+  "listed": [
+    "2026-11-02T09:00:00.000Z",
+    "2026-11-02T10:00:00.000Z",
+  ],
+  "treeAfterBad": [
+    "analytics/events-2026-1.jsonl",
+    "analytics/events-2026-11.jsonl",
+    "analytics/notes.txt",
+  ],
+}
+`;
+
+exports[`golden: LocalStorage analytics events > purgeEventsOlderThan removes whole months that ended before the cutoff 1`] = `
+{
+  "dry": {
+    "2026-05-31T23:59:59.999Z": [
+      "analytics/events-2025-01.jsonl",
+    ],
+    "2026-06-01T00:00:00.000Z": [
+      "analytics/events-2025-01.jsonl",
+      "analytics/events-2026-05.jsonl",
+    ],
+    "2026-06-30T23:59:59.999Z": [
+      "analytics/events-2025-01.jsonl",
+      "analytics/events-2026-05.jsonl",
+    ],
+    "2026-07-01T00:00:00.000Z": [
+      "analytics/events-2025-01.jsonl",
+      "analytics/events-2026-05.jsonl",
+      "analytics/events-2026-06.jsonl",
+    ],
+    "2030-01-01T00:00:00.000Z": [
+      "analytics/events-2025-01.jsonl",
+      "analytics/events-2026-05.jsonl",
+      "analytics/events-2026-06.jsonl",
+      "analytics/events-2026-11.jsonl",
+    ],
+  },
+  "noAnalyticsDir": [],
+  "removed": [
+    "analytics/events-2025-01.jsonl",
+    "analytics/events-2026-05.jsonl",
+  ],
+  "treeAfterDry": [
+    "analytics/events-2025-01.jsonl",
+    "analytics/events-2026-05.jsonl",
+    "analytics/events-2026-06.jsonl",
+    "analytics/events-2026-11.jsonl",
+  ],
+  "treeAfterReal": [
+    "analytics/events-2026-06.jsonl",
+    "analytics/events-2026-11.jsonl",
+  ],
+}
+`;
+
+exports[`golden: LocalStorage analytics events > recordEvent file layout (one JSON line per event, UTC month) and listEvents 1`] = `
+{
+  "all": [
+    "2025-12-31T23:59:59.000Z install v1",
+    "2026-10-31T21:30:00.000Z step v1",
+    "2026-10-31T23:59:59.999Z pageview v1",
+    "2026-11-01T00:00:00+03:00 pageview v3",
+    "2026-11-02T09:00:00.000Z pageview v1",
+    "2026-11-02T09:00:00.000Z upload v2",
+    "2026-11-03T00:00:00.000Z order v1",
+  ],
+  "files": {
+    "analytics/events-2025-12.jsonl": "{"ts":"2025-12-31T23:59:59.000Z","type":"install","visitor":"v1","path":"/","step":"installed"}
+",
+    "analytics/events-2026-10.jsonl": "{"ts":"2026-10-31T23:59:59.999Z","type":"pageview","visitor":"v1","path":"/"}
+{"ts":"2026-10-31T21:30:00.000Z","type":"step","visitor":"v1","path":"/","step":"size"}
+{"ts":"2026-11-01T00:00:00+03:00","type":"pageview","visitor":"v3","path":"/"}
+",
+    "analytics/events-2026-11.jsonl": "{"ts":"2026-11-02T09:00:00.000Z","type":"pageview","visitor":"v1","path":"/","source":"instagram","device":"mobile","city":"Baghdad","region":"BG","country":"IQ"}
+{"ts":"2026-11-03T00:00:00.000Z","type":"order","visitor":"v1","path":"/","meta":{"material":"paper","sheets":20,"totalIqd":19400,"governorate":"بغداد","shape":"circle","widthMm":30,"heightMm":30}}
+{"ts":"2026-11-02T09:00:00.000Z","type":"upload","visitor":"v2","path":"/","meta":{"kind":"png"}}
+",
+  },
+  "roundTripsMeta": true,
+  "since2027": [],
+  "sinceExactTs": [
+    "2026-11-02T09:00:00.000Z pageview v1",
+    "2026-11-02T09:00:00.000Z upload v2",
+    "2026-11-03T00:00:00.000Z order v1",
+  ],
+  "sinceNov1Utc": [
+    "2026-11-02T09:00:00.000Z pageview v1",
+    "2026-11-02T09:00:00.000Z upload v2",
+    "2026-11-03T00:00:00.000Z order v1",
+  ],
+  "sinceOct31Late": [
+    "2026-10-31T21:30:00.000Z step v1",
+    "2026-10-31T23:59:59.999Z pageview v1",
+    "2026-11-02T09:00:00.000Z pageview v1",
+    "2026-11-02T09:00:00.000Z upload v2",
+    "2026-11-03T00:00:00.000Z order v1",
+  ],
+}
+`;
+
+exports[`golden: LocalStorage customers > concurrent upserts are serialised; an unreadable file is never overwritten 1`] = `
+{
+  "afterRepair": [
+    "9647701234567",
+  ],
+  "concurrent": {
+    "district": "الكرادة",
+    "firstOrderAt": "2026-11-01T10:00:00.000Z",
+    "governorate": "بغداد",
+    "landmark": "قرب الجسر",
+    "lastDisplayNo": "EP-261101-0008",
+    "lastOrderAt": "2026-11-09T10:00:00.000Z",
+    "lastOrderId": "order-id-10008",
+    "name": "علي",
+    "ordersCount": 12,
+    "phone": "9647701234567",
+    "totalIqd": 78000,
+  },
+  "list": "throws customers.json is unreadable",
+  "stillTorn": "{torn",
+  "upsert": "throws customers.json is unreadable",
+}
+`;
+
+exports[`golden: LocalStorage customers > upsert sequence -> customers.json text and listCustomers order 1`] = `
+{
+  "afterFirst": "[
+  {
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر",
+    "firstOrderAt": "2026-11-02T10:00:00.000Z",
+    "lastOrderAt": "2026-11-02T10:00:00.000Z",
+    "ordersCount": 1,
+    "totalIqd": 19400,
+    "lastOrderId": "order-id-00001",
+    "lastDisplayNo": "EP-261101-0001",
+    "name": "علي"
+  }
+]",
+  "empty": [],
+  "finalText": "[
+  {
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر",
+    "firstOrderAt": "2026-11-01T10:00:00.000Z",
+    "lastOrderAt": "2026-11-04T10:00:00.000Z",
+    "ordersCount": 5,
+    "totalIqd": 22900,
+    "lastOrderId": "order-id-00005",
+    "lastDisplayNo": "EP-261101-0005",
+    "name": "علي"
+  },
+  {
+    "phone": "9647801112222",
+    "governorate": "البصرة",
+    "district": "",
+    "landmark": "x",
+    "firstOrderAt": "2026-11-03T10:00:00.000Z",
+    "lastOrderAt": "2026-11-03T10:00:00.000Z",
+    "ordersCount": 1,
+    "totalIqd": 0,
+    "lastOrderId": "order-id-00002",
+    "lastDisplayNo": "EP-261101-0002"
+  },
+  {
+    "phone": "9647501112222",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر",
+    "firstOrderAt": "2026-11-03T10:00:00.000Z",
+    "lastOrderAt": "2026-11-03T10:00:00.000Z",
+    "ordersCount": 1,
+    "totalIqd": 19400,
+    "lastOrderId": "order-id-00006",
+    "lastDisplayNo": "EP-261101-0006"
+  }
+]",
+  "listed": [
+    "9647701234567 last=2026-11-04T10:00:00.000Z orders=5 total=22900 name="علي"",
+    "9647801112222 last=2026-11-03T10:00:00.000Z orders=1 total=0 name=undefined",
+    "9647501112222 last=2026-11-03T10:00:00.000Z orders=1 total=19400 name=undefined",
+  ],
+  "tree": [
+    "customers.json",
+  ],
+}
+`;
+
+exports[`golden: LocalStorage orders > corrupt and foreign files in orders/ are skipped 1`] = `
+{
+  "listed": [
+    "order-id-0000a",
+  ],
+  "logged": [
+    [
+      "[storage] corrupt order file",
+      "order-id-0000x",
+    ],
+  ],
+}
+`;
+
+exports[`golden: LocalStorage orders > saveOrder file text, getOrder, listOrders (newest first), updateOrder 1`] = `
+{
+  "fileA": "{
+  "orderId": "order-id-0000a",
+  "displayNo": "EP-261101-000A",
+  "createdAt": "2026-11-01T08:00:00.000Z",
+  "status": "new",
+  "spec": {
+    "shape": "circle",
+    "widthUm": 30000,
+    "heightUm": 30000
+  },
+  "layout": {
+    "cols": 6,
+    "rows": 9,
+    "countPerSheet": 54,
+    "rotated": false,
+    "turnedCount": 0,
+    "cellWidthUm": 30000,
+    "cellHeightUm": 30000,
+    "gapXUm": 2000,
+    "gapYUm": 0
+  },
+  "design": {
+    "kind": "png",
+    "originalName": "logo.png",
+    "bytes": 3,
+    "pxWidth": 900,
+    "pxHeight": 900,
+    "effectiveDpi": 762
+  },
+  "price": {
+    "material": "paper",
+    "sheets": 20,
+    "unitBaseIqd": 800,
+    "discountPercent": 10,
+    "unitPriceIqd": 720,
+    "subtotalIqd": 14400,
+    "deliveryFeeIqd": 5000,
+    "totalIqd": 19400,
+    "totalStickers": 1080,
+    "perStickerIqd": 18
+  },
+  "customer": {
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر",
+    "name": "علي"
+  },
+  "files": {
+    "designPath": "uploads/order-id-0000a.bin",
+    "pdfPath": "orders/order-id-0000a.pdf"
+  },
+  "notified": {
+    "telegram": "skipped"
+  }
+}",
+  "fileAIsPrettyJson": true,
+  "fileBKeepsNoUndefined": "{
+  "orderId": "order-id-0000b",
+  "displayNo": "EP-261101-000B",
+  "createdAt": "2026-11-03T08:00:00.000Z",
+  "status": "new",
+  "spec": {
+    "shape": "circle",
+    "widthUm": 30000,
+    "heightUm": 30000
+  },
+  "layout": {
+    "cols": 6,
+    "rows": 9,
+    "countPerSheet": 54,
+    "rotated": false,
+    "turnedCount": 0,
+    "cellWidthUm": 30000,
+    "cellHeightUm": 30000,
+    "gapXUm": 2000,
+    "gapYUm": 0
+  },
+  "design": {
+    "kind": "png",
+    "originalName": "logo.png",
+    "bytes": 3,
+    "pxWidth": 900,
+    "pxHeight": 900,
+    "effectiveDpi": 762
+  },
+  "price": {
+    "material": "paper",
+    "sheets": 20,
+    "unitBaseIqd": null,
+    "discountPercent": 10,
+    "unitPriceIqd": null,
+    "subtotalIqd": null,
+    "deliveryFeeIqd": 5000,
+    "totalIqd": null,
+    "totalStickers": 1080,
+    "perStickerIqd": null
+  },
+  "customer": {
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر",
+    "notes": "ملاحظة"
+  },
+  "files": {
+    "designPath": "uploads/order-id-0000b.bin",
+    "pdfPath": "orders/order-id-0000b.pdf"
+  },
+  "notified": {
+    "telegram": "skipped"
+  }
+}",
+  "getA": true,
+  "getMissing": null,
+  "listed": [
+    "order-id-0000b 2026-11-03T08:00:00.000Z",
+    "order-id-0000d 2026-11-02T08:00:00.001Z",
+    "order-id-0000c 2026-11-02T08:00:00.000Z",
+    "order-id-0000a 2026-11-01T08:00:00.000Z",
+  ],
+  "missing": null,
+  "patchIsSpreadVerbatim": {
+    "displayNo": "HACKED",
+    "status": "done",
+  },
+  "statusOnly": {
+    "notified": {
+      "telegram": "skipped",
+    },
+    "status": "cancelled",
+  },
+  "tree": [
+    "orders/order-id-0000a.json",
+    "orders/order-id-0000b.json",
+    "orders/order-id-0000c.json",
+    "orders/order-id-0000d.json",
+  ],
+  "updated": {
+    "notified": {
+      "telegram": "sent",
+    },
+    "restUnchanged": true,
+    "status": "printing",
+  },
+}
+`;
+
+exports[`golden: LocalStorage uploads and files > a corrupt upload meta makes readUpload return null 1`] = `
+{
+  "corruptMeta": null,
+  "onlyBin": null,
+}
+`;
+
+exports[`golden: LocalStorage uploads and files > invalid ids and path traversal 1`] = `
+{
+  "nothingWritten": [],
+  "rows": [
+    "saveUpload("short") -> throws Invalid upload id",
+    "savePdf("short") -> throws Invalid order id",
+    "readUpload("short") -> null",
+    "getOrder("short") -> null",
+    "saveOrder("short") -> throws Invalid order id",
+    "updateOrder("short") -> null",
+    "saveUpload("../../etc/passwd") -> throws Invalid upload id",
+    "savePdf("../../etc/passwd") -> throws Invalid order id",
+    "readUpload("../../etc/passwd") -> null",
+    "getOrder("../../etc/passwd") -> null",
+    "saveOrder("../../etc/passwd") -> throws Invalid order id",
+    "updateOrder("../../etc/passwd") -> null",
+    "saveUpload("has space 123") -> throws Invalid upload id",
+    "savePdf("has space 123") -> throws Invalid order id",
+    "readUpload("has space 123") -> null",
+    "getOrder("has space 123") -> null",
+    "saveOrder("has space 123") -> throws Invalid order id",
+    "updateOrder("has space 123") -> null",
+    "saveUpload("aaaaaaaaaaaaaaaaaaaa") -> throws Invalid upload id",
+    "savePdf("aaaaaaaaaaaaaaaaaaaa") -> throws Invalid order id",
+    "readUpload("aaaaaaaaaaaaaaaaaaaa") -> null",
+    "getOrder("aaaaaaaaaaaaaaaaaaaa") -> null",
+    "saveOrder("aaaaaaaaaaaaaaaaaaaa") -> throws Invalid order id",
+    "updateOrder("aaaaaaaaaaaaaaaaaaaa") -> null",
+    "saveUpload("") -> throws Invalid upload id",
+    "savePdf("") -> throws Invalid order id",
+    "readUpload("") -> null",
+    "getOrder("") -> null",
+    "saveOrder("") -> throws Invalid order id",
+    "updateOrder("") -> null",
+    "readFile("") -> throws Invalid storage path",
+    "deleteFile("") -> throws Invalid storage path",
+    "readFile("/etc/passwd") -> throws Invalid storage path",
+    "deleteFile("/etc/passwd") -> throws Invalid storage path",
+    "readFile("../x") -> throws Invalid storage path",
+    "deleteFile("../x") -> throws Invalid storage path",
+    "readFile("uploads/../../x") -> throws Invalid storage path",
+    "deleteFile("uploads/../../x") -> throws Invalid storage path",
+    "readFile("uploads//x") -> throws Invalid storage path",
+    "deleteFile("uploads//x") -> throws Invalid storage path",
+    "readFile("./x") -> throws Invalid storage path",
+    "deleteFile("./x") -> throws Invalid storage path",
+    "readFile("uploads/./x") -> throws Invalid storage path",
+    "deleteFile("uploads/./x") -> throws Invalid storage path",
+    "readFile("uploads\\\\x") -> throws Invalid storage path",
+    "deleteFile("uploads\\\\x") -> throws Invalid storage path",
+    "readFile("C:/Windows/win.ini") -> throws Invalid storage path",
+    "deleteFile("C:/Windows/win.ini") -> throws Invalid storage path",
+    "readFile("c:\\\\x") -> throws Invalid storage path",
+    "deleteFile("c:\\\\x") -> throws Invalid storage path",
+    "readFile("uploads/x<U+0000>.bin") -> throws Invalid storage path",
+    "deleteFile("uploads/x<U+0000>.bin") -> throws Invalid storage path",
+    "readFile("uploads/") -> throws Invalid storage path",
+    "deleteFile("uploads/") -> throws Invalid storage path",
+    "readFile("a/b/..") -> throws Invalid storage path",
+    "deleteFile("a/b/..") -> throws Invalid storage path",
+    "readFile(settings.json) -> no error",
+    "readFile(a/b/c.txt) -> no error",
+  ],
+}
+`;
+
+exports[`golden: LocalStorage uploads and files > saveUpload / readUpload / savePdf / readFile / deleteFile and what lands on disk 1`] = `
+{
+  "metaFileText": "{"mime":"image/png","originalName":"شعار logo.png","bytes":3,"createdAt":"2026-11-01T08:00:00.000Z"}",
+  "pdfPath": "orders/order-id-00001.pdf",
+  "readFile": [
+    37,
+    80,
+    68,
+    70,
+  ],
+  "readFileMissing": null,
+  "readUpload": {
+    "bytes": [
+      1,
+      2,
+      3,
+    ],
+    "bytesIsUint8Array": "Uint8Array",
+    "meta": {
+      "bytes": 3,
+      "createdAt": "2026-11-01T08:00:00.000Z",
+      "mime": "image/png",
+      "originalName": "شعار logo.png",
+    },
+  },
+  "readUploadAfterBinDeleted": null,
+  "readUploadMissing": null,
+  "treeAfterDelete": [
+    "orders/order-id-00001.pdf",
+    "uploads/upload-id-0001.json",
+  ],
+  "treeBefore": [
+    "orders/order-id-00001.pdf",
+    "uploads/upload-id-0001.bin",
+    "uploads/upload-id-0001.json",
+  ],
+  "uploadPath": "uploads/upload-id-0001.bin",
+}
+`;
+
+exports[`golden: LocalStorage.getSettings > saveSettings writes pretty JSON and round-trips; the result can be mutated safely 1`] = `
+{
+  "fileIsPrettyJsonOfInput": true,
+  "fileSha256": "19facbb25e44aeeb021ec29aaad3c37f8627f3c0a6bcddd5c62702f81a03c995",
+  "filesOnDisk": [
+    "settings.json",
+  ],
+  "mutationDidNotLeak": true,
+  "roundTripEqual": true,
+}
+`;
+
+exports[`golden: LocalStorage.getSettings > settings.json variants -> returned settings (diff from defaults + hash) and what is logged 1`] = `
+{
+  "(a) no settings.json": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(b) partial file": {
+    "diffFromDefaults": [
+      "deliveryFeeIqd: 5000 -> 3000",
+      "layout.allowRotate: false -> true",
+      "layout.marginUm: 7000 -> 5000",
+      "quality.warnDpi: 150 -> 120",
+      "shopName: "مطبعة سوفتي" -> "مطبعة تجريبية"",
+      "whatsapp: "" -> "9647709999999"",
+    ],
+    "equalsDefaults": false,
+    "isFreshObject": true,
+    "logged": [],
+    "sha256": "97aa95d2662bd9d3782296f6d34a3c1dc5fce9038b4c2a46b61a311d8f2c502c",
+  },
+  "(b2) partial pricing: arrays replace, objects merge": {
+    "diffFromDefaults": [
+      "pricing.materials.plastic.enabled: true -> false",
+      "pricing.minSheets: 10 -> 5",
+      "pricing.quickPicks.length: 4 -> 1",
+      "pricing.quickPicks[0]: 10 -> 5",
+      "pricing.quickPicks[1]: 20 -> (absent)",
+      "pricing.quickPicks[2]: 50 -> (absent)",
+      "pricing.quickPicks[3]: 100 -> (absent)",
+      "pricing.tiers.length: 3 -> 2",
+      "pricing.tiers[0].minSheets: 20 -> 30",
+      "pricing.tiers[0].percent: 10 -> 5",
+      "pricing.tiers[1].minSheets: 50 -> 200",
+      "pricing.tiers[1].percent: 15 -> 30",
+      "pricing.tiers[2].minSheets: 100 -> (absent)",
+      "pricing.tiers[2].percent: 20 -> (absent)",
+    ],
+    "equalsDefaults": false,
+    "isFreshObject": true,
+    "logged": [],
+    "sha256": "fffe50f286d36fd68613ff415604fb27ea4460e9d083f63a41296d89b9d89f33",
+  },
+  "(c) legacy file with offers and no pricing": {
+    "diffFromDefaults": [
+      "deliveryFeeIqd: 5000 -> 4000",
+      "layout.marginUm: 7000 -> 10000",
+      "pricesPublished: true -> false",
+      "shopName: "مطبعة سوفتي" -> "الاتحاد برنت"",
+      "tagline: "طباعة ستيكرات على قياسك" -> "قديم"",
+      "whatsapp: "" -> "9647700000000"",
+    ],
+    "equalsDefaults": false,
+    "isFreshObject": true,
+    "logged": [],
+    "sha256": "abc97294eb6538f544d79c3387961b82200681e403c43870e69a84ddd2a1f857",
+  },
+  "(d) invalid JSON": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is unreadable, using defaults:",
+        "<PARSE_ERROR>",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(d2) empty file": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is unreadable, using defaults:",
+        "<PARSE_ERROR>",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(e) valid JSON, one invalid value -> ALL defaults": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "deliveryFeeIqd",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(e2) valid JSON, several invalid values": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "whatsapp, pricing.minSheets, pricing.tiers.0.percent, layout.minSideUm",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(f) JSON null": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(f2) JSON array": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(f3) JSON number": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(f4) JSON string": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(g) explicit nulls": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is invalid, using defaults:",
+        "tagline, pricing",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(h) full defaults written by saveSettings": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+  "(i) UTF-8 BOM before valid JSON": {
+    "diffFromDefaults": [],
+    "equalsDefaults": true,
+    "isFreshObject": true,
+    "logged": [
+      [
+        "[storage] settings.json is unreadable, using defaults:",
+        "<PARSE_ERROR>",
+      ],
+    ],
+    "sha256": "68113827ee344601c610ed763fbaf24da204c635f73dcb6f91d26655b902a213",
+  },
+}
+`;
+
+exports[`golden: LocalStorage.getSettings > the legacy and partial results in full 1`] = `
+{
+  "legacy": {
+    "area": "بغداد",
+    "deliveryFeeIqd": 4000,
+    "hours": "السبت – الخميس، 10 صباحاً – 8 مساءً",
+    "layout": {
+      "allowRotate": false,
+      "circleGapXUm": 2000,
+      "circleGapYUm": 0,
+      "customGapUm": 2000,
+      "marginUm": 10000,
+      "minSideUm": 5000,
+      "rectRoundedGapUm": 2000,
+      "rectSharpGapUm": 0,
+      "roundedRadiusUm": 3000,
+    },
+    "maxUploadBytes": 10485760,
+    "phone": "",
+    "pricesPublished": false,
+    "pricing": {
+      "materials": {
+        "paper": {
+          "enabled": true,
+          "pricePerSheetIqd": 800,
+        },
+        "plastic": {
+          "enabled": true,
+          "pricePerSheetIqd": 1500,
+        },
+      },
+      "maxSheets": 5000,
+      "minSheets": 10,
+      "quickPicks": [
+        10,
+        20,
+        50,
+        100,
+      ],
+      "tiers": [
+        {
+          "minSheets": 20,
+          "percent": 10,
+        },
+        {
+          "minSheets": 50,
+          "percent": 15,
+        },
+        {
+          "minSheets": 100,
+          "percent": 20,
+        },
+      ],
+    },
+    "quality": {
+      "blockDpi": 72,
+      "targetDpi": 300,
+      "warnDpi": 150,
+    },
+    "retentionDays": 30,
+    "shopName": "الاتحاد برنت",
+    "tagline": "قديم",
+    "telegramChatId": "",
+    "whatsapp": "9647700000000",
+  },
+  "partial": {
+    "area": "بغداد",
+    "deliveryFeeIqd": 3000,
+    "hours": "السبت – الخميس، 10 صباحاً – 8 مساءً",
+    "layout": {
+      "allowRotate": true,
+      "circleGapXUm": 2000,
+      "circleGapYUm": 0,
+      "customGapUm": 2000,
+      "marginUm": 5000,
+      "minSideUm": 5000,
+      "rectRoundedGapUm": 2000,
+      "rectSharpGapUm": 0,
+      "roundedRadiusUm": 3000,
+    },
+    "maxUploadBytes": 10485760,
+    "phone": "",
+    "pricesPublished": true,
+    "pricing": {
+      "materials": {
+        "paper": {
+          "enabled": true,
+          "pricePerSheetIqd": 800,
+        },
+        "plastic": {
+          "enabled": true,
+          "pricePerSheetIqd": 1500,
+        },
+      },
+      "maxSheets": 5000,
+      "minSheets": 10,
+      "quickPicks": [
+        10,
+        20,
+        50,
+        100,
+      ],
+      "tiers": [
+        {
+          "minSheets": 20,
+          "percent": 10,
+        },
+        {
+          "minSheets": 50,
+          "percent": 15,
+        },
+        {
+          "minSheets": 100,
+          "percent": 20,
+        },
+      ],
+    },
+    "quality": {
+      "blockDpi": 72,
+      "targetDpi": 300,
+      "warnDpi": 120,
+    },
+    "retentionDays": 30,
+    "shopName": "مطبعة تجريبية",
+    "tagline": "طباعة ستيكرات على قياسك",
+    "telegramChatId": "",
+    "whatsapp": "9647709999999",
+  },
+}
+`;
+
+exports[`golden: LocalStorage.purgeOlderThan > orders older than the cutoff, their files, orphan uploads and .tmp leftovers (by mtime) 1`] = `
+{
+  "after": [
+    "analytics/events-2026-09.jsonl",
+    "customers.json",
+    "orders/order-edge-001.json",
+    "orders/order-edge-001.pdf",
+    "orders/order-new-0001.json",
+    "orders/order-new-0001.pdf",
+    "orders/order-new-0002.json",
+    "orders/order-new-0002.pdf",
+    "orders/y.json.123.456.tmp",
+    "uploads/upload-edge-001.bin",
+    "uploads/upload-edge-001.json",
+    "uploads/upload-new-0002.bin",
+    "uploads/upload-new-0002.json",
+    "uploads/upload-orphan-new.bin",
+    "uploads/upload-orphan-new.json",
+    "uploads/upload-shared-01.bin",
+    "uploads/upload-shared-01.json",
+  ],
+  "before": [
+    "analytics/events-2026-09.jsonl",
+    "customers.json",
+    "orders/order-edge-001.json",
+    "orders/order-edge-001.pdf",
+    "orders/order-new-0001.json",
+    "orders/order-new-0001.pdf",
+    "orders/order-new-0002.json",
+    "orders/order-new-0002.pdf",
+    "orders/order-old-0001.json",
+    "orders/order-old-0001.pdf",
+    "orders/order-old-0002.json",
+    "orders/order-old-0002.pdf",
+    "orders/order-old-0003.json",
+    "orders/y.json.123.456.tmp",
+    "uploads/upload-edge-001.bin",
+    "uploads/upload-edge-001.json",
+    "uploads/upload-new-0002.bin",
+    "uploads/upload-new-0002.json",
+    "uploads/upload-nometa-old.bin",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-orphan-new.bin",
+    "uploads/upload-orphan-new.json",
+    "uploads/upload-orphan-old.bin",
+    "uploads/upload-orphan-old.json",
+    "uploads/upload-shared-01.bin",
+    "uploads/upload-shared-01.json",
+    "uploads/x.bin.123.456.tmp",
+  ],
+  "dryRunChangedNothing": true,
+  "dryRunReports": [
+    "orders/order-old-0001.json",
+    "orders/order-old-0001.pdf",
+    "orders/order-old-0002.json",
+    "orders/order-old-0002.pdf",
+    "orders/order-old-0003.json",
+    "uploads/upload-nometa-old.bin",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-orphan-old.bin",
+    "uploads/upload-orphan-old.json",
+    "uploads/x.bin.123.456.tmp",
+  ],
+  "emptyRoot": [],
+  "realRunReports": [
+    "orders/order-old-0001.json",
+    "orders/order-old-0001.pdf",
+    "orders/order-old-0002.json",
+    "orders/order-old-0002.pdf",
+    "orders/order-old-0003.json",
+    "uploads/upload-nometa-old.bin",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-orphan-old.bin",
+    "uploads/upload-orphan-old.json",
+    "uploads/x.bin.123.456.tmp",
+  ],
+  "secondRunRemoves": [],
+}
+`;
+
+exports[`golden: clientLogSchema > accept / reject table 1`] = `
+[
+  "minimal -> ok {"message":"boom","step":"decode"}",
+  "full -> ok {"fileSize":12345,"fileType":"image/png","message":"x","step":"upload","userAgent":"Mozilla/5.0"}",
+  "every step: preview -> ok {"message":"","step":"preview"}",
+  "every step: order -> ok {"message":"m","step":"order"}",
+  "every step: other -> ok {"message":"m","step":"other"}",
+  "unknown keys stripped -> ok {"message":"m","step":"other"}",
+  "fractional and negative fileSize are allowed -> ok {"fileSize":-1.5,"message":"m","step":"other"}",
+  "message 1024 chars -> ok {"message":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… (1056 chars, sha bf1cd6da023a)",
+  "message is not trimmed -> ok {"message":"  m  ","step":"other"}",
+  "unknown step -> REJECT step:invalid_value",
+  "step missing -> REJECT step:invalid_value",
+  "message missing -> REJECT message:invalid_type",
+  "message 1025 chars -> REJECT message:too_big",
+  "message number -> REJECT message:invalid_type",
+  "fileType 201 chars -> REJECT fileType:too_big",
+  "fileSize string -> REJECT fileSize:invalid_type",
+  "fileSize null -> REJECT fileSize:invalid_type",
+  "userAgent 1025 chars -> REJECT userAgent:too_big",
+  "null -> REJECT (root):invalid_type",
+  "array -> REJECT (root):invalid_type",
+]
+`;
+
+exports[`golden: config/defaults > DEFAULT_SETTINGS (key order preserved) and the other exported constants 1`] = `
+"{
+  "shopName": "مطبعة سوفتي",
+  "tagline": "طباعة ستيكرات على قياسك",
+  "whatsapp": "",
+  "phone": "",
+  "hours": "السبت – الخميس، 10 صباحاً – 8 مساءً",
+  "area": "بغداد",
+  "telegramChatId": "",
+  "pricing": {
+    "materials": {
+      "paper": {
+        "enabled": true,
+        "pricePerSheetIqd": 800
+      },
+      "plastic": {
+        "enabled": true,
+        "pricePerSheetIqd": 1500
+      }
+    },
+    "minSheets": 10,
+    "maxSheets": 5000,
+    "tiers": [
+      {
+        "minSheets": 20,
+        "percent": 10
+      },
+      {
+        "minSheets": 50,
+        "percent": 15
+      },
+      {
+        "minSheets": 100,
+        "percent": 20
+      }
+    ],
+    "quickPicks": [
+      10,
+      20,
+      50,
+      100
+    ]
+  },
+  "deliveryFeeIqd": 5000,
+  "pricesPublished": true,
+  "layout": {
+    "marginUm": 7000,
+    "circleGapXUm": 2000,
+    "circleGapYUm": 0,
+    "rectRoundedGapUm": 2000,
+    "rectSharpGapUm": 0,
+    "customGapUm": 2000,
+    "roundedRadiusUm": 3000,
+    "allowRotate": false,
+    "minSideUm": 5000
+  },
+  "quality": {
+    "warnDpi": 150,
+    "blockDpi": 72,
+    "targetDpi": 300
+  },
+  "maxUploadBytes": 10485760,
+  "retentionDays": 30
+}"
+`;
+
+exports[`golden: config/defaults > DEFAULT_SETTINGS (key order preserved) and the other exported constants 2`] = `
+{
+  "ACCEPTED_EXTENSIONS": [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".pdf",
+  ],
+  "ACCEPTED_MIME": {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpeg",
+    "image/png": "png",
+  },
+  "DISPLAY_NO_ALPHABET": "23456789ABCDEFGHJKLMNPQRSTUVWXYZ",
+  "SHOP_TIME_ZONE": "Asia/Baghdad",
+}
+`;
+
+exports[`golden: deepMerge > table 1`] = `
+[
+  "scalar over scalar: 1 + 2 -> 2",
+  "undefined keeps base: {"a":1} + undefined -> {"a":1}",
+  "null replaces base: {"a":1} + null -> null",
+  "array replaces object: {"a":1} + [1,2] -> [1,2]",
+  "object over scalar: 5 + {"a":1} -> {"a":1}",
+  "nested merge: {"a":{"b":1,"c":2},"d":3} + {"a":{"c":9}} -> {"a":{"b":1,"c":9},"d":3}",
+  "arrays are replaced, not merged: {"a":[1,2,3]} + {"a":[9]} -> {"a":[9]}",
+  "new keys are added: {"a":1} + {"b":2} -> {"a":1,"b":2}",
+  "nested undefined keeps base: {"a":{"b":1}} + {"a":{"b":"<undefined>"}} -> {"a":{"b":1}}",
+  "nested null replaces: {"a":{"b":1}} + {"a":null} -> {"a":null}",
+  "over has object where base has scalar: {"a":1} + {"a":{"x":1}} -> {"a":{"x":1}}",
+  "empty over: {"a":1} + {} -> {"a":1}",
+]
+`;
+
+exports[`golden: getStorage() factory (local) > caches one LocalStorage per DATA_DIR; supabase needs its two variables 1`] = `
+{
+  "dataDirIsTrimmed": true,
+  "differentDirNewInstance": true,
+  "isLocal": true,
+  "localAdapterHasCreateDirectUpload": false,
+  "noSecret": "throws STORAGE=supabase needs SUPABASE_URL and SUPABASE_SECRET_KEY",
+  "noVars": "throws STORAGE=supabase needs SUPABASE_URL and SUPABASE_SECRET_KEY",
+  "rootIsResolvedDataDir": true,
+  "sameInstanceForSameDir": true,
+  "storageValueIsTrimmed": true,
+  "switchingBackCreatesANewInstance": true,
+  "unknownStorageValueIsLocal": true,
+}
+`;
+
+exports[`golden: orderRequestSchema > accept / reject table 1`] = `
+[
+  "valid circle -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid rect rounded -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"corners":"rounded","heightUm":30000,"shape":"rect","widthUm":50000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid rect sharp -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"corners":"sharp","heightUm":30000,"shape":"rect","widthUm":50000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid rect without corners -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"rect","widthUm":50000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid custom -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":25000,"shape":"custom","widthUm":50000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid circle with corners -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"corners":"sharp","heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "valid plastic, notes, turnstile token -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","notes":"ملاحظة","phone":"07701234567"},"material":"plastic","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"turnstileToken":"tok","uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "strings are trimmed -> ok {"customer":{"district":"","governorate":"بغداد","landmark":"x","name":"علي","notes":"","phone":"0770 123 4567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "unknown keys are stripped (client prices ignored) -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "no name -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "empty name -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "empty district is allowed -> ok {"customer":{"district":"","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "sheets 1 (range checked later against settings) -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":1,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "sheets 100000 -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":100000,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "width/height 1um -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":1,"shape":"rect","widthUm":1},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "width/height 400000um -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":400000,"shape":"rect","widthUm":400000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "ids at 8 and 64 chars -> ok {"customer":{"district":"الكرادة","governorate":"بغداد","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"aaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9Z_-9"}",
+  "not an object: null -> REJECT (root):invalid_type",
+  "not an object: string -> REJECT (root):invalid_type",
+  "not an object: array -> REJECT (root):invalid_type",
+  "empty object -> REJECT orderId:invalid_type, uploadId:invalid_type, spec:invalid_type, material:invalid_value, sheets:invalid_type, customer:invalid_type",
+  "orderId too short -> REJECT orderId:invalid_format",
+  "orderId 65 chars -> REJECT orderId:invalid_format",
+  "orderId with slash -> REJECT orderId:invalid_format",
+  "orderId number -> REJECT orderId:invalid_type",
+  "uploadId missing -> REJECT uploadId:invalid_type",
+  "uploadId with dot -> REJECT uploadId:invalid_format",
+  "spec missing -> REJECT spec:invalid_type",
+  "spec shape unknown -> REJECT spec.shape:invalid_value",
+  "spec corners unknown -> REJECT spec.corners:invalid_value",
+  "spec corners null -> REJECT spec.corners:invalid_value",
+  "circle not square -> REJECT spec:custom",
+  "width 0 -> REJECT spec.widthUm:too_small, spec:custom",
+  "width negative -> REJECT spec.widthUm:too_small, spec:custom",
+  "width fractional -> REJECT spec.widthUm:invalid_type",
+  "width 400001 -> REJECT spec.widthUm:too_big, spec:custom",
+  "width string -> REJECT spec.widthUm:invalid_type",
+  "height missing -> REJECT spec.heightUm:invalid_type",
+  "height NaN (JSON null) -> REJECT spec.heightUm:invalid_type",
+  "material unknown -> REJECT material:invalid_value",
+  "material missing -> REJECT material:invalid_value",
+  "sheets 0 -> REJECT sheets:too_small",
+  "sheets negative -> REJECT sheets:too_small",
+  "sheets fractional -> REJECT sheets:invalid_type",
+  "sheets 100001 -> REJECT sheets:too_big",
+  "sheets string -> REJECT sheets:invalid_type",
+  "customer missing -> REJECT customer:invalid_type",
+  "phone missing -> REJECT customer.phone:invalid_type",
+  "phone 4 chars -> REJECT customer.phone:too_small",
+  "phone 4 chars after trim -> REJECT customer.phone:too_small",
+  "phone 41 chars -> REJECT customer.phone:too_big",
+  "phone number type -> REJECT customer.phone:invalid_type",
+  "governorate empty -> REJECT customer.governorate:too_small",
+  "governorate whitespace -> REJECT customer.governorate:too_small",
+  "governorate 61 chars -> REJECT customer.governorate:too_big",
+  "governorate not in the list (not checked here) -> ok {"customer":{"district":"الكرادة","governorate":"Atlantis","landmark":"قرب الجسر","name":"علي","phone":"07701234567"},"material":"paper","orderId":"order-aaaaaaaaaaaaaaaaaa","sheets":20,"spec":{"heightUm":30000,"shape":"circle","widthUm":30000},"uploadId":"upload-aaaaaaaaaaaaaaaa"}",
+  "district missing -> REJECT customer.district:invalid_type",
+  "district 121 chars -> REJECT customer.district:too_big",
+  "landmark empty -> REJECT customer.landmark:too_small",
+  "landmark whitespace -> REJECT customer.landmark:too_small",
+  "landmark 201 chars -> REJECT customer.landmark:too_big",
+  "name 101 chars -> REJECT customer.name:too_big",
+  "name null -> REJECT customer.name:invalid_type",
+  "notes 1001 chars -> REJECT customer.notes:too_big",
+  "turnstile token 4097 chars -> REJECT turnstileToken:too_big",
+  "turnstile token number -> REJECT turnstileToken:invalid_type",
+  "several problems at once -> REJECT orderId:invalid_format, uploadId:invalid_type, spec:custom, material:invalid_value, sheets:too_small, customer.phone:too_small, customer.governorate:invalid_type, customer.district:invalid_type, customer.landmark:invalid_type",
+]
+`;
+
+exports[`golden: shopSettingsSchema > accepted inputs: what the parse changes (relative to the input) 1`] = `
+[
+  "tiers are sorted ascending on parse -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=68113827ee344601",
+  "unknown keys stripped at every level -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=68113827ee344601",
+  "boundary values accepted -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=50de044394140039",
+  "only one material enabled -> ok pricing={"materials":{"paper":{"enabled":false,"pricePerSheetIqd":0},"plastic":{"enabled":true,"pricePerSheetIqd":1}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=bf28b45b90367cb3",
+  "empty tiers and quickPicks -> ok pricing={"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[],"tiers":[]} topKeys=shopName,tagline,whatsapp,phone,hours,area,telegramChatId,pricing,deliveryFeeIqd,pricesPublished,layout,quality,maxUploadBytes,retentionDays layoutKeys=marginUm,circleGapXUm,circleGapYUm,rectRoundedGapUm,rectSharpGapUm,customGapUm,roundedRadiusUm,allowRotate,minSideUm sha=e48e23eec6daf4f4",
+]
+`;
+
+exports[`golden: shopSettingsSchema > accepts the defaults unchanged 1`] = `
+{
+  "equalToDefaults": true,
+  "sameKeyOrder": true,
+  "success": true,
+}
+`;
+
+exports[`golden: shopSettingsSchema > pricingSchema alone 1`] = `
+[
+  "defaults -> ok {"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]}",
+  "unsorted tiers -> ok {"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":10,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":20,"percent":10},{"minSheets":50,"percent":15},{"minSheets":100,"percent":20}]}",
+  "min > max -> REJECT (root):custom",
+  "empty -> REJECT materials:invalid_type, minSheets:invalid_type, maxSheets:invalid_type, tiers:invalid_type, quickPicks:invalid_type",
+]
+`;
+
+exports[`golden: shopSettingsSchema > rejected inputs: issue paths and codes 1`] = `
+[
+  "null -> REJECT (root):invalid_type",
+  "empty object -> REJECT shopName:invalid_type, tagline:invalid_type, whatsapp:invalid_type, phone:invalid_type, hours:invalid_type, area:invalid_type, telegramChatId:invalid_type, pricing:invalid_type, deliveryFeeIqd:invalid_type, pricesPublished:invalid_type, layout:invalid_type, quality:invalid_type, maxUploadBytes:invalid_type, retentionDays:invalid_type",
+  "shopName empty -> REJECT shopName:too_small",
+  "shopName 81 chars -> REJECT shopName:too_big",
+  "tagline 161 chars -> REJECT tagline:too_big",
+  "whatsapp with plus -> REJECT whatsapp:invalid_format",
+  "whatsapp 16 digits -> REJECT whatsapp:invalid_format",
+  "phone 41 chars -> REJECT phone:too_big",
+  "telegramChatId number -> REJECT telegramChatId:invalid_type",
+  "pricing missing -> REJECT pricing:invalid_type",
+  "both materials disabled -> REJECT pricing.materials:custom",
+  "material price negative -> REJECT pricing.materials.paper.pricePerSheetIqd:too_small",
+  "material price fractional -> REJECT pricing.materials.paper.pricePerSheetIqd:invalid_type",
+  "material missing -> REJECT pricing.materials.plastic:invalid_type",
+  "minSheets 0 -> REJECT pricing.minSheets:too_small",
+  "minSheets > maxSheets -> REJECT pricing:custom",
+  "maxSheets 100001 -> REJECT pricing.maxSheets:too_big",
+  "tier percent 91 -> REJECT pricing.tiers.0.percent:too_big",
+  "tier percent negative -> REJECT pricing.tiers.0.percent:too_small",
+  "tier minSheets 0 -> REJECT pricing.tiers.0.minSheets:too_small",
+  "duplicate tier minSheets -> REJECT pricing.tiers:custom",
+  "21 tiers -> REJECT pricing.tiers:too_big",
+  "9 quickPicks -> REJECT pricing.quickPicks:too_big",
+  "quickPick 0 -> REJECT pricing.quickPicks.0:too_small",
+  "deliveryFee negative -> REJECT deliveryFeeIqd:too_small",
+  "pricesPublished string -> REJECT pricesPublished:invalid_type",
+  "margin 50001 -> REJECT layout.marginUm:too_big",
+  "gap fractional -> REJECT layout.circleGapXUm:invalid_type",
+  "minSide 999 -> REJECT layout.minSideUm:too_small",
+  "allowRotate missing -> REJECT layout.allowRotate:invalid_type",
+  "roundedRadius 100001 -> REJECT layout.roundedRadiusUm:too_big",
+  "quality dpi 0 -> REJECT quality.warnDpi:too_small, quality.blockDpi:too_small, quality.targetDpi:too_small",
+  "quality dpi too high -> REJECT quality.warnDpi:too_big, quality.blockDpi:too_big, quality.targetDpi:too_big",
+  "maxUploadBytes 1023 -> REJECT maxUploadBytes:too_small",
+  "maxUploadBytes > 100 MiB -> REJECT maxUploadBytes:too_big",
+  "retentionDays 0 -> REJECT retentionDays:too_small",
+  "retentionDays 3651 -> REJECT retentionDays:too_big",
+  "legacy shape: offers instead of pricing -> REJECT pricing:invalid_type",
+]
+`;
+
+exports[`golden: storage paths > path helpers and ID_RE 1`] = `
+{
+  "flags": "",
+  "ids": [
+    ""abcdefgh" -> true",
+    ""abcdefg" -> false",
+    ""aaaaaaaa…(64)" -> true",
+    ""aaaaaaaa…(65)" -> false",
+    ""order-aaaa_AAA-123" -> true",
+    ""has space" -> false",
+    ""dot.dot.dot" -> false",
+    ""../../x" -> false",
+    ""ünïcödé-id" -> false",
+    """ -> false",
+    ""abcdefgh\\n" -> false",
+  ],
+  "paths": [
+    "uploads/ID.bin",
+    "uploads/ID.json",
+    "orders/ID.json",
+    "orders/ID.pdf",
+  ],
+  "source": "^[A-Za-z0-9_-]{8,64}$",
+}
+`;

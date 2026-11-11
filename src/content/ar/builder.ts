@@ -1,6 +1,6 @@
 /**
- * Builder flow copy (the product) — FROZEN during Phase 1. Agent C consumes; Agent E may
- * propose changes in docs/copy-review.md only.
+ * Builder flow copy (the product): the home hero, the order steps, the sheet preview, the
+ * order summary, the success and fallback screens and the WhatsApp message openers.
  * Placeholders use {name} and are filled with simple string replacement.
  */
 export const builder = {
@@ -10,7 +10,6 @@ export const builder = {
     flow: ['ارفع تصميمك', 'شوفه شلون يتصفّط', 'اختار الكمية', 'استلم الطلب'],
     /** Under the journey steps; {shop} = settings.shopName (rendered bold). */
     subtitle: '{shop}، أجود الخامات بأنسب الأسعار',
-    cta: 'صمّم ستيكراتك',
   },
   stepper: {
     label: 'خطوات الطلب',
@@ -30,7 +29,6 @@ export const builder = {
     marginHint: 'الهامش {margin} ملم من كل جهة',
     expand: 'كبّر المعاينة',
     close: 'إغلاق المعاينة',
-    collapse: 'صغّر',
     rotatedHint: 'التصميم مدوّر 90° لزيادة العدد بالورقة',
     mixedHint: 'بعض التصاميم مدوّرة 90° لزيادة العدد بالورقة',
   },
@@ -57,7 +55,6 @@ export const builder = {
     onlyFirstPage: 'PDF من {pages} صفحة: نستخدم الأولى فقط.',
     detectedSize: 'قياس الصفحة بالملف: {size} سم',
     replace: 'غيّر الملف',
-    removeFile: 'احذف الملف',
     pixelsUnit: 'بكسل',
     transparentHint: 'عندك PNG شفاف؟ نقطعه على شكله.',
     squareHint: 'ارفع صورة مربعة لأفضل نتيجة.',
@@ -174,6 +171,5 @@ export const builder = {
   whatsappText: {
     newOrder: 'مرحباً، عندي طلب ستيكرات:',
     readyFile: 'مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4.',
-    orderRef: 'رقم الطلب: {no}',
   },
 } as const;

@@ -1,6 +1,7 @@
 import { computeLayout, layoutParamsFor } from '@/lib/layout';
+import { enabledMaterials, priceFor, sortedTiers } from '@/lib/pricing';
 import { cmToUm } from '@/lib/units';
-import type { LayoutResult, LayoutSettings, StickerSpec } from '@/lib/types';
+import type { LayoutResult, LayoutSettings, Material, PricingSettings, ShopSettings, StickerSpec } from '@/lib/types';
 
 export type ExampleKey = 'circle3' | 'circle5' | 'sharp5' | 'rounded5' | 'custom5';
 
@@ -35,4 +36,44 @@ export function illustrationLayout(layout: LayoutSettings): LayoutResult | null 
   const spec = EXAMPLES[0].spec;
   const out = computeLayout(spec, layoutParamsFor(spec, layout));
   return out.ok ? out.layout : null;
+}
+
+/**
+ * Rows of the volume-discount table: sheets `from`…`to` (`to` null = and above) get `percent` off.
+ * Starts at pricing.minSheets with a 0 % row unless a tier already applies there; tiers that end
+ * below the minimum order are left out.
+ */
+export function discountRows(pricing: PricingSettings): { from: number; to: number | null; percent: number }[] {
+  const tiers = sortedTiers(pricing.tiers);
+  const rows: { from: number; to: number | null; percent: number }[] = [];
+  if (tiers.length === 0 || tiers[0].minSheets > pricing.minSheets) {
+    rows.push({ from: pricing.minSheets, to: tiers.length ? tiers[0].minSheets - 1 : null, percent: 0 });
+  }
+  tiers.forEach((tier, i) => {
+    if (i + 1 < tiers.length && tiers[i + 1].minSheets <= pricing.minSheets) return;
+    rows.push({ from: Math.max(tier.minSheets, pricing.minSheets), to: i + 1 < tiers.length ? tiers[i + 1].minSheets - 1 : null, percent: tier.percent });
+  });
+  return rows;
+}
+
+/** Sheet count of the worked price example, before it is clamped into the shop's min…max. */
+const EXAMPLE_SHEETS = 50;
+
+/**
+ * The worked price example under the discount table: plastic when it is enabled, otherwise the
+ * first enabled material. `price` is the subtotal in IQD (before delivery).
+ * null when prices are not published or no material is enabled.
+ */
+export function priceExample(settings: ShopSettings): { material: Material; sheets: number; price: number } | null {
+  const pricing = settings.pricing;
+  const mats = enabledMaterials(pricing);
+  const exMaterial = mats.includes('plastic') ? 'plastic' : mats[0];
+  const exSheets = Math.min(Math.max(EXAMPLE_SHEETS, pricing.minSheets), pricing.maxSheets);
+  const example =
+    settings.pricesPublished && exMaterial
+      ? priceFor(exMaterial, exSheets, 1, settings)
+      : null;
+  return example && example.subtotalIqd !== null && exMaterial
+    ? { material: exMaterial, sheets: exSheets, price: example.subtotalIqd }
+    : null;
 }

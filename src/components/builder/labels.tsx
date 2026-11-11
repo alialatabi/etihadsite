@@ -3,17 +3,9 @@ import { Ltr } from '@/components/Ltr';
 import { count } from '@/lib/plural';
 import { safeFormatCm } from './safe';
 
-function stickerWord(n: number): string {
-  try {
-    return count(n, common.plural.sticker);
-  } catch {
-    return '';
-  }
-}
-
 /** "54 ستيكر": the number is LTR-isolated, the Arabic word follows it in reading order. */
 export function CountLabel({ n }: { n: number }) {
-  const word = stickerWord(n);
+  const word = count(n, common.plural.sticker);
   return (
     <>
       <Ltr>{n}</Ltr>

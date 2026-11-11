@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { DEFAULT_SETTINGS } from '../../config/defaults';
+import type { ShopSettings } from '../types';
+import { MAX_DISCOUNT_TIERS, MAX_QUICK_PICKS, MAX_TIER_PERCENT } from './settings-limits';
 
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
 
@@ -15,11 +18,11 @@ export const pricingSchema = z
     minSheets: int(1, 100_000),
     maxSheets: int(1, 100_000),
     tiers: z
-      .array(z.object({ minSheets: int(1, 100_000), percent: int(0, 90) }))
-      .max(20)
+      .array(z.object({ minSheets: int(1, 100_000), percent: int(0, MAX_TIER_PERCENT) }))
+      .max(MAX_DISCOUNT_TIERS)
       .refine((t) => new Set(t.map((x) => x.minSheets)).size === t.length, 'duplicate tier')
       .transform((t) => [...t].sort((a, b) => a.minSheets - b.minSheets)),
-    quickPicks: z.array(int(1, 100_000)).max(8),
+    quickPicks: z.array(int(1, 100_000)).max(MAX_QUICK_PICKS),
   })
   .refine((p) => p.minSheets <= p.maxSheets, 'minSheets must be ≤ maxSheets');
 
@@ -53,3 +56,33 @@ export const shopSettingsSchema = z.object({
   maxUploadBytes: int(1024, 100 * 1024 * 1024),
   retentionDays: int(1, 3650),
 });
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** Deep merge; arrays and scalars from `over` replace the base. */
+export function deepMerge<T>(base: T, over: unknown): T {
+  if (!isPlainObject(base) || !isPlainObject(over))
+    return (over === undefined ? base : over) as T;
+  const out: Record<string, unknown> = { ...base };
+  for (const [k, v] of Object.entries(over)) {
+    out[k] = k in base ? deepMerge((base as Record<string, unknown>)[k], v) : v;
+  }
+  return out as T;
+}
+
+/**
+ * What a storage backend holds for the settings (settings.json, the Supabase row) → validated
+ * ShopSettings: the stored value is deep-merged over a fresh copy of DEFAULT_SETTINGS and
+ * checked with the schema. On failure `issuePaths` names the offending fields ("a.b, c") for
+ * the caller's log line; the caller decides what to fall back to.
+ */
+export function parseStoredSettings(
+  raw: unknown,
+): { ok: true; settings: ShopSettings } | { ok: false; issuePaths: string } {
+  const merged = deepMerge(structuredClone(DEFAULT_SETTINGS), raw);
+  const parsed = shopSettingsSchema.safeParse(merged);
+  if (parsed.success) return { ok: true, settings: parsed.data };
+  return { ok: false, issuePaths: parsed.error.issues.map((i) => i.path.join('.')).join(', ') };
+}

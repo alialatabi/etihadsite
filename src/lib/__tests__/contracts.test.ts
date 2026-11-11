@@ -4,7 +4,7 @@ import { A4_PT, A4_UM, umToPt } from '@/lib/units';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { governorates } from '@/content/ar';
 
-/** Phase 0 sanity tests: fixtures and constants are internally consistent. */
+/** Sanity tests: the layout fixtures, unit constants and default settings are internally consistent. */
 describe('contracts', () => {
   it('A4 constants convert to the expected points', () => {
     expect(umToPt(A4_UM.widthUm)).toBeCloseTo(595.2756, 3);

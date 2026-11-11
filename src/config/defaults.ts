@@ -1,5 +1,5 @@
 /**
- * Default shop settings. FROZEN during Phase 1.
+ * Default shop settings.
  *
  * These are the values the site uses until the owner edits them in the admin
  * dashboard (/admin/settings). Safe to import from client components: it

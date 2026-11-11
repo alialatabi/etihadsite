@@ -1,15 +1,13 @@
 import { z } from 'zod';
-import { readCapped } from '../_lib/body';
-import { classifyDevice, classifySource, isBot } from '@/lib/analytics/classify';
+import { SMALL_JSON_MAX_BYTES, readJsonCapped } from '../_lib/body';
+import { classifySource, isBot } from '@/lib/analytics/classify';
 import { trackServer, visitorHash } from '@/lib/analytics/server';
-import { createRateLimiter, type RateLimiter } from '@/lib/rate-limit';
+import { limiters } from '@/lib/rate-limit';
+import { BUILDER_STEPS, INSTALL_EVENTS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-const STEPS = [
-  'shape', 'design', 'size', 'quantity', 'details', // builder steps
-  'shown', 'accepted', 'installed', // install events
-] as const;
+const STEPS = [...BUILDER_STEPS, ...INSTALL_EVENTS] as const;
 
 const bodySchema = z.object({
   type: z.enum(['pageview', 'step', 'install']),
@@ -19,11 +17,6 @@ const bodySchema = z.object({
   utm: z.string().max(60).optional(),
 });
 
-const g = globalThis as unknown as { __epTrackLimiter?: RateLimiter };
-function limiter(): RateLimiter {
-  return (g.__epTrackLimiter ??= createRateLimiter({ limit: 300, windowMs: 60 * 60 * 1000 }));
-}
-
 const noContent = () => new Response(null, { status: 204 });
 
 /** POST /api/track — first-party, cookieless analytics beacon. 204 unless the body is invalid. */
@@ -32,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
     const ua = request.headers.get('user-agent');
     let json: unknown;
     try {
-      json = JSON.parse(new TextDecoder().decode(await readCapped(request, 4096)));
+      json = await readJsonCapped(request, SMALL_JSON_MAX_BYTES);
     } catch {
       return new Response(null, { status: 400 });
     }
@@ -43,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
     if (isBot(ua) || b.path === '/admin' || b.path.startsWith('/admin/')) return noContent();
 
     const visitor = visitorHash(request);
-    if (!limiter().check(visitor).ok) return noContent();
+    if (!limiters().track.check(visitor).ok) return noContent();
 
     const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
     await trackServer(request, {
@@ -55,7 +48,6 @@ export async function POST(request: Request): Promise<Response> {
       ...(b.type === 'pageview' && (b.referrer !== undefined || b.utm)
         ? { source: classifySource(b.referrer, b.utm, host) }
         : {}),
-      device: classifyDevice(ua),
     });
     return noContent();
   } catch (e) {

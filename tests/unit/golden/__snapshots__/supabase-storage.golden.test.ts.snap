@@ -1,0 +1,638 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: SupabaseStorage — analytics and customers > customers 1`] = `
+{
+  "list": {
+    "requests": [
+      "GET /rest/v1/customers?select=*&order=last_order_at.desc,phone.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": [
+      "keys=[phone,governorate,district,landmark,firstOrderAt,lastOrderAt,ordersCount,totalIqd,lastOrderId,lastDisplayNo,name] {"district":"الكرادة","firstOrderAt":"2026-11-01T09:00:00+00:00","governorate":"بغداد","landmark":"قرب الجسر","lastDisplayNo":"EP-1","lastOrderAt":"2026-11-10T09:00:00+00:00","lastOrderId":"order-1","name":"علي","ordersCount":2,"phone":"9647700000001","totalIqd":19400}",
+      "keys=[phone,governorate,district,landmark,firstOrderAt,lastOrderAt,ordersCount,totalIqd,lastOrderId,lastDisplayNo] {"district":"الكرادة","firstOrderAt":"2026-11-01T09:00:00+00:00","governorate":"بغداد","landmark":"قرب الجسر","lastDisplayNo":"EP-2","lastOrderAt":"2026-11-10T09:00:00+00:00","lastOrderId":"order-2","ordersCount":3,"phone":"9647700000002","totalIqd":19400}",
+      "keys=[phone,governorate,district,landmark,firstOrderAt,lastOrderAt,ordersCount,totalIqd,lastOrderId,lastDisplayNo] {"district":"الكرادة","firstOrderAt":"2026-11-01T09:00:00+00:00","governorate":"بغداد","landmark":"قرب الجسر","lastDisplayNo":"EP-3","lastOrderAt":"2026-11-10T09:00:00+00:00","lastOrderId":"order-3","ordersCount":4,"phone":"9647700000003","totalIqd":19400}",
+    ],
+    "unusedResponses": 0,
+  },
+  "listTwoPages": {
+    "requests": [
+      "GET /rest/v1/customers?select=*&order=last_order_at.desc,phone.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/customers?select=*&order=last_order_at.desc,phone.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"1000-1999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": 1001,
+    "unusedResponses": 0,
+  },
+  "upsert": {
+    "requests": [
+      "POST /rest/v1/rpc/upsert_customer | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647701234567","p_name":"علي","p_governorate":"بغداد","p_district":"الكرادة","p_landmark":"قرب الجسر","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":19400}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+  "upsertNoNameUnpriced": {
+    "requests": [
+      "POST /rest/v1/rpc/upsert_customer | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647801112222","p_name":null,"p_governorate":"البصرة","p_district":"","p_landmark":"x","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":0}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — analytics and customers > events 1`] = `
+{
+  "listExactlyOnePageThenEmpty": {
+    "requests": [
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"1000-1999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": 1000,
+    "unusedResponses": 0,
+  },
+  "listOnePage": {
+    "requests": [
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": [
+      "{"device":"mobile","path":"/","ts":"2026-11-10T08:01:00.000Z","type":"pageview","visitor":"v1"}",
+      "{"device":"mobile","meta":{"kind":"png"},"path":"/","source":"google","ts":"2026-11-10T08:02:00.000Z","type":"pageview","visitor":"v2"}",
+    ],
+    "unusedResponses": 0,
+  },
+  "listTwoPages": {
+    "requests": [
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"1000-1999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": "1002 events, first keys=[ts,type,visitor,path,device]",
+    "unusedResponses": 0,
+  },
+  "purgeDry": {
+    "requests": [
+      "GET /rest/v1/events?select=id&ts=lt.2025-10-06T09%3A00%3A00.000Z&limit=100000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [
+      "events:3",
+    ],
+    "unusedResponses": 0,
+  },
+  "purgeDryNone": {
+    "requests": [
+      "GET /rest/v1/events?select=id&ts=lt.2025-10-06T09%3A00%3A00.000Z&limit=100000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "purgeReal": {
+    "requests": [
+      "DELETE /rest/v1/events?select=id&ts=lt.2025-10-06T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"return=representation"} | body=(none)",
+    ],
+    "result": [
+      "events:2",
+    ],
+    "unusedResponses": 0,
+  },
+  "purgeRealEmptyBody": {
+    "requests": [
+      "DELETE /rest/v1/events?select=id&ts=lt.2025-10-06T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"return=representation"} | body=(none)",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "recordFull": {
+    "requests": [
+      "POST /rest/v1/events | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"return=minimal","content-type":"application/json"} | body={"ts":"2026-11-10T08:00:00.000Z","type":"order","visitor":"v1","path":"/","step":"details","source":"instagram","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","meta":{"material":"paper","sheets":20,"totalIqd":19400}}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+  "recordMinimal": {
+    "requests": [
+      "POST /rest/v1/events | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"return=minimal","content-type":"application/json"} | body={"ts":"2026-11-10T08:00:00.000Z","type":"pageview","visitor":"v1","path":null,"step":null,"source":null,"device":null,"city":null,"region":null,"country":null,"meta":null}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — objects > constants 1`] = `
+{
+  "SUPABASE_MAX_UPLOAD_BYTES": 10485760,
+  "directUploadMaxBytes": 10485760,
+}
+`;
+
+exports[`golden: SupabaseStorage — objects > invalid ids and paths never reach the network 1`] = `
+[
+  "saveUpload(short) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveUploadMeta(short) -> "THROWS Invalid upload id" (requests: 0)",
+  "savePdf(short) -> "THROWS Invalid order id" (requests: 0)",
+  "readUpload(short) -> null (requests: 0)",
+  "createDirectUpload(short) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveOrder(short) -> "THROWS Invalid order id" (requests: 0)",
+  "getOrder(short) -> null (requests: 0)",
+  "updateOrder(short) -> null (requests: 0)",
+  "saveUpload(../../etc/passwd) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveUploadMeta(../../etc/passwd) -> "THROWS Invalid upload id" (requests: 0)",
+  "savePdf(../../etc/passwd) -> "THROWS Invalid order id" (requests: 0)",
+  "readUpload(../../etc/passwd) -> null (requests: 0)",
+  "createDirectUpload(../../etc/passwd) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveOrder(../../etc/passwd) -> "THROWS Invalid order id" (requests: 0)",
+  "getOrder(../../etc/passwd) -> null (requests: 0)",
+  "updateOrder(../../etc/passwd) -> null (requests: 0)",
+  "saveUpload(has space 123) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveUploadMeta(has space 123) -> "THROWS Invalid upload id" (requests: 0)",
+  "savePdf(has space 123) -> "THROWS Invalid order id" (requests: 0)",
+  "readUpload(has space 123) -> null (requests: 0)",
+  "createDirectUpload(has space 123) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveOrder(has space 123) -> "THROWS Invalid order id" (requests: 0)",
+  "getOrder(has space 123) -> null (requests: 0)",
+  "updateOrder(has space 123) -> null (requests: 0)",
+  "saveUpload(aaaaaa…(65)) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveUploadMeta(aaaaaa…(65)) -> "THROWS Invalid upload id" (requests: 0)",
+  "savePdf(aaaaaa…(65)) -> "THROWS Invalid order id" (requests: 0)",
+  "readUpload(aaaaaa…(65)) -> null (requests: 0)",
+  "createDirectUpload(aaaaaa…(65)) -> "THROWS Invalid upload id" (requests: 0)",
+  "saveOrder(aaaaaa…(65)) -> "THROWS Invalid order id" (requests: 0)",
+  "getOrder(aaaaaa…(65)) -> null (requests: 0)",
+  "updateOrder(aaaaaa…(65)) -> null (requests: 0)",
+  "readFile("settings.json") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("settings.json") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("settings.json") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("uploads/../x.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("uploads/../x.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("uploads/../x.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("/uploads/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("/uploads/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("/uploads/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("uploads/abcdefgh.exe") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("uploads/abcdefgh.exe") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("uploads/abcdefgh.exe") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("uploads/abc.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("uploads/abc.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("uploads/abc.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("other/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("other/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("other/abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("uploads/abcdefgh.bin?x=1") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("uploads/abcdefgh.bin?x=1") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("uploads/abcdefgh.bin?x=1") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("uploads\\\\abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("uploads\\\\abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("uploads\\\\abcdefgh.bin") -> "THROWS Invalid storage path" (requests: 0)",
+  "readFile("") -> "THROWS Invalid storage path" (requests: 0)",
+  "deleteFile("") -> "THROWS Invalid storage path" (requests: 0)",
+  "signedDownloadUrl("") -> "THROWS Invalid storage path" (requests: 0)",
+]
+`;
+
+exports[`golden: SupabaseStorage — objects > signed URLs 1`] = `
+{
+  "createDirectUpload": {
+    "requests": [
+      "POST /storage/v1/object/upload/sign/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={}",
+    ],
+    "result": "https://proj.supabase.co/storage/v1/object/upload/sign/etihad/uploads/abcDEF_123-xyz.bin?token=tok",
+    "unusedResponses": 0,
+  },
+  "createDirectUploadBadAnswer": {
+    "requests": [
+      "POST /storage/v1/object/upload/sign/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={}",
+    ],
+    "result": "THROWS [supabase] bad signed upload url",
+    "unusedResponses": 0,
+  },
+  "createDirectUploadNoToken": {
+    "requests": [
+      "POST /storage/v1/object/upload/sign/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={}",
+    ],
+    "result": "THROWS [supabase] bad signed upload url",
+    "unusedResponses": 0,
+  },
+  "signedDownloadUrl": {
+    "requests": [
+      "POST /storage/v1/object/sign/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"expiresIn":60}",
+    ],
+    "result": "https://proj.supabase.co/storage/v1/object/sign/etihad/orders/abcDEF_123-xyz.pdf?token=tok&download=EP-261110-AB3C_circle-30x30mm_x20.pdf",
+    "unusedResponses": 0,
+  },
+  "signedDownloadUrlArabicNameAndTtl": {
+    "requests": [
+      "POST /storage/v1/object/sign/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"expiresIn":300}",
+    ],
+    "result": "https://proj.supabase.co/storage/v1/object/sign/etihad/uploads/abcDEF_123-xyz.bin?token=tok&download=%D8%B4%D8%B9%D8%A7%D8%B1%20%D9%86%D9%87%D8%A7%D8%A6%D9%8A.png",
+    "unusedResponses": 0,
+  },
+  "signedDownloadUrlMalformed": {
+    "requests": [
+      "POST /storage/v1/object/sign/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"expiresIn":60}",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "signedDownloadUrlNotFound": {
+    "requests": [
+      "POST /storage/v1/object/sign/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"expiresIn":60}",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — objects > uploads, PDFs, read, delete 1`] = `
+{
+  "deleteFile": {
+    "requests": [
+      "DELETE /storage/v1/object/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefixes":["uploads/abcDEF_123-xyz.bin"]}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+  "readFile": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": [
+      7,
+      8,
+      9,
+    ],
+    "unusedResponses": 0,
+  },
+  "readFile400NotFoundBody": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "readFile400Other": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /storage/v1/object/authenticated/etihad/orders/abcDEF_123-xyz.pdf -> 400 {"statusCode":"500","message":"boom"}",
+    "unusedResponses": 0,
+  },
+  "readFile404": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "readUpload": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": {
+      "bytes": [
+        1,
+        2,
+        3,
+      ],
+      "meta": {
+        "bytes": 3,
+        "createdAt": "2026-11-10T08:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "شعار.png",
+      },
+    },
+    "unusedResponses": 0,
+  },
+  "readUploadCorruptMeta": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "readUploadMetaButNoBin": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "readUploadNoMeta": {
+    "requests": [
+      "GET /storage/v1/object/authenticated/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "savePdf": {
+    "requests": [
+      "POST /storage/v1/object/etihad/orders/abcDEF_123-xyz.pdf | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/pdf","x-upsert":"true"} | body=<binary 4 bytes sha 315d429b7714cedb>",
+    ],
+    "result": "orders/abcDEF_123-xyz.pdf",
+    "unusedResponses": 0,
+  },
+  "saveUpload": {
+    "requests": [
+      "POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/octet-stream","x-upsert":"true"} | body=<binary 3 bytes sha 039058c6f2c0cb49>",
+      "POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/json","x-upsert":"true"} | body={"mime":"image/png","originalName":"شعار.png","bytes":3,"createdAt":"2026-11-10T08:00:00.000Z"}",
+    ],
+    "result": "uploads/abcDEF_123-xyz.bin",
+    "unusedResponses": 0,
+  },
+  "saveUploadMeta": {
+    "requests": [
+      "POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/json","x-upsert":"true"} | body={"mime":"image/png","originalName":"شعار.png","bytes":3,"createdAt":"2026-11-10T08:00:00.000Z"}",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — orders and settings > orders 1`] = `
+{
+  "getOrder": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order_id=eq.abcDEF_123-xyz&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": true,
+    "unusedResponses": 0,
+  },
+  "getOrderMissing": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order_id=eq.abcDEF_123-xyz&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "getOrderOddId": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order_id=eq.id_with-dash_AND_underscore&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+  "listOrders": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order=created_at.desc&limit=1000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [
+      "order-0000002",
+      "order-0000001",
+    ],
+    "unusedResponses": 0,
+  },
+  "saveOrder": {
+    "bodyIsOrderIdCreatedAtRecord": true,
+    "bodySha256": "b19fea63cefdd074513d48173d232cd7ce19a88f0dac5c5e744d98f9769f385e",
+    "requests": [
+      "POST /rest/v1/orders?on_conflict=order_id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=ignore-duplicates,return=minimal","content-type":"application/json"} | body={"order_id":"abcDEF_123-xyz","created_at":"2026-11-10T08:30:00.000Z","record":{"orderId":"abcDEF_123-xyz","displayNo":"E… (941 chars, sha b19fea63cefdd074)",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+  "updateBoth": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{"status":"done","notified":{"telegram":"failed"}}}",
+    ],
+    "result": "abcDEF_123-xyz",
+    "unusedResponses": 0,
+  },
+  "updateEmptyPatch": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{}}",
+    ],
+    "result": "abcDEF_123-xyz",
+    "unusedResponses": 0,
+  },
+  "updateExtraKeysAreDropped": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{"status":"done"}}",
+    ],
+    "result": "abcDEF_123-xyz",
+    "unusedResponses": 0,
+  },
+  "updateNotified": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{"notified":{"telegram":"sent"}}}",
+    ],
+    "result": {
+      "telegram": "sent",
+    },
+    "unusedResponses": 0,
+  },
+  "updateStatus": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{"status":"printing"}}",
+    ],
+    "result": "printing",
+    "unusedResponses": 0,
+  },
+  "updateUnknownOrder": {
+    "requests": [
+      "POST /rest/v1/rpc/patch_order | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_id":"abcDEF_123-xyz","p_patch":{"status":"done"}}",
+    ],
+    "result": null,
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — orders and settings > settings 1`] = `
+{
+  "invalidRow": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "legacyRow": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [
+      "shopName: "الاتحاد برنت"",
+      "pricesPublished: false",
+    ],
+    "unusedResponses": 0,
+  },
+  "logged": [
+    [
+      "[storage] stored settings are invalid, using defaults:",
+      "whatsapp, deliveryFeeIqd",
+    ],
+    [
+      "[storage] stored settings are invalid, using defaults:",
+      "",
+    ],
+  ],
+  "noRow": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "nullData": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "outage": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /rest/v1/settings -> 503 ",
+    "unusedResponses": 0,
+  },
+  "partialRow": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [
+      "shopName: "مطبعة تجريبية"",
+      "pricing: {"materials":{"paper":{"enabled":true,"pricePerSheetIqd":800},"plastic":{"enabled":true,"pricePerSheetIqd":1500}},"maxSheets":5000,"minSheets":5,"quickPicks":[10,20,50,100],"tiers":[{"minSheets":30,"percent":5},{"minSheets":200,"percent":30}]}",
+      "deliveryFeeIqd: 3000",
+    ],
+    "unusedResponses": 0,
+  },
+  "saveSettings": {
+    "requests": [
+      "POST /rest/v1/settings?on_conflict=id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=merge-duplicates,return=minimal","content-type":"application/json"} | body={"id":1,"data":{"shopName":"مطبعة","tagline":"طباعة ستيكرات على قياسك","whatsapp":"9647709999999","phone":"","hours":"ال… (849 chars, sha bc6d9738f2030fbf)",
+    ],
+    "result": undefined,
+    "unusedResponses": 0,
+  },
+  "saveSettingsBodyIsIdDataUpdatedAt": true,
+}
+`;
+
+exports[`golden: SupabaseStorage — retention purge and failures > non-2xx answers and network errors throw (message format) 1`] = `
+{
+  "http401Json": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order=created_at.desc&limit=1000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /rest/v1/orders -> 401 {"message":"Invalid API key"}",
+    "unusedResponses": 0,
+  },
+  "http404OnTable": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order_id=eq.abcDEF_123-xyz&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /rest/v1/orders -> 404 ",
+    "unusedResponses": 0,
+  },
+  "http500": {
+    "requests": [
+      "GET /rest/v1/orders?select=record&order_id=eq.abcDEF_123-xyz&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /rest/v1/orders -> 500 internal error internal error internal error internal error internal error internal error internal error internal error internal error internal error internal error internal error internal error inter",
+    "unusedResponses": 0,
+  },
+  "network": {
+    "requests": [
+      "GET /rest/v1/settings?select=data&id=eq.1&limit=1 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": "THROWS fetch failed",
+    "unusedResponses": 0,
+  },
+  "post409": {
+    "requests": [
+      "POST /rest/v1/orders?on_conflict=order_id | auth=ok cache=no-store timeout=10000ms headers={"Prefer":"resolution=ignore-duplicates,return=minimal","content-type":"application/json"} | body={"order_id":"abcDEF_123-xyz","created_at":"2026-11-10T08:30:00.000Z","record":{"orderId":"abcDEF_123-xyz","displayNo":"E… (941 chars, sha b19fea63cefdd074)",
+    ],
+    "result": "THROWS [supabase] POST /rest/v1/orders -> 409 {"code":"23505"}",
+    "unusedResponses": 0,
+  },
+  "queryStringIsNotInTheMessage": {
+    "requests": [
+      "GET /rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.2026-10-01T00%3A00%3A00.000Z&order=ts.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+    ],
+    "result": "THROWS [supabase] GET /rest/v1/events -> 500 ",
+    "unusedResponses": 0,
+  },
+  "uploadFailsOnTheSecondObject": {
+    "requests": [
+      "POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.bin | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/octet-stream","x-upsert":"true"} | body=<binary 1 bytes sha 4bf5122f344554c5>",
+      "POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.json | auth=ok cache=no-store timeout=30000ms headers={"cache-control":"no-store","content-type":"application/json","x-upsert":"true"} | body={"mime":"image/png","originalName":"شعار.png","bytes":3,"createdAt":"2026-11-10T08:00:00.000Z"}",
+    ],
+    "result": "THROWS [supabase] POST /storage/v1/object/etihad/uploads/abcDEF_123-xyz.json -> 500 ",
+    "unusedResponses": 0,
+  },
+}
+`;
+
+exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderThan: dry run and real run 1`] = `
+{
+  "dry": {
+    "requests": [
+      "GET /rest/v1/orders?select=order_id,files:record->files&created_at=lt.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "GET /rest/v1/orders?select=design:record->files->>designPath&created_at=gte.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"asc"}}",
+    ],
+    "result": [
+      "order:order-old-0001",
+      "order:order-old-0002",
+      "order:order-old-0003",
+      "order:order-old-0004",
+      "orders/order-old-0001.pdf",
+      "uploads/upload-old-0001.bin",
+      "uploads/upload-old-0001.json",
+      "orders/order-old-0002.pdf",
+      "uploads/upload-orphan-old.bin",
+      "uploads/upload-orphan-old.json",
+      "uploads/upload-uncommitted-4h.bin",
+      "uploads/upload-metaonly-01.json",
+    ],
+    "unusedResponses": 0,
+  },
+  "explicitOrphanCutoff": {
+    "requests": [
+      "GET /rest/v1/orders?select=order_id,files:record->files&created_at=lt.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "GET /rest/v1/orders?select=design:record->files->>designPath&created_at=gte.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"asc"}}",
+    ],
+    "result": [
+      "uploads/upload-uncommitted-4h.bin",
+      "uploads/upload-uncommitted-1h.bin",
+    ],
+    "unusedResponses": 0,
+  },
+  "nothingOld": {
+    "requests": [
+      "GET /rest/v1/orders?select=order_id,files:record->files&created_at=lt.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "GET /rest/v1/orders?select=design:record->files->>designPath&created_at=gte.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"asc"}}",
+    ],
+    "result": [],
+    "unusedResponses": 0,
+  },
+  "real": {
+    "requests": [
+      "GET /rest/v1/orders?select=order_id,files:record->files&created_at=lt.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "GET /rest/v1/orders?select=design:record->files->>designPath&created_at=gte.2026-10-11T09%3A00%3A00.000Z&limit=10000 | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"asc"}}",
+      "DELETE /storage/v1/object/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefixes":["orders/order-old-0001.pdf","uploads/upload-old-0001.bin","uploads/upload-old-0001.json","orders/order-old-0002.pdf","uploads/upload-orphan-old.bin","uploads/upload-orphan-old.json","uploads/upload-uncommitted-4h.bin","uploads/upload-metaonly-01.json"]}",
+      "DELETE /rest/v1/orders?created_at=lt.2026-10-11T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+    ],
+    "result": [
+      "order:order-old-0001",
+      "order:order-old-0002",
+      "order:order-old-0003",
+      "order:order-old-0004",
+      "orders/order-old-0001.pdf",
+      "uploads/upload-old-0001.bin",
+      "uploads/upload-old-0001.json",
+      "orders/order-old-0002.pdf",
+      "uploads/upload-orphan-old.bin",
+      "uploads/upload-orphan-old.json",
+      "uploads/upload-uncommitted-4h.bin",
+      "uploads/upload-metaonly-01.json",
+    ],
+    "unusedResponses": 0,
+  },
+}
+`;

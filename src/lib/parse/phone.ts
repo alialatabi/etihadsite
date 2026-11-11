@@ -1,5 +1,5 @@
 /**
- * Iraqi mobile number normalisation — OWNED BY AGENT A. Pure.
+ * Iraqi mobile number normalisation. Pure.
  *
  * Accept any of: "07701234567", "7701234567", "+9647701234567", "009647701234567",
  * "964 770 123 4567", "٠٧٧٠١٢٣٤٥٦٧", with spaces/dashes/parentheses.
@@ -7,7 +7,7 @@
  * require exactly 10 digits starting with 7 → return "964" + digits (13 digits, no plus).
  * Anything else → null.
  */
-import { normaliseDigits } from '@/lib/parse/cm';
+import { normaliseDigits } from '@/lib/parse/digits';
 
 export function normalisePhone(input: string): string | null {
   if (typeof input !== 'string') return null;

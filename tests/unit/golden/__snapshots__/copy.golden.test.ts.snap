@@ -1,0 +1,875 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere in the copy 1`] = `
+[
+  "{cols} x1",
+  "{count} x2",
+  "{days} x1",
+  "{dpi} x1",
+  "{fee} x1",
+  "{from} x2",
+  "{gap} x3",
+  "{gapX} x1",
+  "{gapY} x1",
+  "{h} x3",
+  "{margin} x1",
+  "{max} x3",
+  "{min} x1",
+  "{n} x2",
+  "{name} x1",
+  "{pages} x1",
+  "{percent} x3",
+  "{price} x1",
+  "{rotated} x1",
+  "{rows} x1",
+  "{shop} x1",
+  "{size} x4",
+  "{to} x1",
+  "{upright} x1",
+  "{w} x3",
+]
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
+"{
+  "title": "لوحة التحكم",
+  "login": {
+    "title": "دخول الإدارة",
+    "password": "كلمة السر",
+    "submit": "دخول",
+    "error": "كلمة السر غير صحيحة.",
+    "rateLimited": "محاولات كثيرة. انتظر شوية وجرّب مرة ثانية."
+  },
+  "nav": {
+    "orders": "الطلبات",
+    "stats": "الإحصائيات",
+    "customers": "الزبائن",
+    "settings": "الإعدادات",
+    "site": "الموقع",
+    "logout": "خروج"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "empty": "ماكو طلبات بعد.",
+    "columns": {
+      "no": "رقم الطلب",
+      "date": "التاريخ",
+      "customer": "الزبون",
+      "phone": "الموبايل",
+      "spec": "الستيكر",
+      "sheets": "الأوراق",
+      "material": "الخامة",
+      "total": "الإجمالي",
+      "status": "الحالة",
+      "telegram": "تيليغرام"
+    },
+    "totalUnset": "يُحدد عند التأكيد",
+    "missing": "—",
+    "noName": "—",
+    "downloadPdf": "تنزيل ورقة A4",
+    "downloadDesign": "تنزيل التصميم الأصلي",
+    "call": "اتصال",
+    "whatsapp": "واتساب",
+    "changeStatus": "تغيير الحالة",
+    "telegramSent": "وصل تيليغرام",
+    "telegramFailed": "فشل تيليغرام",
+    "telegramSkipped": "تيليغرام غير مفعّل"
+  },
+  "detail": {
+    "back": "رجوع للطلبات",
+    "summary": "ملخص الطلب",
+    "customer": "بيانات الزبون",
+    "name": "الاسم",
+    "phone": "الموبايل",
+    "governorate": "المحافظة",
+    "district": "المنطقة",
+    "landmark": "أقرب نقطة دالة",
+    "notes": "ملاحظات",
+    "files": "الملفات",
+    "shape": "الشكل",
+    "size": "القياس",
+    "perSheet": "بالورقة",
+    "sheets": "عدد الأوراق",
+    "totalStickers": "مجموع الستيكرات",
+    "material": "الخامة",
+    "unitPrice": "سعر الورقة",
+    "discount": "الخصم",
+    "subtotal": "المجموع قبل التوصيل",
+    "delivery": "التوصيل",
+    "total": "الإجمالي",
+    "layout": "الترتيب",
+    "layoutValue": "{cols} أعمدة × {rows} صفوف",
+    "rotated": "مدوّر 90°",
+    "mixedValue": "مختلط: {upright} عادي + {rotated} مدوّر 90°",
+    "dpi": "جودة الصورة (DPI)",
+    "vector": "ملف PDF (فيكتور)",
+    "originalFile": "الملف الأصلي",
+    "createdAt": "وقت الطلب",
+    "status": "الحالة",
+    "statusSaved": "تم تحديث الحالة.",
+    "telegram": "تيليغرام"
+  },
+  "stats": {
+    "title": "الإحصائيات",
+    "note": "العدّ بدأ من يوم نشر هذي الميزة، وكل يوم يُحسب الزائر مرة وحدة بدون ما نحفظ أي معلومة شخصية.",
+    "ranges": {
+      "7": "آخر 7 أيام",
+      "30": "آخر 30 يوم",
+      "90": "آخر 90 يوم"
+    },
+    "empty": "ماكو بيانات بعد بهذي الفترة.",
+    "kpi": {
+      "visits": "الزيارات",
+      "visitsHint": "زائر لكل يوم، مجموع الأيام",
+      "today": "زوار اليوم",
+      "uploads": "تصاميم مرفوعة",
+      "orders": "الطلبات",
+      "uploadToOrder": "من التصميم للطلب",
+      "visitToOrder": "من الزيارة للطلب",
+      "revenue": "إجمالي المبيعات",
+      "avgOrder": "متوسط الطلب",
+      "avgSheets": "متوسط الأوراق بالطلب",
+      "installs": "تثبيت التطبيق"
+    },
+    "funnel": {
+      "title": "وين يطلعون الزبائن؟",
+      "hint": "كل خطوة بالنسبة لاللي قبلها. النسبة الواطية تعني مكان التسرب.",
+      "visitors": "زاروا الموقع",
+      "started": "بدؤوا الطلب",
+      "uploaded": "رفعوا تصميم",
+      "size": "وصلوا للقياس",
+      "quantity": "وصلوا للكمية",
+      "details": "وصلوا لبيانات التوصيل",
+      "ordered": "أكملوا الطلب",
+      "ofPrevious": "من الخطوة السابقة"
+    },
+    "daily": {
+      "title": "يومياً",
+      "visitors": "الزوار",
+      "orders": "الطلبات",
+      "axisMax": "أعلى قيمة"
+    },
+    "audience": {
+      "title": "جمهورك",
+      "sources": "من وين يجون",
+      "devices": "نوع الجهاز",
+      "cities": "مدن الزوار",
+      "governorates": "الطلبات حسب المحافظة",
+      "materials": "الخامة",
+      "shapes": "الشكل",
+      "sizes": "أكثر القياسات طلباً",
+      "weekdays": "أكثر الأيام",
+      "hours": "أكثر الساعات",
+      "returning": "زبائن جدد وراجعين",
+      "newCustomers": "جدد",
+      "returningCustomers": "راجعين (طلبوا أكثر من مرة)",
+      "ordersLabel": "طلبات",
+      "none": "ماكو بيانات",
+      "citiesNote": "المدينة تظهر فقط على الموقع المنشور."
+    },
+    "sources": {
+      "direct": "مباشر",
+      "instagram": "إنستغرام",
+      "facebook": "فيسبوك",
+      "tiktok": "تيك توك",
+      "whatsapp": "واتساب",
+      "telegram": "تيليغرام",
+      "google": "غوغل",
+      "snapchat": "سناب شات",
+      "youtube": "يوتيوب",
+      "other": "مصادر ثانية"
+    },
+    "devices": {
+      "mobile": "موبايل",
+      "tablet": "تابلت",
+      "desktop": "كمبيوتر"
+    },
+    "weekdays": [
+      "السبت",
+      "الأحد",
+      "الاثنين",
+      "الثلاثاء",
+      "الأربعاء",
+      "الخميس",
+      "الجمعة"
+    ],
+    "hourLabel": "الساعة"
+  },
+  "customers": {
+    "title": "الزبائن",
+    "empty": "ماكو زبائن بعد.",
+    "noResults": "ماكو نتائج.",
+    "search": "ابحث بالاسم أو الرقم أو المحافظة",
+    "allGovernorates": "كل المحافظات",
+    "governorateFilter": "المحافظة",
+    "download": "تنزيل Excel",
+    "total": "عدد الزبائن",
+    "columns": {
+      "name": "الاسم",
+      "phone": "الموبايل",
+      "governorate": "المحافظة",
+      "district": "المنطقة",
+      "landmark": "أقرب نقطة دالة",
+      "orders": "الطلبات",
+      "spent": "المجموع",
+      "last": "آخر طلب"
+    },
+    "firstOrder": "أول طلب",
+    "lastNo": "رقم آخر طلب",
+    "call": "اتصال",
+    "whatsapp": "واتساب",
+    "noName": "—",
+    "csvFile": "customers"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "saved": "تم الحفظ.",
+    "save": "حفظ",
+    "invalid": "قيمة غير صحيحة. راجع الحقول.",
+    "errors": {
+      "noMaterial": "لازم تفعّل خامة وحدة على الأقل.",
+      "minMax": "أقل عدد لازم يكون أصغر من أو يساوي أكثر عدد.",
+      "duplicateTier": "ماكو شريحتين بنفس العدد.",
+      "tierPercent": "نسبة الخصم من 0 إلى 90.",
+      "tiersMax": "أكثر شيء 20 شريحة.",
+      "quickPicks": "الأزرار السريعة: أرقام صحيحة بفاصلة، لحد 8.",
+      "quickPicksRange": "الأزرار السريعة لازم تكون بين أقل وأكثر عدد أوراق.",
+      "number": "أدخل أرقام صحيحة بالأسعار والأعداد."
+    },
+    "shop": "بيانات المحل",
+    "shopName": "اسم المحل",
+    "tagline": "الشعار النصي",
+    "whatsapp": "واتساب (دولي بدون +، مثل 9647701234567)",
+    "phone": "رقم الهاتف المعروض",
+    "hours": "أوقات العمل",
+    "area": "المنطقة",
+    "telegramChatId": "معرّف محادثة تيليغرام",
+    "pricing": "الأسعار",
+    "materialsTitle": "الخامات",
+    "materialEnabled": "مفعّلة",
+    "pricePerSheet": "سعر الورقة (د.ع)",
+    "minSheets": "أقل عدد أوراق",
+    "maxSheets": "أكثر عدد أوراق",
+    "tiersTitle": "الخصم حسب العدد",
+    "tiersHint": "الخصم ينطبق على كل الطلب.",
+    "tierFrom": "من (ورقة)",
+    "tierPercent": "الخصم (%)",
+    "addTier": "أضف شريحة",
+    "removeTier": "احذف",
+    "quickPicks": "أزرار الاختيار السريع (أرقام بفاصلة، مثل 10,20,50,100)",
+    "deliveryFee": "التوصيل (د.ع) — ثابت لكل المحافظات",
+    "pricesPublished": "إظهار الأسعار للزبائن",
+    "layout": "إعدادات الترتيب",
+    "margin": "هامش الورقة (ملم)",
+    "circleGapX": "فراغ الدوائر أفقياً (ملم)",
+    "circleGapY": "فراغ الدوائر عمودياً (ملم)",
+    "roundedGap": "فراغ المستطيل (زوايا دائرية) (ملم)",
+    "sharpGap": "فراغ المستطيل (زوايا حادة) (ملم)",
+    "customGap": "فراغ الشكل المخصص (ملم)",
+    "roundedRadius": "نصف قطر الزوايا (ملم)",
+    "allowRotate": "السماح بالتدوير لزيادة العدد",
+    "retentionDays": "الاحتفاظ بالملفات (يوم)"
+  }
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
+{
+  "arrays": 1,
+  "booleans": 0,
+  "chars": 2730,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 18,
+  "sha256OfRawJson": "cf5692ee6ae0bbec6b384d4f5d813d2db63d01630a98dd87987170fbd86c5b42",
+  "strings": 202,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
+"{
+  "hero": {
+    "badge": "A4 جاهز للطباعة",
+    "flow": [
+      "ارفع تصميمك",
+      "شوفه شلون يتصفّط",
+      "اختار الكمية",
+      "استلم الطلب"
+    ],
+    "subtitle": "{shop}، أجود الخامات بأنسب الأسعار"
+  },
+  "stepper": {
+    "label": "خطوات الطلب"
+  },
+  "steps": {
+    "shape": "الشكل",
+    "design": "التصميم",
+    "size": "القياس",
+    "quantity": "الكمية",
+    "details": "معلومات التوصيل"
+  },
+  "preview": {
+    "title": "المعاينة",
+    "sheet": "ورقة A4",
+    "perSheet": "بالورقة",
+    "empty": "ارفع تصميمك حتى تشوف المعاينة",
+    "marginHint": "الهامش {margin} ملم من كل جهة",
+    "expand": "كبّر المعاينة",
+    "close": "إغلاق المعاينة",
+    "rotatedHint": "التصميم مدوّر 90° لزيادة العدد بالورقة",
+    "mixedHint": "بعض التصاميم مدوّرة 90° لزيادة العدد بالورقة"
+  },
+  "shape": {
+    "title": "شنو شكل الستيكر؟",
+    "circle": "دائري",
+    "circleHint": "قياس واحد: القطر. الدوائر متلاصقة بالصف، و2 ملم بين الأعمدة.",
+    "rect": "مستطيل",
+    "rectHint": "مربع أو مستطيل.",
+    "custom": "شكل مخصص",
+    "customHint": "يُقطع على حدود تصميمك. يحتاج PNG شفاف.",
+    "corners": "الزوايا",
+    "rounded": "زوايا دائرية",
+    "roundedHint": "فراغ 2 ملم بين الستيكرات",
+    "sharp": "زوايا حادة (90°)",
+    "sharpHint": "بدون فراغ بينها",
+    "readyFileLink": "ملف جاهز أو أكثر من تصميم؟ راسلنا على واتساب"
+  },
+  "upload": {
+    "title": "ارفع تصميمك",
+    "drop": "اسحب الملف أو اضغط للاختيار",
+    "accepted": "PNG أو JPG أو PDF — حد أقصى 10 ميغابايت",
+    "acceptedCustom": "PNG بخلفية شفافة فقط — حد أقصى 10 ميغابايت",
+    "onlyFirstPage": "PDF من {pages} صفحة: نستخدم الأولى فقط.",
+    "detectedSize": "قياس الصفحة بالملف: {size} سم",
+    "replace": "غيّر الملف",
+    "pixelsUnit": "بكسل",
+    "transparentHint": "عندك PNG شفاف؟ نقطعه على شكله.",
+    "squareHint": "ارفع صورة مربعة لأفضل نتيجة.",
+    "cropNotice": "الصورة مو مربعة، نقطعها من المنتصف لتصير دائرة.",
+    "errors": {
+      "unsupported_type": "نوع الملف غير مدعوم. ارفع PNG أو JPG أو PDF.",
+      "too_large": "الملف أكبر من 10 ميغابايت. صغّره وجرّب مرة ثانية.",
+      "corrupt": "ما نقدر نقرأ الملف. تأكد إنه سالم وجرّب مرة ثانية.",
+      "encrypted": "PDF محمي بكلمة سر. ارفع نسخة بدون حماية.",
+      "no_alpha": "الشكل المخصص يحتاج PNG شفاف، أو اختار «مستطيل».",
+      "empty": "الصورة فارغة أو شفافة بالكامل.",
+      "switchToRect": "اختار مستطيل"
+    }
+  },
+  "size": {
+    "title": "شكد قياس الستيكر؟",
+    "width": "العرض",
+    "height": "الطول",
+    "diameter": "القطر",
+    "lockedHint": "القياس الثاني يتغير تلقائياً حسب نسبة تصميمك.",
+    "maxHint": "أكبر قياس يدخل بالورقة: {max} سم",
+    "dpiWarn": "الصورة صغيرة وراح تطلع ضبابية. ارفع صورة أوضح أو صغّر القياس.",
+    "dpiBlock": "دقة الصورة قليلة جداً. صغّر القياس أو ارفع صورة أوضح.",
+    "dpiLabel": "جودة الطباعة: {dpi} DPI",
+    "countHint": "العدد بالورقة: {count}",
+    "errors": {
+      "invalid": "اكتب رقم صحيح بالسنتيمتر.",
+      "too_small": "أصغر قياس مسموح 0.5 سم.",
+      "too_big_for_page": "القياس أكبر من الورقة. أكبر قياس يدخل: {max} سم.",
+      "ratio_extreme": "نسبة التصميم طويلة جداً ما تدخل بورقة A4."
+    }
+  },
+  "quantity": {
+    "title": "اختار الخامة والعدد",
+    "materialLabel": "الخامة",
+    "perSheetSuffix": "بالورقة",
+    "sheetsLabel": "عدد الورقات",
+    "minHint": "أقل طلب",
+    "decrease": "نقّص ورقة",
+    "increase": "زيد ورقة",
+    "quickPicks": "اختيار سريع",
+    "discountTitle": "كل ما زاد العدد، زاد الخصم",
+    "discountWord": "خصم",
+    "nudgeAdd": "زيد",
+    "nudgeGet": "وتاخذ خصم",
+    "unitPrice": "سعر الورقة",
+    "subtotal": "سعر الأوراق",
+    "delivery": "التوصيل",
+    "deliveryNote": "توصيل ثابت لكل المحافظات",
+    "total": "الإجمالي",
+    "stickersTotal": "ستيكر بالمجموع",
+    "perSticker": "حوالي {price} للستيكر",
+    "priceUnset": "السعر يُحدد عند التأكيد",
+    "noMaterials": "ماكو خامات متوفرة حالياً. راسلنا على واتساب.",
+    "errors": {
+      "not_integer": "اكتب عدد صحيح بدون كسور.",
+      "below_min": "العدد أقل من الحد الأدنى. أقل طلب {min}",
+      "above_max": "العدد أكبر من المسموح. أكبر عدد {max}",
+      "material_disabled": "هذي الخامة مو متوفرة حالياً.",
+      "invalid_quantity": "العدد أو الخامة غير متاحين. راجع اختيارك وجرّب مرة ثانية."
+    }
+  },
+  "details": {
+    "title": "بياناتك للتوصيل",
+    "name": "الاسم",
+    "nameOptional": "(اختياري)",
+    "phone": "رقم الموبايل",
+    "phonePlaceholder": "770 123 4567",
+    "phoneHint": "نتواصل وياك بالواتساب على هذا الرقم",
+    "governorate": "المحافظة",
+    "governoratePlaceholder": "اختار المحافظة",
+    "district": "المنطقة / القضاء",
+    "landmark": "أقرب نقطة دالة",
+    "landmarkPlaceholder": "مثلاً: قرب مطعم المنصور، شارع الصناعة",
+    "notes": "ملاحظات",
+    "notesOptional": "(اختياري)",
+    "consent": "ملف تصميمك ينحذف بعد {days} يوم. اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.",
+    "submit": "أرسل الطلب",
+    "errors": {
+      "invalid_phone": "اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567",
+      "governorate": "اختار المحافظة.",
+      "district": "اكتب المنطقة أو القضاء.",
+      "landmark": "اكتب أقرب نقطة دالة للمندوب."
+    }
+  },
+  "summary": {
+    "title": "ملخص الطلب",
+    "shape": "الشكل",
+    "size": "القياس",
+    "perSheet": "بالورقة",
+    "material": "الخامة",
+    "sheets": "الأوراق",
+    "totalStickers": "مجموع الستيكرات",
+    "unitPrice": "سعر الورقة",
+    "discount": "الخصم",
+    "subtotal": "سعر الأوراق",
+    "delivery": "التوصيل",
+    "total": "الإجمالي",
+    "priceUnset": "يُحدد عند التأكيد"
+  },
+  "success": {
+    "title": "وصلنا طلبك!",
+    "subtitle": "رقم طلبك",
+    "body": "نتواصل وياك بالواتساب لتأكيد الطلب والسعر.",
+    "whatsapp": "أرسل عبر واتساب",
+    "whatsappRequired": "ما وصل الطلب للمطبعة تلقائياً. اضغط «أرسل عبر واتساب» لإكماله.",
+    "newOrder": "طلب جديد"
+  },
+  "degraded": {
+    "title": "تعذر إرسال الطلب",
+    "body": "لا تقلق، أرسل طلبك والتصميم لنا مباشرة على الواتساب.",
+    "whatsapp": "أرسل عبر واتساب"
+  },
+  "whatsappText": {
+    "newOrder": "مرحباً، عندي طلب ستيكرات:",
+    "readyFile": "مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4."
+  }
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
+{
+  "arrays": 1,
+  "booleans": 0,
+  "chars": 2929,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 18,
+  "sha256OfRawJson": "5b65a5e1ca2444eafe41b39593ca5e87fb59ce00fabae97bc1e6acaef7a9bb35",
+  "strings": 135,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
+"{
+  "brand": "مطبعة سوفتي",
+  "nav": {
+    "home": "الرئيسية",
+    "howItWorks": "شلون نشتغل؟",
+    "start": "صمّم ستيكراتك",
+    "whatsapp": "واتساب",
+    "inquiry": "استفسار"
+  },
+  "actions": {
+    "next": "التالي",
+    "back": "رجوع",
+    "retry": "جرّب مرة ثانية"
+  },
+  "units": {
+    "cm": "سم",
+    "mm": "ملم",
+    "iqd": "د.ع",
+    "a4": "A4"
+  },
+  "materials": {
+    "paper": "ورقي",
+    "plastic": "بلاستك"
+  },
+  "status": {
+    "loading": "جاري التحميل…",
+    "uploading": "جاري رفع الملف…",
+    "processing": "جاري تجهيز الطلب…"
+  },
+  "errors": {
+    "generic": "صار خطأ. جرّب مرة ثانية.",
+    "rateLimited": "طلبات كثيرة. انتظر شوية وجرّب مرة ثانية."
+  },
+  "footer": {
+    "filesNotice": "ملفات التصميم تنحذف بعد 30 يوم. رقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد.",
+    "rights": "جميع الحقوق محفوظة",
+    "hours": "أوقات العمل",
+    "contact": "تواصل معنا"
+  },
+  "plural": {
+    "sticker": {
+      "zero": "ستيكرات",
+      "one": "ستيكر",
+      "two": "ستيكرين",
+      "few": "ستيكرات",
+      "many": "ستيكر",
+      "other": "ستيكر"
+    },
+    "sheet": {
+      "zero": "أوراق",
+      "one": "ورقة",
+      "two": "ورقتين",
+      "few": "أوراق",
+      "many": "ورقة",
+      "other": "ورقة"
+    },
+    "design": {
+      "zero": "تصاميم",
+      "one": "تصميم",
+      "two": "تصميمين",
+      "few": "تصاميم",
+      "many": "تصميم",
+      "other": "تصميم"
+    },
+    "page": {
+      "zero": "صفحات",
+      "one": "صفحة",
+      "two": "صفحتين",
+      "few": "صفحات",
+      "many": "صفحة",
+      "other": "صفحة"
+    }
+  }
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
+{
+  "arrays": 0,
+  "booleans": 0,
+  "chars": 477,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 13,
+  "sha256OfRawJson": "43bdf8798011d268fed6f0e88d099f99960e95f6ef8c619e08d405eea7b8e20e",
+  "strings": 48,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "fill" 1`] = `""[Function] function fill(template, values) {\\n\\treturn template.replace(/\\\\{(\\\\w+)\\\\}/g, (_, key) => key in values ? String(values[key]) : \`{\${key}}\`);\\n}""`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "fill" 2`] = `
+{
+  "arrays": 0,
+  "booleans": 0,
+  "chars": 0,
+  "functions": 1,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 0,
+  "sha256OfRawJson": "c64287918af39b1ab378109b91e582ac3332caec5fc17f89e156d8a6a38549ef",
+  "strings": 0,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "governorates" 1`] = `
+"[
+  "بغداد",
+  "أربيل",
+  "الأنبار",
+  "البصرة",
+  "بابل",
+  "دهوك",
+  "ديالى",
+  "ذي قار",
+  "السليمانية",
+  "صلاح الدين",
+  "القادسية",
+  "كربلاء",
+  "كركوك",
+  "المثنى",
+  "ميسان",
+  "النجف",
+  "نينوى",
+  "واسط",
+  "حلبجة"
+]"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "governorates" 2`] = `
+{
+  "arrays": 1,
+  "booleans": 0,
+  "chars": 111,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 0,
+  "sha256OfRawJson": "38b7bf94611dc1fa811d9d0b346a597f804d987c8f33f5b8ea0f5d9153ee6bef",
+  "strings": 19,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
+"{
+  "telegram": {
+    "title": "طلب جديد",
+    "shape": "الشكل",
+    "size": "القياس",
+    "perSheet": "بالورقة",
+    "sheets": "الأوراق",
+    "material": "الخامة",
+    "unitPrice": "سعر الورقة",
+    "discount": "خصم {percent}%",
+    "subtotal": "المجموع",
+    "totalStickers": "مجموع الستيكرات",
+    "delivery": "التوصيل",
+    "total": "الإجمالي",
+    "priceUnset": "يُحدد عند التأكيد",
+    "customer": "الزبون",
+    "phone": "الموبايل",
+    "address": "العنوان",
+    "notes": "ملاحظات",
+    "dpi": "جودة الصورة",
+    "time": "الوقت",
+    "whatsapp": "واتساب"
+  },
+  "text": {
+    "newOrder": "طلب جديد",
+    "shape": "الشكل",
+    "size": "القياس",
+    "perSheet": "بالورقة",
+    "sheets": "الأوراق",
+    "material": "الخامة",
+    "price": "السعر",
+    "unitPrice": "سعر الورقة",
+    "discount": "خصم {percent}%",
+    "subtotal": "المجموع",
+    "delivery": "التوصيل",
+    "total": "الإجمالي",
+    "priceUnset": "يُحدد عند التأكيد"
+  },
+  "status": {
+    "new": "جديد",
+    "printing": "قيد الطباعة",
+    "done": "مكتمل",
+    "cancelled": "ملغي"
+  },
+  "errors": {
+    "invalid_request": "بيانات الطلب غير صحيحة.",
+    "upload_missing": "الملف ما انرفع. ارفعه مرة ثانية.",
+    "invalid_quantity": "العدد أو الخامة غير متاحة. ارجع وغيّرها.",
+    "invalid_phone": "رقم الموبايل غير صحيح.",
+    "too_small": "القياس أصغر من الحد المسموح.",
+    "too_big_for_page": "القياس أكبر من الورقة.",
+    "ratio_extreme": "نسبة التصميم ما تناسب ورقة A4.",
+    "low_dpi": "دقة الصورة قليلة لهذا القياس.",
+    "no_alpha": "الشكل المخصص يحتاج PNG بخلفية شفافة.",
+    "too_large": "حجم الملف أكبر من المسموح.",
+    "unsupported_type": "نوع الملف غير مدعوم.",
+    "corrupt": "ما قدرنا نقرأ الملف.",
+    "encrypted": "ملف PDF محمي بكلمة سر.",
+    "needs_raster": "راح نحوّل الـPDF لصورة.",
+    "rate_limited": "طلبات كثيرة. انتظر شوية.",
+    "captcha_failed": "فشل التحقق. جرّب مرة ثانية.",
+    "server_error": "صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."
+  },
+  "shapes": {
+    "circle": "دائري",
+    "custom": "شكل مخصص",
+    "rectSharp": "مستطيل بزوايا حادة",
+    "rectRounded": "مستطيل بزوايا دائرية"
+  }
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "order" 2`] = `
+{
+  "arrays": 0,
+  "booleans": 0,
+  "chars": 814,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 6,
+  "sha256OfRawJson": "c6fbb40fd13944796b392095db5021d39a23800b0a38d8e7d22cd7447215ea6e",
+  "strings": 58,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
+"{
+  "howItWorks": {
+    "title": "شلون نشتغل؟",
+    "hero": "من الملف للطباعة بثلاث خطوات",
+    "heroSub": "ارفع تصميمك وحدد القياس، والموقع يرتب ورقة A4 ويحسب العدد بالضبط.",
+    "stepsTitle": "ثلاث خطوات",
+    "steps": [
+      {
+        "title": "اختار الشكل وارفع تصميمك",
+        "body": "دائري، مستطيل، أو مخصص. PNG أو JPG أو PDF."
+      },
+      {
+        "title": "حدد القياس",
+        "body": "اكتب القياس بالسنتيمتر وشوف العدد فوراً."
+      },
+      {
+        "title": "اختار الخامة والعدد وأرسل",
+        "body": "ورقي أو بلاستك، واكتب عدد الأوراق. بعدها عنوانك ورقمك ونتواصل وياك."
+      }
+    ],
+    "specTitle": "مواصفات الورقة",
+    "specIntro": "كل الستيكرات تنطبع على ورقة A4 بهذي المواصفات:",
+    "spec": {
+      "size": "حجم الورقة",
+      "margin": "الهامش من كل جهة",
+      "usable": "المساحة المتاحة للطباعة"
+    },
+    "specNote": "ما نطبع ضمن الهامش، حتى تطلع الحواف نظيفة.",
+    "illustrationTitle": "هيج تنرتب الورقة",
+    "illustrationCaption": "دوائر قطرها {size} سم: {n} ستيكر بالورقة الوحدة.",
+    "illustrationAlt": "رسم لورقة A4 عليها {n} ستيكر دائري مرتبة بصفوف وأعمدة",
+    "rulesTitle": "الفراغ بين الستيكرات",
+    "rulesIntro": "يعتمد على الشكل، حتى يسهل القص وتسع الورقة أكبر عدد.",
+    "rules": {
+      "circle": {
+        "title": "دائري",
+        "columns": "فراغ {gapX} ملم بين الأعمدة",
+        "rowsTouching": "والصفوف متلاصقة.",
+        "rowsGap": "و{gapY} ملم بين الصفوف."
+      },
+      "rounded": {
+        "title": "مستطيل بزوايا دائرية",
+        "body": "فراغ {gap} ملم بين الستيكرات."
+      },
+      "sharp": {
+        "title": "مستطيل بزوايا حادة",
+        "body": "بدون فراغ بينها ({gap} ملم)."
+      },
+      "custom": {
+        "title": "شكل مخصص",
+        "body": "فراغ {gap} ملم بين الستيكرات. يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم."
+      }
+    },
+    "examplesTitle": "شكد يدخل بالورقة؟",
+    "examplesIntro": "أرقام يحسبها الموقع بنفس قواعد المعاينة:",
+    "examplesHeaders": {
+      "sticker": "الستيكر",
+      "perSheet": "العدد بالورقة"
+    },
+    "examples": {
+      "circle3": "دائرة {size} سم",
+      "circle5": "دائرة {size} سم",
+      "sharp5": "مستطيل حاد {w}×{h} سم",
+      "rounded5": "مستطيل دائري {w}×{h} سم",
+      "custom5": "شكل مخصص {w}×{h} سم"
+    },
+    "perSheetLabel": "{count} بالورقة",
+    "exampleUnavailable": "ما يدخل",
+    "pricingTitle": "الأسعار",
+    "pricingIntro": "تختار الخامة والعدد، وكل ما زاد العدد يزيد الخصم.",
+    "perSheet": "للورقة",
+    "minOrder": "أقل طلب",
+    "discountTitle": "خصم الكمية",
+    "discountHeaders": {
+      "sheets": "عدد الأوراق",
+      "discount": "الخصم"
+    },
+    "noDiscount": "بدون خصم",
+    "rangeTo": "{from}–{to} ورقة",
+    "rangeFrom": "{from} ورقة وأكثر",
+    "percentOff": "{percent}%",
+    "exampleLabel": "مثال",
+    "exampleEquals": "التوصيل",
+    "exampleAnd": "+",
+    "priceUnset": "السعر يُحدد عند التأكيد",
+    "deliveryLabel": "التوصيل",
+    "deliveryValue": "{fee} د.ع لكل المحافظات",
+    "cta": "ابدأ هسة",
+    "ctaTitle": "جاهز؟ صمّم ستيكراتك",
+    "ctaBody": "ما تحتاج تحسب شي. ارفع الملف وشوف الورقة مرتبة."
+  },
+  "notFound": {
+    "title": "الصفحة غير موجودة",
+    "body": "يمكن الرابط تغيّر أو انحذف.",
+    "home": "ارجع للرئيسية",
+    "code": "404"
+  },
+  "shell": {
+    "menuLabel": "التنقل الرئيسي",
+    "footerLinks": "روابط",
+    "whatsappAria": "تواصل معنا على واتساب",
+    "homeAria": "الرئيسية"
+  },
+  "install": {
+    "title": "نزّل تطبيق {name}",
+    "body": "افتحه بلمسة من شاشة موبايلك، بدون متجر.",
+    "install": "ثبّت",
+    "later": "مو هسة",
+    "close": "إغلاق",
+    "iosStep1": "اضغط زر المشاركة",
+    "iosStep2": "واختار «إضافة إلى الشاشة الرئيسية»",
+    "region": "تثبيت التطبيق"
+  },
+  "seo": {
+    "title": "مطبعة سوفتي | طباعة ستيكرات على قياسك",
+    "description": "اطبع ستيكرات بقياسك في العراق: ارفع تصميمك وشوف ورقة A4 مرتبة فوراً.",
+    "howItWorksDescription": "مواصفات ورقة A4، الفراغات بين الستيكرات، وشكد ستيكر يدخل بالورقة.",
+    "ogAlt": "مطبعة سوفتي",
+    "manifestShort": "مطبعة سوفتي"
+  }
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
+{
+  "arrays": 1,
+  "booleans": 0,
+  "chars": 1825,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 18,
+  "sha256OfRawJson": "3dbb6fc5b4b84368df3324a35ea10c42d87dbde09b54e128398c9c49a58b876f",
+  "strings": 83,
+}
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export names 1`] = `
+[
+  "admin: object",
+  "builder: object",
+  "common: object",
+  "fill: function",
+  "governorates: array",
+  "order: object",
+  "pages: object",
+]
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > fill() replaces {placeholders} and leaves unknown ones 1`] = `
+[
+  ""خصم {percent}%" + {"percent":10} -> "خصم 10%"",
+  ""{a} و {b} و {a}" + {"a":"أ","b":2} -> "أ و 2 و أ"",
+  ""{missing} stays" + {} -> "{missing} stays"",
+  ""{a}{b}" + {"a":"","b":0} -> "0"",
+  ""no placeholders" + {"a":1} -> "no placeholders"",
+  ""{ spaced } {a-b} {a.b} {1} {_x}" + {"1":"one"," spaced ":1,"a-b":2,"a.b":3,"_x":"under"} -> "{ spaced } {a-b} {a.b} one under"",
+  ""{toString} {constructor}" + {} -> "function toString() { [native code] } function Object() { [native code] }"",
+  ""nested {{a}}" + {"a":"x"} -> "nested {x}"",
+  ""{a}" + {"a":"{b}","b":"no second pass"} -> "{b}"",
+  """ + {"a":1} -> """,
+]
+`;

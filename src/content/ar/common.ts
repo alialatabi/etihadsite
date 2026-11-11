@@ -1,38 +1,28 @@
 /**
- * Shared Arabic copy — FROZEN during Phase 1 (orchestrator applies edits from copy-review.md).
+ * Shared Arabic copy: brand, navigation, actions, units, materials, statuses, errors, footer
+ * and plural forms. Visible text, pinned by tests/unit/golden/copy.golden.test.ts: changing a
+ * string is a content change, not a refactor.
  * Register: Iraqi colloquial for UI verbs and headlines; neutral for errors and legal text.
  * Digits: Western (0-9). Numbers, units, file names and phone numbers are wrapped in <Ltr>.
  */
 export const common = {
   brand: 'مطبعة سوفتي',
-  tagline: 'ستيكرات على قياسك',
   nav: {
     home: 'الرئيسية',
     howItWorks: 'شلون نشتغل؟',
     start: 'صمّم ستيكراتك',
-    startNow: 'ابدأ هسة',
     whatsapp: 'واتساب',
     inquiry: 'استفسار',
   },
   actions: {
     next: 'التالي',
     back: 'رجوع',
-    continue: 'كمّل',
-    change: 'تغيير',
-    remove: 'حذف',
     retry: 'جرّب مرة ثانية',
-    close: 'إغلاق',
-    download: 'نزّل الملف',
-    copy: 'نسخ',
-    save: 'حفظ',
-    cancel: 'إلغاء',
   },
   units: {
     cm: 'سم',
     mm: 'ملم',
     iqd: 'د.ع',
-    perSticker: 'للستيكر',
-    perSheet: 'بالورقة',
     a4: 'A4',
   },
   /** Sticker sheet material (keys = Material in src/lib/types.ts). */
@@ -42,14 +32,11 @@ export const common = {
   },
   status: {
     loading: 'جاري التحميل…',
-    saving: 'جاري الحفظ…',
     uploading: 'جاري رفع الملف…',
     processing: 'جاري تجهيز الطلب…',
-    done: 'تم',
   },
   errors: {
     generic: 'صار خطأ. جرّب مرة ثانية.',
-    network: 'ما قدرنا نوصل للسيرفر. تأكد من الإنترنت وجرّب مرة ثانية.',
     rateLimited: 'طلبات كثيرة. انتظر شوية وجرّب مرة ثانية.',
   },
   footer: {

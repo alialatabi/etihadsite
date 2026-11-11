@@ -1,0 +1,611 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: GET /api/admin/files/[orderId]/[which] > auth, parameters, downloads from local storage 1`] = `
+[
+  "not logged in -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+  "pdf -> 200 [content-type=application/pdf; content-length=15; content-disposition=attachment; filename="EP-261110-AB3C_circle-30x30mm_x20.pdf"; cache-control=private, no-store] <15 bytes sha fbf536c9da41d9f2>",
+  "design (png) -> 200 [content-type=image/png; content-length=7; content-disposition=attachment; filename="EP-261110-AB3C_design.png"; cache-control=private, no-store] <7 bytes sha cdf3cefe7ec6253d>",
+  "pdf of a 4.24x3 cm rect -> 200 [content-type=application/pdf; content-length=15; content-disposition=attachment; filename="EP-261110-AB3C_rect-42.42x30mm_x20.pdf"; cache-control=private, no-store] <15 bytes sha fbf536c9da41d9f2>",
+  "design (jpeg -> .jpg) -> 200 [content-type=image/jpeg; content-length=4; content-disposition=attachment; filename="EP-261110-AB3C_design.jpg"; cache-control=private, no-store] <4 bytes sha ba4f25bf16ba4be6>",
+  "pdf, display number with unsafe characters -> 200 [content-type=application/pdf; content-length=15; content-disposition=attachment; filename="EP_26_11__x____circle-30x30mm_x20.pdf"; cache-control=private, no-store] <15 bytes sha fbf536c9da41d9f2>",
+  "design (pdf), display number with unsafe characters -> 200 [content-type=application/pdf; content-length=5; content-disposition=attachment; filename="EP_26_11__x____design.pdf"; cache-control=private, no-store] <5 bytes sha 38523c087796e5d5>",
+  "legacy order: sheets from offer -> 200 [content-type=application/pdf; content-length=15; content-disposition=attachment; filename="EP-261110-AB3C_circle-30x30mm_x10.pdf"; cache-control=private, no-store] <15 bytes sha fbf536c9da41d9f2>",
+  "legacy order: design file is gone -> 404 [] (empty body)",
+  "no sheets anywhere: pdf file is gone -> 404 [] (empty body)",
+  "no sheets anywhere: design -> 200 [content-type=image/png; content-length=1; content-disposition=attachment; filename="EP-261110-AB3C_design.png"; cache-control=private, no-store] <1 bytes sha 4bf5122f344554c5>",
+  "unknown order -> 404 [] (empty body)",
+  "bad order id -> 404 [] (empty body)",
+  "unknown file kind -> 404 [] (empty body)",
+  "upper-case kind -> 404 [] (empty body)",
+]
+`;
+
+exports[`golden: GET /api/admin/files/[orderId]/[which] > cloud storage: 302 to a 60-second signed link 1`] = `
+{
+  "rows": [
+    "pdf -> 302 [cache-control=private, no-store; location=https://sb.example/storage/v1/object/sign/etihad/x?token=t&download=name] (empty body)",
+    "design with unsafe display number -> 302 [cache-control=private, no-store; location=https://sb.example/storage/v1/object/sign/etihad/x?token=t&download=name] (empty body)",
+    "no signed link (object missing) -> 404 [] (empty body)",
+  ],
+  "signedDownloadUrlArguments": [
+    [
+      "orders/order-files-00001.pdf",
+      "EP-261110-AB3C_circle-30x30mm_x20.pdf",
+      60,
+    ],
+    [
+      "uploads/order-files-00003.bin",
+      "EP_26_11__x____design.pdf",
+      60,
+    ],
+    [
+      "orders/order-files-00001.pdf",
+      "EP-261110-AB3C_circle-30x30mm_x20.pdf",
+      60,
+    ],
+  ],
+}
+`;
+
+exports[`golden: admin/_lib > formatBaghdad with an invalid date throws 1`] = `"THROWS Invalid time value"`;
+
+exports[`golden: admin/_lib > orderPriceView: current, legacy (offer) and broken records 1`] = `
+{
+  "current": {
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 15,
+    "material": "plastic",
+    "sheets": 50,
+    "subtotalIqd": 63750,
+    "totalIqd": 68750,
+    "totalStickers": 2700,
+    "unitPriceIqd": 1275,
+  },
+  "legacyOffer": {
+    "deliveryFeeIqd": 5000,
+    "discountPercent": null,
+    "material": null,
+    "sheets": 10,
+    "subtotalIqd": null,
+    "totalIqd": 30000,
+    "totalStickers": 540,
+    "unitPriceIqd": null,
+  },
+  "legacyOfferOnly": {
+    "deliveryFeeIqd": null,
+    "discountPercent": null,
+    "material": null,
+    "sheets": 20,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": null,
+    "unitPriceIqd": null,
+  },
+  "nothing": {
+    "deliveryFeeIqd": null,
+    "discountPercent": null,
+    "material": null,
+    "sheets": null,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": null,
+    "unitPriceIqd": null,
+  },
+  "priceSheetsWinOverOffer": {
+    "deliveryFeeIqd": null,
+    "discountPercent": null,
+    "material": null,
+    "sheets": 7,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": null,
+    "unitPriceIqd": null,
+  },
+  "unpriced": {
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 0,
+    "material": "plastic",
+    "sheets": 50,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": 2700,
+    "unitPriceIqd": null,
+  },
+  "zeroValuesAreKept": {
+    "deliveryFeeIqd": 0,
+    "discountPercent": 0,
+    "material": null,
+    "sheets": 0,
+    "subtotalIqd": null,
+    "totalIqd": 0,
+    "totalStickers": 0,
+    "unitPriceIqd": null,
+  },
+}
+`;
+
+exports[`golden: admin/_lib > statusVariant, telegramLabel, formatBaghdad 1`] = `
+{
+  "formatBaghdad": [
+    "2026-11-10T09:00:00.000Z -> 10<U+200F>/11<U+200F>/2026، 12:00 م",
+    "2026-11-09T20:59:00.000Z -> 09<U+200F>/11<U+200F>/2026، 11:59 م",
+    "2026-11-09T21:00:00.000Z -> 10<U+200F>/11<U+200F>/2026، 12:00 ص",
+    "2026-06-15T13:45:30.000Z -> 15<U+200F>/06<U+200F>/2026، 4:45 م",
+    "2026-01-01T00:00:00.000Z -> 01<U+200F>/01<U+200F>/2026، 3:00 ص",
+  ],
+  "statusVariant": {
+    "cancelled": "destructive",
+    "done": "outline",
+    "new": "default",
+    "printing": "secondary",
+  },
+  "telegramLabel": {
+    "failed": "فشل تيليغرام",
+    "sent": "وصل تيليغرام",
+    "skipped": "تيليغرام غير مفعّل",
+  },
+}
+`;
+
+exports[`golden: customers filter and CSV helpers > csvCell / phoneForCsv / csvDate tables 1`] = `
+{
+  "BOM": "<U+FEFF>",
+  "csvCell": [
+    ""plain" -> "plain"",
+    ""say \\"hi\\"" -> "say ""hi"""",
+    ""a,b" -> "a,b"",
+    ""line\\nbreak" -> "line
+break"",
+    ""cr<U+000D>lf" -> "cr<U+000D>lf"",
+    ""=SUM(A1)" -> "'=SUM(A1)"",
+    ""+1" -> "'+1"",
+    ""-2" -> "'-2"",
+    ""@cmd" -> "'@cmd"",
+    ""\\tx" -> "'	x"",
+    ""<U+000D>x" -> "'<U+000D>x"",
+    "" =x" -> " =x"",
+    ""0" -> "0"",
+    "0 -> "0"",
+    "1500 -> "1500"",
+    "-5 -> "'-5"",
+    "12.5 -> "12.5"",
+    "null -> """,
+    "undefined -> """,
+    """ -> """,
+    ""بغداد" -> "بغداد"",
+    ""'quoted" -> "'quoted"",
+    ""=" -> "'="",
+    ""\\"" -> """"",
+  ],
+  "csvDate": [
+    ""2026-11-10T21:30:00Z" -> "2026-11-11 00:30"",
+    ""2026-11-09T20:59:59.999Z" -> "2026-11-09 23:59"",
+    ""2026-11-09T21:00:00.000Z" -> "2026-11-10 00:00"",
+    ""2026-01-01T00:00:00+03:00" -> "2026-01-01 00:00"",
+    ""2026-11-10" -> "2026-11-10 03:00"",
+    ""bad" -> """,
+    """ -> """,
+  ],
+  "emptyTable": "<U+FEFF>"a","b"<U+000D>
+",
+  "noHeaders": "<U+FEFF><U+000D>
+",
+  "phoneForCsv": [
+    ""9647701234567" -> "964 770 123 4567"",
+    ""07701234567" -> "077 012 345 67"",
+    ""+964 770 123 4567" -> "964 770 123 4567"",
+    ""964770123" -> "964770123"",
+    ""1234567890" -> "123 456 789 0"",
+    ""12345678901234567890" -> "123 456 789 01234567890"",
+    """ -> """,
+    ""abc" -> """,
+  ],
+}
+`;
+
+exports[`golden: customers filter and CSV helpers > matchesQuery table 1`] = `
+[
+  """ -> [0,1,2]",
+  ""   " -> [0,1,2]",
+  ""علي" -> [0]",
+  ""حسين" -> [0]",
+  ""بغد" -> [0]",
+  ""البصرة" -> [1]",
+  ""الكرادة" -> []",
+  ""عنكاوا" -> []",
+  ""sara" -> [2]",
+  ""SARA" -> [2]",
+  ""ahmed " -> [2]",
+  ""0770" -> [0]",
+  ""07701234567" -> [0]",
+  ""٠٧٧٠١٢٣" -> [0]",
+  ""۰۷۷۰" -> [0]",
+  ""9647701" -> [0]",
+  ""+964 770" -> [0]",
+  ""770 123" -> [0]",
+  ""1234567" -> [0]",
+  ""0780" -> [1]",
+  ""111" -> [1,2]",
+  ""000" -> []",
+  ""0" -> [0,1,2]",
+  ""EP-261110" -> []",
+  ""AB3C" -> [0]",
+  ""x" -> []",
+  ""علي 0770" -> [0]",
+]
+`;
+
+exports[`golden: loginAction / logoutAction > password check, session cookie (exact token and options), logout 1`] = `
+{
+  "cookieName": "ep_admin",
+  "httpCookieOptions": {
+    "httpOnly": true,
+    "maxAge": 604800,
+    "path": "/",
+    "sameSite": "lax",
+    "secure": false,
+  },
+  "httpsCookieOptions": {
+    "httpOnly": true,
+    "maxAge": 604800,
+    "path": "/",
+    "sameSite": "lax",
+    "secure": true,
+  },
+  "jwtHeader": "{"alg":"HS256"}",
+  "jwtPayload": "{"role":"admin","iat":1794301200,"exp":1794906000}",
+  "rows": [
+    "no password field: redirect -> /admin/login?error=1",
+    "password is a File: redirect -> /admin/login?error=1",
+    "wrong password: redirect -> /admin/login?error=1",
+    "empty password: redirect -> /admin/login?error=1",
+    "password with extra space: redirect -> /admin/login?error=1",
+    "cookie after failures: false",
+    "correct password: redirect -> /admin",
+    "correct password over https: redirect -> /admin",
+    "logout: redirect -> /admin/login",
+    "cookie after logout: false",
+  ],
+  "sameTokenBothTimes": true,
+  "tokenParts": 3,
+  "tokenSha256": "34fb0a48cd2360b1e54bf4d68f6bbc524a3e5a5257fe72868a00e096176e2af4",
+}
+`;
+
+exports[`golden: loginAction / logoutAction > rate limit: 10 attempts per 15 minutes per address; missing admin env 1`] = `
+{
+  "after15Minutes": "redirect -> /admin/login?error=1",
+  "eleventh": "redirect -> /admin/login?error=rate",
+  "firstTen": [
+    "redirect -> /admin/login?error=1",
+  ],
+  "noAdminPassword": "THROWS Invalid environment variables: ADMIN_PASSWORD",
+  "noForwardedHeader": "redirect -> /admin/login?error=1",
+  "otherAddress": "redirect -> /admin",
+  "placeholderPassword": "THROWS Invalid environment variables: ADMIN_PASSWORD",
+}
+`;
+
+exports[`golden: saveSettingsAction > form -> saved settings (diff from the defaults) or the error shown 1`] = `
+{
+  "21 tiers": {
+    "changed": [],
+    "result": "returned {"error":"أكثر شيء 20 شريحة."}",
+    "revalidated": "[]",
+  },
+  "WhatsApp 16 digits": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "both materials disabled": {
+    "changed": [],
+    "result": "returned {"error":"لازم تفعّل خامة وحدة على الأقل."}",
+    "revalidated": "[]",
+  },
+  "checkbox value other than "on" counts as unchecked": {
+    "changed": [
+      "pricesPublished: true -> false",
+      "pricing.materials.plastic.enabled: true -> false",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "delivery fee empty": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "delivery fee fractional": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "duplicate quick picks are kept": {
+    "changed": [
+      "pricing.quickPicks.length: 4 -> 3",
+      "pricing.quickPicks[1]: 20 -> 10",
+      "pricing.quickPicks[2]: 50 -> 20",
+      "pricing.quickPicks[3]: 100 -> (absent)",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "duplicate tier": {
+    "changed": [],
+    "result": "returned {"error":"ماكو شريحتين بنفس العدد."}",
+    "revalidated": "[]",
+  },
+  "form unchanged": {
+    "changed": [],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "gap with sub-micrometre precision is rounded": {
+    "changed": [],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "layout in fractional millimetres": {
+    "changed": [
+      "layout.circleGapXUm: 2000 -> 1250",
+      "layout.circleGapYUm: 0 -> 500",
+      "layout.customGapUm: 2000 -> 0",
+      "layout.marginUm: 7000 -> 7500",
+      "layout.rectRoundedGapUm: 2000 -> 3000",
+      "layout.rectSharpGapUm: 0 -> 1000",
+      "layout.roundedRadiusUm: 3000 -> 2300",
+      "retentionDays: 30 -> 45",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "margin 51 mm": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "margin empty": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "margin negative": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "margin not a number": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "max sheets above the schema limit": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "min above max": {
+    "changed": [],
+    "result": "returned {"error":"أقل عدد لازم يكون أصغر من أو يساوي أكثر عدد."}",
+    "revalidated": "[]",
+  },
+  "min sheets empty": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "nine quick picks": {
+    "changed": [],
+    "result": "returned {"error":"الأزرار السريعة: أرقام صحيحة بفاصلة، لحد 8."}",
+    "revalidated": "[]",
+  },
+  "no tiers and no quick picks": {
+    "changed": [
+      "pricing.quickPicks.length: 4 -> 0",
+      "pricing.quickPicks[0]: 10 -> (absent)",
+      "pricing.quickPicks[1]: 20 -> (absent)",
+      "pricing.quickPicks[2]: 50 -> (absent)",
+      "pricing.quickPicks[3]: 100 -> (absent)",
+      "pricing.tiers.length: 3 -> 0",
+      "pricing.tiers[0].minSheets: 20 -> (absent)",
+      "pricing.tiers[0].percent: 10 -> (absent)",
+      "pricing.tiers[1].minSheets: 50 -> (absent)",
+      "pricing.tiers[1].percent: 15 -> (absent)",
+      "pricing.tiers[2].minSheets: 100 -> (absent)",
+      "pricing.tiers[2].percent: 20 -> (absent)",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "paper price empty": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "paper price fractional": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "paper price negative": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "plastic disabled, prices hidden, rotation on": {
+    "changed": [
+      "layout.allowRotate: false -> true",
+      "pricesPublished: true -> false",
+      "pricing.materials.plastic.enabled: true -> false",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "price written with Arabic digits": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "prices, limits, unsorted tiers, quick picks with Arabic comma": {
+    "changed": [
+      "deliveryFeeIqd: 5000 -> 0",
+      "pricing.materials.paper.pricePerSheetIqd: 800 -> 1000",
+      "pricing.materials.plastic.pricePerSheetIqd: 1500 -> 2000",
+      "pricing.maxSheets: 5000 -> 200",
+      "pricing.minSheets: 10 -> 5",
+      "pricing.quickPicks[0]: 10 -> 5",
+      "pricing.quickPicks[1]: 20 -> 10",
+      "pricing.quickPicks[3]: 100 -> 200",
+      "pricing.tiers[0].minSheets: 20 -> 10",
+      "pricing.tiers[0].percent: 10 -> 5",
+      "pricing.tiers[2].percent: 20 -> 25",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "quick pick above the maximum": {
+    "changed": [],
+    "result": "returned {"error":"الأزرار السريعة لازم تكون بين أقل وأكثر عدد أوراق."}",
+    "revalidated": "[]",
+  },
+  "quick pick below the minimum": {
+    "changed": [],
+    "result": "returned {"error":"الأزرار السريعة لازم تكون بين أقل وأكثر عدد أوراق."}",
+    "revalidated": "[]",
+  },
+  "quick pick fractional": {
+    "changed": [],
+    "result": "returned {"error":"الأزرار السريعة: أرقام صحيحة بفاصلة، لحد 8."}",
+    "revalidated": "[]",
+  },
+  "quick pick is not a number": {
+    "changed": [],
+    "result": "returned {"error":"الأزرار السريعة: أرقام صحيحة بفاصلة، لحد 8."}",
+    "revalidated": "[]",
+  },
+  "retention 0 days": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "retention missing": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "shop details; WhatsApp typed with + and spaces": {
+    "changed": [
+      "area: "بغداد" -> "الكرادة"",
+      "hours: "السبت – الخميس، 10 صباحاً – 8 مساءً" -> "9-5"",
+      "phone: "" -> "0770 999 9999"",
+      "shopName: "مطبعة سوفتي" -> "مطبعة النخيل"",
+      "tagline: "طباعة ستيكرات على قياسك" -> "ستيكرات"",
+      "telegramChatId: "" -> "-100123"",
+      "whatsapp: "" -> "9647709999999"",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "shop name 81 chars": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "shop name empty": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "tier minSheets 0": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "tier percent 91": {
+    "changed": [],
+    "result": "returned {"error":"نسبة الخصم من 0 إلى 90."}",
+    "revalidated": "[]",
+  },
+  "tier percent fractional": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "tier percent negative": {
+    "changed": [],
+    "result": "returned {"error":"نسبة الخصم من 0 إلى 90."}",
+    "revalidated": "[]",
+  },
+  "tier with empty fields": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "tiers contains null": {
+    "changed": [],
+    "result": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+    "revalidated": "[]",
+  },
+  "tiers field missing entirely": {
+    "changed": [
+      "pricing.tiers.length: 3 -> 0",
+      "pricing.tiers[0].minSheets: 20 -> (absent)",
+      "pricing.tiers[0].percent: 10 -> (absent)",
+      "pricing.tiers[1].minSheets: 50 -> (absent)",
+      "pricing.tiers[1].percent: 15 -> (absent)",
+      "pricing.tiers[2].minSheets: 100 -> (absent)",
+      "pricing.tiers[2].percent: 20 -> (absent)",
+    ],
+    "result": "redirect -> /admin/settings?saved=1",
+    "revalidated": "[["/","layout"]]",
+  },
+  "tiers is an object": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "tiers is not JSON": {
+    "changed": [],
+    "result": "returned {"error":"قيمة غير صحيحة. راجع الحقول."}",
+    "revalidated": "[]",
+  },
+  "two tiers with empty minSheets": {
+    "changed": [],
+    "result": "returned {"error":"ماكو شريحتين بنفس العدد."}",
+    "revalidated": "[]",
+  },
+}
+`;
+
+exports[`golden: saveSettingsAction > not logged in; values the form does not carry are preserved; failed save leaves the old settings 1`] = `
+{
+  "afterFailure": true,
+  "changedFromStored": [
+    "shopName: "قبل" -> "بعد"",
+  ],
+  "failed": "returned {"error":"أدخل أرقام صحيحة بالأسعار والأعداد."}",
+  "notLoggedIn": "redirect -> /admin/login",
+  "ok": "redirect -> /admin/settings?saved=1",
+  "untouched": true,
+}
+`;
+
+exports[`golden: updateOrderStatus > auth, validation, update, revalidation 1`] = `
+{
+  "nothingElseChanged": true,
+  "rows": [
+    "not logged in: redirect -> /admin/login | status=new",
+    "printing: redirect -> /admin/orders/order-admin-00001?updated=1 | status=printing | revalidated=[["/admin"]]",
+    "done: redirect -> /admin/orders/order-admin-00001?updated=1 | status=done | revalidated=[["/admin"]]",
+    "cancelled: redirect -> /admin/orders/order-admin-00001?updated=1 | status=cancelled | revalidated=[["/admin"]]",
+    "back to new: redirect -> /admin/orders/order-admin-00001?updated=1 | status=new | revalidated=[["/admin"]]",
+    "unknown status: redirect -> /admin | status=new | revalidated=[]",
+    "status missing: redirect -> /admin | status=new | revalidated=[]",
+    "upper-case status: redirect -> /admin | status=new | revalidated=[]",
+    "bad order id: redirect -> /admin | status=new | revalidated=[]",
+    "order id missing: redirect -> /admin | status=new | revalidated=[]",
+    "unknown but well-formed order id: redirect -> /admin/orders/order-admin-zzzzz?updated=1 | status=new | revalidated=[["/admin"]]",
+  ],
+}
+`;

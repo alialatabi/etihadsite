@@ -1,8 +1,17 @@
-/** Pure helpers for the builder (no React). Unit-tested in Node. */
+/**
+ * Builder helpers with no React, unit-tested in Node. Everything here is pure except the
+ * sessionStorage section at the bottom, which is this module's only I/O.
+ */
 import { effectiveDpi, ptToUm } from '@/lib/units';
+import { widthPixelsFor } from '@/lib/design/pixels';
+import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
+import { activeTier, sortedTiers } from '@/lib/pricing';
+import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
+  BuilderStep,
   Corners,
+  CustomerInfo,
   DiscountTier,
   DesignSource,
   LayoutResult,
@@ -16,8 +25,11 @@ import type {
   StickerSpec,
 } from '@/lib/types';
 
-export const STEPS = ['shape', 'design', 'size', 'quantity', 'details'] as const;
-export type StepId = (typeof STEPS)[number];
+export const STEPS = BUILDER_STEPS;
+export type StepId = BuilderStep;
+
+/** The success answer of POST /api/orders (stored for, and shown by, the success page). */
+export type OrderOk = Extract<OrderResponse, { ok: true }>;
 
 export interface FormFields {
   name: string;
@@ -49,7 +61,7 @@ export type DpiStatus = 'ok' | 'warn' | 'block';
 export function dpiExact(design: DesignSource, spec: StickerSpec): number | null {
   if (design.kind === 'pdf') return null;
   // A circle is centre-cropped to the shorter side of the artwork.
-  const px = spec.shape === 'circle' ? Math.min(design.pxWidth, design.pxHeight) : design.pxWidth;
+  const px = widthPixelsFor(spec.shape, design.pxWidth, design.pxHeight);
   if (!(spec.widthUm > 0)) return null;
   return effectiveDpi(px, spec.widthUm);
 }
@@ -112,6 +124,26 @@ export function validateCustomer(f: FormFields): { errors: CustomerErrors; phone
   return { errors, phoneE164 };
 }
 
+/** DOM ids of the validated customer inputs, in form order (the first invalid one gets the focus). */
+export const CUSTOMER_FIELD_IDS = {
+  phone: 'cust-phone',
+  governorate: 'cust-gov',
+  district: 'cust-district',
+  landmark: 'cust-landmark',
+} as const satisfies Record<keyof CustomerErrors, string>;
+
+/** The `customer` block of the order request, built from the form and the validated phone. */
+export function toCustomerInfo(f: FormFields, phoneE164: string): CustomerInfo {
+  return {
+    name: f.name.trim() || undefined,
+    phone: phoneE164,
+    governorate: f.governorate,
+    district: f.district.trim(),
+    landmark: f.landmark.trim(),
+    notes: f.notes.trim() || undefined,
+  };
+}
+
 export type SummaryData = Omit<OrderSummary, 'displayNo'>;
 
 export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: PriceBreakdown): SummaryData {
@@ -132,17 +164,47 @@ export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: Pri
   };
 }
 
-/* ───────────────────────── quantity (sheets) ───────────────────────── */
+/* ───────────────────────── restoring a saved form ───────────────────────── */
 
-const ARABIC_INDIC = '٠١٢٣٤٥٦٧٨٩';
-const EASTERN_INDIC = '۰۱۲۳۴۵۶۷۸۹';
+/** What a saved form puts back into the builder. A key is present only when its saved value is accepted. */
+export interface RestoredState {
+  shape?: Shape;
+  corners?: Corners;
+  widthText?: string;
+  heightText?: string;
+  sizeUm?: { widthUm: number; heightUm: number };
+  material?: Material;
+  sheetsText?: string;
+  fields: FormFields;
+}
+
+/** Pure half of the post-hydration restore: which saved values are accepted (`saved` comes from loadForm()). */
+export function restoredState(saved: Partial<PersistedForm>): RestoredState {
+  const r: RestoredState = {
+    fields: {
+      name: saved.name ?? '',
+      phone: saved.phone ?? '',
+      governorate: saved.governorate ?? '',
+      district: saved.district ?? '',
+      landmark: saved.landmark ?? '',
+      notes: saved.notes ?? '',
+    },
+  };
+  if (saved.shape) r.shape = saved.shape;
+  if (saved.corners) r.corners = saved.corners;
+  if (typeof saved.widthText === 'string') r.widthText = saved.widthText;
+  if (typeof saved.heightText === 'string') r.heightText = saved.heightText;
+  if (saved.sizeUm) r.sizeUm = saved.sizeUm;
+  if (saved.material != null && MATERIALS.includes(saved.material)) r.material = saved.material;
+  if (typeof saved.sheetsText === 'string' && saved.sheetsText.trim()) r.sheetsText = saved.sheetsText;
+  return r;
+}
+
+/* ───────────────────────── quantity (sheets) ───────────────────────── */
 
 /** Typed text → number (accepts Arabic-Indic digits). null when empty or not a number. */
 export function parseSheets(text: string): number | null {
-  const t = text
-    .trim()
-    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
-    .replace(/[۰-۹]/g, (d) => String(EASTERN_INDIC.indexOf(d)));
+  const t = normaliseDigits(text).trim();
   if (!/^-?\d+(\.\d+)?$/.test(t)) return null; // rejects '', '1e2', '0x10', 'Infinity'
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
@@ -160,18 +222,8 @@ export function quickPicksFor(pricing: Pick<PricingSettings, 'minSheets' | 'maxS
   return [...new Set(ok)].sort((a, b) => a - b);
 }
 
-/** Tiers sorted ascending by minSheets (defensive copy). */
-export function sortedTiers(tiers: readonly DiscountTier[]): DiscountTier[] {
-  return [...tiers].sort((a, b) => a.minSheets - b.minSheets);
-}
-
-/** Tier currently reached (highest with minSheets <= sheets) or null. */
-export function activeTier(sheets: number | null, tiers: readonly DiscountTier[]): DiscountTier | null {
-  if (sheets === null) return null;
-  let best: DiscountTier | null = null;
-  for (const t of tiers) if (sheets >= t.minSheets && (!best || t.minSheets > best.minSheets)) best = t;
-  return best;
-}
+// The tier helpers live with the rest of the pricing rules; re-exported for existing importers.
+export { activeTier, sortedTiers };
 
 /**
  * "Add N sheets and get X% off": only when the next tier gives a better discount and is close
@@ -223,7 +275,7 @@ export function clearForm(): void {
   }
 }
 
-export function saveSuccess(res: Extract<OrderResponse, { ok: true }>): void {
+export function saveSuccess(res: OrderOk): void {
   try {
     store()?.setItem(SUCCESS_KEY, JSON.stringify(res));
   } catch {
@@ -231,7 +283,7 @@ export function saveSuccess(res: Extract<OrderResponse, { ok: true }>): void {
   }
 }
 
-export function loadSuccess(): Extract<OrderResponse, { ok: true }> | null {
+export function loadSuccess(): OrderOk | null {
   try {
     const raw = store()?.getItem(SUCCESS_KEY);
     if (!raw) return null;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
-import { discountFor, enabledMaterials, formatIqd, priceFor, unitPriceFor, validateQuantity } from './pricing';
-import type { ShopSettings } from '@/lib/types';
+import { activeTier, discountFor, enabledMaterials, formatIqd, priceFor, unitPriceFor, validateQuantity } from './pricing';
+import type { DiscountTier, ShopSettings } from '@/lib/types';
 
 const settings = (over: Partial<ShopSettings> = {}): ShopSettings => ({ ...DEFAULT_SETTINGS, ...over });
 const P = DEFAULT_SETTINGS.pricing;
@@ -31,6 +31,19 @@ describe('discountFor', () => {
     expect(discountFor(60, [{ minSheets: 100, percent: 20 }, { minSheets: 20, percent: 10 }, { minSheets: 50, percent: 15 }])).toBe(15);
   });
   it('no tiers → 0', () => expect(discountFor(500, [])).toBe(0));
+});
+
+describe('discountFor and activeTier pick the same tier (valid tiers)', () => {
+  const lists: [string, DiscountTier[]][] = [
+    ['the default tiers', P.tiers],
+    ['an unsorted list', [{ minSheets: 100, percent: 20 }, { minSheets: 20, percent: 10 }, { minSheets: 50, percent: 15 }]],
+    ['an empty list', []],
+  ];
+  it.each(lists)('%s, sheets 0..150', (_name, tiers) => {
+    for (let n = 0; n <= 150; n++) {
+      expect(discountFor(n, tiers), `sheets=${n}`).toBe(activeTier(n, tiers)?.percent ?? 0);
+    }
+  });
 });
 
 describe('unitPriceFor', () => {

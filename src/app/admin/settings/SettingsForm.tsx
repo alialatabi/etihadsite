@@ -6,15 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { admin, common } from '@/content/ar';
-import type { ShopSettings } from '@/lib/types';
+import { MAX_DISCOUNT_TIERS, MAX_TIER_PERCENT } from '@/lib/storage/settings-limits';
+import { MATERIALS, type ShopSettings } from '@/lib/types';
+import { umToMm } from '@/lib/units';
 import { saveSettingsAction, type SettingsFormState } from '../actions';
+import { LAYOUT_MM_FIELDS } from './fields';
 
 interface TierRow {
   minSheets: string;
   percent: string;
 }
 
-const toMm = (um: number) => String(um / 1000);
 const s = admin.settings;
 
 function Field({ name, label, defaultValue, type = 'text', dir, step }: { step?: string; name: string; label: string; defaultValue: string; type?: string; dir?: 'ltr' }) {
@@ -79,7 +81,7 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
         <CardContent className="flex flex-col gap-6">
           <div className="flex flex-col gap-3">
             <h3 className="font-medium">{s.materialsTitle}</h3>
-            {(['paper', 'plastic'] as const).map((k) => (
+            {MATERIALS.map((k) => (
               <div key={k} className="grid items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_2fr_auto]">
                 <div className="pb-3 font-medium">{common.materials[k]}</div>
                 <Field name={`${k}Price`} label={s.pricePerSheet} defaultValue={String(pr.materials[k].pricePerSheetIqd)} type="number" dir="ltr" step="1" />
@@ -107,14 +109,14 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor={`tier-pct-${i}`}>{s.tierPercent}</Label>
-                  <Input id={`tier-pct-${i}`} className="h-12" type="number" step={1} min={0} max={90} dir="ltr" value={row.percent} onChange={(e) => patch(i, { percent: e.target.value })} />
+                  <Input id={`tier-pct-${i}`} className="h-12" type="number" step={1} min={0} max={MAX_TIER_PERCENT} dir="ltr" value={row.percent} onChange={(e) => patch(i, { percent: e.target.value })} />
                 </div>
                 <Button type="button" variant="outline" className="h-12" onClick={() => setTiers((rows) => rows.filter((_, j) => j !== i))}>
                   {s.removeTier}
                 </Button>
               </div>
             ))}
-            {tiers.length < 20 ? (
+            {tiers.length < MAX_DISCOUNT_TIERS ? (
               <div>
                 <Button type="button" variant="secondary" className="h-12" onClick={() => setTiers((rows) => [...rows, { minSheets: '', percent: '' }])}>
                   {s.addTier}
@@ -136,13 +138,9 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
           <CardTitle>{s.layout}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field name="margin" label={s.margin} defaultValue={toMm(settings.layout.marginUm)} type="number" dir="ltr" />
-          <Field name="circleGapX" label={s.circleGapX} defaultValue={toMm(settings.layout.circleGapXUm)} type="number" dir="ltr" />
-          <Field name="circleGapY" label={s.circleGapY} defaultValue={toMm(settings.layout.circleGapYUm)} type="number" dir="ltr" />
-          <Field name="roundedGap" label={s.roundedGap} defaultValue={toMm(settings.layout.rectRoundedGapUm)} type="number" dir="ltr" />
-          <Field name="sharpGap" label={s.sharpGap} defaultValue={toMm(settings.layout.rectSharpGapUm)} type="number" dir="ltr" />
-          <Field name="customGap" label={s.customGap} defaultValue={toMm(settings.layout.customGapUm)} type="number" dir="ltr" />
-          <Field name="roundedRadius" label={s.roundedRadius} defaultValue={toMm(settings.layout.roundedRadiusUm)} type="number" dir="ltr" />
+          {LAYOUT_MM_FIELDS.map(({ name, key }) => (
+            <Field key={name} name={name} label={s[name]} defaultValue={String(umToMm(settings.layout[key]))} type="number" dir="ltr" />
+          ))}
           <Field name="retentionDays" label={s.retentionDays} defaultValue={String(settings.retentionDays)} type="number" dir="ltr" />
           <div className="flex items-end pb-1.5">
             <Check name="allowRotate" label={s.allowRotate} defaultChecked={settings.layout.allowRotate} />

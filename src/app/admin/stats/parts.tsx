@@ -36,9 +36,9 @@ export interface BarRow {
 }
 
 /** Horizontal bars with the label above the bar so long Arabic names never get clipped. */
-export function BarList({ rows, empty }: { rows: BarRow[]; empty?: string }) {
+export function BarList({ rows }: { rows: BarRow[] }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty ?? admin.stats.audience.none}</p>;
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{admin.stats.audience.none}</p>;
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((r) => (

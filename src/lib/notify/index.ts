@@ -1,6 +1,6 @@
 import "server-only";
 /**
- * Shop notification — OWNED BY AGENT D.
+ * Shop notification, sent by POST /api/orders after the order is saved.
  *
  * ORDER_TRANSPORT=console (default): log the Arabic summary, return { telegram: 'skipped' }.
  * ORDER_TRANSPORT=telegram: Bot API sendDocument (multipart) with the PDF as

@@ -1,19 +1,15 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import type { AnalyticsEvent } from '@/lib/types';
 import { classifyDevice } from './classify';
 
 const DEV_SALT = 'softy-dev-analytics-salt';
 
-/** YYYY-MM-DD in Asia/Baghdad. */
+/** YYYY-MM-DD in shop time (SHOP_TIME_ZONE). */
 export function baghdadDay(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Baghdad',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
+  return shopDayKey(date);
 }
 
 function ipOf(request: Request): string {

@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Upload, type LucideIcon } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
+import { fillLtr } from '@/components/fill-ltr';
 import { getSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
@@ -88,12 +89,7 @@ export default async function HomePage() {
             <FlowSnake />
           </div>
           <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
-            {builder.hero.subtitle.split('{shop}').map((part, i) => (
-              <Fragment key={i}>
-                {i > 0 && <span className="font-bold text-foreground">{settings.shopName}</span>}
-                {part}
-              </Fragment>
-            ))}
+            {fillLtr(builder.hero.subtitle, { shop: <span className="font-bold text-foreground">{settings.shopName}</span> })}
           </p>
         </div>
       </section>

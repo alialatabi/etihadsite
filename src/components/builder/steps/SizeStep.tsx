@@ -5,7 +5,7 @@ import { TriangleAlert } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { fillNodes } from '../fillNodes';
+import { fillLtr } from '@/components/fill-ltr';
 import { safeFormatCm, safeParseCm } from '../safe';
 import type { BuilderApi } from '../useBuilder';
 
@@ -54,13 +54,7 @@ export function SizeStep({ b }: { b: BuilderApi }) {
 
   let error: ReactNode = null;
   if (widthBad || heightBad) error = builder.size.errors.invalid;
-  else if (b.outcome && !b.outcome.ok) {
-    const reason = b.outcome.reason;
-    if (reason === 'too_big_for_page') error = fillNodes(builder.size.errors.too_big_for_page, { max: max ?? '—' });
-    else if (reason === 'too_small') error = builder.size.errors.too_small;
-    else if (reason === 'ratio_extreme') error = builder.size.errors.ratio_extreme;
-    else error = builder.size.errors.invalid;
-  }
+  else if (b.outcome && !b.outcome.ok) error = fillLtr(builder.size.errors[b.outcome.reason], { max: max ?? '—' });
 
   return (
     <div className="space-y-4">
@@ -76,7 +70,7 @@ export function SizeStep({ b }: { b: BuilderApi }) {
       </div>
 
       {!isCircle && <p className="text-sm text-muted-foreground">{builder.size.lockedHint}</p>}
-      {max && <p className="text-sm text-muted-foreground">{fillNodes(builder.size.maxHint, { max })}</p>}
+      {max && <p className="text-sm text-muted-foreground">{fillLtr(builder.size.maxHint, { max })}</p>}
 
       <div id="size-msg" aria-live="polite">
         {error && (
@@ -89,7 +83,7 @@ export function SizeStep({ b }: { b: BuilderApi }) {
 
       {b.dpi !== null && !error && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">{fillNodes(builder.size.dpiLabel, { dpi: b.dpi })}</p>
+          <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: b.dpi })}</p>
           {b.dpiState === 'warn' && (
             <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
               {builder.size.dpiWarn}
@@ -104,7 +98,7 @@ export function SizeStep({ b }: { b: BuilderApi }) {
       )}
       {b.layout && !error && (
         <p className="sr-only" aria-live="polite">
-          {fillNodes(builder.size.countHint, { count: b.layout.countPerSheet })}
+          {fillLtr(builder.size.countHint, { count: b.layout.countPerSheet })}
         </p>
       )}
     </div>

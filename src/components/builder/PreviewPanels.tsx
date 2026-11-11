@@ -13,9 +13,18 @@ import { CountLabel, SizeLabel } from './labels';
 import type { BuilderApi } from './useBuilder';
 import type { LayoutResult } from '@/lib/types';
 
+/** Top inset for the mobile card's IntersectionObserver: about the height of the sticky header. */
+const STRIP_REVEAL_ROOT_MARGIN = '-64px 0px 0px 0px';
+
+/** The page-margin hint shown under the sheet (panel) and in the full-screen dialog. */
+const marginHintNodes = (b: BuilderApi) => fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) });
+
 /** Desktop (≥ lg): sticky side panel. */
 export function PreviewPanel({ b }: { b: BuilderApi }) {
   const { layout, design, spec } = b;
+  const previewUrl = design?.previewUrl ?? null;
+  const turnHint = layout ? rotationHint(layout) : null;
+  const marginHint = marginHintNodes(b);
   return (
     <aside aria-label={builder.preview.title} className="hidden lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:block lg:self-start">
       <div className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -24,15 +33,15 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto max-w-[320px]">
-          <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
+          <SheetPreview layout={layout} previewUrl={previewUrl} />
         </div>
         {spec && layout && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
             <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
           </p>
         )}
-        {layout && rotationHint(layout) && <p className="mt-2 text-center text-xs text-muted-foreground">{rotationHint(layout)}</p>}
-        <p className="mt-3 text-center text-xs text-muted-foreground">{fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) })}</p>
+        {turnHint && <p className="mt-2 text-center text-xs text-muted-foreground">{turnHint}</p>}
+        <p className="mt-3 text-center text-xs text-muted-foreground">{marginHint}</p>
       </div>
     </aside>
   );
@@ -55,7 +64,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
     if (!el || typeof IntersectionObserver === 'undefined') return;
     // Treat the card as hidden once less than ~15% of it shows below the sticky header.
     const io = new IntersectionObserver(([entry]) => setCardVisible(entry.isIntersecting), {
-      rootMargin: '-64px 0px 0px 0px',
+      rootMargin: STRIP_REVEAL_ROOT_MARGIN,
       threshold: 0.15,
     });
     io.observe(el);
@@ -63,6 +72,9 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
   }, [ready]);
 
   if (!layout || !spec) return null;
+  const previewUrl = design?.previewUrl ?? null;
+  const turnHint = rotationHint(layout);
+  const marginHint = marginHintNodes(b);
   return (
     <>
       <button
@@ -77,7 +89,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">
-          <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
+          <SheetPreview layout={layout} previewUrl={previewUrl} />
         </div>
         <p className="mt-3 text-center text-sm text-muted-foreground">
           <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
@@ -97,7 +109,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         )}
       >
         <div className="h-[108px] w-[77px] shrink-0">
-          <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} hideBadge className="h-full" />
+          <SheetPreview layout={layout} previewUrl={previewUrl} hideBadge className="h-full" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="inline-block rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
@@ -112,11 +124,11 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir="rtl" showCloseButton={false} className="max-h-[94dvh] overflow-y-auto sm:max-w-md">
           <DialogTitle>{builder.preview.title}</DialogTitle>
-          <DialogDescription>{fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) })}</DialogDescription>
+          <DialogDescription>{marginHint}</DialogDescription>
           <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">
-            <SheetPreview layout={layout} previewUrl={design?.previewUrl ?? null} />
+            <SheetPreview layout={layout} previewUrl={previewUrl} />
           </div>
-          {rotationHint(layout) && <p className="text-center text-xs text-muted-foreground">{rotationHint(layout)}</p>}
+          {turnHint && <p className="text-center text-xs text-muted-foreground">{turnHint}</p>}
           <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full text-base" />}>{builder.preview.close}</DialogClose>
         </DialogContent>
       </Dialog>

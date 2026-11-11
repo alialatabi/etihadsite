@@ -30,6 +30,16 @@ export async function verifySession(): Promise<boolean> {
   return verifyToken(token, process.env.SESSION_SECRET);
 }
 
+/**
+ * Session check for admin route handlers: the 401 JSON answer when nobody is logged in,
+ * otherwise null. Pages and server actions use requireAdmin() from ./guard instead (it
+ * redirects, so this file stays free of next/navigation).
+ */
+export async function adminApiGuard(): Promise<Response | null> {
+  if (await verifySession()) return null;
+  return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+}
+
 export async function destroySession(): Promise<void> {
   (await cookies()).delete(COOKIE_NAME);
 }

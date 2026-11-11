@@ -11,9 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Ltr } from '@/components/Ltr';
 import { degradedUrl } from '../degraded';
 import { SummaryCard } from '../SummaryCard';
-import type { FormFields } from '../logic';
+import { CUSTOMER_FIELD_IDS, type FormFields } from '../logic';
 import type { BuilderApi } from '../useBuilder';
 import type { SubmitState } from '../useSubmitOrder';
+
+/** Ids of the validated inputs; their messages use the same id plus `-err` (phone also `-hint`, `-prefix`). */
+const IDS = CUSTOMER_FIELD_IDS;
+const errId = (key: keyof typeof IDS) => `${IDS[key]}-err`;
 
 function FieldError({ id, children }: { id: string; children: React.ReactNode }) {
   return (
@@ -27,12 +31,10 @@ export function DetailsStep({
   b,
   submit,
   onSubmit,
-  onRetry,
 }: {
   b: BuilderApi;
   submit: SubmitState;
   onSubmit: () => void;
-  onRetry: () => void;
 }) {
   const e = b.customerErrors;
   const busy = submit.phase === 'uploading' || submit.phase === 'processing';
@@ -65,13 +67,13 @@ export function DetailsStep({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cust-phone">{builder.details.phone}</Label>
+          <Label htmlFor={IDS.phone}>{builder.details.phone}</Label>
           <div dir="ltr" className="flex items-center gap-2">
-            <span id="cust-phone-prefix" className="flex h-12 items-center rounded-lg border bg-muted px-3 text-base font-medium tabular-nums">
+            <span id={`${IDS.phone}-prefix`} className="flex h-12 items-center rounded-lg border bg-muted px-3 text-base font-medium tabular-nums">
               +964
             </span>
             <Input
-              id="cust-phone"
+              id={IDS.phone}
               type="tel"
               inputMode="tel"
               dir="ltr"
@@ -79,17 +81,17 @@ export function DetailsStep({
               placeholder={builder.details.phonePlaceholder}
               className="h-12 text-lg md:text-lg"
               aria-invalid={e.phone || undefined}
-              aria-describedby={`cust-phone-prefix ${e.phone ? 'cust-phone-err' : 'cust-phone-hint'}`}
+              aria-describedby={`${IDS.phone}-prefix ${e.phone ? errId('phone') : `${IDS.phone}-hint`}`}
               {...text('phone')}
             />
           </div>
-          {e.phone ? <FieldError id="cust-phone-err">{builder.details.errors.invalid_phone}</FieldError> : <p id="cust-phone-hint" className="text-xs text-muted-foreground">{builder.details.phoneHint}</p>}
+          {e.phone ? <FieldError id={errId('phone')}>{builder.details.errors.invalid_phone}</FieldError> : <p id={`${IDS.phone}-hint`} className="text-xs text-muted-foreground">{builder.details.phoneHint}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cust-gov">{builder.details.governorate}</Label>
+          <Label htmlFor={IDS.governorate}>{builder.details.governorate}</Label>
           <Select value={b.fields.governorate || null} onValueChange={(v) => b.setField('governorate', (v as string | null) ?? '')} disabled={busy}>
-            <SelectTrigger id="cust-gov" className="w-full data-[size=default]:h-12" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? 'cust-gov-err' : undefined}>
+            <SelectTrigger id={IDS.governorate} className="w-full data-[size=default]:h-12" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? errId('governorate') : undefined}>
               <SelectValue placeholder={builder.details.governoratePlaceholder} />
             </SelectTrigger>
             <SelectContent dir="rtl" alignItemWithTrigger={false}>
@@ -100,19 +102,19 @@ export function DetailsStep({
               ))}
             </SelectContent>
           </Select>
-          {e.governorate && <FieldError id="cust-gov-err">{builder.details.errors.governorate}</FieldError>}
+          {e.governorate && <FieldError id={errId('governorate')}>{builder.details.errors.governorate}</FieldError>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cust-district">{builder.details.district}</Label>
-          <Input id="cust-district" autoComplete="address-level2" className="h-12" aria-invalid={e.district || undefined} aria-describedby={e.district ? 'cust-district-err' : undefined} {...text('district')} />
-          {e.district && <FieldError id="cust-district-err">{builder.details.errors.district}</FieldError>}
+          <Label htmlFor={IDS.district}>{builder.details.district}</Label>
+          <Input id={IDS.district} autoComplete="address-level2" className="h-12" aria-invalid={e.district || undefined} aria-describedby={e.district ? errId('district') : undefined} {...text('district')} />
+          {e.district && <FieldError id={errId('district')}>{builder.details.errors.district}</FieldError>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cust-landmark">{builder.details.landmark}</Label>
-          <Input id="cust-landmark" placeholder={builder.details.landmarkPlaceholder} className="h-12" aria-invalid={e.landmark || undefined} aria-describedby={e.landmark ? 'cust-landmark-err' : undefined} {...text('landmark')} />
-          {e.landmark && <FieldError id="cust-landmark-err">{builder.details.errors.landmark}</FieldError>}
+          <Label htmlFor={IDS.landmark}>{builder.details.landmark}</Label>
+          <Input id={IDS.landmark} placeholder={builder.details.landmarkPlaceholder} className="h-12" aria-invalid={e.landmark || undefined} aria-describedby={e.landmark ? errId('landmark') : undefined} {...text('landmark')} />
+          {e.landmark && <FieldError id={errId('landmark')}>{builder.details.errors.landmark}</FieldError>}
         </div>
 
         <div className="space-y-2">
@@ -160,7 +162,7 @@ export function DetailsStep({
                   {builder.degraded.whatsapp}
                 </a>
               )}
-              <Button type="button" variant="outline" className="h-12 px-5" onClick={onRetry}>
+              <Button type="button" variant="outline" className="h-12 px-5" onClick={onSubmit}>
                 {common.actions.retry}
               </Button>
             </div>

@@ -1,13 +1,12 @@
-import { redirect } from 'next/navigation';
 import { admin } from '@/content/ar';
-import { verifySession } from '@/lib/auth/session';
+import { requireAdmin } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
 import { SettingsForm } from './SettingsForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
-  if (!(await verifySession())) redirect('/admin/login');
+  await requireAdmin();
   const { saved } = await searchParams;
   const settings = await getSettings();
   return (

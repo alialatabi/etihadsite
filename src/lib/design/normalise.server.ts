@@ -21,8 +21,12 @@ import 'server-only';
 import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 import { effectiveDpi, pxForUmAtDpi } from '@/lib/units';
-import type { NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
-import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha } from './pixels';
+import type { DesignKind, NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
+import { sniffKind } from './kind';
+import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha, widthPixelsFor } from './pixels';
+
+// Kept importable from here for existing callers and tests.
+export { sniffKind } from './kind';
 
 export interface NormaliseOptions {
   spec: StickerSpec;
@@ -33,7 +37,7 @@ export interface NormaliseOptions {
 type Fail = Extract<OrderError, 'unsupported_type' | 'corrupt' | 'encrypted' | 'no_alpha' | 'low_dpi' | 'needs_raster'>;
 
 export type NormaliseOutcome =
-  | { ok: true; artwork: NormalisedArtwork; pxWidth: number; pxHeight: number; kind: 'png' | 'jpeg' | 'pdf' }
+  | { ok: true; artwork: NormalisedArtwork; pxWidth: number; pxHeight: number; kind: DesignKind }
   | { ok: false; error: Fail };
 
 const fail = (error: Fail): NormaliseOutcome => ({ ok: false, error });
@@ -83,7 +87,7 @@ async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promi
   }
 
   // A circle is centre-cropped to the shorter side of the artwork (matches the client).
-  const dpi = effectiveDpi(spec.shape === 'circle' ? Math.min(width, height) : width, spec.widthUm);
+  const dpi = effectiveDpi(widthPixelsFor(spec.shape, width, height), spec.widthUm);
   if (dpi < blockDpi) return fail('low_dpi');
 
   // Resample to the print resolution; never upscale.
@@ -145,12 +149,4 @@ async function normalisePdf(bytes: Uint8Array): Promise<NormaliseOutcome> {
   } catch {
     return fail('needs_raster');
   }
-}
-
-/** Sniff PNG / JPEG / PDF by magic bytes; null when unknown. Also used by /api/upload. */
-export function sniffKind(bytes: Uint8Array): 'png' | 'jpeg' | 'pdf' | null {
-  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png';
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
-  if (bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d) return 'pdf';
-  return null;
 }

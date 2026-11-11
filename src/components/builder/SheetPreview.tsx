@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import { builder } from '@/content/ar';
 import { A4_UM } from '@/lib/units';
 import { CountLabel } from './labels';
@@ -19,8 +19,11 @@ interface Props {
  * True-proportion A4 sheet in µm space. The artwork is declared ONCE in <defs>
  * (one <image>, one clipPath) and every cell is a cheap <use>, so hundreds of
  * stickers stay smooth on phones.
+ *
+ * Memoised: all four props are referentially stable between layouts, so typing in the
+ * form or upload progress does not re-render the sheet.
  */
-export function SheetPreview({ layout, previewUrl, className, hideBadge }: Props) {
+export const SheetPreview = memo(function SheetPreview({ layout, previewUrl, className, hideBadge }: Props) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const artId = `art-${uid}`;
   const clipId = `clip-${uid}`;
@@ -79,7 +82,7 @@ export function SheetPreview({ layout, previewUrl, className, hideBadge }: Props
       )}
     </div>
   );
-}
+});
 
 function Cells({ layout, previewUrl, artId, clipId }: { layout: LayoutResult; previewUrl: string | null; artId: string; clipId: string }) {
   const { rotated, cell, clip } = layout;

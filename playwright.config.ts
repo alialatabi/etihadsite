@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * End-to-end tests (Phase 3). Runs against a local `next dev` server on port 3199
+ * End-to-end tests. Runs against a local `next dev` server on port 3199
  * with console transport and an isolated data directory.
  */
 export default defineConfig({

@@ -1,0 +1,1152 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: GET /api/admin/customers (CSV export) > authorised with no customers: header row only 1`] = `
+{
+  "bareLfCount": 0,
+  "byteLength": 190,
+  "crlfCount": 1,
+  "firstThreeBytes": [
+    "ef",
+    "bb",
+    "bf",
+  ],
+  "headers": [
+    "content-type=text/csv; charset=utf-8",
+    "cache-control=no-store",
+    "content-disposition=attachment; filename="customers-2026-11-10.csv"",
+  ],
+  "lines": [
+    "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
+    "",
+  ],
+  "sha256": "7899b3304804a07e874a158f9b6d2051edfbefb8dd11de07cf398b20581feccf",
+  "status": 200,
+}
+`;
+
+exports[`golden: GET /api/admin/customers (CSV export) > authorised: exact CSV bytes (BOM, CRLF, quoting, formula guard) and headers 1`] = `
+{
+  "almostExpiredStatus": 200,
+  "full": {
+    "bareLfCount": 1,
+    "byteLength": 664,
+    "crlfCount": 4,
+    "firstThreeBytes": [
+      "ef",
+      "bb",
+      "bf",
+    ],
+    "headers": [
+      "content-type=text/csv; charset=utf-8",
+      "cache-control=no-store",
+      "content-disposition=attachment; filename="customers-2026-11-10.csv"",
+    ],
+    "lines": [
+      "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
+      ""علي حسين","964 770 123 4567","بغداد","المنصور, شارع 14","قرب ""المطعم""","2","88150","2026-11-01 12:00","2026-11-10 00:30","EP-261110-BBBB"",
+      ""'=HYPERLINK(""http://evil.example"",""x"")","964 780 111 2222","البصرة","","'+964 line
+second line","1","0","2026-11-05 15:00","2026-11-05 15:00","EP-261105-CCCC"",
+      ""","964 750 111 2222","أربيل","'-عنكاوا","'@home	tab","1","0","2026-10-31 23:59","2026-10-31 23:59","EP-261031-DDDD"",
+      "",
+    ],
+    "sha256": "268a83ce2686405e0207680d3898d66da199cde5069c7ff5ce1e025064757e6a",
+    "status": 200,
+  },
+  "newYearsEve": "attachment; filename="customers-2026-12-31.csv"",
+}
+`;
+
+exports[`golden: GET /api/admin/customers (CSV export) > unauthorised without a valid session cookie 1`] = `
+[
+  "no cookie -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+  "garbage cookie -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+  "token signed with another secret -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+  "token issued 8 days ago (expired) -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+  "valid token but SESSION_SECRET unset -> 401 [content-type=application/json] {"ok":false,"error":"unauthorized"}",
+]
+`;
+
+exports[`golden: GET /api/cron/purge > 401 unless the exact bearer secret is sent 1`] = `
+[
+  "CRON_SECRET unset, no header -> 401 [content-type=application/json] {"ok":false}",
+  "CRON_SECRET unset, "Bearer " -> 401 [content-type=application/json] {"ok":false}",
+  "CRON_SECRET shorter than 16 chars, matching header -> 401 [content-type=application/json] {"ok":false}",
+  "no header -> 401 [content-type=application/json] {"ok":false}",
+  "wrong secret -> 401 [content-type=application/json] {"ok":false}",
+  "secret without the Bearer prefix -> 401 [content-type=application/json] {"ok":false}",
+  "lower-case bearer -> 401 [content-type=application/json] {"ok":false}",
+  "trailing space in the header value -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":0}",
+  "same length, one char different -> 401 [content-type=application/json] {"ok":false}",
+  "secret in env is trimmed -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":0}",
+]
+`;
+
+exports[`golden: GET /api/cron/purge > authorised: dry run reports, real run deletes; customers and recent data stay 1`] = `
+{
+  "after": [
+    "analytics/events-2025-10.jsonl",
+    "analytics/events-2026-11.jsonl",
+    "customers.json",
+    "orders/order-edge-0002.json",
+    "orders/order-edge-0002.pdf",
+    "orders/order-new-00001.json",
+    "orders/order-new-00001.pdf",
+    "uploads/upload-edge-002.bin",
+    "uploads/upload-edge-002.json",
+    "uploads/upload-new-0001.bin",
+    "uploads/upload-new-0001.json",
+  ],
+  "again": "second real run -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":0}",
+  "before": [
+    "analytics/events-2025-01.jsonl",
+    "analytics/events-2025-09.jsonl",
+    "analytics/events-2025-10.jsonl",
+    "analytics/events-2026-11.jsonl",
+    "customers.json",
+    "orders/order-edge-0001.json",
+    "orders/order-edge-0001.pdf",
+    "orders/order-edge-0002.json",
+    "orders/order-edge-0002.pdf",
+    "orders/order-new-00001.json",
+    "orders/order-new-00001.pdf",
+    "orders/order-old-00001.json",
+    "orders/order-old-00001.pdf",
+    "uploads/upload-edge-001.bin",
+    "uploads/upload-edge-001.json",
+    "uploads/upload-edge-002.bin",
+    "uploads/upload-edge-002.json",
+    "uploads/upload-new-0001.bin",
+    "uploads/upload-new-0001.json",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-orphan-01.bin",
+    "uploads/upload-orphan-01.json",
+  ],
+  "customersKept": [
+    "9647701234567 orders=4",
+  ],
+  "dry": "dry run (?dry=1) -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":14,"removedEvents":2}",
+  "dryRunLeftEverything": true,
+  "logged": [
+    "[cron/purge] would remove 14 item(s) older than 2026-10-11T09:00:00.000Z",
+    "[cron/purge] removed 10 item(s) older than 2026-10-11T09:00:00.000Z",
+    "[cron/purge] removed 0 item(s) older than 2026-10-11T09:00:00.000Z",
+  ],
+  "real": "real run -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":10,"removedEvents":2}",
+  "removedPaths": [
+    "analytics/events-2025-01.jsonl",
+    "analytics/events-2025-09.jsonl",
+    "orders/order-edge-0001.json",
+    "orders/order-edge-0001.pdf",
+    "orders/order-old-00001.json",
+    "orders/order-old-00001.pdf",
+    "uploads/upload-edge-001.bin",
+    "uploads/upload-edge-001.json",
+    "uploads/upload-old-0001.bin",
+    "uploads/upload-old-0001.json",
+    "uploads/upload-orphan-01.bin",
+    "uploads/upload-orphan-01.json",
+  ],
+}
+`;
+
+exports[`golden: GET /api/cron/purge > retentionDays comes from settings; unsupported and failing storage 1`] = `
+{
+  "broken": "storage down -> 500 [content-type=application/json] {"ok":false}",
+  "flags": [
+    "(no query) -> 200 {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=false | events cutoff=2025-10-06T09:00:00.000Z dryRun=false",
+    "?dry=1 -> 200 {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=true | events cutoff=2025-10-06T09:00:00.000Z dryRun=true",
+    "?dry=0 -> 200 {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=false | events cutoff=2025-10-06T09:00:00.000Z dryRun=false",
+    "?dry=true -> 200 {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=false | events cutoff=2025-10-06T09:00:00.000Z dryRun=false",
+    "?dry= -> 200 {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=false | events cutoff=2025-10-06T09:00:00.000Z dryRun=false",
+    "?DRY=1 -> 200 {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=false | events cutoff=2025-10-06T09:00:00.000Z dryRun=false",
+    "?dry=1&dry=0 -> 200 {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=true | events cutoff=2025-10-06T09:00:00.000Z dryRun=true",
+    "?x=1&dry=1 -> 200 {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":1} | orders cutoff=2026-10-11T09:00:00.000Z dryRun=true | events cutoff=2025-10-06T09:00:00.000Z dryRun=true",
+  ],
+  "logged": [
+    [
+      "[cron/purge] failed",
+      "GOLDEN storage down (getSettings)",
+    ],
+  ],
+  "noEvents": "storage without purgeEventsOlderThan -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":3,"removedEvents":0}",
+  "oneDay": "retentionDays = 1, dry -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-11-09T09:00:00.000Z","removed":26,"removedEvents":2}",
+  "unsupported": "storage without purgeOlderThan -> 501 [content-type=application/json] {"ok":false,"error":"unsupported"}",
+}
+`;
+
+exports[`golden: POST /api/log > always 204 (413 when oversize); only valid events reach console.warn 1`] = `
+{
+  "burst": {
+    "lastStatus": 204,
+    "lastWarn": [
+      "[client]",
+      "{"step":"other","message":"m59"}",
+    ],
+    "warnedOutOf65": 60,
+  },
+  "rows": [
+    "valid minimal -> 204 [] (empty body) | warned=1",
+    "valid full, unknown keys dropped -> 204 [] (empty body) | warned=1",
+    "invalid step -> 204 [] (empty body) | warned=0",
+    "message too long -> 204 [] (empty body) | warned=0",
+    "not JSON -> 204 [] (empty body) | warned=0",
+    "empty body -> 204 [] (empty body) | warned=0",
+    "JSON null -> 204 [] (empty body) | warned=0",
+    "declared length over 8 KiB -> 413 [] (empty body) | warned=0",
+    "body over 8 KiB without a declared length -> 413 [] (empty body) | warned=0",
+  ],
+}
+`;
+
+exports[`golden: POST /api/log > exact console.warn arguments 1`] = `
+[
+  [
+    "[client]",
+    "{"step":"upload","message":"فشل الرفع","fileType":"image/png","fileSize":12345,"userAgent":"UA/1"}",
+  ],
+  [
+    "[client]",
+    "{"step":"decode","message":"key order follows the input"}",
+  ],
+]
+`;
+
+exports[`golden: POST /api/orders — accepted edge cases > custom shape with a vector PDF, rect without corners, circle from a non-square photo 1`] = `
+{
+  "circle with stray corners from a 400x600 photo": {
+    "ok": true,
+    "status": 200,
+    "stored": {
+      "customer": {
+        "district": "الكرادة",
+        "governorate": "بغداد",
+        "landmark": "قرب الجسر المعلق",
+        "name": "علي حسين",
+        "phone": "9647701234567",
+      },
+      "design": {
+        "bytes": 7807,
+        "effectiveDpi": 169.33333333333334,
+        "kind": "jpeg",
+        "originalName": "exif.jpg",
+        "pxHeight": 600,
+        "pxWidth": 400,
+      },
+      "layout": {
+        "cellHeightUm": 60000,
+        "cellWidthUm": 60000,
+        "cols": 3,
+        "countPerSheet": 12,
+        "gapXUm": 2000,
+        "gapYUm": 0,
+        "rotated": false,
+        "rows": 4,
+        "turnedCount": 0,
+      },
+      "price": "paper x20 total=19400",
+      "spec": {
+        "corners": "sharp",
+        "heightUm": 60000,
+        "shape": "circle",
+        "widthUm": 60000,
+      },
+    },
+  },
+  "custom shape + vector PDF (no transparency check for PDFs)": {
+    "ok": true,
+    "status": 200,
+    "stored": {
+      "customer": {
+        "district": "الكرادة",
+        "governorate": "بغداد",
+        "landmark": "قرب الجسر المعلق",
+        "name": "علي حسين",
+        "phone": "9647701234567",
+      },
+      "design": {
+        "bytes": 795,
+        "kind": "pdf",
+        "originalName": "art.pdf",
+        "pxHeight": 400,
+        "pxWidth": 300,
+      },
+      "layout": {
+        "cellHeightUm": 40000,
+        "cellWidthUm": 30000,
+        "cols": 6,
+        "countPerSheet": 36,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "rotated": false,
+        "rows": 6,
+        "turnedCount": 0,
+      },
+      "price": "paper x20 total=19400",
+      "spec": {
+        "heightUm": 40000,
+        "shape": "custom",
+        "widthUm": 30000,
+      },
+    },
+  },
+  "minimum order, landmark only, name and notes blank": {
+    "ok": true,
+    "status": 200,
+    "stored": {
+      "customer": {
+        "district": "",
+        "governorate": "Atlantis",
+        "landmark": "x",
+        "phone": "9647701234567",
+      },
+      "design": {
+        "bytes": 1338,
+        "effectiveDpi": 338.6666666666667,
+        "kind": "png",
+        "originalName": "padded.png",
+        "pxHeight": 400,
+        "pxWidth": 400,
+      },
+      "layout": {
+        "cellHeightUm": 30000,
+        "cellWidthUm": 30000,
+        "cols": 6,
+        "countPerSheet": 54,
+        "gapXUm": 2000,
+        "gapYUm": 0,
+        "rotated": false,
+        "rows": 9,
+        "turnedCount": 0,
+      },
+      "price": "paper x10 total=13000",
+      "spec": {
+        "heightUm": 30000,
+        "shape": "circle",
+        "widthUm": 30000,
+      },
+    },
+  },
+  "rect without corners": {
+    "ok": true,
+    "status": 200,
+    "stored": {
+      "customer": {
+        "district": "الكرادة",
+        "governorate": "بغداد",
+        "landmark": "قرب الجسر المعلق",
+        "name": "علي حسين",
+        "phone": "9647701234567",
+      },
+      "design": {
+        "bytes": 3680,
+        "effectiveDpi": 152.4,
+        "kind": "jpeg",
+        "originalName": "opaque.jpg",
+        "pxHeight": 300,
+        "pxWidth": 300,
+      },
+      "layout": {
+        "cellHeightUm": 50000,
+        "cellWidthUm": 50000,
+        "cols": 3,
+        "countPerSheet": 15,
+        "gapXUm": 2000,
+        "gapYUm": 2000,
+        "rotated": false,
+        "rows": 5,
+        "turnedCount": 0,
+      },
+      "price": "paper x20 total=19400",
+      "spec": {
+        "heightUm": 50000,
+        "shape": "rect",
+        "widthUm": 50000,
+      },
+    },
+  },
+}
+`;
+
+exports[`golden: POST /api/orders — rejected requests > TRUST_PROXY=0: one shared bucket with the limit x20 1`] = `
+{
+  "acceptedBeforeLimit": 100,
+  "next": "call 101 from yet another address -> 429 [content-type=application/json; retry-after=3600] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+}
+`;
+
+exports[`golden: POST /api/orders — rejected requests > captcha: enforced only when TURNSTILE_SECRET_KEY is set; exact siteverify request 1`] = `
+{
+  "allSameUrlAndMethod": true,
+  "firstSiteverifyRequest": {
+    "body": "secret=turnstile-secret-golden&response=tok-bad&remoteip=203.0.113.60",
+    "hasSignal": true,
+    "method": "POST",
+    "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+  },
+  "rows": [
+    "no token (no request to Cloudflare) -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "fetch calls so far: 0",
+    "token rejected -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "siteverify answers non-JSON -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "siteverify unreachable -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "success must be the boolean true -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "captcha is checked before the phone (bad phone, no token) -> 403 [content-type=application/json] {"ok":false,"error":"captcha_failed","message":"فشل التحقق. جرّب مرة ثانية."}",
+    "token accepted -> 200 ok=true",
+  ],
+  "totalFetchCalls": 5,
+}
+`;
+
+exports[`golden: POST /api/orders — rejected requests > rate limit: the 6th order from one address in an hour is refused before the body is read 1`] = `
+[
+  "call 1 (invalid body, still counted) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "call 2 (invalid body, still counted) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "call 3 (invalid body, still counted) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "call 4 (invalid body, still counted) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "call 5 (invalid body, still counted) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "call 6 -> 429 [content-type=application/json; retry-after=3600] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+  "call 6 body was read: false",
+  "call 7, 59 min 30.5 s later -> 429 [content-type=application/json; retry-after=30] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+  "call 8, exactly one hour after the first -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "another address at the same time -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+  "spoofed first hop, same last hop -> 429 [content-type=application/json; retry-after=3600] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+]
+`;
+
+exports[`golden: POST /api/orders — rejected requests > server_error when the storage fails 1`] = `
+{
+  "logged": [
+    [
+      "[orders] failed",
+      "GOLDEN storage down (getSettings)",
+    ],
+  ],
+  "storageDown": "storage down -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
+}
+`;
+
+exports[`golden: POST /api/orders — rejected requests > status + JSON for malformed bodies, schema failures and every pipeline error 1`] = `
+{
+  "eventsWritten": [],
+  "filesUnderOrders": [],
+  "ordersStored": 0,
+  "rows": [
+    "not JSON -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "empty body -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "JSON null -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "JSON array -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "empty object -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "declared Content-Length over 64 KiB -> 413 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "body over 64 KiB without Content-Length -> 413 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "body exactly 64 KiB of padding around an invalid order -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "orderId too short -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "orderId with path characters -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "circle that is not square -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "unknown shape -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "fractional size -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "size above 400 mm -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "unknown material -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "fractional sheets -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "sheets as a string -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "missing customer -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "landmark blank -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "governorate missing -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "phone that is not Iraqi mobile -> 400 [content-type=application/json] {"ok":false,"error":"invalid_phone","message":"رقم الموبايل غير صحيح."}",
+    "landline-looking phone -> 400 [content-type=application/json] {"ok":false,"error":"invalid_phone","message":"رقم الموبايل غير صحيح."}",
+    "bad phone AND bad quantity AND missing upload -> phone wins -> 400 [content-type=application/json] {"ok":false,"error":"invalid_phone","message":"رقم الموبايل غير صحيح."}",
+    "sheets below the minimum (9) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_quantity","message":"العدد أو الخامة غير متاحة. ارجع وغيّرها."}",
+    "sheets above the maximum (5001) -> 400 [content-type=application/json] {"ok":false,"error":"invalid_quantity","message":"العدد أو الخامة غير متاحة. ارجع وغيّرها."}",
+    "disabled material -> 400 [content-type=application/json] {"ok":false,"error":"invalid_quantity","message":"العدد أو الخامة غير متاحة. ارجع وغيّرها."}",
+    "bad quantity AND missing upload -> quantity wins -> 400 [content-type=application/json] {"ok":false,"error":"invalid_quantity","message":"العدد أو الخامة غير متاحة. ارجع وغيّرها."}",
+    "upload id that does not exist -> 400 [content-type=application/json] {"ok":false,"error":"upload_missing","message":"الملف ما انرفع. ارفعه مرة ثانية."}",
+    "missing upload AND too-small size -> upload wins -> 400 [content-type=application/json] {"ok":false,"error":"upload_missing","message":"الملف ما انرفع. ارفعه مرة ثانية."}",
+    "circle 4 mm (below the 5 mm minimum) -> 400 [content-type=application/json] {"ok":false,"error":"too_small","message":"القياس أصغر من الحد المسموح."}",
+    "rect 300x300 mm (larger than the page) -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
+    "rect 200x50 mm (fits only rotated; rotation is off) -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
+    "too-big size AND corrupt upload -> layout wins -> 400 [content-type=application/json] {"ok":false,"error":"too_big_for_page","message":"القياس أكبر من الورقة."}",
+    "300 px JPEG at 120 mm (63.5 dpi) -> 400 [content-type=application/json] {"ok":false,"error":"low_dpi","message":"دقة الصورة قليلة لهذا القياس."}",
+    "custom shape with an opaque JPEG -> 400 [content-type=application/json] {"ok":false,"error":"no_alpha","message":"الشكل المخصص يحتاج PNG بخلفية شفافة."}",
+    "custom shape with an encrypted PDF (reported as encrypted, not no_alpha) -> 400 [content-type=application/json] {"ok":false,"error":"encrypted","message":"ملف PDF محمي بكلمة سر."}",
+    "PNG signature followed by garbage -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "encrypted PDF -> 400 [content-type=application/json] {"ok":false,"error":"encrypted","message":"ملف PDF محمي بكلمة سر."}",
+    "unparseable PDF -> 400 [content-type=application/json] {"ok":false,"error":"needs_raster","message":"راح نحوّل الـPDF لصورة."}",
+    "stored bytes of an unsupported type -> 400 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
+    "wrong HTTP content-type but valid JSON is still parsed -> 400 [content-type=application/json] {"ok":false,"error":"invalid_quantity","message":"العدد أو الخامة غير متاحة. ارجع وغيّرها."}",
+  ],
+}
+`;
+
+exports[`golden: POST /api/track > a storage failure is swallowed (204) 1`] = `
+{
+  "logged": [
+    [
+      "[analytics] record failed",
+      "GOLDEN storage down (recordEvent)",
+    ],
+  ],
+  "row": "storage down -> 204 [] (empty body)",
+}
+`;
+
+exports[`golden: POST /api/track > accepted events: exactly what is stored 1`] = `
+{
+  "statuses": "204,204,204,204,204,204,204,204,204,204,204,204,204,204,204,204,204",
+  "stored": {
+    "another address": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"7688152c98f6c583","device":"mobile","type":"pageview","path":"/"}",
+    "install installed, desktop": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"4a59d5c81adeaa57","device":"desktop","type":"install","path":"/","step":"installed"}",
+    "install shown": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"install","path":"/","step":"shown"}",
+    "pageview from Instagram with geo headers": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","city":"بغداد","region":"BG","country":"IQ","type":"pageview","path":"/","source":"instagram"}",
+    "pageview with a step is kept": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","step":"shape"}",
+    "pageview, empty referrer -> direct": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","source":"direct"}",
+    "pageview, empty utm and no referrer (no source)": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/"}",
+    "pageview, malformed referrer -> other": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","source":"other"}",
+    "pageview, no referrer and no utm (no source)": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/"}",
+    "pageview, own host taken from x-forwarded-host": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","source":"direct"}",
+    "pageview, referrer is our own host": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","source":"direct"}",
+    "pageview, unknown utm -> other": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/","source":"other"}",
+    "pageview, utm wins over referrer": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/how-it-works","source":"tiktok"}",
+    "path /administrator is not an admin path": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/administrator"}",
+    "step size (referrer ignored for steps)": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"step","path":"/","step":"size"}",
+    "step without a step value": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"step","path":"/"}",
+    "unknown body keys are dropped": "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ef89a9bbe32cad63","device":"mobile","type":"pageview","path":"/"}",
+  },
+}
+`;
+
+exports[`golden: POST /api/track > invalid bodies -> 400; bots and admin paths -> 204 and nothing stored 1`] = `
+{
+  "eventsWritten": [],
+  "filesWritten": [],
+  "rows": [
+    "not JSON -> 400 [] (empty body)",
+    "empty body -> 400 [] (empty body)",
+    "JSON null -> 400 [] (empty body)",
+    "type order (server-side only) -> 400 [] (empty body)",
+    "type upload (server-side only) -> 400 [] (empty body)",
+    "type missing -> 400 [] (empty body)",
+    "path missing -> 400 [] (empty body)",
+    "path without leading slash -> 400 [] (empty body)",
+    "path 201 chars -> 400 [] (empty body)",
+    "unknown step -> 400 [] (empty body)",
+    "referrer 501 chars -> 400 [] (empty body)",
+    "utm 61 chars -> 400 [] (empty body)",
+    "body over 4096 bytes -> 400 [] (empty body)",
+    "bot user agent -> 204 [] (empty body)",
+    "empty user agent -> 204 [] (empty body)",
+    "bot with an invalid body is still 400 -> 400 [] (empty body)",
+    "path /admin -> 204 [] (empty body)",
+    "path /admin/orders -> 204 [] (empty body)",
+  ],
+}
+`;
+
+exports[`golden: POST /api/track > per-visitor limit: 300 events an hour, the rest are dropped silently 1`] = `
+{
+  "lastStatus": 204,
+  "otherVisitorStatus": 204,
+  "storedAfter305": 300,
+  "storedAfterOtherVisitor": 301,
+}
+`;
+
+exports[`golden: POST /api/upload > rate limit (20 per hour per address) and server_error 1`] = `
+{
+  "broken": "storage down -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
+  "limited": "upload 21 -> 429 [content-type=application/json; retry-after=3600] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+  "logged": [
+    [
+      "[upload] failed",
+      "GOLDEN storage down (getSettings)",
+    ],
+  ],
+  "otherAddressStatus": 200,
+  "statuses": "200,200,200,200,200,200,200,200,200,200,415,415,415,415,415,415,415,415,415,415",
+}
+`;
+
+exports[`golden: POST /api/upload > rejections and accepted files (max upload size lowered to 2000 bytes for the size cases) 1`] = `
+{
+  "idsAreNanoid21": true,
+  "idsAreUnique": true,
+  "metas": [
+    "application/pdf bytes=9 createdAt=2026-11-10T09:00:00.000Z name(7)=doc.bin",
+    "image/jpeg bytes=6 createdAt=2026-11-10T09:00:00.000Z name(9)=photo.pdf",
+    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(17)=تصميم نهائي ١.png",
+    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(200)=abcxxxxxxxxx…xxxxxx",
+    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
+    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
+    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(9)=first.png",
+    "image/png bytes=2000 createdAt=2026-11-10T09:00:00.000Z name(7)=max.png",
+  ],
+  "rows": [
+    "no Content-Length header -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "Content-Length is not a number -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "Content-Length negative -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "declared length above max + 64 KiB -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "declared length exactly max + 64 KiB (body is smaller) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "body larger than the cap although the header says 100 -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "JSON body instead of multipart -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "multipart content-type with a broken body -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "no content-type at all -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "empty multipart form -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "field "file" is a string -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "file sent under another field name -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "empty file -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "file of 2001 bytes (max is 2000) -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "GIF labelled image/png -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
+    "text file -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
+    "PNG by magic bytes (11 bytes, not a decodable image) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "PNG of exactly 2000 bytes -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":2000}",
+    "JPEG labelled application/pdf -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"jpeg","bytes":6}",
+    "PDF header -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"pdf","bytes":9}",
+    "two "file" parts: the first one is used -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "name with control characters and 300 chars -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "Arabic file name -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+  ],
+  "storedUploads": 8,
+  "uploadEvents": [
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"jpeg"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"pdf"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+  ],
+}
+`;
+
+exports[`golden: POST /api/upload/direct > direct-capable storage: validation, size cap, signed URL, rate limit, server_error 1`] = `
+{
+  "logged": [
+    [
+      "[upload/direct] failed",
+      "GOLDEN sign failed",
+    ],
+  ],
+  "rows": [
+    "invalid JSON -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "empty body -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "JSON null -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size missing -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size 0 -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size negative -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size fractional -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size as string -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "name 501 chars -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "name not a string -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "body over 4096 bytes -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "size 4001 (settings max 4000, bucket max 5000) -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "size 4000 -> 200 [content-type=application/json; cache-control=no-store] {"ok":true,"mode":"direct","uploadId":"<UPLOAD_ID>","url":"https://sb.example/storage/v1/object/upload/sign/etihad/uploads/<UPLOAD_ID>.bin?token=t"}",
+    "size 1 without a name -> 200 [content-type=application/json; cache-control=no-store] {"ok":true,"mode":"direct","uploadId":"<UPLOAD_ID>","url":"https://sb.example/storage/v1/object/upload/sign/etihad/uploads/<UPLOAD_ID>.bin?token=t"}",
+    "size 5001 (settings max 9000, bucket max 5000) -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "size 9001 (no bucket limit) -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    "size 9000 (no bucket limit) -> 200",
+    "20 calls from one address -> 400,200,400,200,400,200,400,200,400,200,400,200,400,200,400,200,400,200,400,200",
+    "call 21 -> 429 [content-type=application/json; retry-after=3600] {"ok":false,"error":"rate_limited","message":"طلبات كثيرة. انتظر شوية."}",
+    "signing fails -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
+  ],
+  "signedCount": 2,
+  "signedIdsAreNanoid21": true,
+}
+`;
+
+exports[`golden: POST /api/upload/direct > local storage always answers mode "server" (the body is not even read) 1`] = `
+[
+  "valid body -> 200 [content-type=application/json] {"ok":true,"mode":"server"}",
+  "invalid JSON -> 200 [content-type=application/json] {"ok":true,"mode":"server"}",
+  "huge size -> 200 [content-type=application/json] {"ok":true,"mode":"server"}",
+  "empty body -> 200 [content-type=application/json] {"ok":true,"mode":"server"}",
+]
+`;
+
+exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every outcome, what is stored, deleted and tracked 1`] = `
+{
+  "broken": "storage down -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
+  "fallback": "no saveUploadMeta -> 200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+  "logged": [
+    [
+      "[upload/direct/commit] failed",
+      "GOLDEN storage down (readUpload)",
+    ],
+  ],
+  "out": {
+    "JPEG committed without a name": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"jpeg"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 5,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/jpeg",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"jpeg","bytes":5}",
+    },
+    "PDF committed, name sanitised and cut to 200": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"pdf"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 9,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "application/pdf",
+        "originalName": "abnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"pdf","bytes":9}",
+    },
+    "PNG committed": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 11,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "logo.png",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+    },
+    "already committed but the stored bytes are unsupported": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [],
+      "metaSaved": {
+        "bytes": 10,
+        "createdAt": "2026-11-10T08:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "x.png",
+      },
+      "response": "415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
+    },
+    "already committed: answered from the stored meta, nothing re-tracked": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [],
+      "metaSaved": {
+        "bytes": 11,
+        "createdAt": "2026-11-10T08:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "first-name.png",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+    },
+    "empty file": {
+      "binStillThere": false,
+      "deleted": [
+        "uploads/abcDEF_123-xyz.bin",
+      ],
+      "events": [],
+      "metaSaved": null,
+      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    },
+    "empty name falls back to "design"": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 11,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+    },
+    "file above settings.maxUploadBytes (1024)": {
+      "binStillThere": false,
+      "deleted": [
+        "uploads/abcDEF_123-xyz.bin",
+      ],
+      "events": [],
+      "metaSaved": null,
+      "response": "413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    },
+    "file above the bucket limit (5000)": {
+      "binStillThere": false,
+      "deleted": [
+        "uploads/abcDEF_123-xyz.bin",
+      ],
+      "events": [],
+      "metaSaved": null,
+      "response": "413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
+    },
+    "file exactly at settings.maxUploadBytes (1024), PNG": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 1024,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":1024}",
+    },
+    "no file in the bucket": {
+      "binStillThere": false,
+      "deleted": [],
+      "events": [],
+      "metaSaved": null,
+      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    },
+    "unsupported type (GIF)": {
+      "binStillThere": false,
+      "deleted": [
+        "uploads/abcDEF_123-xyz.bin",
+      ],
+      "events": [],
+      "metaSaved": null,
+      "response": "415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
+    },
+  },
+  "saved": [
+    {
+      "bytes": 11,
+      "id": "abcDEF_123-xyz",
+      "meta": {
+        "bytes": 11,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "logo.png",
+      },
+    },
+  ],
+}
+`;
+
+exports[`golden: POST /api/upload/direct/commit > local storage (no direct uploads) and malformed bodies 1`] = `
+[
+  "valid body on local storage -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "invalid JSON -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "empty body -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "uploadId missing -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "uploadId too short -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "uploadId with traversal -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "name 501 chars -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "body over 4096 bytes -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+]
+`;
+
+exports[`golden: full happy path — upload a design, place the order > PNG circle order: responses, stored order, customers.json, analytics, PDF, console transport, replay 1`] = `
+{
+  "concurrentTwin": {
+    "customers": [
+      "9647701234567 orders=2 total=38800 name=علي حسين lastOrderId=order-golden-bbbbbbbbbb",
+    ],
+    "identicalBodies": true,
+    "orderEvents": 2,
+    "ordersStored": [
+      "order-golden-aaaaaaaaaa",
+      "order-golden-bbbbbbbbbb",
+    ],
+    "statuses": [
+      200,
+      200,
+    ],
+  },
+  "consoleTransport": [
+    "[order] EP-261110-<RAND>_circle-30x30mm_x20.pdf (<N> bytes)
+<b>طلب جديد — EP-261110-<RAND></b>
+الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54
+الخامة: ورقي
+الأوراق: 20
+مجموع الستيكرات: 1080
+سعر الورقة: 720 د.ع (خصم 10%)
+المجموع: 14,400 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع
+الزبون: علي حسين
+الموبايل: <a href="tel:+9647701234567">+9647701234567</a> | <a href="https://wa.me/9647701234567">واتساب</a>
+العنوان: بغداد - الكرادة - قرب الجسر المعلق
+ملاحظات: اتصلوا قبل التوصيل
+جودة الصورة: 339 DPI
+الوقت: 10<U+200F>/11<U+200F>/2026، 12:00 م",
+  ],
+  "customersText": "[
+  {
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر المعلق",
+    "firstOrderAt": "2026-11-10T09:00:00.000Z",
+    "lastOrderAt": "2026-11-10T09:00:00.000Z",
+    "ordersCount": 1,
+    "totalIqd": 19400,
+    "lastOrderId": "order-golden-aaaaaaaaaa",
+    "lastDisplayNo": "EP-261110-<RAND>",
+    "name": "علي حسين"
+  }
+]",
+  "errorsLogged": 0,
+  "events": [
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ab53d85137d2aa74","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","type":"upload","meta":{"kind":"png"}}",
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"ab53d85137d2aa74","device":"mobile","city":"Baghdad","region":"BG","country":"IQ","type":"order","meta":{"material":"paper","sheets":20,"totalIqd":19400,"governorate":"بغداد","shape":"circle","widthMm":30,"heightMm":30}}",
+  ],
+  "order": {
+    "body": {
+      "displayNo": "EP-261110-<RAND>",
+      "notified": {
+        "telegram": "skipped",
+      },
+      "ok": true,
+      "orderId": "order-golden-aaaaaaaaaa",
+      "summary": {
+        "countPerSheet": 54,
+        "deliveryFeeIqd": 5000,
+        "discountPercent": 10,
+        "displayNo": "EP-261110-<RAND>",
+        "heightUm": 30000,
+        "material": "paper",
+        "shape": "circle",
+        "sheets": 20,
+        "subtotalIqd": 14400,
+        "totalIqd": 19400,
+        "totalStickers": 1080,
+        "unitPriceIqd": 720,
+        "widthUm": 30000,
+      },
+      "whatsappUrl": {
+        "base": "https://wa.me/9647709999999",
+        "encodingIsEncodeURIComponent": true,
+        "text": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — EP-261110-<RAND>
+الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54 ستيكر
+الخامة: ورقي
+الأوراق: 20 ورقة (1080 ستيكر)
+سعر الورقة: 720 د.ع (خصم 10%)
+المجموع: 14,400 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع",
+      },
+    },
+    "displayNoShape": true,
+    "headers": [
+      "content-type=application/json",
+    ],
+    "keyOrder": "ok,orderId,displayNo,summary,whatsappUrl,notified",
+    "status": 200,
+    "summaryKeyOrder": "displayNo,shape,widthUm,heightUm,countPerSheet,sheets,material,totalStickers,unitPriceIqd,discountPercent,subtotalIqd,deliveryFeeIqd,totalIqd",
+  },
+  "pdf": {
+    "contentLength": 32442,
+    "contentSha256": "625ae66c25afe14322c5979e29690873308fd1fe403d9c989552b332de6a5e2b",
+    "creationDate": "2026-11-10T09:00:00.000Z",
+    "draws": 54,
+    "pages": 1,
+    "producer": "Softy Printing",
+    "subject": "circle 30x30mm x54",
+    "title": "EP-261110-<RAND>",
+  },
+  "replay": {
+    "eventsAddedByReplay": 0,
+    "identicalBody": true,
+    "status": 200,
+  },
+  "storedOrderText": "{
+  "orderId": "order-golden-aaaaaaaaaa",
+  "displayNo": "EP-261110-<RAND>",
+  "createdAt": "2026-11-10T09:00:00.000Z",
+  "status": "new",
+  "spec": {
+    "shape": "circle",
+    "widthUm": 30000,
+    "heightUm": 30000
+  },
+  "layout": {
+    "cols": 6,
+    "rows": 9,
+    "countPerSheet": 54,
+    "rotated": false,
+    "turnedCount": 0,
+    "cellWidthUm": 30000,
+    "cellHeightUm": 30000,
+    "gapXUm": 2000,
+    "gapYUm": 0
+  },
+  "design": {
+    "kind": "png",
+    "originalName": "شعار logo.png",
+    "bytes": 1338,
+    "pxWidth": 400,
+    "pxHeight": 400,
+    "effectiveDpi": 338.6666666666667
+  },
+  "price": {
+    "material": "paper",
+    "sheets": 20,
+    "unitBaseIqd": 800,
+    "discountPercent": 10,
+    "unitPriceIqd": 720,
+    "subtotalIqd": 14400,
+    "deliveryFeeIqd": 5000,
+    "totalIqd": 19400,
+    "totalStickers": 1080,
+    "perStickerIqd": 18
+  },
+  "customer": {
+    "name": "علي حسين",
+    "phone": "9647701234567",
+    "governorate": "بغداد",
+    "district": "الكرادة",
+    "landmark": "قرب الجسر المعلق",
+    "notes": "اتصلوا قبل التوصيل"
+  },
+  "files": {
+    "designPath": "uploads/<UPLOAD_ID>.bin",
+    "pdfPath": "orders/order-golden-aaaaaaaaaa.pdf"
+  },
+  "notified": {
+    "telegram": "skipped"
+  }
+}",
+  "treeAfterOrder": [
+    "analytics/events-2026-11.jsonl",
+    "customers.json",
+    "orders/order-golden-aaaaaaaaaa.json",
+    "orders/order-golden-aaaaaaaaaa.pdf",
+    "settings.json",
+    "uploads/<UPLOAD_ID>.bin",
+    "uploads/<UPLOAD_ID>.json",
+  ],
+  "upload": {
+    "body": {
+      "bytes": 1338,
+      "kind": "png",
+      "ok": true,
+      "uploadId": "<UPLOAD_ID>",
+    },
+    "status": 200,
+    "storedMetaText": "{"mime":"image/png","originalName":"شعار logo.png","bytes":1338,"createdAt":"2026-11-10T09:00:00.000Z"}",
+    "storedUploadIsTheFile": true,
+  },
+}
+`;
+
+exports[`golden: full happy path — upload a design, place the order > vector PDF order, prices hidden, no WhatsApp, Telegram transport 1`] = `
+{
+  "customersText": "[
+  {
+    "phone": "9647801112222",
+    "governorate": "البصرة",
+    "district": "",
+    "landmark": "شارع الجزائر",
+    "firstOrderAt": "2026-11-10T09:00:00.000Z",
+    "lastOrderAt": "2026-11-10T09:00:00.000Z",
+    "ordersCount": 1,
+    "totalIqd": 0,
+    "lastOrderId": "order-golden-pdf0000001",
+    "lastDisplayNo": "EP-261110-<RAND>"
+  }
+]",
+  "events": [
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"f0d076fa721d6a76","device":"desktop","type":"upload","meta":{"kind":"pdf"}}",
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"f0d076fa721d6a76","device":"desktop","type":"order","meta":{"material":"plastic","sheets":50,"totalIqd":null,"governorate":"البصرة","shape":"rect","widthMm":30,"heightMm":40}}",
+  ],
+  "response": "200 {"ok":true,"orderId":"order-golden-pdf0000001","displayNo":"EP-261110-<RAND>","summary":{"displayNo":"EP-261110-<RAND>","shape":"rect","corners":"sharp","widthUm":30000,"heightUm":40000,"countPerSheet":42,"sheets":50,"material":"plastic","totalStickers":2100,"unitPriceIqd":null,"discountPercent":15,"subtotalIqd":null,"deliveryFeeIqd":5000,"totalIqd":null},"whatsappUrl":"","notified":{"telegram":"sent"}}",
+  "storedCustomerKeys": "phone,governorate,district,landmark",
+  "storedHasEffectiveDpiKey": false,
+  "storedOrderText": "{
+  "orderId": "order-golden-pdf0000001",
+  "displayNo": "EP-261110-<RAND>",
+  "createdAt": "2026-11-10T09:00:00.000Z",
+  "status": "new",
+  "spec": {
+    "shape": "rect",
+    "corners": "sharp",
+    "widthUm": 30000,
+    "heightUm": 40000
+  },
+  "layout": {
+    "cols": 6,
+    "rows": 7,
+    "countPerSheet": 42,
+    "rotated": false,
+    "turnedCount": 0,
+    "cellWidthUm": 30000,
+    "cellHeightUm": 40000,
+    "gapXUm": 0,
+    "gapYUm": 0
+  },
+  "design": {
+    "kind": "pdf",
+    "originalName": "art.pdf",
+    "bytes": 795,
+    "pxWidth": 300,
+    "pxHeight": 400
+  },
+  "price": {
+    "material": "plastic",
+    "sheets": 50,
+    "unitBaseIqd": null,
+    "discountPercent": 15,
+    "unitPriceIqd": null,
+    "subtotalIqd": null,
+    "deliveryFeeIqd": 5000,
+    "totalIqd": null,
+    "totalStickers": 2100,
+    "perStickerIqd": null
+  },
+  "customer": {
+    "phone": "9647801112222",
+    "governorate": "البصرة",
+    "district": "",
+    "landmark": "شارع الجزائر"
+  },
+  "files": {
+    "designPath": "uploads/<UPLOAD_ID>.bin",
+    "pdfPath": "orders/order-golden-pdf0000001.pdf"
+  },
+  "notified": {
+    "telegram": "sent"
+  }
+}",
+  "telegramRequests": [
+    {
+      "fields": {
+        "caption": "<b>طلب جديد — EP-261110-<RAND></b>
+الشكل: مستطيل بزوايا حادة
+القياس: 3 × 4 سم
+بالورقة: 42
+الخامة: بلاستك
+الأوراق: 50
+مجموع الستيكرات: 2100
+سعر الورقة: يُحدد عند التأكيد
+المجموع: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع
+الإجمالي: يُحدد عند التأكيد
+الزبون: —
+الموبايل: <a href="tel:+9647801112222">+9647801112222</a> | <a href="https://wa.me/9647801112222">واتساب</a>
+العنوان: البصرة - شارع الجزائر
+جودة الصورة: PDF
+الوقت: 10<U+200F>/11<U+200F>/2026، 12:00 م",
+        "chat_id": "-1001234567890",
+        "document": "file name=EP-261110-<RAND>_rect-30x40mm_x50.pdf type=application/pdf",
+        "parse_mode": "HTML",
+      },
+      "url": "https://api.telegram.org/bot<TOKEN>/sendDocument",
+    },
+  ],
+  "upload": {
+    "bytes": 795,
+    "kind": "pdf",
+    "ok": true,
+    "uploadId": "<UPLOAD_ID>",
+  },
+}
+`;

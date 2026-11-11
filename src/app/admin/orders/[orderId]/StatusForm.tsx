@@ -4,10 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { admin, order } from '@/content/ar';
-import type { OrderStatus } from '@/lib/types';
+import { ORDER_STATUSES, type OrderStatus } from '@/lib/types';
 import { updateOrderStatus } from '../../actions';
-
-const STATUSES: OrderStatus[] = ['new', 'printing', 'done', 'cancelled'];
 
 export function StatusForm({ orderId, status }: { orderId: string; status: OrderStatus }) {
   const [value, setValue] = useState<OrderStatus>(status);
@@ -20,7 +18,7 @@ export function StatusForm({ orderId, status }: { orderId: string; status: Order
           <SelectValue>{order.status[value]}</SelectValue>
         </SelectTrigger>
         <SelectContent dir="rtl">
-          {STATUSES.map((s) => (
+          {ORDER_STATUSES.map((s) => (
             <SelectItem key={s} value={s}>
               {order.status[s]}
             </SelectItem>

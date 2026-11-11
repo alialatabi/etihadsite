@@ -1,4 +1,6 @@
 /** CSV helpers for the customers export. Pure. */
+import { SHOP_TIME_ZONE } from '@/config/defaults';
+import { admin } from '@/content/ar';
 import type { CustomerRecord } from '@/lib/types';
 
 /** Quote a cell; neutralise spreadsheet formula injection (= + - @ and control chars). */
@@ -16,7 +18,7 @@ export function phoneForCsv(phone: string): string {
 }
 
 const dtFmt = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Baghdad',
+  timeZone: SHOP_TIME_ZONE,
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
@@ -33,25 +35,34 @@ export function csvDate(iso: string): string {
 
 export const CSV_BOM = '﻿';
 
+const col = admin.customers.columns;
+
+/** The columns of the customers export, in file order: the header text and the cell of one customer. */
+const CUSTOMER_CSV_COLUMNS: readonly { header: string; value: (c: CustomerRecord) => string | number }[] = [
+  { header: col.name, value: (c) => c.name ?? '' },
+  { header: col.phone, value: (c) => phoneForCsv(c.phone) },
+  { header: col.governorate, value: (c) => c.governorate },
+  { header: col.district, value: (c) => c.district },
+  { header: col.landmark, value: (c) => c.landmark },
+  { header: col.orders, value: (c) => c.ordersCount },
+  { header: col.spent, value: (c) => c.totalIqd },
+  { header: admin.customers.firstOrder, value: (c) => csvDate(c.firstOrderAt) },
+  { header: col.last, value: (c) => csvDate(c.lastOrderAt) },
+  { header: admin.customers.lastNo, value: (c) => c.lastDisplayNo },
+];
+
 export function customersToCsv(headers: string[], customers: CustomerRecord[]): string {
   const lines = [headers.map(csvCell).join(',')];
   for (const c of customers) {
-    lines.push(
-      [
-        c.name ?? '',
-        phoneForCsv(c.phone),
-        c.governorate,
-        c.district,
-        c.landmark,
-        c.ordersCount,
-        c.totalIqd,
-        csvDate(c.firstOrderAt),
-        csvDate(c.lastOrderAt),
-        c.lastDisplayNo,
-      ]
-        .map(csvCell)
-        .join(','),
-    );
+    lines.push(CUSTOMER_CSV_COLUMNS.map((column) => csvCell(column.value(c))).join(','));
   }
   return CSV_BOM + lines.join('\r\n') + '\r\n';
+}
+
+/** The whole export as GET /api/admin/customers serves it: header row plus one row per customer. */
+export function customersCsv(customers: CustomerRecord[]): string {
+  return customersToCsv(
+    CUSTOMER_CSV_COLUMNS.map((column) => column.header),
+    customers,
+  );
 }

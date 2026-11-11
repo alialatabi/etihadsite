@@ -7,7 +7,6 @@ export const admin = {
     submit: 'دخول',
     error: 'كلمة السر غير صحيحة.',
     rateLimited: 'محاولات كثيرة. انتظر شوية وجرّب مرة ثانية.',
-    logout: 'خروج',
   },
   nav: {
     orders: 'الطلبات',
@@ -46,7 +45,6 @@ export const admin = {
   },
   detail: {
     back: 'رجوع للطلبات',
-    notFound: 'الطلب غير موجود.',
     summary: 'ملخص الطلب',
     customer: 'بيانات الزبون',
     name: 'الاسم',
@@ -129,10 +127,8 @@ export const admin = {
       returning: 'زبائن جدد وراجعين',
       newCustomers: 'جدد',
       returningCustomers: 'راجعين (طلبوا أكثر من مرة)',
-      visitorsLabel: 'زوار',
       ordersLabel: 'طلبات',
       none: 'ماكو بيانات',
-      unknown: 'غير معروف',
       citiesNote: 'المدينة تظهر فقط على الموقع المنشور.',
     },
     sources: {

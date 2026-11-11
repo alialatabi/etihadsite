@@ -3,7 +3,7 @@ import cases from '@/lib/__fixtures__/layout-cases.json';
 import { computeLayout } from './index';
 import type { LayoutOutcome, LayoutParams, StickerSpec } from '@/lib/types';
 
-/** Every fixture case must match EXACTLY. Agent A: keep this file green while hardening the engine. */
+/** Every fixture case must match EXACTLY (deep-equal), including placement order and block origin. */
 describe('computeLayout fixtures', () => {
   for (const c of cases) {
     it(c.name, () => {

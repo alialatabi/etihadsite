@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 /**
- * FROZEN during Phase 1.
  * - Cache Components are OFF for v1: pages read settings/orders at request time;
  *   see docs/STACK_NOTES.md. Dynamic pages opt in with `export const dynamic = 'force-dynamic'`.
  * - sharp and pdf-lib stay external to the server bundle.

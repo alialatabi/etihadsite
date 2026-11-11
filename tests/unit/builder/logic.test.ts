@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/parse/phone', () => ({
-  normalisePhone: (s: string) => {
-    const d = s.replace(/\D/g, '').replace(/^0+/, '');
-    return /^7\d{9}$/.test(d) ? `964${d}` : null;
-  },
-  whatsappUrl: (n: string, t?: string) => `https://wa.me/${n}${t ? `?text=${encodeURIComponent(t)}` : ''}`,
-}));
+// order-text throws on purpose: this file tests the manual WhatsApp fallback (degraded.ts / safe.ts).
 vi.mock('@/lib/order-text', () => ({
   orderSummaryText: () => {
     throw new Error('NOT_IMPLEMENTED');
@@ -17,10 +11,6 @@ vi.mock('@/lib/order-text', () => ({
   sizeLabel: () => {
     throw new Error('NOT_IMPLEMENTED');
   },
-}));
-vi.mock('@/lib/parse/cm', () => ({
-  parseCm: (s: string) => (Number(s) > 0 ? Math.round(Number(s) * 10000) : null),
-  formatCm: (um: number) => String(um / 10000),
 }));
 
 import { degradedText, degradedUrl } from '@/components/builder/degraded';

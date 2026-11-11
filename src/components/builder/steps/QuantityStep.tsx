@@ -1,32 +1,19 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Check, MessageCircle, Minus, Plus } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
+import { Money } from '@/components/Money';
+import { fillLtr } from '@/components/fill-ltr';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { whatsappUrl } from '@/lib/parse/phone';
 import { formatIqd } from '@/lib/pricing';
 import { count } from '@/lib/plural';
 import { cn } from '@/lib/utils';
-import { fillNodes } from '../fillNodes';
 import { activeTier, nextTierNudge, quickPicksFor, sortedTiers } from '../logic';
 import type { BuilderApi } from '../useBuilder';
-
-function sheetWord(n: number): string {
-  try {
-    return count(n, common.plural.sheet);
-  } catch {
-    return common.plural.sheet.other;
-  }
-}
-
-const money = (n: number) => (
-  <>
-    <Ltr>{formatIqd(n)}</Ltr> {common.units.iqd}
-  </>
-);
 
 function MaterialPicker({ b }: { b: BuilderApi }) {
   const { pricesPublished } = b.settings;
@@ -65,7 +52,7 @@ function MaterialPicker({ b }: { b: BuilderApi }) {
                 <span className="text-sm text-muted-foreground">
                   {pricesPublished ? (
                     <>
-                      {money(base)} {builder.quantity.perSheetSuffix}
+                      <Money amount={base} /> {builder.quantity.perSheetSuffix}
                     </>
                   ) : (
                     builder.quantity.priceUnset
@@ -86,11 +73,7 @@ function SheetsInput({ b }: { b: BuilderApi }) {
   const atMin = b.sheets !== null && b.sheets <= pricing.minSheets;
   const atMax = b.sheets !== null && b.sheets >= pricing.maxSheets;
 
-  let error: ReactNode = null;
-  if (b.quantityError === 'not_integer') error = builder.quantity.errors.not_integer;
-  else if (b.quantityError === 'below_min') error = fillNodes(builder.quantity.errors.below_min, { min: pricing.minSheets });
-  else if (b.quantityError === 'above_max') error = fillNodes(builder.quantity.errors.above_max, { max: pricing.maxSheets });
-  else if (b.quantityError === 'material_disabled') error = builder.quantity.errors.material_disabled;
+  const error = b.quantityError ? fillLtr(builder.quantity.errors[b.quantityError], { min: pricing.minSheets, max: pricing.maxSheets }) : null;
 
   const stepBtn =
     'flex size-12 shrink-0 items-center justify-center rounded-lg border bg-background outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40';
@@ -144,7 +127,7 @@ function SheetsInput({ b }: { b: BuilderApi }) {
         </p>
       ) : (
         <p id="sheets-hint" className="text-sm text-muted-foreground">
-          {builder.quantity.minHint} <Ltr>{pricing.minSheets}</Ltr> {sheetWord(pricing.minSheets)}
+          {builder.quantity.minHint} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}
         </p>
       )}
     </div>
@@ -170,14 +153,14 @@ function DiscountLadder({ b }: { b: BuilderApi }) {
                   ? 'border-discount-foreground/40 bg-discount font-bold text-discount-foreground shadow-sm'
                   : 'border-discount bg-discount/25 text-discount-foreground')}
             >
-              <Ltr>{t.minSheets}+</Ltr> {sheetWord(t.minSheets)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
+              <Ltr>{t.minSheets}+</Ltr> {count(t.minSheets, common.plural.sheet)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
             </li>
           );
         })}
       </ul>
       {nudge && (
         <p className="text-sm font-medium text-brand">
-          {builder.quantity.nudgeAdd} <Ltr>{nudge.add}</Ltr> {sheetWord(nudge.add)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
+          {builder.quantity.nudgeAdd} <Ltr>{nudge.add}</Ltr> {count(nudge.add, common.plural.sheet)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
         </p>
       )}
     </div>
@@ -196,17 +179,16 @@ function PriceRow({ label, children, strong }: { label: ReactNode; children: Rea
 function PriceBox({ b }: { b: BuilderApi }) {
   const p = b.price;
   if (!p) return null;
-  const published = p.unitPriceIqd !== null;
   return (
     <section aria-live="polite" className="rounded-2xl border bg-card p-4">
       <dl className="divide-y">
         <PriceRow label={builder.quantity.unitPrice}>
-          {published && p.unitPriceIqd !== null ? (
+          {p.unitPriceIqd !== null ? (
             <span className="flex flex-wrap items-baseline justify-end gap-x-2">
               {p.discountPercent > 0 && p.unitBaseIqd !== null && (
-                <span className="text-muted-foreground line-through">{money(p.unitBaseIqd)}</span>
+                <span className="text-muted-foreground line-through"><Money amount={p.unitBaseIqd} /></span>
               )}
-              <span className="font-bold">{money(p.unitPriceIqd)}</span>
+              <span className="font-bold"><Money amount={p.unitPriceIqd} /></span>
               {p.discountPercent > 0 && (
                 <span className="rounded-full bg-discount px-2 py-0.5 text-xs font-bold text-discount-foreground">
                   {builder.quantity.discountWord} <Ltr>{p.discountPercent}%</Ltr>
@@ -217,7 +199,7 @@ function PriceBox({ b }: { b: BuilderApi }) {
             builder.quantity.priceUnset
           )}
         </PriceRow>
-        {published && p.subtotalIqd !== null && p.unitPriceIqd !== null && (
+        {p.subtotalIqd !== null && p.unitPriceIqd !== null && (
           <PriceRow
             label={
               <>
@@ -225,22 +207,17 @@ function PriceBox({ b }: { b: BuilderApi }) {
               </>
             }
           >
-            {money(p.subtotalIqd)}
+            <Money amount={p.subtotalIqd} />
           </PriceRow>
         )}
-        <PriceRow label={builder.quantity.delivery}>{money(p.deliveryFeeIqd)}</PriceRow>
+        <PriceRow label={builder.quantity.delivery}><Money amount={p.deliveryFeeIqd} /></PriceRow>
         <PriceRow label={builder.quantity.total} strong>
-          {p.totalIqd !== null ? money(p.totalIqd) : builder.quantity.priceUnset}
+          {p.totalIqd !== null ? <Money amount={p.totalIqd} /> : builder.quantity.priceUnset}
         </PriceRow>
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
         <Ltr>{p.totalStickers}</Ltr> {builder.quantity.stickersTotal}
-        {p.perStickerIqd !== null && <> · {builder.quantity.perSticker.split('{price}').map((part, i, a) => (
-            <Fragment key={i}>
-              {part}
-              {i < a.length - 1 && money(p.perStickerIqd as number)}
-            </Fragment>
-          ))}</>}
+        {p.perStickerIqd !== null && <> · {fillLtr(builder.quantity.perSticker, { price: <Money amount={p.perStickerIqd} /> })}</>}
       </p>
       <p className="text-xs text-muted-foreground">{builder.quantity.deliveryNote}</p>
     </section>

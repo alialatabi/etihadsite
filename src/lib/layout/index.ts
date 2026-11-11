@@ -1,5 +1,5 @@
 /**
- * Layout engine — OWNED BY AGENT A. Pure functions, no I/O, no DOM.
+ * Layout engine. Pure functions, no I/O, no DOM.
  *
  * Contract (see docs/PLAN.md §2 and src/lib/types.ts):
  *  - Integer µm everywhere. Never produce fractional µm.
@@ -14,15 +14,10 @@
  *    allowed orientation → 'too_big_for_page'; NaN/negative/non-finite → 'invalid'.
  *  - Expected outputs for the fixtures in src/lib/__fixtures__/layout-cases.json
  *    must match EXACTLY (deep-equal), including placements order and block origin.
- *
- * Phase 0 ships a reference implementation of computeLayout/layoutParamsFor
- * (ported from the fixture generator). Agent A: keep behaviour, harden input
- * validation, add exhaustive tests, and implement the remaining helpers.
  */
 import { A4_UM } from '@/lib/units';
 import { packMixed, type PackResult } from './pack';
 import type {
-  ClipShape,
   LayoutOutcome,
   LayoutParams,
   LayoutResult,
@@ -35,42 +30,75 @@ import type {
 const isPosInt = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0;
 const isNonNegInt = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
 
-function attempt(cellW: number, cellH: number, rotated: boolean, params: LayoutParams): LayoutResult | null {
-  const usable = {
-    xUm: params.marginUm,
-    yUm: params.marginUm,
-    widthUm: A4_UM.widthUm - 2 * params.marginUm,
-    heightUm: A4_UM.heightUm - 2 * params.marginUm,
+type Area = LayoutResult['usable'];
+type CellSize = LayoutResult['cell'];
+
+/** Printable area of the A4 page inside `marginUm` on every side. */
+function usableArea(marginUm: number): Area {
+  return {
+    xUm: marginUm,
+    yUm: marginUm,
+    widthUm: A4_UM.widthUm - 2 * marginUm,
+    heightUm: A4_UM.heightUm - 2 * marginUm,
   };
+}
+
+/** A blockW × blockH block centred in `usable` (half-remainders floored). */
+function centre(usable: Area, blockW: number, blockH: number): Area {
+  return {
+    xUm: usable.xUm + Math.floor((usable.widthUm - blockW) / 2),
+    yUm: usable.yUm + Math.floor((usable.heightUm - blockH) / 2),
+    widthUm: blockW,
+    heightUm: blockH,
+  };
+}
+
+/** `cell` as is, or with its sides swapped when `turned` (always a new object). */
+function orientedCell(cell: CellSize, turned: boolean): CellSize {
+  return turned
+    ? { widthUm: cell.heightUm, heightUm: cell.widthUm }
+    : { widthUm: cell.widthUm, heightUm: cell.heightUm };
+}
+
+/** Assemble the LayoutResult that the plain grid and the mixed layout share. */
+function buildResult(
+  params: LayoutParams,
+  usable: Area,
+  { cell, rotated, cols, rows, block, placements }: Pick<LayoutResult, 'cell' | 'rotated' | 'cols' | 'rows' | 'block' | 'placements'>,
+): LayoutResult {
+  return {
+    page: { widthUm: A4_UM.widthUm, heightUm: A4_UM.heightUm },
+    marginUm: params.marginUm,
+    usable,
+    cell,
+    rotated,
+    turnedCount: placements.filter((p) => p.turned).length,
+    gapXUm: params.gapXUm,
+    gapYUm: params.gapYUm,
+    cols,
+    rows,
+    countPerSheet: placements.length,
+    block,
+    placements,
+    clip: params.clip,
+  };
+}
+
+function attempt(cellW: number, cellH: number, rotated: boolean, params: LayoutParams): LayoutResult | null {
+  const usable = usableArea(params.marginUm);
   const cols = Math.floor((usable.widthUm + params.gapXUm) / (cellW + params.gapXUm));
   const rows = Math.floor((usable.heightUm + params.gapYUm) / (cellH + params.gapYUm));
   if (cols < 1 || rows < 1) return null;
   const blockW = cols * cellW + (cols - 1) * params.gapXUm;
   const blockH = rows * cellH + (rows - 1) * params.gapYUm;
-  const ox = usable.xUm + Math.floor((usable.widthUm - blockW) / 2);
-  const oy = usable.yUm + Math.floor((usable.heightUm - blockH) / 2);
+  const block = centre(usable, blockW, blockH);
   const placements: Placement[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      placements.push({ xUm: ox + c * (cellW + params.gapXUm), yUm: oy + r * (cellH + params.gapYUm) });
+      placements.push({ xUm: block.xUm + c * (cellW + params.gapXUm), yUm: block.yUm + r * (cellH + params.gapYUm) });
     }
   }
-  return {
-    page: { widthUm: A4_UM.widthUm, heightUm: A4_UM.heightUm },
-    marginUm: params.marginUm,
-    usable,
-    cell: { widthUm: cellW, heightUm: cellH },
-    rotated,
-    turnedCount: 0,
-    gapXUm: params.gapXUm,
-    gapYUm: params.gapYUm,
-    cols,
-    rows,
-    countPerSheet: cols * rows,
-    block: { xUm: ox, yUm: oy, widthUm: blockW, heightUm: blockH },
-    placements,
-    clip: params.clip,
-  };
+  return buildResult(params, usable, { cell: { widthUm: cellW, heightUm: cellH }, rotated, cols, rows, block, placements });
 }
 
 /** Compute the arrangement of `spec` on one A4 sheet with `params`. */
@@ -109,65 +137,52 @@ function cachedPack(W: number, H: number, aw: number, ah: number, bw: number, bh
 
 /** Best mixed-orientation layout (upright + turned cells), or null when nothing fits. */
 function mixedLayout(w: number, h: number, params: LayoutParams): LayoutResult | null {
-  const usable = {
-    xUm: params.marginUm,
-    yUm: params.marginUm,
-    widthUm: A4_UM.widthUm - 2 * params.marginUm,
-    heightUm: A4_UM.heightUm - 2 * params.marginUm,
-  };
+  const usable = usableArea(params.marginUm);
   const gx = params.gapXUm;
   const gy = params.gapYUm;
   const pack = cachedPack(usable.widthUm + gx, usable.heightUm + gy, w + gx, h + gy, h + gx, w + gy);
   if (!pack) return null;
 
   const base = pack.main.o;
-  const dims = (o: 0 | 1) => (o === 0 ? { w, h } : { w: h, h: w });
+  const upright: CellSize = { widthUm: w, heightUm: h };
+  const sizeOf = (o: 0 | 1) => orientedCell(upright, o === 1);
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
   for (const c of pack.cells) {
-    const d = dims(c.o);
+    const d = sizeOf(c.o);
     minX = Math.min(minX, c.x);
     minY = Math.min(minY, c.y);
-    maxX = Math.max(maxX, c.x + d.w);
-    maxY = Math.max(maxY, c.y + d.h);
+    maxX = Math.max(maxX, c.x + d.widthUm);
+    maxY = Math.max(maxY, c.y + d.heightUm);
   }
-  const blockW = maxX - minX;
-  const blockH = maxY - minY;
-  const bx = usable.xUm + Math.floor((usable.widthUm - blockW) / 2);
-  const by = usable.yUm + Math.floor((usable.heightUm - blockH) / 2);
+  const block = centre(usable, maxX - minX, maxY - minY);
   const placements: Placement[] = pack.cells
     .map((c): Placement => {
-      const p: Placement = { xUm: bx + c.x - minX, yUm: by + c.y - minY };
+      const p: Placement = { xUm: block.xUm + c.x - minX, yUm: block.yUm + c.y - minY };
       if (c.o !== base) p.turned = true;
       return p;
     })
     .sort((p, q) => p.yUm - q.yUm || p.xUm - q.xUm);
-  const cell = dims(base);
-  return {
-    page: { widthUm: A4_UM.widthUm, heightUm: A4_UM.heightUm },
-    marginUm: params.marginUm,
-    usable,
-    cell: { widthUm: cell.w, heightUm: cell.h },
+  return buildResult(params, usable, {
+    cell: sizeOf(base),
     rotated: base === 1,
-    turnedCount: placements.filter((p) => p.turned).length,
-    gapXUm: gx,
-    gapYUm: gy,
     cols: pack.main.cols,
     rows: pack.main.rows,
-    countPerSheet: placements.length,
-    block: { xUm: bx, yUm: by, widthUm: blockW, heightUm: blockH },
+    block,
     placements,
-    clip: params.clip,
-  };
+  });
+}
+
+/** Cell size on the page for an upright (`turned` false) or turned placement of `layout`. */
+export function cellSizeFor(layout: LayoutResult, turned: boolean): { widthUm: number; heightUm: number } {
+  return orientedCell(layout.cell, turned);
 }
 
 /** Size of placement `p` on the page (cell swapped when `turned`). */
 export function placementSize(layout: LayoutResult, p: Placement): { widthUm: number; heightUm: number } {
-  return p.turned
-    ? { widthUm: layout.cell.heightUm, heightUm: layout.cell.widthUm }
-    : { widthUm: layout.cell.widthUm, heightUm: layout.cell.heightUm };
+  return cellSizeFor(layout, Boolean(p.turned));
 }
 
 /** Whether the artwork in placement `p` is turned 90° clockwise relative to the upload. */
@@ -227,8 +242,7 @@ export function deriveLockedSize(
  */
 export function maxWidthFor(aspect: number, params: LayoutParams): number {
   if (!Number.isFinite(aspect) || aspect <= 0) return 0;
-  const usableW = A4_UM.widthUm - 2 * params.marginUm;
-  const usableH = A4_UM.heightUm - 2 * params.marginUm;
+  const { widthUm: usableW, heightUm: usableH } = usableArea(params.marginUm);
   if (!(usableW > 0 && usableH > 0)) return 0;
   const heightOf = (w: number): number => Math.max(1, Math.round(w / aspect));
   const spec = (w: number): StickerSpec => ({ shape: 'rect', corners: 'sharp', widthUm: w, heightUm: heightOf(w) });
@@ -247,5 +261,3 @@ export function maxWidthFor(aspect: number, params: LayoutParams): number {
   if (!fits(w)) return 0;
   return w >= params.minSideUm && computeLayout(spec(w), params).ok ? w : 0;
 }
-
-export type { ClipShape };

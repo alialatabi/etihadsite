@@ -1,4 +1,4 @@
-import { normaliseDigits } from '@/lib/parse/cm';
+import { normaliseDigits } from '@/lib/parse/digits';
 
 export interface CustomerRow {
   phone: string;
@@ -8,7 +8,7 @@ export interface CustomerRow {
   landmark: string;
   ordersCount: number;
   totalIqd: number;
-  /** Pre-formatted (Asia/Baghdad) on the server. */
+  /** Pre-formatted (shop time) on the server. */
   lastLabel: string;
   lastDisplayNo: string;
   /** Only set when that order still exists. */

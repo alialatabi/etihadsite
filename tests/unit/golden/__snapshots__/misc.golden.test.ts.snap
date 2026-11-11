@@ -1,0 +1,280 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: admin proxy (src/proxy.ts) > matcher config 1`] = `
+{
+  "matcher": [
+    "/admin/:path*",
+    "/api/admin/:path*",
+  ],
+}
+`;
+
+exports[`golden: admin proxy (src/proxy.ts) > who gets through, who is redirected, who gets 401 1`] = `
+[
+  "login page, no cookie -> 200 next()",
+  "admin home, no cookie -> 307 redirect https://softy.iq/admin/login",
+  "admin page, no cookie, with query -> 307 redirect https://softy.iq/admin/login",
+  "admin page, valid cookie -> 200 next()",
+  "admin page, expired cookie -> 307 redirect https://softy.iq/admin/login",
+  "admin page, garbage cookie -> 307 redirect https://softy.iq/admin/login",
+  "admin api, no cookie -> 401 response {"ok":false,"error":"unauthorized"}",
+  "admin api, valid cookie -> 200 next()",
+  "admin api, expired cookie -> 401 response {"ok":false,"error":"unauthorized"}",
+  "login page with a trailing slash is NOT the login page -> 307 redirect https://softy.iq/admin/login",
+  "login sub-path -> 307 redirect https://softy.iq/admin/login",
+  "redirect keeps the request origin -> 307 redirect http://localhost:3000/admin/login",
+  "valid cookie but SESSION_SECRET unset -> 307 redirect https://softy.iq/admin/login",
+]
+`;
+
+exports[`golden: admin session token > checkPassword 1`] = `
+[
+  "explicit match -> true",
+  "explicit mismatch -> false",
+  "different length -> false",
+  "empty vs empty -> true",
+  "unicode -> true",
+  "case sensitive -> false",
+  "from env, right -> true",
+  "from env, wrong -> false",
+  "from env, not configured -> THROWS Invalid environment variables: ADMIN_PASSWORD, SESSION_SECRET",
+]
+`;
+
+exports[`golden: admin session token > signToken is deterministic for (secret, time, ttl) 1`] = `
+{
+  "COOKIE_NAME": "ep_admin",
+  "SESSION_TTL_SEC": 604800,
+  "nextSecondDiffers": true,
+  "otherSecretSamePayloadOtherSignature": true,
+  "parts": [
+    "{"alg":"HS256"}",
+    "{"role":"admin","iat":1794301200,"exp":1794906000}",
+  ],
+  "sameInputsSameToken": true,
+  "sameSecondSameToken": true,
+  "shortTtlPayload": "{"role":"admin","iat":1794301200,"exp":1794301260}",
+  "tokenSha256": "34fb0a48cd2360b1e54bf4d68f6bbc524a3e5a5257fe72868a00e096176e2af4",
+}
+`;
+
+exports[`golden: admin session token > verifyToken table 1`] = `
+[
+  "valid, same instant -> true",
+  "valid, 1 s before issue (not rejected: no nbf) -> true",
+  "valid, 7 days minus 1 s -> true",
+  "expired, exactly 7 days -> false",
+  "expired, 8 days -> false",
+  "wrong secret -> false",
+  "secret shorter than 32 -> false",
+  "secret undefined -> false",
+  "token undefined -> false",
+  "token empty -> false",
+  "garbage -> false",
+  "payload replaced -> false",
+  "signature truncated -> false",
+  "alg none -> false",
+  "valid signature but role user -> false",
+]
+`;
+
+exports[`golden: api/_lib/body > declaredLength 1`] = `
+[
+  "undefined -> null",
+  ""0" -> 0",
+  ""5" -> 5",
+  "" 5 " -> 5",
+  ""05" -> 5",
+  ""5.0" -> null",
+  ""-5" -> null",
+  ""+5" -> null",
+  ""abc" -> null",
+  """ -> null",
+  ""1e3" -> null",
+  ""9007199254740993" -> 9007199254740992",
+  ""5, 5" -> null",
+]
+`;
+
+exports[`golden: api/_lib/body > readCapped / readJsonCapped 1`] = `
+{
+  "bodyTooLargeIsAnError": true,
+  "chunkedOverCapOnFirstChunk": "THROWS BodyTooLarge",
+  "chunkedOverCapOnLastChunk": "THROWS BodyTooLarge",
+  "chunkedWithinCap": "Uint8Array(9) [7,7,7,7,7,7]",
+  "declaredOver": "THROWS BodyTooLarge",
+  "declaredUnderButBodyOver": "THROWS BodyTooLarge",
+  "emptyBody": "Uint8Array(0) []",
+  "exactFit": "Uint8Array(4) [1,2,3,4]",
+  "invalidDeclaredIsIgnored": "Uint8Array(2) [97,98]",
+  "jsonBad": "THROWS SyntaxError",
+  "jsonEmpty": "THROWS SyntaxError",
+  "jsonObject": "{"a":1,"b":"ب"}",
+  "jsonScalar": "42",
+  "jsonTooLarge": "THROWS BodyTooLarge",
+  "jsonUtf8Bom": "{}",
+  "maxZeroEmpty": "Uint8Array(0) []",
+  "maxZeroOneByte": "THROWS BodyTooLarge",
+  "noBody": "Uint8Array(0) []",
+  "oneOver": "THROWS BodyTooLarge",
+}
+`;
+
+exports[`golden: env > getAdminEnv / getEnv table 1`] = `
+[
+  "nothing set -> admin: THROWS Invalid environment variables: ADMIN_PASSWORD, SESSION_SECRET | all: THROWS Invalid environment variables: ADMIN_PASSWORD, SESSION_SECRET",
+  "valid -> admin: {"ADMIN_PASSWORD":"admin1234","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: STORAGE,DATA_DIR,ORDER_TRANSPORT,TRUST_PROXY,ADMIN_PASSWORD,SESSION_SECRET",
+  "password 7 chars -> admin: THROWS Invalid environment variables: ADMIN_PASSWORD | all: THROWS Invalid environment variables: ADMIN_PASSWORD",
+  "password 8 chars -> admin: {"ADMIN_PASSWORD":"12345678","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: STORAGE,DATA_DIR,ORDER_TRANSPORT,TRUST_PROXY,ADMIN_PASSWORD,SESSION_SECRET",
+  "password placeholder -> admin: THROWS Invalid environment variables: ADMIN_PASSWORD | all: THROWS Invalid environment variables: ADMIN_PASSWORD",
+  "password starts with the placeholder -> admin: THROWS Invalid environment variables: ADMIN_PASSWORD | all: THROWS Invalid environment variables: ADMIN_PASSWORD",
+  "password contains but does not start with it -> admin: {"ADMIN_PASSWORD":"i-will-change-me","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: STORAGE,DATA_DIR,ORDER_TRANSPORT,TRUST_PROXY,ADMIN_PASSWORD,SESSION_SECRET",
+  "secret 31 chars -> admin: THROWS Invalid environment variables: SESSION_SECRET | all: THROWS Invalid environment variables: SESSION_SECRET",
+  "secret 32 chars -> admin: {"ADMIN_PASSWORD":"admin1234","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: STORAGE,DATA_DIR,ORDER_TRANSPORT,TRUST_PROXY,ADMIN_PASSWORD,SESSION_SECRET",
+  "secret placeholder (long enough) -> admin: THROWS Invalid environment variables: SESSION_SECRET | all: THROWS Invalid environment variables: SESSION_SECRET",
+  "secret example value (too short anyway) -> admin: THROWS Invalid environment variables: SESSION_SECRET, SESSION_SECRET | all: THROWS Invalid environment variables: SESSION_SECRET, SESSION_SECRET",
+  "blank password is NOT treated as unset here -> admin: {"ADMIN_PASSWORD":"        ","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: STORAGE,DATA_DIR,ORDER_TRANSPORT,TRUST_PROXY,ADMIN_PASSWORD,SESSION_SECRET",
+  "both invalid -> admin: THROWS Invalid environment variables: ADMIN_PASSWORD, SESSION_SECRET | all: THROWS Invalid environment variables: ADMIN_PASSWORD, SESSION_SECRET",
+  "admin valid, order env invalid -> admin: {"ADMIN_PASSWORD":"admin1234","SESSION_SECRET":"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"} | all: THROWS Invalid environment variables: STORAGE",
+]
+`;
+
+exports[`golden: env > getOrderEnv table 1`] = `
+[
+  "nothing set -> {"DATA_DIR":"./data","ORDER_TRANSPORT":"console","STORAGE":"local","TRUST_PROXY":0}",
+  "blank strings count as unset -> {"DATA_DIR":"./data","ORDER_TRANSPORT":"console","STORAGE":"local","TRUST_PROXY":0}",
+  "everything set -> {"DATA_DIR":"/data","ORDER_TRANSPORT":"telegram","STORAGE":"supabase","SUPABASE_SECRET_KEY":"sk","SUPABASE_URL":"https://p.supabase.co","TELEGRAM_BOT_TOKEN":"1:a","TELEGRAM_CHAT_ID":"5","TRUST_PROXY":2,"TURNSTILE_SECRET_KEY":"t"}",
+  "values are not trimmed -> {"DATA_DIR":" ./d ","ORDER_TRANSPORT":"console","STORAGE":"local","TELEGRAM_CHAT_ID":" 5 ","TRUST_PROXY":0}",
+  "TRUST_PROXY 10 -> {"DATA_DIR":"./data","ORDER_TRANSPORT":"console","STORAGE":"local","TRUST_PROXY":10}",
+  "TRUST_PROXY 11 -> THROWS Invalid environment variables: TRUST_PROXY",
+  "TRUST_PROXY -1 -> THROWS Invalid environment variables: TRUST_PROXY",
+  "TRUST_PROXY 1.5 -> THROWS Invalid environment variables: TRUST_PROXY",
+  "TRUST_PROXY abc -> THROWS Invalid environment variables: TRUST_PROXY",
+  "TRUST_PROXY " 2 " -> {"DATA_DIR":"./data","ORDER_TRANSPORT":"console","STORAGE":"local","TRUST_PROXY":2}",
+  "unknown STORAGE -> THROWS Invalid environment variables: STORAGE",
+  "upper-case STORAGE -> THROWS Invalid environment variables: STORAGE",
+  "unknown ORDER_TRANSPORT -> THROWS Invalid environment variables: ORDER_TRANSPORT",
+  "two invalid values -> THROWS Invalid environment variables: STORAGE, ORDER_TRANSPORT",
+  "admin secrets are not needed (and not returned) -> {"DATA_DIR":"./data","ORDER_TRANSPORT":"console","STORAGE":"local","TRUST_PROXY":0}",
+]
+`;
+
+exports[`golden: logClient (browser -> /api/log) > exact fetch call; never throws 1`] = `
+{
+  "calls": 2,
+  "first": {
+    "init": {
+      "body": "{"step":"decode","message":"boom","userAgent":"GoldenBrowser/1.0"}",
+      "headers": {
+        "content-type": "application/json",
+      },
+      "keepalive": true,
+      "method": "POST",
+    },
+    "url": "/api/log",
+  },
+  "rejected": "undefined",
+  "second": {
+    "body": {
+      "fileSize": 12345,
+      "fileType": "image/png",
+      "message": "500 chars",
+      "step": "upload",
+      "userAgent": "Custom/1",
+    },
+    "bodyKeyOrder": "step,message,fileType,fileSize,userAgent",
+    "url": "/api/log",
+  },
+  "threw": "undefined",
+}
+`;
+
+exports[`golden: rate limiter > clientIp / trustProxyHops 1`] = `
+{
+  "hops": [
+    "TRUST_PROXY=undefined -> hops=0 clientIp=global",
+    "TRUST_PROXY="" -> hops=0 clientIp=global",
+    "TRUST_PROXY="0" -> hops=0 clientIp=global",
+    "TRUST_PROXY="1" -> hops=1 clientIp=7.7.7.7",
+    "TRUST_PROXY="2" -> hops=2 clientIp=8.8.8.8",
+    "TRUST_PROXY="10" -> hops=10 clientIp=global",
+    "TRUST_PROXY="11" -> hops=10 clientIp=global",
+    "TRUST_PROXY="999" -> hops=10 clientIp=global",
+    "TRUST_PROXY="-1" -> hops=0 clientIp=global",
+    "TRUST_PROXY="1.5" -> hops=0 clientIp=global",
+    "TRUST_PROXY="abc" -> hops=0 clientIp=global",
+    "TRUST_PROXY=" 2 " -> hops=2 clientIp=8.8.8.8",
+    "TRUST_PROXY="0x2" -> hops=2 clientIp=8.8.8.8",
+    "TRUST_PROXY="1e1" -> hops=10 clientIp=global",
+  ],
+  "rows": [
+    "undefined -> hops0=global hops1=global hops2=global hops3=global hops5=global hops-1=global",
+    """ -> hops0=global hops1=global hops2=global hops3=global hops5=global hops-1=global",
+    ""1.2.3.4" -> hops0=global hops1=1.2.3.4 hops2=global hops3=global hops5=global hops-1=global",
+    "" 1.2.3.4 " -> hops0=global hops1=1.2.3.4 hops2=global hops3=global hops5=global hops-1=global",
+    ""spoofed, 1.2.3.4, 10.0.0.1" -> hops0=global hops1=10.0.0.1 hops2=1.2.3.4 hops3=spoofed hops5=global hops-1=global",
+    ""a,,b, ,c" -> hops0=global hops1=c hops2=b hops3=a hops5=global hops-1=global",
+    ""," -> hops0=global hops1=global hops2=global hops3=global hops5=global hops-1=global",
+    ""2001:db8::1, 10.0.0.1" -> hops0=global hops1=10.0.0.1 hops2=2001:db8::1 hops3=global hops5=global hops-1=global",
+  ],
+}
+`;
+
+exports[`golden: rate limiter > limit 0 and limit 1 1`] = `
+{
+  "oneFirst": {
+    "ok": true,
+    "retryAfterSec": 0,
+  },
+  "oneSecond": {
+    "ok": false,
+    "retryAfterSec": 2,
+  },
+  "zero": "{"ok":false,"retryAfterSec":"<NaN>"}",
+}
+`;
+
+exports[`golden: rate limiter > limiters(): the limits per route in both modes, and when the set is rebuilt 1`] = `
+{
+  "global": {
+    "log": 1200,
+    "login": 200,
+    "mode": 0,
+    "order": 100,
+    "upload": 400,
+  },
+  "perIp": {
+    "log": 60,
+    "login": 10,
+    "mode": 1,
+    "order": 5,
+    "upload": 20,
+  },
+  "rebuiltOnModeChange": true,
+  "same": true,
+  "stillSameForOtherHopCount": true,
+}
+`;
+
+exports[`golden: rate limiter > sliding window with an injected clock 1`] = `
+[
+  "t=0 key="a" -> ok=true retryAfterSec=0",
+  "t=100 key="a" -> ok=true retryAfterSec=0",
+  "t=200 key="a" -> ok=true retryAfterSec=0",
+  "t=300 key="a" -> ok=false retryAfterSec=10",
+  "t=300 key="b" -> ok=true retryAfterSec=0",
+  "t=5000 key="a" -> ok=false retryAfterSec=5",
+  "t=9999 key="a" -> ok=false retryAfterSec=1",
+  "t=10000 key="a" -> ok=true retryAfterSec=0",
+  "t=10050 key="a" -> ok=false retryAfterSec=1",
+  "t=10100 key="a" -> ok=true retryAfterSec=0",
+  "t=10199 key="a" -> ok=false retryAfterSec=1",
+  "t=10200 key="a" -> ok=true retryAfterSec=0",
+  "t=10201 key="a" -> ok=false retryAfterSec=10",
+  "t=19000 key="" -> ok=true retryAfterSec=0",
+  "t=19000 key="" -> ok=true retryAfterSec=0",
+  "t=19000 key="" -> ok=true retryAfterSec=0",
+  "t=19000 key="" -> ok=false retryAfterSec=10",
+  "t=40000 key="a" -> ok=true retryAfterSec=0",
+]
+`;

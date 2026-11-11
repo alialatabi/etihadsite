@@ -58,6 +58,49 @@ function floorIndex(raster: number[], v: number): number {
   return lo;
 }
 
+/**
+ * Cut candidates of one axis, built up front because the DP reads them for every state:
+ * entry i holds the flat pairs (k, floorIndex(points[i] - points[k])) for each k ≥ 1 with
+ * points[k] ≤ points[i] / 2 (a cut beyond the middle mirrors one before it).
+ */
+function cutTable(points: number[]): Int32Array[] {
+  const n = points.length;
+  const table: Int32Array[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const half = points[i]! / 2;
+    const arr: number[] = [];
+    for (let k = 1; k < n && points[k]! <= half; k++) arr.push(k, floorIndex(points, points[i]! - points[k]!));
+    table[i] = Int32Array.from(arr);
+  }
+  return table;
+}
+
+/** Number of `box` cells that a plain grid fits into w×h. */
+function gridCount(w: number, h: number, box: Box): number {
+  return Math.floor(w / box.w) * Math.floor(h / box.h);
+}
+
+/**
+ * Append to `out` the plain grid of `box` cells (orientation `o`) that fits into w×h, with its
+ * top-left at (ox, oy): rows outer, columns inner. Returns the grid that was pushed.
+ */
+function pushGrid(
+  out: PackedCell[],
+  box: Box,
+  o: 0 | 1,
+  w: number,
+  h: number,
+  ox: number,
+  oy: number,
+): { cols: number; rows: number } {
+  const cols = Math.floor(w / box.w);
+  const rows = Math.floor(h / box.h);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) out.push({ x: ox + c * box.w, y: oy + r * box.h, o });
+  }
+  return { cols, rows };
+}
+
 // Choice encoding per state: 0 = leaf A, 1 = leaf B, 2 = empty,
 // k ≥ 3 even → vertical cut at X raster index (k-3)/2, odd → horizontal cut at Y index (k-4)/2.
 const LEAF_A = 0;
@@ -92,23 +135,10 @@ export function packMixed(W: number, H: number, a: Box, b: Box): PackResult | nu
 
   const val = new Int32Array(nx * ny);
   const choice = new Int32Array(nx * ny);
-  // floorIndex of (X[i] - X[k]) for k ≤ i/2 is needed repeatedly; precompute per axis lazily.
   const fx = (v: number) => floorIndex(X, v);
   const fy = (v: number) => floorIndex(Y, v);
-  const restX: Int32Array[] = new Array(nx);
-  for (let i = 0; i < nx; i++) {
-    const half = X[i]! / 2;
-    const arr: number[] = [];
-    for (let k = 1; k < nx && X[k]! <= half; k++) arr.push(k, fx(X[i]! - X[k]!));
-    restX[i] = Int32Array.from(arr);
-  }
-  const restY: Int32Array[] = new Array(ny);
-  for (let j = 0; j < ny; j++) {
-    const half = Y[j]! / 2;
-    const arr: number[] = [];
-    for (let k = 1; k < ny && Y[k]! <= half; k++) arr.push(k, fy(Y[j]! - Y[k]!));
-    restY[j] = Int32Array.from(arr);
-  }
+  const restX = cutTable(X);
+  const restY = cutTable(Y);
 
   for (let i = 0; i < nx; i++) {
     const x = X[i]!;
@@ -190,13 +220,8 @@ export function packMixed(W: number, H: number, a: Box, b: Box): PackResult | nu
       const y = Y[j]!;
       if (ch === EMPTY) continue;
       if (ch === LEAF_A || ch === LEAF_B) {
-        const box = ch === LEAF_A ? a : b;
-        const cols = Math.floor(x / box.w);
-        const rows = Math.floor(y / box.h);
-        if (cols * rows > main.cols * main.rows) main = { o: ch as 0 | 1, cols, rows };
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) cells.push({ x: ox + c * box.w, y: oy + r * box.h, o: ch as 0 | 1 });
-        }
+        const { cols, rows } = pushGrid(cells, ch === LEAF_A ? a : b, ch, x, y, ox, oy);
+        if (cols * rows > main.cols * main.rows) main = { o: ch, cols, rows };
         continue;
       }
       if ((ch - 3) % 2 === 0) {
@@ -233,19 +258,15 @@ export function packMixed(W: number, H: number, a: Box, b: Box): PackResult | nu
  * splits at every block boundary. Fast (O(cols + rows)) and never worse than a grid.
  */
 export function packTwoLevel(W: number, H: number, a: Box, b: Box): PackResult | null {
-  const grid = (w: number, h: number, box: Box) => Math.floor(w / box.w) * Math.floor(h / box.h);
   const bestGrid = (w: number, h: number): { n: number; o: 0 | 1 } => {
-    const na = grid(w, h, a);
-    const nb = grid(w, h, b);
+    const na = gridCount(w, h, a);
+    const nb = gridCount(w, h, b);
     return na >= nb ? { n: na, o: 0 } : { n: nb, o: 1 };
   };
   type Plan = { n: number; build: () => PackedCell[]; main: PackResult['main'] };
   const fill = (w: number, h: number, o: 0 | 1, ox: number, oy: number): PackedCell[] => {
-    const box = o === 0 ? a : b;
-    const cols = Math.floor(w / box.w);
-    const rows = Math.floor(h / box.h);
     const out: PackedCell[] = [];
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push({ x: ox + c * box.w, y: oy + r * box.h, o });
+    pushGrid(out, o === 0 ? a : b, o, w, h, ox, oy);
     return out;
   };
   const whole = bestGrid(W, H);

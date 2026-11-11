@@ -1,4 +1,4 @@
-/** Order record / notification copy — rebrand copy pass. */
+/** Order copy: Telegram caption labels, the plain-text summary, status names, API error messages, shape names. */
 export const order = {
   telegram: {
     title: 'طلب جديد',
@@ -11,7 +11,6 @@ export const order = {
     discount: 'خصم {percent}%',
     subtotal: 'المجموع',
     totalStickers: 'مجموع الستيكرات',
-    price: 'السعر',
     delivery: 'التوصيل',
     total: 'الإجمالي',
     priceUnset: 'يُحدد عند التأكيد',
@@ -20,7 +19,6 @@ export const order = {
     address: 'العنوان',
     notes: 'ملاحظات',
     dpi: 'جودة الصورة',
-    file: 'الملف الأصلي',
     time: 'الوقت',
     whatsapp: 'واتساب',
   },
@@ -64,5 +62,12 @@ export const order = {
     rate_limited: 'طلبات كثيرة. انتظر شوية.',
     captcha_failed: 'فشل التحقق. جرّب مرة ثانية.',
     server_error: 'صار خطأ. جرّب مرة ثانية أو راسلنا واتساب.',
+  },
+  /** Shape names (+ corners) returned by shapeLabel() in src/lib/order-text.ts. */
+  shapes: {
+    circle: 'دائري',
+    custom: 'شكل مخصص',
+    rectSharp: 'مستطيل بزوايا حادة',
+    rectRounded: 'مستطيل بزوايا دائرية',
   },
 } as const;

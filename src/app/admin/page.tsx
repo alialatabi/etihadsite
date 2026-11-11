@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -10,11 +9,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Ltr } from "@/components/Ltr";
+import { Money } from "@/components/Money";
 import { admin, common, order } from "@/content/ar";
-import { verifySession } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/guard";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
 import { whatsappUrl } from "@/lib/parse/phone";
-import { formatIqd } from "@/lib/pricing";
 import { getStorage } from "@/lib/storage";
 import {
   formatBaghdad,
@@ -26,7 +25,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {
-  if (!(await verifySession())) redirect("/admin/login");
+  await requireAdmin();
   const orders = await getStorage().listOrders();
   const c = admin.orders.columns;
 
@@ -110,9 +109,7 @@ export default async function OrdersPage() {
                       {pv.totalIqd === null ? (
                         admin.orders.missing
                       ) : (
-                        <>
-                          <Ltr>{formatIqd(pv.totalIqd)}</Ltr> {common.units.iqd}
-                        </>
+                        <Money amount={pv.totalIqd} />
                       )}
                     </TableCell>
                     <TableCell>

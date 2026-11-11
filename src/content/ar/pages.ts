@@ -1,5 +1,6 @@
 /**
- * Marketing / static pages copy — OWNED BY AGENT E (may extend and edit freely).
+ * Static pages copy: /how-it-works, the 404 page, the header/footer shell, the install card
+ * and the SEO texts.
  * Placeholders use {name}; numbers filled into them are wrapped in <Ltr> by the page.
  */
 export const pages = {
@@ -83,7 +84,6 @@ export const pages = {
     footerLinks: 'روابط',
     whatsappAria: 'تواصل معنا على واتساب',
     homeAria: 'الرئيسية',
-    footerArea: 'المنطقة',
   },
   /** "Install as an app" card shown to mobile visitors (PWA). {name} = shop name. */
   install: {

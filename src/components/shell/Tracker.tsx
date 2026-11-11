@@ -2,24 +2,9 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { sendTrack, type TrackPayload } from '@/lib/analytics/client';
 
 const FIRST_KEY = 'softy-tracked';
-
-/** Fire-and-forget analytics beacon to /api/track (sendBeacon, fetch keepalive fallback). */
-export function sendTrack(payload: Record<string, unknown>): void {
-  try {
-    const body = JSON.stringify(payload);
-    if (typeof navigator.sendBeacon === 'function') {
-      if (navigator.sendBeacon('/api/track', new Blob([body], { type: 'application/json' }))) return;
-    }
-    void fetch('/api/track', {
-      method: 'POST',
-      body,
-      headers: { 'content-type': 'application/json' },
-      keepalive: true,
-    }).catch(() => {});
-  } catch {}
-}
 
 /** Mounted once in the root layout: one pageview per route; referrer/utm only on the session's first. */
 export function Tracker() {
@@ -27,7 +12,7 @@ export function Tracker() {
 
   useEffect(() => {
     if (!pathname || pathname.startsWith('/admin')) return;
-    const payload: Record<string, unknown> = { type: 'pageview', path: pathname.slice(0, 200) };
+    const payload: Extract<TrackPayload, { type: 'pageview' }> = { type: 'pageview', path: pathname.slice(0, 200) };
     let first = true;
     try {
       first = sessionStorage.getItem(FIRST_KEY) !== '1';

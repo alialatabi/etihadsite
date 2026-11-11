@@ -1,3 +1,5 @@
+> **Historical; superseded where noted.** A review of the first Arabic wording (2026-11-07), written while the copy files were frozen for the build. Keys, values and the shop name have changed since; the current strings are in `src/content/ar/*` and are pinned by `tests/unit/golden/copy.golden.test.ts`.
+
 # مراجعة النصوص / Copy review
 
 Scope: `src/content/ar/common.ts` and `builder.ts` (both frozen; the orchestrator applies what is accepted).

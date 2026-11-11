@@ -1,11 +1,15 @@
 /**
  * In-memory sliding-window rate limiter. Pure apart from the injected clock.
- * State lives in the Node process (fine for the single local server).
+ * State is per process: on serverless hosting every instance counts on its own, so these
+ * limits are a per-instance guard and not a site-wide quota (see README, "Still open").
  */
 export interface RateLimiter {
   /** Records a hit for `key`; ok=false when over the limit (the hit is not counted then). */
   check(key: string): { ok: boolean; retryAfterSec: number };
 }
+
+/** Hard cap on tracked keys; the oldest-inserted key is evicted past it. */
+const MAX_KEYS = 5000;
 
 export function createRateLimiter(opts: {
   limit: number;
@@ -41,9 +45,6 @@ export function createRateLimiter(opts: {
   };
 }
 
-/** Hard cap on tracked keys; the oldest-inserted key is evicted past it. */
-const MAX_KEYS = 5000;
-
 /** Number of trusted proxy hops from TRUST_PROXY (integer >= 0, default 0). */
 export function trustProxyHops(): number {
   const n = Number(process.env.TRUST_PROXY);
@@ -55,16 +56,26 @@ export function trustProxyHops(): number {
  * header is ignored and everyone shares the key "global". With hops = n the n-th value
  * from the END of x-forwarded-for is used (the part appended by our own proxies).
  */
-export function clientIp(
-  request: Request,
+export function clientIpFromHeaders(
+  headers: { get(name: string): string | null },
   hops: number = trustProxyHops(),
 ): string {
   if (hops <= 0) return "global";
-  const parts = (request.headers.get("x-forwarded-for") ?? "")
+  const parts = (headers.get("x-forwarded-for") ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
   return parts[parts.length - hops] || "global";
+}
+
+/** clientIpFromHeaders() for a Request (route handlers). */
+export function clientIp(
+  request: Request,
+  hops: number = trustProxyHops(),
+): string {
+  // As before the split: with no trusted hop the request is not read at all.
+  if (hops <= 0) return "global";
+  return clientIpFromHeaders(request.headers, hops);
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -73,6 +84,7 @@ type Limiters = {
   order: RateLimiter;
   log: RateLimiter;
   login: RateLimiter;
+  track: RateLimiter;
   mode: number;
 };
 const g = globalThis as unknown as { __epLimiters?: Limiters };
@@ -86,13 +98,18 @@ export function limiters(): Limiters {
   const mode = hops > 0 ? 1 : 0;
   if (g.__epLimiters?.mode !== mode) {
     const k = mode ? 1 : 20;
+    const prevTrack = g.__epLimiters?.track;
     g.__epLimiters = {
       mode,
       upload: createRateLimiter({ limit: 20 * k, windowMs: HOUR }),
       order: createRateLimiter({ limit: 5 * k, windowMs: HOUR }),
       log: createRateLimiter({ limit: 60 * k, windowMs: HOUR }),
       login: createRateLimiter({ limit: 10 * k, windowMs: 15 * 60 * 1000 }),
+      // Keyed by the visitor hash, not by clientIp(): no shared "global" bucket, so no x20, and a mode change does not reset it.
+      track: prevTrack ?? createRateLimiter({ limit: 300, windowMs: HOUR }),
     };
   }
+  // An object built before `track` existed can survive a dev hot reload: add it without resetting the others.
+  g.__epLimiters.track ??= createRateLimiter({ limit: 300, windowMs: HOUR });
   return g.__epLimiters;
 }

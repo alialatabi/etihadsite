@@ -260,6 +260,28 @@ describe('buildSheetPdf', () => {
     expect(m[3]).toBeLessThan(0);
   });
 
+  it('emits one q ... Q pair per cell: optional clip path + W n, then cm and Do', async () => {
+    const operatorsOf = async (layout: LayoutResult, artwork: NormalisedArtwork): Promise<string> => {
+      const { bytes } = await buildSheetPdf({ layout, artwork, meta: { displayNo: 'EP-251107-TEST', description: 'operators' } });
+      const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+      expect(doc.getProducer()).toBe('Softy Printing');
+      expect(doc.getCreator()).toBe('Softy Printing');
+      return contentOf(doc.getPage(0))
+        .split(/\s+/)
+        .filter((token) => /^[A-Za-z]+$/.test(token))
+        .join(' ');
+    };
+    const perCell = (operators: string, count: number): string => Array.from({ length: count }, () => operators).join(' ');
+
+    expect(await operatorsOf(layoutOf('rect-sharp-50x50'), await raster(500, 500))).toBe(perCell('q cm Do Q', 15));
+    // Cover clip of a rounded-rect layout: a plain five-operator rectangle (move, three lines, close).
+    expect(await operatorsOf(layoutOf('rect-rounded-50x50'), await raster(500, 400, true))).toBe(
+      perCell('q m l l l h W n cm Do Q', 15),
+    );
+    expect(await operatorsOf(layoutOf('circle-30mm-gapX2-gapY0'), jpg)).toBe(perCell('q m c c c c h W n cm Do Q', 54));
+    expect(await operatorsOf(layoutOf('circle-30mm-gapX2-gapY0'), await pdfArtwork())).toBe(perCell('q m c c c c h W n cm Do Q', 54));
+  });
+
   it('one embedded object regardless of count (file stays small)', async () => {
     const res = await buildSheetPdf({
       layout: layoutOf('circle-30mm-gapX2-gapY0'),

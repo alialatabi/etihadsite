@@ -1,0 +1,219 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: degraded.ts falls back to the manual summary > manualSummaryText / degradedText / degradedUrl 1`] = `
+{
+  "circle priced with discount": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54
+الخامة: ورقي
+الأوراق: 20
+مجموع الستيكرات: 1080
+الخصم: 10%
+سعر الورقة: 720 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع",
+    "degradedIsIntroPlusManual": true,
+    "manual": "الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54
+الخامة: ورقي
+الأوراق: 20
+مجموع الستيكرات: 1080
+الخصم: 10%
+سعر الورقة: 720 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع",
+    "url": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%AF%D8%A7%D8%A6%D8%B1%D9%8A%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%203%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2054%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D9%88%D8%B1%D9%82%D9%8A%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2020%0A%D9%85%D8%AC%D9%85%D9%88%D8%B9%20%D8%A7%D9%84%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%201080%0A%D8%A7%D9%84%D8%AE%D8%B5%D9%85%3A%2010%25%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20720%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2019%2C400%20%D8%AF.%D8%B9",
+  },
+  "custom odd size": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+الشكل: شكل مخصص
+القياس: 1.23 × 0.68 سم
+بالورقة: 200
+الخامة: ورقي
+الأوراق: 100
+مجموع الستيكرات: 20000
+الخصم: 20%
+سعر الورقة: 640 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 69,000 د.ع",
+    "degradedIsIntroPlusManual": true,
+    "manual": "الشكل: شكل مخصص
+القياس: 1.23 × 0.68 سم
+بالورقة: 200
+الخامة: ورقي
+الأوراق: 100
+مجموع الستيكرات: 20000
+الخصم: 20%
+سعر الورقة: 640 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 69,000 د.ع",
+    "url": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%B4%D9%83%D9%84%20%D9%85%D8%AE%D8%B5%D8%B5%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%201.23%20%C3%97%200.68%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20200%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D9%88%D8%B1%D9%82%D9%8A%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%20100%0A%D9%85%D8%AC%D9%85%D9%88%D8%B9%20%D8%A7%D9%84%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%2020000%0A%D8%A7%D9%84%D8%AE%D8%B5%D9%85%3A%2020%25%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20640%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2069%2C000%20%D8%AF.%D8%B9",
+  },
+  "rect rounded unpriced": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+الشكل: زوايا دائرية
+القياس: 5 × 3 سم
+بالورقة: 27
+الخامة: بلاستك
+الأوراق: 10
+مجموع الستيكرات: 270
+سعر الورقة: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع
+الإجمالي: يُحدد عند التأكيد",
+    "degradedIsIntroPlusManual": true,
+    "manual": "الشكل: زوايا دائرية
+القياس: 5 × 3 سم
+بالورقة: 27
+الخامة: بلاستك
+الأوراق: 10
+مجموع الستيكرات: 270
+سعر الورقة: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع
+الإجمالي: يُحدد عند التأكيد",
+    "url": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%B2%D9%88%D8%A7%D9%8A%D8%A7%20%D8%AF%D8%A7%D8%A6%D8%B1%D9%8A%D8%A9%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%205%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2027%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D8%A8%D9%84%D8%A7%D8%B3%D8%AA%D9%83%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2010%0A%D9%85%D8%AC%D9%85%D9%88%D8%B9%20%D8%A7%D9%84%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%20270%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20%D9%8A%D9%8F%D8%AD%D8%AF%D8%AF%20%D8%B9%D9%86%D8%AF%20%D8%A7%D9%84%D8%AA%D8%A3%D9%83%D9%8A%D8%AF%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%20%D9%8A%D9%8F%D8%AD%D8%AF%D8%AF%20%D8%B9%D9%86%D8%AF%20%D8%A7%D9%84%D8%AA%D8%A3%D9%83%D9%8A%D8%AF",
+  },
+  "rect sharp priced no discount": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+الشكل: زوايا حادة (90°)
+القياس: 4.24 × 3 سم
+بالورقة: 36
+الخامة: بلاستك
+الأوراق: 10
+مجموع الستيكرات: 360
+سعر الورقة: 1,500 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 20,000 د.ع",
+    "degradedIsIntroPlusManual": true,
+    "manual": "الشكل: زوايا حادة (90°)
+القياس: 4.24 × 3 سم
+بالورقة: 36
+الخامة: بلاستك
+الأوراق: 10
+مجموع الستيكرات: 360
+سعر الورقة: 1,500 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 20,000 د.ع",
+    "url": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%B2%D9%88%D8%A7%D9%8A%D8%A7%20%D8%AD%D8%A7%D8%AF%D8%A9%20(90%C2%B0)%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%204.24%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2036%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D8%A8%D9%84%D8%A7%D8%B3%D8%AA%D9%83%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2010%0A%D9%85%D8%AC%D9%85%D9%88%D8%B9%20%D8%A7%D9%84%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%20360%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%201%2C500%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2020%2C000%20%D8%AF.%D8%B9",
+  },
+}
+`;
+
+exports[`golden: safe.ts fallbacks when the wrapped module throws > samples 1`] = `
+{
+  "safeCountLabel": [
+    "0",
+    "1",
+    "54",
+  ],
+  "safeDerive": [
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 20000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 45000,
+    },
+    {
+      "heightUm": 59992,
+      "widthUm": 42420,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 0,
+      "widthUm": 0,
+    },
+    {
+      "heightUm": 4,
+      "widthUm": 10.5,
+    },
+  ],
+  "safeFormatCm": [
+    "30000=>"3"",
+    "42420=>"4.24"",
+    "42450=>"4.25"",
+    "12345=>"1.23"",
+    "49=>"0"",
+    "50=>"0.01"",
+    "0=>"0"",
+    "-30000=>"-3"",
+  ],
+  "safeLayout": {
+    "ok": false,
+    "reason": "invalid",
+  },
+  "safeMaxWidth": null,
+  "safeParseCm": [
+    ""3"=>null",
+    ""abc"=>null",
+  ],
+  "safePrice": [
+    {
+      "deliveryFeeIqd": 5000,
+      "discountPercent": 0,
+      "material": "paper",
+      "perStickerIqd": null,
+      "sheets": 20,
+      "subtotalIqd": null,
+      "totalIqd": null,
+      "totalStickers": 1080,
+      "unitBaseIqd": null,
+      "unitPriceIqd": null,
+    },
+    {
+      "deliveryFeeIqd": 0,
+      "discountPercent": 0,
+      "material": "plastic",
+      "perStickerIqd": null,
+      "sheets": 50,
+      "subtotalIqd": null,
+      "totalIqd": null,
+      "totalStickers": 0,
+      "unitBaseIqd": null,
+      "unitPriceIqd": null,
+    },
+  ],
+  "safeShapeLabel": [
+    "circle/undefined=>دائري",
+    "circle/rounded=>دائري",
+    "circle/sharp=>دائري",
+    "rect/undefined=>زوايا دائرية",
+    "rect/rounded=>زوايا دائرية",
+    "rect/sharp=>زوايا حادة (90°)",
+    "custom/undefined=>شكل مخصص",
+    "custom/rounded=>شكل مخصص",
+    "custom/sharp=>شكل مخصص",
+  ],
+  "safeSizeLabel": [
+    "3 × 3 سم",
+    "4.24 × 3 سم",
+    "1.23 × 0.68 سم",
+  ],
+}
+`;

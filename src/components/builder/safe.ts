@@ -1,6 +1,8 @@
 /**
- * Defensive wrappers around sibling lib modules. A throw (NOT_IMPLEMENTED or a real bug)
- * must degrade a single widget, never blank the whole page.
+ * Defensive wrappers around the lib modules the builder renders from. If one of them throws,
+ * one widget may degrade (a plainer label, no price) but the page must not go blank, and the
+ * WhatsApp fallback text (degraded.ts) must always be producible. The try/catch blocks are
+ * deliberate even where the wrapped function cannot throw today.
  */
 import { builder, common } from '@/content/ar';
 import { computeLayout, layoutParamsFor, deriveLockedSize, maxWidthFor } from '@/lib/layout';

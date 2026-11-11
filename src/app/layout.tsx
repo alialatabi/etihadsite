@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import { DirectionProvider } from '@/components/ui/direction';
-import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/shell/Header';
 import { Footer } from '@/components/shell/Footer';
 import { InstallPrompt } from '@/components/shell/InstallPrompt';
@@ -10,10 +9,7 @@ import { getSettings } from '@/lib/settings';
 import { common, pages } from '@/content/ar';
 import './globals.css';
 
-/**
- * Root layout — FROZEN during Phase 1. Agents C/D/E must not edit this file;
- * Header/Footer are edited in place by Agent E.
- */
+/** Root layout: the RTL html/body shell with the site font, header, footer, install prompt and visit tracker around every page. */
 const fontSans = IBM_Plex_Sans_Arabic({
   weight: ['400', '500', '700'],
   subsets: ['arabic', 'latin'],
@@ -50,7 +46,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header settings={settings} />
           <main className="flex-1">{children}</main>
           <Footer settings={settings} />
-          <Toaster position="top-center" dir="rtl" />
           <InstallPrompt shopName={settings.shopName} />
           <Tracker />
         </DirectionProvider>

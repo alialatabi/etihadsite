@@ -51,5 +51,7 @@ next-env.d.ts
 /.claude/worktrees/
 /tests/e2e/.tmp/
 /tests/output/
+/.vitest/
 
-.vercel
+# local agent tooling
+/.codex/

@@ -2,8 +2,9 @@
 // Use logical utilities instead: ms-/me-/ps-/pe-/start-/end-/text-start/text-end/rounded-s-/rounded-e-/border-s-/border-e-.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../src/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const ROOT = fileURLToPath(new URL('../src/', import.meta.url));
 const SKIP = [join('components', 'ui')];
 const PHYSICAL = /(?<![\w-])(?:-?(?:ml|mr|pl|pr|left|right|inset-x-\d|scroll-ml|scroll-mr|scroll-pl|scroll-pr|rounded-[lr](?:-[a-z0-9]+)?|border-[lr](?:-[a-z0-9]+)?|text-left|text-right|float-left|float-right|clear-left|clear-right)(?:-[^\s"'`]+)?)(?=[\s"'`}])/g;
 

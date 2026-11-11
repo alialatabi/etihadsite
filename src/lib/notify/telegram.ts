@@ -1,8 +1,8 @@
 import "server-only";
-import { SHOP_TIME_ZONE } from "@/config/defaults";
 import { common, fill, order } from "@/content/ar";
 import { formatIqd } from "@/lib/pricing";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
+import { formatShopDateTime } from "@/lib/shop-time";
 import type { NotifyResult, OrderRecord, ShopSettings } from "@/lib/types";
 
 const MAX_CAPTION = 1024;
@@ -23,7 +23,7 @@ function clip(s: string, max: number): string {
  */
 function safeTruncate(caption: string, max: number): string {
   const cut = caption.slice(0, max);
-  const nl = cut.lastIndexOf(String.fromCharCode(10));
+  const nl = cut.lastIndexOf("\n");
   return nl > 0 ? cut.slice(0, nl) : "";
 }
 
@@ -38,11 +38,7 @@ export function buildCaption(
 ): string {
   void settings;
   const c = record.customer;
-  const time = new Intl.DateTimeFormat("ar-IQ-u-nu-latn", {
-    timeZone: SHOP_TIME_ZONE,
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(record.createdAt));
+  const time = formatShopDateTime(record.createdAt);
   const phoneDigits = c.phone.replace(/\D/g, "");
   const phoneLinks = `<a href="tel:+${phoneDigits}">+${phoneDigits}</a> | <a href="https://wa.me/${phoneDigits}">${L.whatsapp}</a>`;
   const dpi =
@@ -136,10 +132,7 @@ export async function sendTelegram(
     if (res.ok && body.ok !== false) return { telegram: "sent" };
     return {
       telegram: "failed",
-      error: fill("HTTP {status}: {desc}", {
-        status: res.status,
-        desc: body.description ?? "unknown",
-      }),
+      error: `HTTP ${res.status}: ${body.description ?? "unknown"}`,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

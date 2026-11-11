@@ -6,9 +6,9 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Ltr } from '@/components/Ltr';
-import { admin, common } from '@/content/ar';
+import { Money } from '@/components/Money';
+import { admin } from '@/content/ar';
 import { formatPhoneLocal, whatsappUrl } from '@/lib/parse/phone';
-import { formatIqd } from '@/lib/pricing';
 import { matchesQuery, type CustomerRow } from './filter';
 
 const C = admin.customers;
@@ -96,7 +96,7 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                     <div>
                       <dt>{C.columns.spent}</dt>
                       <dd className="text-sm font-medium text-foreground">
-                        <Ltr>{formatIqd(r.totalIqd)}</Ltr> {common.units.iqd}
+                        <Money amount={r.totalIqd} />
                       </dd>
                     </div>
                     <div>

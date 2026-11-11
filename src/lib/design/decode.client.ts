@@ -17,8 +17,8 @@
  * The caller owns `source.previewUrl` and must URL.revokeObjectURL() it when the
  * design is replaced or the component unmounts.
  */
-import type { DesignDecodeError, DesignDecodeOutcome, DesignSource, Shape } from '@/lib/types';
-import { ALPHA_THRESHOLD, alphaBoundingBox, fitWithin, hasAnyAlpha, type PixelRect } from './pixels';
+import type { DesignDecodeError, DesignDecodeOutcome, DesignKind, DesignSource, Shape } from '@/lib/types';
+import { fitWithin, scanAlphaStrips, type PixelRect } from './pixels';
 
 export interface DecodeOptions {
   shape: Shape;
@@ -30,9 +30,7 @@ const PREVIEW_PDF_DPI = 150;
 const STRIP_ROWS = 256;
 const MAX_CANVAS_SIDE = 12000;
 
-type Kind = 'png' | 'jpeg' | 'pdf';
-
-function detectKind(file: File): Kind | null {
+function detectKind(file: File): DesignKind | null {
   const t = file.type.toLowerCase();
   const n = file.name.toLowerCase();
   if (t === 'image/png' || (!t && n.endsWith('.png'))) return 'png';
@@ -83,25 +81,13 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
       const strip = makeCanvas(W, Math.min(STRIP_ROWS, H));
       const ctx = strip.getContext('2d', { willReadFrequently: true });
       if (!ctx) return fail('corrupt');
-      let minX = W;
-      let minY = H;
-      let maxX = -1;
-      let maxY = -1;
-      for (let y0 = 0; y0 < H; y0 += STRIP_ROWS) {
-        const rows = Math.min(STRIP_ROWS, H - y0);
+      const readStrip = (y0: number, rows: number) => {
         ctx.clearRect(0, 0, W, strip.height);
         ctx.drawImage(bitmap, 0, y0, W, rows, 0, 0, W, rows);
-        const { data } = ctx.getImageData(0, 0, W, rows);
-        if (!hasAlpha && hasAnyAlpha(data, W, rows)) hasAlpha = true;
-        const b = alphaBoundingBox(data, W, rows, ALPHA_THRESHOLD);
-        if (b) {
-          minX = Math.min(minX, b.left);
-          maxX = Math.max(maxX, b.left + b.width - 1);
-          minY = Math.min(minY, y0 + b.top);
-          maxY = Math.max(maxY, y0 + b.top + b.height - 1);
-        }
-      }
-      box = maxX < 0 ? null : { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+        return ctx.getImageData(0, 0, W, rows).data;
+      };
+      // Only 'custom' needs the alpha box; other shapes stop at the first strip with alpha.
+      ({ hasAlpha, box } = scanAlphaStrips(W, H, STRIP_ROWS, readStrip, opts.shape === 'custom'));
     }
 
     if (opts.shape === 'custom') {
@@ -181,11 +167,13 @@ interface PdfPageGeometry {
 }
 
 async function pdfGeometry(pdfjs: PdfjsModule, file: File) {
+  // Started before pdfjs opens the file so the two parses overlap; readTrimBox never rejects.
+  const trimP = readTrimBox(file);
   const pdf = await openPdf(pdfjs, file);
   const page = await pdf.getPage(1);
   const vp1 = page.getViewport({ scale: 1 });
   let region = { x: 0, y: 0, width: vp1.width, height: vp1.height };
-  const trim = await readTrimBox(file);
+  const trim = await trimP;
   if (trim) {
     const [x0, y0, x1, y1] = vp1.convertToViewportRectangle(trim);
     const r = { x: Math.min(x0, x1), y: Math.min(y0, y1), width: Math.abs(x1 - x0), height: Math.abs(y1 - y0) };

@@ -1,0 +1,882 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: buildSummary > key order and undefined corners are part of the shape 1`] = `
+{
+  "corners": "undefined",
+  "hasCornersKey": true,
+  "keys": [
+    "shape",
+    "corners",
+    "widthUm",
+    "heightUm",
+    "countPerSheet",
+    "sheets",
+    "material",
+    "totalStickers",
+    "unitPriceIqd",
+    "discountPercent",
+    "subtotalIqd",
+    "deliveryFeeIqd",
+    "totalIqd",
+  ],
+}
+`;
+
+exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
+{
+  "circle 3cm (stray corners) plastic x10": {
+    "corners": undefined,
+    "countPerSheet": 54,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 0,
+    "heightUm": 30000,
+    "material": "plastic",
+    "shape": "circle",
+    "sheets": 10,
+    "subtotalIqd": 15000,
+    "totalIqd": 20000,
+    "totalStickers": 540,
+    "unitPriceIqd": 1500,
+    "widthUm": 30000,
+  },
+  "circle 3cm paper x20": {
+    "corners": undefined,
+    "countPerSheet": 54,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 10,
+    "heightUm": 30000,
+    "material": "paper",
+    "shape": "circle",
+    "sheets": 20,
+    "subtotalIqd": 14400,
+    "totalIqd": 19400,
+    "totalStickers": 1080,
+    "unitPriceIqd": 720,
+    "widthUm": 30000,
+  },
+  "custom 5x2.5 (stray corners) paper x20 unpriced": {
+    "corners": undefined,
+    "countPerSheet": 30,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 10,
+    "heightUm": 25000,
+    "material": "paper",
+    "shape": "custom",
+    "sheets": 20,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": 600,
+    "unitPriceIqd": null,
+    "widthUm": 50000,
+  },
+  "custom 5x2.5 plastic x100 unpriced": {
+    "corners": undefined,
+    "countPerSheet": 30,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 20,
+    "heightUm": 25000,
+    "material": "plastic",
+    "shape": "custom",
+    "sheets": 100,
+    "subtotalIqd": null,
+    "totalIqd": null,
+    "totalStickers": 3000,
+    "unitPriceIqd": null,
+    "widthUm": 50000,
+  },
+  "rect no corners 10x4 paper x10": {
+    "corners": undefined,
+    "countPerSheet": 6,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 0,
+    "heightUm": 40000,
+    "material": "paper",
+    "shape": "rect",
+    "sheets": 10,
+    "subtotalIqd": 8000,
+    "totalIqd": 13000,
+    "totalStickers": 60,
+    "unitPriceIqd": 800,
+    "widthUm": 100000,
+  },
+  "rect rounded 5x3 plastic x50": {
+    "corners": "rounded",
+    "countPerSheet": 24,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 15,
+    "heightUm": 30000,
+    "material": "plastic",
+    "shape": "rect",
+    "sheets": 50,
+    "subtotalIqd": 63750,
+    "totalIqd": 68750,
+    "totalStickers": 1200,
+    "unitPriceIqd": 1275,
+    "widthUm": 50000,
+  },
+  "rect sharp 4.24x3 paper x100": {
+    "corners": "sharp",
+    "countPerSheet": 36,
+    "deliveryFeeIqd": 5000,
+    "discountPercent": 20,
+    "heightUm": 30000,
+    "material": "paper",
+    "shape": "rect",
+    "sheets": 100,
+    "subtotalIqd": 64000,
+    "totalIqd": 69000,
+    "totalStickers": 3600,
+    "unitPriceIqd": 640,
+    "widthUm": 42420,
+  },
+}
+`;
+
+exports[`golden: constants > STEPS, keys, EMPTY_FIELDS 1`] = `
+{
+  "EMPTY_FIELDS": {
+    "district": "",
+    "governorate": "",
+    "landmark": "",
+    "name": "",
+    "notes": "",
+    "phone": "",
+  },
+  "FORM_KEY": "ub:form:v1",
+  "STEPS": [
+    "shape",
+    "design",
+    "size",
+    "quantity",
+    "details",
+  ],
+  "SUCCESS_KEY": "ub:order-success:v1",
+}
+`;
+
+exports[`golden: degraded / manual WhatsApp text > degradedUrl edge cases 1`] = `
+{
+  "full": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A%0A%D8%B7%D9%84%D8%A8%20%D8%AC%D8%AF%D9%8A%D8%AF%20%E2%80%94%20%E2%80%94%0A%D8%A7%D9%84%D8%B4%D9%83%D9%84%3A%20%D8%AF%D8%A7%D8%A6%D8%B1%D9%8A%0A%D8%A7%D9%84%D9%82%D9%8A%D8%A7%D8%B3%3A%203%20%C3%97%203%20%D8%B3%D9%85%0A%D8%A8%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%2054%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%0A%D8%A7%D9%84%D8%AE%D8%A7%D9%85%D8%A9%3A%20%D9%88%D8%B1%D9%82%D9%8A%0A%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D8%A7%D9%82%3A%2020%20%D9%88%D8%B1%D9%82%D8%A9%20(1080%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1)%0A%D8%B3%D8%B9%D8%B1%20%D8%A7%D9%84%D9%88%D8%B1%D9%82%D8%A9%3A%20720%20%D8%AF.%D8%B9%20(%D8%AE%D8%B5%D9%85%2010%25)%0A%D8%A7%D9%84%D9%85%D8%AC%D9%85%D9%88%D8%B9%3A%2014%2C400%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84%3A%205%2C000%20%D8%AF.%D8%B9%0A%D8%A7%D9%84%D8%A5%D8%AC%D9%85%D8%A7%D9%84%D9%8A%3A%2019%2C400%20%D8%AF.%D8%B9",
+  "noSummary": "https://wa.me/9647709999999?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%B9%D9%86%D8%AF%D9%8A%20%D8%B7%D9%84%D8%A8%20%D8%B3%D8%AA%D9%8A%D9%83%D8%B1%D8%A7%D8%AA%3A",
+  "noWhatsapp": null,
+}
+`;
+
+exports[`golden: degraded / manual WhatsApp text > manualSummaryText with hand-made values (0% discount, null vs undefined prices) 1`] = `
+{
+  "discount90": "الشكل: مستطيل بزوايا حادة
+القياس: 1.23 × 0.68 سم
+بالورقة: 1
+الخامة: بلاستك
+الأوراق: 1
+مجموع الستيكرات: 1
+الخصم: 90%
+سعر الورقة: 150 د.ع
+التوصيل: 0 د.ع
+الإجمالي: 150 د.ع",
+  "noDiscount": "الشكل: مستطيل بزوايا حادة
+القياس: 1.23 × 0.68 سم
+بالورقة: 1
+الخامة: بلاستك
+الأوراق: 1
+مجموع الستيكرات: 1
+سعر الورقة: 1,500 د.ع
+التوصيل: 0 د.ع
+الإجمالي: 1,500 د.ع",
+  "unitKnownTotalNull": "الشكل: مستطيل بزوايا حادة
+القياس: 1.23 × 0.68 سم
+بالورقة: 1
+الخامة: بلاستك
+الأوراق: 1
+مجموع الستيكرات: 1
+سعر الورقة: 1,500 د.ع
+التوصيل: 0 د.ع
+الإجمالي: يُحدد عند التأكيد",
+  "unitNullTotalKnown": "الشكل: مستطيل بزوايا حادة
+القياس: 1.23 × 0.68 سم
+بالورقة: 1
+الخامة: بلاستك
+الأوراق: 1
+مجموع الستيكرات: 1
+سعر الورقة: يُحدد عند التأكيد
+التوصيل: 0 د.ع
+الإجمالي: 1,500 د.ع",
+}
+`;
+
+exports[`golden: degraded / manual WhatsApp text > manualSummaryText, degradedText, degradedUrl for each pipeline case 1`] = `
+{
+  "circle 3cm (stray corners) plastic x10": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54 ستيكر
+الخامة: بلاستك
+الأوراق: 10 أوراق (540 ستيكر)
+سعر الورقة: 1,500 د.ع
+المجموع: 15,000 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 20,000 د.ع",
+    "manual": "الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54
+الخامة: بلاستك
+الأوراق: 10
+مجموع الستيكرات: 540
+سعر الورقة: 1,500 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 20,000 د.ع",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "001f149fd3be6dfc",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "circle 3cm paper x20": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54 ستيكر
+الخامة: ورقي
+الأوراق: 20 ورقة (1080 ستيكر)
+سعر الورقة: 720 د.ع (خصم 10%)
+المجموع: 14,400 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع",
+    "manual": "الشكل: دائري
+القياس: 3 × 3 سم
+بالورقة: 54
+الخامة: ورقي
+الأوراق: 20
+مجموع الستيكرات: 1080
+الخصم: 10%
+سعر الورقة: 720 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 19,400 د.ع",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "8158b69fec11e16c",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "custom 5x2.5 (stray corners) paper x20 unpriced": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: شكل مخصص
+القياس: 5 × 2.5 سم
+بالورقة: 30 ستيكر
+الخامة: ورقي
+الأوراق: 20 ورقة (600 ستيكر)
+السعر: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع",
+    "manual": "الشكل: شكل مخصص
+القياس: 5 × 2.5 سم
+بالورقة: 30
+الخامة: ورقي
+الأوراق: 20
+مجموع الستيكرات: 600
+الخصم: 10%
+سعر الورقة: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع
+الإجمالي: يُحدد عند التأكيد",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "f1ab2863a5ac4159",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "custom 5x2.5 plastic x100 unpriced": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: شكل مخصص
+القياس: 5 × 2.5 سم
+بالورقة: 30 ستيكر
+الخامة: بلاستك
+الأوراق: 100 ورقة (3000 ستيكر)
+السعر: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع",
+    "manual": "الشكل: شكل مخصص
+القياس: 5 × 2.5 سم
+بالورقة: 30
+الخامة: بلاستك
+الأوراق: 100
+مجموع الستيكرات: 3000
+الخصم: 20%
+سعر الورقة: يُحدد عند التأكيد
+التوصيل: 5,000 د.ع
+الإجمالي: يُحدد عند التأكيد",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "ae8851ab0839e36d",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "rect no corners 10x4 paper x10": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: مستطيل بزوايا دائرية
+القياس: 10 × 4 سم
+بالورقة: 6 ستيكرات
+الخامة: ورقي
+الأوراق: 10 أوراق (60 ستيكر)
+سعر الورقة: 800 د.ع
+المجموع: 8,000 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 13,000 د.ع",
+    "manual": "الشكل: مستطيل بزوايا دائرية
+القياس: 10 × 4 سم
+بالورقة: 6
+الخامة: ورقي
+الأوراق: 10
+مجموع الستيكرات: 60
+سعر الورقة: 800 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 13,000 د.ع",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "cf24fc76a3e09c3f",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "rect rounded 5x3 plastic x50": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: مستطيل بزوايا دائرية
+القياس: 5 × 3 سم
+بالورقة: 24 ستيكر
+الخامة: بلاستك
+الأوراق: 50 ورقة (1200 ستيكر)
+سعر الورقة: 1,275 د.ع (خصم 15%)
+المجموع: 63,750 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 68,750 د.ع",
+    "manual": "الشكل: مستطيل بزوايا دائرية
+القياس: 5 × 3 سم
+بالورقة: 24
+الخامة: بلاستك
+الأوراق: 50
+مجموع الستيكرات: 1200
+الخصم: 15%
+سعر الورقة: 1,275 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 68,750 د.ع",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "b468f6092daec60a",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+  "rect sharp 4.24x3 paper x100": {
+    "degraded": "مرحباً، عندي طلب ستيكرات:
+طلب جديد — —
+الشكل: مستطيل بزوايا حادة
+القياس: 4.24 × 3 سم
+بالورقة: 36 ستيكر
+الخامة: ورقي
+الأوراق: 100 ورقة (3600 ستيكر)
+سعر الورقة: 640 د.ع (خصم 20%)
+المجموع: 64,000 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 69,000 د.ع",
+    "manual": "الشكل: مستطيل بزوايا حادة
+القياس: 4.24 × 3 سم
+بالورقة: 36
+الخامة: ورقي
+الأوراق: 100
+مجموع الستيكرات: 3600
+الخصم: 20%
+سعر الورقة: 640 د.ع
+التوصيل: 5,000 د.ع
+الإجمالي: 69,000 د.ع",
+    "urlDecodesToDegradedText": true,
+    "urlHash": "8d05392b784b1d3f",
+    "urlPrefix": "https://wa.me/9647709999999?text=%D9%85%",
+  },
+}
+`;
+
+exports[`golden: discount tiers > activeTier table 1`] = `
+[
+  "default | null=>none 0=>none 1=>none 4=>none 5=>none 9=>none 10=>none 14=>none 15=>none 16=>none 19=>none 20=>20@10% 21=>20@10% 37=>20@10% 38=>20@10% 44=>20@10% 45=>20@10% 49=>20@10% 50=>50@15% 51=>50@15% 74=>50@15% 75=>50@15% 76=>50@15% 94=>50@15% 95=>50@15% 99=>50@15% 100=>100@20% 101=>100@20% 749=>100@20% 750=>100@20% 995=>100@20% 1000=>100@20% 5000=>100@20% 12.5=>none -1=>none",
+  "unsorted | null=>none 0=>none 1=>none 4=>none 5=>none 9=>none 10=>none 14=>none 15=>none 16=>none 19=>none 20=>20@10% 21=>20@10% 37=>20@10% 38=>20@10% 44=>20@10% 45=>20@10% 49=>20@10% 50=>50@15% 51=>50@15% 74=>50@15% 75=>50@15% 76=>50@15% 94=>50@15% 95=>50@15% 99=>50@15% 100=>100@20% 101=>100@20% 749=>100@20% 750=>100@20% 995=>100@20% 1000=>100@20% 5000=>100@20% 12.5=>none -1=>none",
+  "nonMonotonic | null=>none 0=>none 1=>none 4=>none 5=>5@7% 9=>5@7% 10=>5@7% 14=>5@7% 15=>5@7% 16=>5@7% 19=>5@7% 20=>20@15% 21=>20@15% 37=>20@15% 38=>20@15% 44=>20@15% 45=>20@15% 49=>20@15% 50=>50@0% 51=>50@0% 74=>50@0% 75=>50@0% 76=>50@0% 94=>50@0% 95=>50@0% 99=>50@0% 100=>100@33% 101=>100@33% 749=>100@33% 750=>100@33% 995=>100@33% 1000=>1000@90% 5000=>1000@90% 12.5=>5@7% -1=>none",
+  "duplicateMin | null=>none 0=>none 1=>none 4=>none 5=>none 9=>none 10=>10@5% 14=>10@5% 15=>10@5% 16=>10@5% 19=>10@5% 20=>10@5% 21=>10@5% 37=>10@5% 38=>10@5% 44=>10@5% 45=>10@5% 49=>10@5% 50=>10@5% 51=>10@5% 74=>10@5% 75=>10@5% 76=>10@5% 94=>10@5% 95=>10@5% 99=>10@5% 100=>10@5% 101=>10@5% 749=>10@5% 750=>10@5% 995=>10@5% 1000=>10@5% 5000=>10@5% 12.5=>10@5% -1=>none",
+  "empty | null=>none 0=>none 1=>none 4=>none 5=>none 9=>none 10=>none 14=>none 15=>none 16=>none 19=>none 20=>none 21=>none 37=>none 38=>none 44=>none 45=>none 49=>none 50=>none 51=>none 74=>none 75=>none 76=>none 94=>none 95=>none 99=>none 100=>none 101=>none 749=>none 750=>none 995=>none 1000=>none 5000=>none 12.5=>none -1=>none",
+]
+`;
+
+exports[`golden: discount tiers > nextTierNudge table 1`] = `
+[
+  "default | null=>- 0=>- 1=>- 4=>- 5=>- 9=>- 10=>- 14=>- 15=>+5:10% 16=>+4:10% 19=>+1:10% 20=>- 21=>- 37=>+13:15% 38=>+12:15% 44=>+6:15% 45=>+5:15% 49=>+1:15% 50=>- 51=>- 74=>- 75=>+25:20% 76=>+24:20% 94=>+6:20% 95=>+5:20% 99=>+1:20% 100=>- 101=>- 749=>- 750=>- 995=>- 1000=>- 5000=>- 12.5=>- -1=>-",
+  "unsorted | null=>- 0=>- 1=>- 4=>- 5=>- 9=>- 10=>- 14=>- 15=>+5:10% 16=>+4:10% 19=>+1:10% 20=>- 21=>- 37=>+13:15% 38=>+12:15% 44=>+6:15% 45=>+5:15% 49=>+1:15% 50=>- 51=>- 74=>- 75=>+25:20% 76=>+24:20% 94=>+6:20% 95=>+5:20% 99=>+1:20% 100=>- 101=>- 749=>- 750=>- 995=>- 1000=>- 5000=>- 12.5=>- -1=>-",
+  "nonMonotonic | null=>- 0=>+5:7% 1=>+4:7% 4=>+1:7% 5=>- 9=>- 10=>- 14=>- 15=>+5:15% 16=>+4:15% 19=>+1:15% 20=>- 21=>- 37=>- 38=>- 44=>- 45=>- 49=>- 50=>- 51=>- 74=>- 75=>+25:33% 76=>+24:33% 94=>+6:33% 95=>+5:33% 99=>+1:33% 100=>- 101=>- 749=>- 750=>+250:90% 995=>+5:90% 1000=>- 5000=>- 12.5=>- -1=>-",
+  "duplicateMin | null=>- 0=>- 1=>- 4=>- 5=>+5:5% 9=>+1:5% 10=>- 14=>- 15=>- 16=>- 19=>- 20=>- 21=>- 37=>- 38=>- 44=>- 45=>- 49=>- 50=>- 51=>- 74=>- 75=>- 76=>- 94=>- 95=>- 99=>- 100=>- 101=>- 749=>- 750=>- 995=>- 1000=>- 5000=>- 12.5=>- -1=>-",
+  "empty | null=>- 0=>- 1=>- 4=>- 5=>- 9=>- 10=>- 14=>- 15=>- 16=>- 19=>- 20=>- 21=>- 37=>- 38=>- 44=>- 45=>- 49=>- 50=>- 51=>- 74=>- 75=>- 76=>- 94=>- 95=>- 99=>- 100=>- 101=>- 749=>- 750=>- 995=>- 1000=>- 5000=>- 12.5=>- -1=>-",
+]
+`;
+
+exports[`golden: discount tiers > sortedTiers (defensive copy) 1`] = `
+{
+  "default": "20@10% 50@15% 100@20% | inputUntouched=true newArray=true",
+  "duplicateMin": "10@5% 10@50% | inputUntouched=true newArray=true",
+  "empty": " | inputUntouched=true newArray=true",
+  "nonMonotonic": "5@7% 20@15% 50@0% 100@33% 1000@90% | inputUntouched=true newArray=true",
+  "unsorted": "20@10% 50@15% 100@20% | inputUntouched=true newArray=true",
+}
+`;
+
+exports[`golden: dpi helpers > dpiExact / dpiFor / dpiStatus(default quality) 1`] = `
+[
+  "png 900x900 | rect 76200x76200 -> exact=300 floor=300 status=ok",
+  "png 900x900 | circle 76200x76200 -> exact=300 floor=300 status=ok",
+  "png 900x900 | custom 76200x30000 -> exact=300 floor=300 status=ok",
+  "png 900x900 | rect 254000x254000 -> exact=90 floor=90 status=warn",
+  "png 900x900 | circle 254000x254000 -> exact=90 floor=90 status=warn",
+  "png 900x900 | rect 30000x50000 -> exact=762.0000000000001 floor=762 status=ok",
+  "png 900x900 | circle 30000x30000 -> exact=762.0000000000001 floor=762 status=ok",
+  "png 900x900 | rect 25400x25400 -> exact=900 floor=900 status=ok",
+  "png 900x900 | rect 1x1 -> exact=22860000 floor=22860000 status=ok",
+  "png 900x900 | rect 0x0 -> exact=null floor=null status=ok",
+  "png 900x900 | rect -5x-5 -> exact=null floor=null status=ok",
+  "png 900x900 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "png 1800x900 | rect 76200x76200 -> exact=600 floor=600 status=ok",
+  "png 1800x900 | circle 76200x76200 -> exact=300 floor=300 status=ok",
+  "png 1800x900 | custom 76200x30000 -> exact=600 floor=600 status=ok",
+  "png 1800x900 | rect 254000x254000 -> exact=180 floor=180 status=ok",
+  "png 1800x900 | circle 254000x254000 -> exact=90 floor=90 status=warn",
+  "png 1800x900 | rect 30000x50000 -> exact=1524.0000000000002 floor=1524 status=ok",
+  "png 1800x900 | circle 30000x30000 -> exact=762.0000000000001 floor=762 status=ok",
+  "png 1800x900 | rect 25400x25400 -> exact=1800 floor=1800 status=ok",
+  "png 1800x900 | rect 1x1 -> exact=45720000 floor=45720000 status=ok",
+  "png 1800x900 | rect 0x0 -> exact=null floor=null status=ok",
+  "png 1800x900 | rect -5x-5 -> exact=null floor=null status=ok",
+  "png 1800x900 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "png 900x1800 | rect 76200x76200 -> exact=300 floor=300 status=ok",
+  "png 900x1800 | circle 76200x76200 -> exact=300 floor=300 status=ok",
+  "png 900x1800 | custom 76200x30000 -> exact=300 floor=300 status=ok",
+  "png 900x1800 | rect 254000x254000 -> exact=90 floor=90 status=warn",
+  "png 900x1800 | circle 254000x254000 -> exact=90 floor=90 status=warn",
+  "png 900x1800 | rect 30000x50000 -> exact=762.0000000000001 floor=762 status=ok",
+  "png 900x1800 | circle 30000x30000 -> exact=762.0000000000001 floor=762 status=ok",
+  "png 900x1800 | rect 25400x25400 -> exact=900 floor=900 status=ok",
+  "png 900x1800 | rect 1x1 -> exact=22860000 floor=22860000 status=ok",
+  "png 900x1800 | rect 0x0 -> exact=null floor=null status=ok",
+  "png 900x1800 | rect -5x-5 -> exact=null floor=null status=ok",
+  "png 900x1800 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "jpeg 719x719 | rect 76200x76200 -> exact=239.66666666666666 floor=239 status=ok",
+  "jpeg 719x719 | circle 76200x76200 -> exact=239.66666666666666 floor=239 status=ok",
+  "jpeg 719x719 | custom 76200x30000 -> exact=239.66666666666666 floor=239 status=ok",
+  "jpeg 719x719 | rect 254000x254000 -> exact=71.9 floor=71 status=block",
+  "jpeg 719x719 | circle 254000x254000 -> exact=71.9 floor=71 status=block",
+  "jpeg 719x719 | rect 30000x50000 -> exact=608.7533333333333 floor=608 status=ok",
+  "jpeg 719x719 | circle 30000x30000 -> exact=608.7533333333333 floor=608 status=ok",
+  "jpeg 719x719 | rect 25400x25400 -> exact=719 floor=719 status=ok",
+  "jpeg 719x719 | rect 1x1 -> exact=18262600 floor=18262600 status=ok",
+  "jpeg 719x719 | rect 0x0 -> exact=null floor=null status=ok",
+  "jpeg 719x719 | rect -5x-5 -> exact=null floor=null status=ok",
+  "jpeg 719x719 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "jpeg 400x600 | rect 76200x76200 -> exact=133.33333333333334 floor=133 status=warn",
+  "jpeg 400x600 | circle 76200x76200 -> exact=133.33333333333334 floor=133 status=warn",
+  "jpeg 400x600 | custom 76200x30000 -> exact=133.33333333333334 floor=133 status=warn",
+  "jpeg 400x600 | rect 254000x254000 -> exact=40 floor=40 status=block",
+  "jpeg 400x600 | circle 254000x254000 -> exact=40 floor=40 status=block",
+  "jpeg 400x600 | rect 30000x50000 -> exact=338.6666666666667 floor=338 status=ok",
+  "jpeg 400x600 | circle 30000x30000 -> exact=338.6666666666667 floor=338 status=ok",
+  "jpeg 400x600 | rect 25400x25400 -> exact=400 floor=400 status=ok",
+  "jpeg 400x600 | rect 1x1 -> exact=10160000 floor=10160000 status=ok",
+  "jpeg 400x600 | rect 0x0 -> exact=null floor=null status=ok",
+  "jpeg 400x600 | rect -5x-5 -> exact=null floor=null status=ok",
+  "jpeg 400x600 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "png 1x1 | rect 76200x76200 -> exact=0.3333333333333333 floor=0 status=block",
+  "png 1x1 | circle 76200x76200 -> exact=0.3333333333333333 floor=0 status=block",
+  "png 1x1 | custom 76200x30000 -> exact=0.3333333333333333 floor=0 status=block",
+  "png 1x1 | rect 254000x254000 -> exact=0.1 floor=0 status=block",
+  "png 1x1 | circle 254000x254000 -> exact=0.1 floor=0 status=block",
+  "png 1x1 | rect 30000x50000 -> exact=0.8466666666666668 floor=0 status=block",
+  "png 1x1 | circle 30000x30000 -> exact=0.8466666666666668 floor=0 status=block",
+  "png 1x1 | rect 25400x25400 -> exact=1 floor=1 status=block",
+  "png 1x1 | rect 1x1 -> exact=25400 floor=25400 status=ok",
+  "png 1x1 | rect 0x0 -> exact=null floor=null status=ok",
+  "png 1x1 | rect -5x-5 -> exact=null floor=null status=ok",
+  "png 1x1 | rect NaNxNaN -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 76200x76200 -> exact=null floor=null status=ok",
+  "pdf 595x842 | circle 76200x76200 -> exact=null floor=null status=ok",
+  "pdf 595x842 | custom 76200x30000 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 254000x254000 -> exact=null floor=null status=ok",
+  "pdf 595x842 | circle 254000x254000 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 30000x50000 -> exact=null floor=null status=ok",
+  "pdf 595x842 | circle 30000x30000 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 25400x25400 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 1x1 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect 0x0 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect -5x-5 -> exact=null floor=null status=ok",
+  "pdf 595x842 | rect NaNxNaN -> exact=null floor=null status=ok",
+]
+`;
+
+exports[`golden: dpi helpers > dpiStatus thresholds 1`] = `
+[
+  "warn=150 block=72 | null=>ok 0=>block 1=>block 71=>block 71.999=>block 72=>warn 72.001=>warn 149=>warn 149.999=>warn 150=>ok 151=>ok 300=>ok 10000=>ok -1=>block NaN=>ok Infinity=>ok",
+  "warn=72 block=150 | null=>ok 0=>block 1=>block 71=>block 71.999=>block 72=>block 72.001=>block 149=>block 149.999=>block 150=>ok 151=>ok 300=>ok 10000=>ok -1=>block NaN=>ok Infinity=>ok",
+  "warn=100 block=100 | null=>ok 0=>block 1=>block 71=>block 71.999=>block 72=>block 72.001=>block 149=>ok 149.999=>ok 150=>ok 151=>ok 300=>ok 10000=>ok -1=>block NaN=>ok Infinity=>ok",
+  "warn=1 block=1 | null=>ok 0=>block 1=>ok 71=>ok 71.999=>ok 72=>ok 72.001=>ok 149=>ok 149.999=>ok 150=>ok 151=>ok 300=>ok 10000=>ok -1=>block NaN=>ok Infinity=>ok",
+]
+`;
+
+exports[`golden: dpi helpers > needsCropNotice 1`] = `
+{
+  "nullDesign": "circle=>false rect=>false custom=>false",
+  "rows": [
+    "900x900 | circle=>false rect=>false custom=>false",
+    "918x900 | circle=>true rect=>false custom=>false",
+    "919x900 | circle=>true rect=>false custom=>false",
+    "900x918 | circle=>false rect=>false custom=>false",
+    "900x919 | circle=>true rect=>false custom=>false",
+    "882x900 | circle=>true rect=>false custom=>false",
+    "881x900 | circle=>true rect=>false custom=>false",
+    "1800x900 | circle=>true rect=>false custom=>false",
+    "900x0 | circle=>true rect=>false custom=>false",
+    "0x0 | circle=>false rect=>false custom=>false",
+  ],
+}
+`;
+
+exports[`golden: dpi helpers > pdfPrefillUm 1`] = `
+[
+  "no pdf info | circle=>null rect=>null custom=>null",
+  "A4 | circle=>{"heightUm":210000,"widthUm":210000} rect=>{"heightUm":297000,"widthUm":210000} custom=>{"heightUm":297000,"widthUm":210000}",
+  "200x100pt | circle=>{"heightUm":35278,"widthUm":35278} rect=>{"heightUm":35278,"widthUm":70556} custom=>{"heightUm":35278,"widthUm":70556}",
+  "300x400pt | circle=>{"heightUm":105833,"widthUm":105833} rect=>{"heightUm":141111,"widthUm":105833} custom=>{"heightUm":141111,"widthUm":105833}",
+  "85.04x85.04pt | circle=>{"heightUm":30000,"widthUm":30000} rect=>{"heightUm":30000,"widthUm":30000} custom=>{"heightUm":30000,"widthUm":30000}",
+  "zero width | circle=>null rect=>null custom=>null",
+  "negative height | circle=>null rect=>null custom=>null",
+  "NaN | circle=>null rect=>null custom=>null",
+  "tiny (rounds to 0um) | circle=>null rect=>null custom=>null",
+]
+`;
+
+exports[`golden: safe.ts wrappers (happy path = same result as the wrapped function) > samples 1`] = `
+{
+  "safeCountLabel": [
+    "0 ستيكرات",
+    "1 ستيكر",
+    "2 ستيكرين",
+    "3 ستيكرات",
+    "11 ستيكر",
+    "54 ستيكر",
+    "100 ستيكر",
+    "1080 ستيكر",
+  ],
+  "safeDerive": [
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 20000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 45000,
+    },
+    {
+      "heightUm": 30000,
+      "widthUm": 30000,
+    },
+    {
+      "heightUm": 1,
+      "widthUm": 1,
+    },
+  ],
+  "safeFormatCm": [
+    "30000=>"3"",
+    "42420=>"4.24"",
+    "0=>"0"",
+    "NaN=>""",
+  ],
+  "safeLayout": [
+    "ok n=54 6x9 fdc3bbea38decf16",
+    "ok n=24 3x8 fe943d7718c39993",
+    "FAIL too_big_for_page",
+    "FAIL too_small",
+    "FAIL invalid",
+  ],
+  "safeMaxWidth": [
+    196000,
+    196000,
+    141500,
+    0,
+    0,
+    283000,
+  ],
+  "safeParseCm": [
+    ""3"=>30000",
+    ""٣٫٥"=>35000",
+    ""abc"=>null",
+    """=>null",
+    ""0"=>null",
+  ],
+  "safePrice": [
+    {
+      "deliveryFeeIqd": 5000,
+      "discountPercent": 10,
+      "material": "paper",
+      "perStickerIqd": 18,
+      "sheets": 20,
+      "subtotalIqd": 14400,
+      "totalIqd": 19400,
+      "totalStickers": 1080,
+      "unitBaseIqd": 800,
+      "unitPriceIqd": 720,
+    },
+    {
+      "deliveryFeeIqd": 5000,
+      "discountPercent": 15,
+      "material": "plastic",
+      "perStickerIqd": null,
+      "sheets": 50,
+      "subtotalIqd": null,
+      "totalIqd": null,
+      "totalStickers": 300,
+      "unitBaseIqd": null,
+      "unitPriceIqd": null,
+    },
+  ],
+  "safeShapeLabel": [
+    "دائري",
+    "مستطيل بزوايا دائرية",
+    "مستطيل بزوايا دائرية",
+    "مستطيل بزوايا حادة",
+    "شكل مخصص",
+  ],
+  "safeSizeLabel": [
+    "3 × 3 سم",
+    "4.24 × 3 سم",
+  ],
+}
+`;
+
+exports[`golden: sessionStorage persistence > a throwing sessionStorage never propagates 1`] = `
+{
+  "loadForm": null,
+  "loadSuccess": null,
+}
+`;
+
+exports[`golden: sessionStorage persistence > with a sessionStorage: exact keys and stored JSON, round trip, tolerant loads 1`] = `
+{
+  "afterClear": {
+    "form": null,
+    "keys": [
+      "ub:order-success:v1",
+    ],
+  },
+  "roundTrip": {
+    "form": {
+      "corners": "rounded",
+      "district": "",
+      "governorate": "",
+      "heightText": "3",
+      "landmark": "",
+      "material": "paper",
+      "name": "علي",
+      "notes": "",
+      "phone": "07701234567",
+      "shape": "rect",
+      "sheetsText": "20",
+      "sizeUm": {
+        "heightUm": 30000,
+        "widthUm": 50000,
+      },
+      "widthText": "5",
+    },
+    "success": {
+      "displayNo": "EP-251107-AB3C",
+      "notified": {
+        "telegram": "skipped",
+      },
+      "ok": true,
+      "orderId": "order-golden-000000001",
+      "summary": {
+        "countPerSheet": 54,
+        "deliveryFeeIqd": 5000,
+        "discountPercent": 10,
+        "displayNo": "EP-251107-AB3C",
+        "heightUm": 30000,
+        "material": "paper",
+        "shape": "circle",
+        "sheets": 20,
+        "subtotalIqd": 14400,
+        "totalIqd": 19400,
+        "totalStickers": 1080,
+        "unitPriceIqd": 720,
+        "widthUm": 30000,
+      },
+      "whatsappUrl": "",
+    },
+  },
+  "stored": {
+    "ub:form:v1": "{"name":"علي","phone":"07701234567","governorate":"","district":"","landmark":"","notes":"","shape":"rect","corners":"rounded","widthText":"5","heightText":"3","sizeUm":{"widthUm":50000,"heightUm":30000},"material":"paper","sheetsText":"20"}",
+    "ub:order-success:v1": "{"ok":true,"orderId":"order-golden-000000001","displayNo":"EP-251107-AB3C","summary":{"displayNo":"EP-251107-AB3C","shape":"circle","widthUm":30000,"heightUm":30000,"countPerSheet":54,"sheets":20,"material":"paper","totalStickers":1080,"unitPriceIqd":720,"discountPercent":10,"subtotalIqd":14400,"deliveryFeeIqd":5000,"totalIqd":19400},"whatsappUrl":"","notified":{"telegram":"skipped"}}",
+  },
+  "tolerant": {
+    "formArray": [
+      1,
+      2,
+    ],
+    "formBadJson": null,
+    "formEmptyString": null,
+    "formNull": null,
+    "formNumber": null,
+    "formPartial": {
+      "extra": 1,
+      "shape": "circle",
+    },
+    "formString": null,
+    "successBadJson": null,
+    "successMinimal": {
+      "displayNo": "EP-1",
+      "ok": true,
+    },
+    "successNoDisplayNo": null,
+    "successNotOk": null,
+    "successNull": null,
+  },
+}
+`;
+
+exports[`golden: sessionStorage persistence > without a window (server / Node): everything is a silent no-op 1`] = `
+{
+  "loadForm": null,
+  "loadSuccess": null,
+}
+`;
+
+exports[`golden: sheets input > clampSheets table 1`] = `
+[
+  "10..5000 | -10=>10 0=>10 1=>10 9=>10 9.4=>10 9.5=>10 10=>10 10.4=>10 10.5=>11 11=>11 4999.5=>5000 5000=>5000 5000.4=>5000 5001=>5000 1000000000=>5000 NaN=>10 Infinity=>10 -Infinity=>10",
+  "1..1 | -10=>1 0=>1 1=>1 9=>1 9.4=>1 9.5=>1 10=>1 10.4=>1 10.5=>1 11=>1 4999.5=>1 5000=>1 5000.4=>1 5001=>1 1000000000=>1 NaN=>1 Infinity=>1 -Infinity=>1",
+  "50..40 | -10=>40 0=>40 1=>40 9=>40 9.4=>40 9.5=>40 10=>40 10.4=>40 10.5=>40 11=>40 4999.5=>40 5000=>40 5000.4=>40 5001=>40 1000000000=>40 NaN=>40 Infinity=>40 -Infinity=>40",
+]
+`;
+
+exports[`golden: sheets input > parseSheets table 1`] = `
+[
+  """ -> null",
+  "" " -> null",
+  ""0" -> 0",
+  ""1" -> 1",
+  ""10" -> 10",
+  "" 12 " -> 12",
+  ""007" -> 7",
+  ""١٢" -> 12",
+  ""۱۲" -> 12",
+  ""١۲3" -> 123",
+  ""12.5" -> 12.5",
+  ""12.0" -> 12",
+  ""١٢.٥" -> 12.5",
+  ""١٢٫٥" -> null",
+  ""12,5" -> null",
+  ""-3" -> -3",
+  ""-0" -> 0",
+  ""+5" -> null",
+  ""5." -> null",
+  "".5" -> null",
+  ""1e2" -> null",
+  ""0x10" -> null",
+  ""Infinity" -> null",
+  ""NaN" -> null",
+  ""abc" -> null",
+  ""12abc" -> null",
+  ""1 000" -> null",
+  ""1,000" -> null",
+  ""5000" -> 5000",
+  ""99999999999999999999" -> 100000000000000000000",
+  ""１２" -> null",
+  ""12\\n" -> 12",
+]
+`;
+
+exports[`golden: sheets input > quickPicksFor table 1`] = `
+[
+  "10..5000 [10,20,50,100] -> [10,20,50,100]",
+  "10..5000 [100,20,20,5,10,5001,5000,12.5,50] -> [10,20,50,100,5000]",
+  "1..30 [10,20,50,100] -> [10,20]",
+  "200..5000 [10,20,50,100] -> []",
+  "10..5000 [] -> []",
+  "10..5000 [NaN,-10,0,10] -> [10]",
+]
+`;
+
+exports[`golden: validateCustomer > EMPTY_FIELDS 1`] = `
+{
+  "errors": {
+    "district": true,
+    "governorate": true,
+    "landmark": true,
+    "phone": true,
+  },
+  "phoneE164": null,
+}
+`;
+
+exports[`golden: validateCustomer > missing / blank fields 1`] = `
+[
+  "all valid -> {"errors":{},"phoneE164":"9647701234567"}",
+  "name empty (optional) -> {"errors":{},"phoneE164":"9647701234567"}",
+  "notes filled -> {"errors":{},"phoneE164":"9647701234567"}",
+  "governorate empty -> {"errors":{"governorate":true},"phoneE164":"9647701234567"}",
+  "governorate whitespace (not trimmed) -> {"errors":{},"phoneE164":"9647701234567"}",
+  "governorate not in the list -> {"errors":{},"phoneE164":"9647701234567"}",
+  "district empty -> {"errors":{"district":true},"phoneE164":"9647701234567"}",
+  "district whitespace -> {"errors":{"district":true},"phoneE164":"9647701234567"}",
+  "landmark empty -> {"errors":{"landmark":true},"phoneE164":"9647701234567"}",
+  "landmark whitespace -> {"errors":{"landmark":true},"phoneE164":"9647701234567"}",
+  "everything empty -> {"errors":{"district":true,"governorate":true,"landmark":true,"phone":true},"phoneE164":null}",
+  "only phone bad -> {"errors":{"phone":true},"phoneE164":null}",
+]
+`;
+
+exports[`golden: validateCustomer > phone formats 1`] = `
+[
+  ""07701234567" -> phoneE164="9647701234567" errors={}",
+  ""7701234567" -> phoneE164="9647701234567" errors={}",
+  ""+9647701234567" -> phoneE164="9647701234567" errors={}",
+  ""9647701234567" -> phoneE164="9647701234567" errors={}",
+  ""009647701234567" -> phoneE164="9647701234567" errors={}",
+  ""٠٧٧٠١٢٣٤٥٦٧" -> phoneE164="9647701234567" errors={}",
+  ""۰۷۷۰۱۲۳۴۵۶۷" -> phoneE164="9647701234567" errors={}",
+  ""+٩٦٤ ٧٧٠ ١٢٣ ٤٥٦٧" -> phoneE164="9647701234567" errors={}",
+  ""0770 123 4567" -> phoneE164="9647701234567" errors={}",
+  ""0770-123-4567" -> phoneE164="9647701234567" errors={}",
+  ""+964 (770) 123-4567" -> phoneE164="9647701234567" errors={}",
+  "" 07701234567 " -> phoneE164="9647701234567" errors={}",
+  ""07801234567" -> phoneE164="9647801234567" errors={}",
+  ""07501112222" -> phoneE164="9647501112222" errors={}",
+  ""07901112222" -> phoneE164="9647901112222" errors={}",
+  ""0770123456" -> phoneE164=null errors={"phone":true}",
+  ""077012345678" -> phoneE164=null errors={"phone":true}",
+  ""06701234567" -> phoneE164=null errors={"phone":true}",
+  ""08001234567" -> phoneE164=null errors={"phone":true}",
+  ""17701234567" -> phoneE164=null errors={"phone":true}",
+  ""96407701234567" -> phoneE164=null errors={"phone":true}",
+  ""0096407701234567" -> phoneE164=null errors={"phone":true}",
+  ""+9640770123456" -> phoneE164=null errors={"phone":true}",
+  ""00447701234567" -> phoneE164=null errors={"phone":true}",
+  ""+17701234567" -> phoneE164=null errors={"phone":true}",
+  ""12345" -> phoneE164=null errors={"phone":true}",
+  ""abc" -> phoneE164=null errors={"phone":true}",
+  """ -> phoneE164=null errors={"phone":true}",
+  ""   " -> phoneE164=null errors={"phone":true}",
+  ""0" -> phoneE164=null errors={"phone":true}",
+  ""964" -> phoneE164=null errors={"phone":true}",
+  ""+" -> phoneE164=null errors={"phone":true}",
+  ""07701234567x" -> phoneE164="9647701234567" errors={}",
+  ""ext.07701234567" -> phoneE164="9647701234567" errors={}",
+]
+`;
+
+exports[`golden: whatsappHref (shell) > table 1`] = `
+[
+  ""9647701234567" -> "https://wa.me/9647701234567"",
+  ""+964 770 123 4567" -> "https://wa.me/9647701234567"",
+  ""07701234567" -> "https://wa.me/07701234567"",
+  ""1234567" -> null",
+  ""12345678" -> "https://wa.me/12345678"",
+  """ -> null",
+  ""abc" -> null",
+  ""wa.me/9647701234567" -> "https://wa.me/9647701234567"",
+  ""٠٧٧٠١٢٣٤٥٦٧" -> null",
+]
+`;
