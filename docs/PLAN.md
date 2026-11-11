@@ -8,7 +8,7 @@ v1 was reviewed by four independent reviewer agents (print geometry, Arabic UX, 
 |---|---|---|
 | Q1 circle gaps | **B**: 2 mm between columns, rows touching | gapX = 2 mm, gapY = 0 mm; 3 cm circle → 54 per sheet |
 | Q2 order channel | **Telegram + admin dashboard in the site** | Email dropped. Admin dashboard is a v1 feature (orders + settings) |
-| Q3 cutting | Cutter plotter; **cut lines added manually by the shop** | PDF contains artwork only: no cut paths, no tick marks, no printed text. Order id goes in PDF metadata |
+| Q3 cutting | ~~Cutter plotter; cut lines added manually by the shop~~ **Superseded 2026-11-12:** the camera cutter reads only the printed paper and finds the sheet by 4 black dots (see §2 and §4) | ~~PDF contains artwork only: no cut paths, no tick marks, no printed text.~~ Still no cut paths and no text; the PDF now carries the 4 cutter dots. Order id goes in PDF metadata |
 | Q4 size lock | Confirmed: proportions follow the design | as planned |
 | Q5 offers | **Delivery 5,000 IQD on top of any order**; tiers as default | `deliveryFeeIqd` setting; shown as its own line in summary and notification |
 | Q6 hosting | **Do not deploy to Vercel for now** | Local dev only. File-system storage adapter; Vercel Blob adapter left as a documented later step. Settings editable in the admin dashboard, not Vercel Global Config |
@@ -31,12 +31,12 @@ Brand, logo (`/brand/united-print-logo.jpg`) and the Iraqi-dialect tone of the c
 
 ## 2. Layout rules
 
-Engine works in **integer micrometres** (no float drift). A4 = 210 × 297 mm. **Margin 7 mm** → usable 196 × 283 mm.
+Engine works in **integer micrometres** (no float drift). A4 = 210 × 297 mm. **Margin 3 mm by default** (changed from 7 mm on 2026-11-12; the setting `layout.marginUm` stays editable) → usable 204 × 291 mm. Every sheet also carries **4 cutter dots** (see below), and stickers never go near them.
 
 | Shape | Gap X (between columns) | Gap Y (between rows) | Image clipping | Notes |
 |---|---|---|---|---|
 | Circle | **2 mm** | **0 mm** (rows touch) | Clipped to circle in preview and PDF | Owner's choice (Q1 = B). Both gaps remain config values. |
-| Rectangle, rounded | 2 mm | 2 mm | Not clipped; corner radius 3 mm shown in the on-screen preview only **[my call]** | Unclipped art acts as free bleed under the cut |
+| Rectangle, rounded | 2 mm | 2 mm | Clipped to the rounded rectangle (corner radius 3 mm) in preview **and PDF** since 2026-11-12, because the machine cuts what is printed (was: preview only) | The old "unclipped art acts as free bleed" note is superseded |
 | Rectangle, sharp | 0 mm | 0 mm | None | Shared cut lines |
 | Custom | 2 mm | 2 mm | Alpha defines the cut | **PNG with transparency only.** Auto-trimmed to the opaque bounding box before size/ratio. JPG/PDF rejected with an Arabic message offering to switch to rectangle |
 
@@ -48,6 +48,7 @@ Rules:
 - Range: min 1 cm; max = fits once inside the usable area (A4 minus the margin). Specific Arabic errors for "too big" and "ratio too extreme".
 - PDF uploads prefill the size from the page's trim/crop box (in cm); user can override.
 - Circle with a non-square image: centre-cropped, visibly, with hint «ارفع صورة مربعة للحصول على أفضل نتيجة».
+- **Cutter dots (added 2026-11-12):** 4 black dots, 5 mm wide, centre 7 mm from both nearest page edges, one per corner. No printed part of a sticker within 3 mm of a dot's edge (keep-out radius 5.5 mm; for a circle clip the printed circle, otherwise the whole cell). The engine searches the usable area and two inset areas and keeps the one with the most stickers after removal. Geometry and rules: `docs/ARCHITECTURE.md` ("Cutter dots") and `docs/superpowers/specs/2026-11-12-cut-dots-and-staff-sheets-design.md`.
 - Print resolution: effective DPI = px / (mm / 25.4). Warning below 150 DPI, hard block below 72 DPI (not for vector PDFs). DPI stored in the order.
 
 ## 3. Design normalisation (one source of truth)
@@ -61,11 +62,11 @@ Every upload becomes a `DesignSource` before the layout engine sees it:
 ## 4. PDF output (what the shop receives)
 
 - One A4 page (595.2756 × 841.8898 pt ± 0.01), artwork embedded **once** and drawn N times, clipped per the table above.
-- **No cut guides** (Q3): the shop draws cut lines in the plotter software. Config flags `cutGuides.tickMarks` and `cutGuides.vectorPathsPage` exist but default OFF.
+- ~~**No cut guides** (Q3): the shop draws cut lines in the plotter software.~~ **Superseded 2026-11-12:** the plotter's camera reads only the printed paper. The PDF still has no cut paths, but it carries the **4 cutter dots** (one path, `f*`, DeviceCMYK `0 0 0 1`, in the optional-content layer `sk_marks`, copied from the shop's `example.pdf`), rounded rectangles are printed rounded, and the document asks viewers not to scale when printing (`PrintScaling /None`). Config flags `cutGuides.tickMarks` and `cutGuides.vectorPathsPage` exist but default OFF.
 - Colour: RGB output; uploaded vector PDFs keep their own colour space. No colour management in v1 (stated in README).
 - No text drawn inside the PDF at all. Order number, shape, size and count go into the PDF metadata (Title/Subject/Keywords).
 - Filename: `EP-251107-AB3C_circle-30mm_x20.pdf` (order no., shape, size, sheets).
-- Acceptance: nothing inside the 7 mm margin; content stream has exactly N image draws; every placement inside the usable area.
+- Acceptance: nothing inside the margin (3 mm by default); no sticker near a dot; content stream has exactly N image draws (the dots are paths, not image draws); every placement inside the usable area.
 - README line for the shop: print at 100% / «الحجم الفعلي», never «Fit to page».
 
 ## 5. Order flow

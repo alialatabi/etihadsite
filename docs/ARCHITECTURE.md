@@ -19,9 +19,10 @@ Pages (`src/app`):
 | `/admin/orders/<orderId>` | `admin/orders/[orderId]/page.tsx` | Order detail, status form, file downloads. |
 | `/admin/stats` | `admin/stats/page.tsx` | Statistics for the last 7, 30 or 90 days (`aggregate.ts` computes, `rows.ts` labels, `parts.tsx` draws). |
 | `/admin/customers` | `admin/customers/page.tsx` | Customer list with search and filter; CSV download. |
-| `/admin/settings` | `admin/settings/page.tsx` | Settings form (`SettingsForm.tsx`, `saveSettingsAction`). |
+| `/admin/settings` | `admin/settings/page.tsx` | Settings form (`SettingsForm.tsx`, `saveSettingsAction`). Also shows the full staff link when `STAFF_PAGE_KEY` is set. |
+| `/staff/<key>` | `staff/[key]/page.tsx` | Hidden staff page (see "The staff page" below). A missing, short or wrong key is the normal 404. |
 
-Metadata routes: `manifest.ts`, `robots.ts` (disallows `/admin` and `/api`), `sitemap.ts`, `opengraph-image.tsx`, plus the committed icon files.
+Metadata routes: `manifest.ts`, `robots.ts` (disallows `/admin` and `/api`; it deliberately does not mention `/staff`, which would advertise it), `sitemap.ts`, `opengraph-image.tsx`, plus the committed icon files.
 
 API (`src/app/api`):
 
@@ -46,6 +47,8 @@ Admin protection has two layers and both stay:
 
 The session is an HS256 JWT (`src/lib/auth/token.ts`) in the HttpOnly cookie `ep_admin`, valid 7 days.
 
+**The staff page** (`/staff/<key>`, added 2026-11-12) is NOT behind the admin login: it is a secret link, no password (owner decision D3). The page is `force-dynamic`; `isStaffKey()` in `src/lib/staff-key.ts` (`server-only`) compares the key with `STAFF_PAGE_KEY` in constant time (sha256 digests, case-sensitive; a key shorter than 24 characters counts as "not set") and anything else calls `notFound()`. It is `noindex, nofollow`, sends `Referrer-Policy: no-referrer` (metadata `referrer`), is absent from the sitemap and `robots.txt`, and is ignored by analytics (`src/lib/analytics/paths.ts` `isStaffPath`, used by `Tracker`, `/api/track` and `InstallPrompt`), so the key never reaches the stats. The page changes no customer data and uploads nothing: the client component (`src/components/staff/StaffSheets.tsx`, with `StaffCard`, `useStaffItems` and the pure `staff-logic.ts`) decodes each design in the browser (`decodeDesign`), arranges it with the website's own layout engine (`layoutParamsFor`, so the same margin, gaps, rotation and dots), prepares the artwork (`prepareArtwork` in `src/lib/design/prepare.client.ts`: EXIF upright, alpha trim, 300 DPI downscale, or the original PDF with the server's box and turn from `src/lib/design/pdf-box.ts`) and builds one PDF with one A4 page per design (`buildStaffPdf`, dynamically imported). Limits: 30 files, 50 MB each. Copy is in `src/content/ar/staff.ts`. The owner changes the link only through the Vercel variable (then redeploys).
+
 ## 2. Order pipeline
 
 In the browser (`src/components/builder`): `useBuilder.ts` holds the step state, `src/lib/design/decode.client.ts` decodes the file for the preview, and `useSubmitOrder.ts` runs `submitFlow.ts` (the upload and order sequence, free of React) through `orderApi.ts` (the HTTP calls). The quantity step takes a STICKER count: `useBuilder` keeps what was typed (`null` = never typed, the box then shows the minimum for the current layout and follows it when the size changes), and derives sheets, the error (`validateStickers`) and the price (`priceForStickers`). The − / + buttons, quick picks and the discount chips/nudge are in stickers (`logic.ts`: `stepStickers`, `quickPickStickers`, `nextTierNudgeStickers`); the settings stay in sheets. The saved form (`ub:form:v1`) stores `stickersText`; an old `sheetsText` is ignored.
@@ -68,6 +71,8 @@ In the browser (`src/components/builder`): `useBuilder.ts` holds the step state,
 5. **Answer.** `{ ok: true, orderId, displayNo, summary, whatsappUrl, notified }`. The browser stores it in `sessionStorage` and opens `/order/success`.
 
 Failures are `{ ok: false, error, message }` with the status from the table in the route. Two are handled specially by the browser: `needs_raster` (it renders the PDF page to a PNG, uploads that and retries once) and `server_error` or a network failure (it shows the "degraded" screen with a ready WhatsApp message built by `degraded.ts`).
+
+**Cutter dots (sheet marks).** The camera cutter reads only the printed paper and finds the sheet by 4 black dots (owner decisions, 2026-11-12). Every sheet PDF carries them: customer orders and the staff page. The geometry is fixed in code (`REG_MARKS` in `src/lib/layout/marks.ts`), not a setting: dot diameter 5 mm, centre 7 mm from both nearest edges (TL (7,7), TR (203,7), BL (7,290), BR (203,290) mm), no printed part of a sticker within 3 mm of a dot's edge (keep-out radius 5.5 mm around each centre). `layoutParamsFor()` always passes `marks`, so the website builder, `POST /api/orders`, `/how-it-works` and the staff page share one rule. `computeLayout` without `params.marks` behaves exactly as before (`layout-cases.json` is never edited; mark cases live in their own fixtures). With `marks` the engine searches three candidate areas (the usable area, then the area with the left and right edges, or the top and bottom, moved in to clear the dots), removes placements near a dot, and keeps the arrangement with the most stickers after removal (`LayoutResult.marks`, `removedNearMarks`; `countPerSheet` and `turnedCount` are counted after removal). For circle clips the printed shape is the inscribed circle; for every other shape the whole cell. The default margin is 3 mm (`DEFAULT_SETTINGS.layout.marginUm = 3000`). In the PDF the dots are one path (4 circles, `f*`) in DeviceCMYK `0 0 0 1`, inside the optional-content layer `sk_marks`, copied from the shop's hand-made `example.pdf`; rounded rectangles are clipped to their rounded corners (the camera cuts what is printed); the document asks viewers not to scale when printing (`/ViewerPreferences /PrintScaling /None`). `drawCount` still counts artwork draws only. The preview (`SheetPreview`, `SheetIllustration`) draws the dots in black and shows `common.marksHint`.
 
 **Pricing** (`src/lib/pricing.ts`, pure, shared by the builder and the route; owner rules of 2026-11-10 and 2026-11-11):
 
@@ -111,6 +116,7 @@ Settings are stored as the owner saved them. On read they are deep-merged over `
 | `ORDER_TRANSPORT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `notify/index.ts` | `getOrderEnv()` |
 | `TURNSTILE_SECRET_KEY` | `api/orders/route.ts` | `getOrderEnv()` |
 | `TRUST_PROXY` | `rate-limit.ts` | `process.env` directly |
+| `STAFF_PAGE_KEY` | `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
 | `CRON_SECRET` | `api/cron/purge/route.ts` | `process.env` directly |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | nowhere | listed in `.env.example` only |
 
@@ -132,7 +138,7 @@ First-party and cookieless. Events: `pageview` (sent by `src/components/shell/Tr
 - **Stored per event:** time, type, visitor hash, path, step, traffic source, device class, city, region and country (from Vercel's `x-vercel-ip-*` headers, absent locally) and a small `meta` object (for an order: material, sheets, the typed sticker count when there is one, total, governorate, shape, size).
 - **Never stored:** IP address, user agent, the referrer URL (it is reduced to a source name such as `instagram`), cookies, names or phone numbers.
 - **Visitor hash:** the first 16 hex characters of `sha256(shop day | IP | user agent | salt)`. It changes every day, so one visitor cannot be followed across days. The salt is `SESSION_SECRET`: changing that secret splits the same day's visitors in two.
-- **Dropped:** bots, an empty user agent, every `/admin` path, and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
+- **Dropped:** bots, an empty user agent, every `/admin` and `/staff` path, and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
 
 Retention:
 
@@ -161,6 +167,11 @@ Shared helpers that have exactly one home. Use them instead of writing the same 
 | `src/app/api/_lib/upload.ts` | Status table, JSON answers and file-name clean-up of the three upload routes, and the size cap of the two direct-upload steps (the multipart route has its own). `_lib/body.ts` has the byte-capped body readers and `SMALL_JSON_MAX_BYTES`, the cap of the small JSON bodies (direct-upload start and commit, analytics beacon). |
 | `src/lib/storage/settings-limits.ts` | Numeric limits shared by the settings schema and the settings form parser. |
 | `src/lib/turnstile.ts` | `verifyTurnstile`. |
+| `src/lib/layout/marks.ts` | The cutter-dot constants (`REG_MARKS`: centre 7 mm from both edges, 5 mm wide, 3 mm clearance), `markCentres`, `isNearMark`. Pure and isomorphic. |
+| `src/lib/pdf/sheet-page.ts` | `drawSheetPage`: one A4 sheet page (stickers drawn from one embedded artwork, rounded-corner clip, the 4 dots in the `sk_marks` layer) and `setPrintAtActualSize`. Isomorphic (no `server-only`): the server (`build-sheet.ts`) and the browser (`build-staff-pdf.ts`) both call it. |
+| `src/lib/pdf/build-staff-pdf.ts` | `buildStaffPdf`: the staff page's multi-page PDF. Isomorphic. |
+| `src/lib/design/pdf-box.ts` | `pdfArtworkBox`: which box (Trim, Crop or Media) and turn a PDF design uses, shared by `normalise.server.ts` and `prepare.client.ts`. |
+| `src/lib/staff-key.ts` | `isStaffKey`, `staffPagePath`: the secret-link check. |
 | `src/app/admin/settings/parse-form.ts`, `fields.ts` | Form data to `ShopSettings`, and the table of layout fields typed in millimetres. |
 | `src/components/builder/submitFlow.ts`, `orderApi.ts` | The upload and order sequence, and its HTTP calls. |
 
@@ -171,7 +182,7 @@ Other rules of thumb: every dimension is an integer number of micrometres (`src/
 - **Pure library code**: a `*.test.ts` file next to the module (`src/lib/pricing.test.ts`, `src/lib/layout/layout.test.ts`).
 - **Anything that needs fixtures, environment variables, a mocked `fetch` or a route handler**: `tests/unit/<area>/` (`server`, `builder`, `admin`, `analytics`, `design`, `pdf`, `pages`, `components`).
 - **`tests/unit/golden/`**: the behaviour oracle. It pins what the code does today: every Arabic string, layout results, PDF content hashes, API status codes and bodies, stored JSON, exact Supabase requests. A failing golden test means behaviour changed. Fix the code. Update a snapshot only for a change the owner asked for, one file at a time (`pnpm exec vitest run <file> -u`), and read the snapshot diff line by line.
-- **`tests/e2e/`**: Playwright against `next dev` on port 3199 with `./data-e2e`. Run the whole suite: the admin spec uses the order that the order-flow spec creates.
+- **`tests/e2e/`**: Playwright against `next dev` on port 3199 with `./data-e2e`. Run the whole suite: the admin spec uses the order that the order-flow spec creates. `staff.spec.ts` opens the hidden staff page with the test key from `playwright.config.ts`, adds two designs, downloads the PDF and checks 2 pages with the `sk_marks` dots; a wrong key is a 404. `data-e2e/settings.json` is gitignored and local only: if an older copy has `layout.marginUm` at 7000, `admin.spec.ts` fails on the margin round-trip; delete the file so the defaults (3 mm) apply.
 
 React `cache()` only memoises inside a server render, so under vitest `getSettings()` reads storage on every call and no unit test can see the memoisation; the rule "writers read through `getStorage().getSettings()`" is kept by review, not by a test.
 
@@ -209,9 +220,11 @@ Breaking one of these loses data, breaks a customer in the middle of an order, o
 1. **Applied migrations** in `supabase/migrations/` are never edited, including their old-brand header comments.
 2. **Stored JSON shapes**: `OrderRecord`, `ShopSettings`, `CustomerRecord`, `AnalyticsEvent`, `StoredFileMeta`. Add fields as optional or with a default; never rename or remove one. Orders saved before per-sheet pricing have another `price` shape and must keep rendering (`order-price-view.ts`).
 3. **Bucket and paths**: the bucket `etihad` and the keys `uploads/<id>.bin`, `uploads/<id>.json`, `orders/<id>.pdf`.
-4. **PDF bytes and geometry**: the layout engine (`src/lib/layout`, fixtures in `src/lib/__fixtures__/layout-cases.json`) and `build-sheet.ts` decide what is printed. Their output is pinned by fixtures and golden hashes; an "equivalent" rewrite that changes one byte or one micrometre is a behaviour change.
+4. **PDF bytes and geometry**: the layout engine (`src/lib/layout`, fixtures in `src/lib/__fixtures__/layout-cases.json`) and `build-sheet.ts` and `sheet-page.ts` decide what is printed. Their output is pinned by fixtures and golden hashes; an "equivalent" rewrite that changes one byte or one micrometre is a behaviour change.
 5. **Visible copy**: every string in `src/content/ar`, the order summary text and the Telegram caption.
 6. **Old-brand identifiers that are data.** They look like leftovers of the previous shop name but they are stored in browsers, databases or URLs: the bucket `etihad`, the cookie `ep_admin`, the order number prefix `EP-`, the `sessionStorage` keys `ub:form:v1`, `ub:order-success:v1`, `softy-tracked`, `softy-step-<id>` and `softy-install-dismissed`, the `globalThis` keys `__epStorage` and `__epLimiters`, the package name `etihad`, and every environment variable name.
 7. **API surface**: route paths, status codes, the JSON bodies and their key order.
 8. **Security boundaries**: the session check stays the first statement of every admin page behind the login, of `updateOrderStatus` and `saveSettingsAction`, and of both `/api/admin` route handlers (see section 1); server modules keep `import 'server-only'`; the price is always recomputed on the server; no IP or user agent is added to a stored event.
 9. **The visitor hash inputs** (section 5). `ipOf()` in `analytics/server.ts` and `clientIp()` in `rate-limit.ts` are separate on purpose: merging them changes stored hashes.
+10. **The dots geometry** (`REG_MARKS`: 5 mm wide, centre 7 mm from both edges, 3 mm clearance, K black, layer `sk_marks`) matches the plotter's template. A dot at 6.8 mm or 4.8 mm wide may be rejected by the machine, and a sticker within 3 mm of a dot may make the camera misread the sheet. Change it only on the owner's word after a plotter test. The same goes for `PrintScaling /None`: a sheet shrunk by "fit to page" moves the dots off the template.
+11. **The staff key never leaks**: `/staff` stays out of the sitemap, `robots.txt` and analytics, and the staff page sends no design file to the server.

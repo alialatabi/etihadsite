@@ -32,7 +32,8 @@ pnpm dev
 - **الأسعار:** سعر الورقة لكل خامة (ورقي، بلاستك) وتقدر تطفّي خامة، أقل وأكثر عدد أوراق، شرائح الخصم حسب العدد، وأزرار الاختيار السريع. الافتراضي: ورقي 800 د.ع وبلاستك 1,500 د.ع للورقة، أقل طلب 10 أوراق، خصم 10% من 20 ورقة و15% من 50 و20% من 100.
 - **«إظهار الأسعار للزبائن»:** مفعّل افتراضياً. إذا طفّيته الموقع يعرض «السعر يُحدد عند التأكيد» ولا يعرض أي رقم.
 - **التوصيل:** 5,000 د.ع افتراضياً، تتغير من نفس الصفحة.
-- **الهامش والفراغات بين الستيكرات:** من نفس الصفحة (الافتراضي: هامش 7 ملم؛ دوائر 2 ملم بين الأعمدة والصفوف متلاصقة).
+- **الهامش والفراغات بين الستيكرات:** من نفس الصفحة (الافتراضي: هامش 3 ملم؛ دوائر 2 ملم بين الأعمدة والصفوف متلاصقة).
+- **رابط صفحة الموظفين:** يظهر بنفس الصفحة (بس إذا حطيت `STAFF_PAGE_KEY`). انسخه وارسله للموظفين فقط.
 
 اكتب رقم الواتساب بالصيغة الدولية بدون + (مثال: `9647701234567`).
 
@@ -61,9 +62,13 @@ pnpm purge:orders
 
 ### نصائح الطباعة (مهم)
 - اطبع ملف PDF بحجم **100% / «الحجم الفعلي» (Actual size)**. لا تختار أبداً **«Fit to page»** أو «ملاءمة الصفحة»، لأنها تصغّر الورقة وتخرب القياس.
-- الملف يحتوي التصميم فقط، بدون خطوط قص ولا علامات. **خطوط القص تضيفها المطبعة** من برنامج البلوتر (cutter plotter).
+- الملف فيه التصاميم و**4 نقاط سودة بالزوايا** (علامات لمكينة القص بالكاميرا). المكينة تقرأ الورقة المطبوعة بس، فلا تحتاج ملف قص. لا تغطي النقاط ولا تقص أطراف الورقة.
+- الستيكرات ما تقرب من النقاط (3 ملم فراغ حولها).
 - رقم الطلب محفوظ بخصائص الملف (Metadata) وليس مطبوعاً على الورقة.
-- مقاس الورقة 21 × 29.7 سم والهامش 7 ملم من كل جهة (الافتراضي)، والترتيب مركّز بالمنتصف.
+- مقاس الورقة 21 × 29.7 سم والهامش 3 ملم من كل جهة (الافتراضي)، والترتيب مركّز بالمنتصف.
+
+### صفحة الموظفين (سرية)
+رابطها `/staff/<المفتاح>` والمفتاح هو قيمة `STAFF_PAGE_KEY` (24 حرف أو أكثر). أي واحد عنده الرابط يفتحها، فلا تنشره. الموظف يرفع كذا تصميم (PNG أو JPG أو PDF)، يكتب القياس لكل تصميم، ويضغط «نزّل ملف PDF» فيطلع ملف واحد بصفحة لكل تصميم، فيه النقاط السودة وجاهز للطباعة والقص. الملفات تبقى بجهاز الموظف وما تنرفع للسيرفر. اطبع الملف بحجم 100% (Actual size). لتغيير الرابط غيّر `STAFF_PAGE_KEY` على Vercel وأعد النشر.
 
 ### الموقع على الإنترنت
 - الرابط: **https://etihad-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
@@ -106,6 +111,7 @@ Checks: `pnpm check` (runs `pnpm typecheck && pnpm test && pnpm lint && pnpm lin
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Supabase project URL and **secret** key (server only), for `STORAGE=supabase` |
 | `CRON_SECRET` | Bearer secret Vercel Cron sends to `/api/cron/purge` (16+ chars) |
 | `TRUST_PROXY` | `1` on Vercel (per-customer rate limits from `x-forwarded-for`) |
+| `STAFF_PAGE_KEY` | Secret key of the hidden staff page `/staff/<key>` (24+ chars; missing or shorter = the page is a 404). Generate with `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
 | `TURNSTILE_SECRET_KEY` | **Leave unset.** The check exists on the server only: no page renders a Turnstile widget or sends a token, so setting the secret makes every order fail with `captcha_failed`. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is not read by any code yet |
 
 ### Admin and settings
@@ -113,7 +119,7 @@ Checks: `pnpm check` (runs `pnpm typecheck && pnpm test && pnpm lint && pnpm lin
 - **Orders** (`/admin`, `/admin/orders/<id>`): list, detail, downloads of the A4 PDF and the original design, status (جديد، قيد الطباعة، مكتمل، ملغي).
 - **Statistics** (`/admin/stats`): visits, funnel, orders, revenue, sources, devices and cities for the last 7, 30 or 90 days, from first-party cookieless events.
 - **Customers** (`/admin/customers`): one row per phone number with search and a governorate filter; «تنزيل Excel» downloads `GET /api/admin/customers` as CSV.
-- **Settings** (`/admin/settings`): shop name, tagline, phone, WhatsApp (international digits, no `+`, e.g. `9647701234567`), hours, area, Telegram chat id; per-sheet price and on/off switch for each material, minimum and maximum sheets, volume discount tiers, quick-pick sheet counts, delivery fee; layout margin, gaps and rotation; retention days.
+- **Settings** (`/admin/settings`; also shows the staff link when `STAFF_PAGE_KEY` is set): shop name, tagline, phone, WhatsApp (international digits, no `+`, e.g. `9647701234567`), hours, area, Telegram chat id; per-sheet price and on/off switch for each material, minimum and maximum sheets, volume discount tiers, quick-pick sheet counts, delivery fee; layout margin, gaps and rotation; retention days.
 
 Prices are shown while «إظهار الأسعار للزبائن» is on (the default). When it is off the site shows «السعر يُحدد عند التأكيد» and no number. The server always recomputes the price from the material and the sheet count; the browser never sends one.
 
@@ -131,16 +137,19 @@ Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers` 
 Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /api/upload/direct`, then `/api/upload/direct/commit`, where the server re-checks size and magic bytes), because Vercel caps request and response bodies at 4.5 MB. Admin downloads redirect to 60-second signed links for the same reason.
 
 ### Printing
-The PDF contains artwork only: no cut paths, tick marks or text. Print at 100% / "Actual size", never "Fit to page". Cut lines are added by the shop in the plotter software. The order id is stored in the PDF metadata.
+The PDF contains the artwork and the 4 black cutter dots (5 mm wide, 7 mm from the corners, in the `sk_marks` layer); no cut paths, tick marks or text. The plotter's camera reads only the printed paper, so no cut file is needed. Print at 100% / "Actual size", never "Fit to page" (shrinking moves the dots off the plotter's template; the PDF also asks viewers not to scale). The order id is stored in the PDF metadata.
+
+### Staff page
+Employees open the hidden link `/staff/<STAFF_PAGE_KEY>` (shown to the owner in `/admin/settings`), add several designs, type a size for each and download one multi-page PDF (one A4 page per design, with the dots). It is built in the browser; nothing is uploaded. Same layout rules as the website, so counts match. Not in the sitemap or robots.txt, `noindex`, and ignored by analytics. Change the link by changing the variable on Vercel and redeploying.
 
 ### Layout rules (defaults, editable in settings)
-A4 21 × 29.7 cm, 7 mm margin, block centred. Circle: 2 mm between columns, rows touching. Rounded rectangle: 2 mm. Sharp rectangle: 0. Custom: 2 mm and requires a transparent PNG.
+A4 21 × 29.7 cm, 3 mm margin, 4 cutter dots (stickers keep 3 mm away from them), block centred. Circle: 2 mm between columns, rows touching. Rounded rectangle: 2 mm. Sharp rectangle: 0. Custom: 2 mm and requires a transparent PNG.
 
 ### Icons and metadata
 The icons (`src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.png`) are committed files derived from `public/brand/softy-mark.png`. No script generates them: to change the logo, replace those files by hand. The Open Graph image (`src/app/opengraph-image.tsx`) reads `public/brand/softy-logo.png` and adds Latin text, so it needs no Arabic font at build time. `metadataBase` is not set in the root layout, so the sitemap URLs are relative paths.
 
 ### Deployment
-Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
+Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
 
 Still open: Vercel **Pro** (Hobby forbids commercial use), `ORDER_TRANSPORT=telegram`, a Turnstile client widget (until one exists keep `TURNSTILE_SECRET_KEY` unset, see the table above), and a cross-instance rate limiter (the in-memory one is per serverless instance; a Vercel Firewall rate-limit rule on `/api/upload/direct` and `/api/orders` covers it).
 
@@ -155,4 +164,4 @@ All Arabic text lives in `src/content/ar/*` and is pinned by `tests/unit/golden/
 - **Secrets:** the server rejects short or placeholder values: `ADMIN_PASSWORD` needs 8+ characters and `SESSION_SECRET` 32+ characters (generate one with the command above).
 - **`TRUST_PROXY`:** default `0` ignores `x-forwarded-for` and applies global per-route rate limits. Behind a reverse proxy (nginx/Caddy) set `TRUST_PROXY=1` for per-IP limits. Details in `docs/STACK_NOTES.md`.
 - **Uploads** must send a `Content-Length` header (browsers always do); bodies are size-capped before parsing.
-- **Tests:** `pnpm test` (unit), `pnpm test:coverage` (unit with a coverage report in `./coverage`), `pnpm e2e` (Playwright; starts a dev server on port 3199 with `./data-e2e`). `tests/unit/golden/` pins current behaviour; see `docs/ARCHITECTURE.md` before updating a snapshot there.
+- **Tests:** `pnpm test` (unit), `pnpm test:coverage` (unit with a coverage report in `./coverage`), `pnpm e2e` (Playwright; starts a dev server on port 3199 with `./data-e2e`; if a local `data-e2e/settings.json` still has a 7 mm margin, delete it first). `tests/unit/golden/` pins current behaviour; see `docs/ARCHITECTURE.md` before updating a snapshot there.
