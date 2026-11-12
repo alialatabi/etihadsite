@@ -51,6 +51,7 @@ export const common = {
     sticker: { zero: 'ستيكرات', one: 'ستيكر', two: 'ستيكرين', few: 'ستيكرات', many: 'ستيكر', other: 'ستيكر' },
     sheet: { zero: 'أوراق', one: 'ورقة', two: 'ورقتين', few: 'أوراق', many: 'ورقة', other: 'ورقة' },
     design: { zero: 'تصاميم', one: 'تصميم', two: 'تصميمين', few: 'تصاميم', many: 'تصميم', other: 'تصميم' },
+    file: { zero: 'ملفات', one: 'ملف', two: 'ملفين', few: 'ملفات', many: 'ملف', other: 'ملف' },
     page: { zero: 'صفحات', one: 'صفحة', two: 'صفحتين', few: 'صفحات', many: 'صفحة', other: 'صفحة' },
   },
 } as const;

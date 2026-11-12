@@ -5,7 +5,7 @@
 export const staff = {
   title: 'ورقة الموظفين',
   adminLinkLabel: 'رابط صفحة الموظفين (سري، لا تنشره)',
-  intro: 'ارفع التصاميم، اكتب قياس كل تصميم، ونطلعلك ملف PDF واحد بصفحة لكل تصميم، جاهز للطباعة والقص.',
+  intro: 'ارفع التصاميم، اكتب قياس كل تصميم، ونطلعلك ملف PDF لكل تصميم، جاهز للطباعة والقص.',
   drop: 'اسحب الملفات هنا أو اضغط للاختيار',
   dropMore: 'ضيف ملفات ثانية',
   /** {max} = files, {mb} = megabytes per file. */
@@ -24,10 +24,15 @@ export const staff = {
   removeAria: 'احذف {name}',
   /** Low resolution is a warning only on this page: the employee decides. */
   lowDpi: 'دقة الصورة قليلة وراح تطلع ضبابية. تكدر تنزّل الملف مع ذلك.',
-  /** {designs} = "3 تصاميم", {pages} = "3 صفحات". */
-  summary: '{designs}، والملف يطلع بـ {pages}.',
-  download: 'نزّل ملف PDF',
-  preparing: 'جاري تجهيز الملف…',
+  /** {designs} = "3 تصاميم", {files} = "3 ملفات". */
+  summary: '{designs}، يعني {files}.',
+  download: 'نزّل ملفات PDF',
+  /** {name} = file name; the small download button on one card. */
+  downloadOne: 'نزّل PDF لـ {name}',
+  /** Shown under the main button when there are 2 or more cards. */
+  multiHint: 'إذا سألك المتصفح عن تنزيل أكثر من ملف، اختار «سماح» (Allow).',
+  /** {n} = the file being prepared, {total} = how many. */
+  preparing: 'جاري تجهيز الملف {n} من {total}…',
   needValid: 'لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.',
   /** {name} = file name; followed by the reason. */
   prepareFailed: 'تعذر تجهيز «{name}».',

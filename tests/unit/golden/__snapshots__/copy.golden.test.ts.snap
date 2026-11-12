@@ -8,6 +8,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
+  "{files} x1",
   "{from} x2",
   "{gap} x3",
   "{gapX} x1",
@@ -17,9 +18,9 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{max} x5",
   "{mb} x4",
   "{min} x1",
-  "{n} x2",
-  "{name} x3",
-  "{pages} x2",
+  "{n} x3",
+  "{name} x4",
+  "{pages} x1",
   "{percent} x4",
   "{price} x1",
   "{rotated} x1",
@@ -28,6 +29,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{size} x4",
   "{step} x1",
   "{to} x1",
+  "{total} x1",
   "{upright} x1",
   "{w} x3",
 ]
@@ -558,6 +560,14 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
       "many": "تصميم",
       "other": "تصميم"
     },
+    "file": {
+      "zero": "ملفات",
+      "one": "ملف",
+      "two": "ملفين",
+      "few": "ملفات",
+      "many": "ملف",
+      "other": "ملف"
+    },
     "page": {
       "zero": "صفحات",
       "one": "صفحة",
@@ -574,13 +584,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 550,
+  "chars": 574,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 13,
-  "sha256OfRawJson": "0a0e79ad9959ec47acb4f738a5195cc9e6c4c649cc02c3c8428bb00c8af1fd97",
-  "strings": 49,
+  "objects": 14,
+  "sha256OfRawJson": "b01f40a46cdb903548bea2b77a707f5f037a19923378d940e6c24360e5642ec9",
+  "strings": 55,
 }
 `;
 
@@ -872,7 +882,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
 "{
   "title": "ورقة الموظفين",
   "adminLinkLabel": "رابط صفحة الموظفين (سري، لا تنشره)",
-  "intro": "ارفع التصاميم، اكتب قياس كل تصميم، ونطلعلك ملف PDF واحد بصفحة لكل تصميم، جاهز للطباعة والقص.",
+  "intro": "ارفع التصاميم، اكتب قياس كل تصميم، ونطلعلك ملف PDF لكل تصميم، جاهز للطباعة والقص.",
   "drop": "اسحب الملفات هنا أو اضغط للاختيار",
   "dropMore": "ضيف ملفات ثانية",
   "accepted": "PNG أو JPG أو PDF، لحد {max} ملف، وكل ملف لحد {mb} ميغابايت. الملفات تبقى عندك بالجهاز وما تنرفع لأي مكان.",
@@ -887,9 +897,11 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
   },
   "removeAria": "احذف {name}",
   "lowDpi": "دقة الصورة قليلة وراح تطلع ضبابية. تكدر تنزّل الملف مع ذلك.",
-  "summary": "{designs}، والملف يطلع بـ {pages}.",
-  "download": "نزّل ملف PDF",
-  "preparing": "جاري تجهيز الملف…",
+  "summary": "{designs}، يعني {files}.",
+  "download": "نزّل ملفات PDF",
+  "downloadOne": "نزّل PDF لـ {name}",
+  "multiHint": "إذا سألك المتصفح عن تنزيل أكثر من ملف، اختار «سماح» (Allow).",
+  "preparing": "جاري تجهيز الملف {n} من {total}…",
   "needValid": "لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.",
   "prepareFailed": "تعذر تجهيز «{name}».",
   "printActualSize": "اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها."
@@ -900,13 +912,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 732,
+  "chars": 806,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 2,
-  "sha256OfRawJson": "599c22d3abc29f3a1adf91908fec0c674ccfa0409dac885994863a0b04e596e7",
-  "strings": 21,
+  "sha256OfRawJson": "2cd43d3ca11dffa6e20df8e634034172088b49a70bf24310c49e626fe1b5c92f",
+  "strings": 23,
 }
 `;
 

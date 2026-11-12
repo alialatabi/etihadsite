@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, decodePDFRawStream, type PDFPage } from 'pdf-lib';
-import { test, expect } from '@playwright/test';
-import { staff } from '../../src/content/ar';
+import { test, expect, type Download } from '@playwright/test';
+import { fill, staff } from '../../src/content/ar';
 
 // Must match webServer.env.STAFF_PAGE_KEY in playwright.config.ts.
 const STAFF_KEY = 'e2e-staff-key-e2e-staff-key-1234';
@@ -61,7 +61,7 @@ test('staff page: a wrong key is answered exactly like an unknown URL', async ({
   }
 });
 
-test('staff page: two designs in, one 2-page PDF with the cutter dots out', async ({ page }) => {
+test('staff page: two designs in, two one-page PDFs with the cutter dots out', async ({ page }) => {
   const res = await page.goto(`/staff/${STAFF_KEY}`);
   expect(res?.status()).toBe(200);
   expect(res?.headers()['referrer-policy']).toBe('no-referrer');
@@ -80,27 +80,42 @@ test('staff page: two designs in, one 2-page PDF with the cutter dots out', asyn
 
   const button = page.getByRole('button', { name: staff.download });
   await expect(button).toBeEnabled();
+  await expect(page.getByText(staff.multiHint)).toBeVisible();
 
-  const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
-  expect(download.suggestedFilename()).toMatch(/^softy-sheets-\d{8}-\d{4}\.pdf$/);
-  const file = await download.path();
-  expect(file).toBeTruthy();
-  const bytes = fs.readFileSync(file!);
-  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+  // One file per design, one after another (about 400 ms apart).
+  const downloads: Download[] = [];
+  page.on('download', (d) => downloads.push(d));
+  await button.click();
+  await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(2);
 
-  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
-  expect(doc.getPageCount()).toBe(2);
+  expect(downloads.map((d) => d.suggestedFilename())).toEqual(['padded-400x400-5cm.pdf', 'opaque-300x300-4cm.pdf']);
 
-  // One OCG, named sk_marks; each page has one dots block whose property points at it.
-  const ocgs = doc.catalog.lookup(PDFName.of('OCProperties'), PDFDict).lookup(PDFName.of('OCGs'), PDFArray);
-  expect(ocgs.size()).toBe(1);
-  const ocg = doc.context.lookup(ocgs.get(0), PDFDict);
-  expect(ocg.get(PDFName.of('Name'))?.toString()).toBe('(sk_marks)');
+  for (const download of downloads) {
+    const file = await download.path();
+    expect(file).toBeTruthy();
+    const bytes = fs.readFileSync(file!);
+    expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
 
-  doc.getPages().forEach((p) => {
+    const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+    expect(doc.getPageCount()).toBe(1);
+
+    // One OCG, named sk_marks; the page has one dots block whose property points at it.
+    const ocgs = doc.catalog.lookup(PDFName.of('OCProperties'), PDFDict).lookup(PDFName.of('OCGs'), PDFArray);
+    expect(ocgs.size()).toBe(1);
+    const ocg = doc.context.lookup(ocgs.get(0), PDFDict);
+    expect(ocg.get(PDFName.of('Name'))?.toString()).toBe('(sk_marks)');
+
+    const p = doc.getPages()[0];
     const bdc = [...contentOf(p).matchAll(/\/OC \/(\S+) BDC[\s\S]*?0 0 0 1 k[\s\S]*?f\*\s+EMC/g)];
     expect(bdc).toHaveLength(1);
     const props = (p.node.Resources() as PDFDict).lookup(PDFName.of('Properties'), PDFDict);
     expect(props.get(PDFName.of(bdc[0][1]))?.toString()).toBe(ocgs.get(0).toString());
-  });
+  }
+
+  // The per-card button gives that design alone.
+  const [one] = await Promise.all([
+    page.waitForEvent('download'),
+    cards.nth(1).getByRole('button', { name: fill(staff.downloadOne, { name: 'opaque-300x300.jpg' }) }).click(),
+  ]);
+  expect(one.suggestedFilename()).toBe('opaque-300x300-4cm.pdf');
 });

@@ -1,10 +1,9 @@
 /**
  * The staff page's state and rules, free of React so they can be tested in node: the card
  * list reducer (one card per picked file), what each card shows (`cardView`), and the download
- * (`buildStaffDownload`: prepare every design in card order, then one multi-page PDF).
+ * (`downloadStaffFiles`: one PDF per design, in card order).
  * The size rules are the builder's (same `safe*` wrappers, same layout engine, same settings).
  */
-import { SHOP_TIME_ZONE } from '@/config/defaults';
 import { dpiFor, dpiStatus, pdfPrefillUm } from '@/components/builder/logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm } from '@/components/builder/safe';
 import { prepareArtwork, type PrepareError } from '@/lib/design/prepare.client';
@@ -16,7 +15,6 @@ import type {
   LayoutFailure,
   LayoutResult,
   LayoutSettings,
-  NormalisedArtwork,
   QualitySettings,
   Shape,
   StickerSpec,
@@ -237,53 +235,118 @@ export function canDownload(views: readonly StaffCardView[]): boolean {
 
 /* ───────────────────────────────── the download ───────────────────────────────── */
 
-const pad2 = (n: string) => n.padStart(2, '0');
+/** Spec B2 (changed by the owner, 2026-11-12): every design is its own PDF file. */
+const FORBIDDEN_IN_NAME = /[\\/:*?"<>|\u0000-\u001f\u007f]/g;
+const MAX_BASE_NAME = 80;
+/** Chrome can drop downloads that come too quickly one after another. */
+export const SAVE_GAP_MS = 400;
 
-/** `softy-sheets-YYYYMMDD-HHmm.pdf` in shop (Baghdad) time. */
-export function staffFileName(now: Date): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: SHOP_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
-  return `softy-sheets-${get('year')}${pad2(get('month'))}${pad2(get('day'))}-${pad2(get('hour'))}${pad2(get('minute'))}.pdf`;
-}
-
-export type StaffDownloadResult =
-  | { ok: true; bytes: Uint8Array; fileName: string }
-  | { ok: false; reason: 'prepare'; cardId: string; fileName: string; error: PrepareError }
-  | { ok: false; reason: 'build' };
+const trimEnds = (t: string) => t.replace(/^[\s.]+|[\s.]+$/g, '');
 
 /**
- * Prepare every design in card order (one at a time, to keep phone memory low), then build one
- * PDF with one page per card. pdf-lib is loaded only here (dynamic import).
+ * `<design file name without extension>-<size>.pdf`: `logo-5.8cm.pdf` for a circle (its
+ * diameter), `logo-5x3cm.pdf` for the others (width x height, the size fields' number format).
+ * Characters Windows forbids are dropped, Arabic and other letters stay.
  */
-export async function buildStaffDownload(
-  cards: readonly StaffCardState[],
+export function staffPdfName(fileName: string, spec: StickerSpec): string {
+  const noExt = fileName.replace(/\.[^.]*$/, '');
+  let base = trimEnds(noExt.replace(FORBIDDEN_IN_NAME, ''));
+  base = trimEnds(Array.from(base).slice(0, MAX_BASE_NAME).join(''));
+  if (!base) base = 'design';
+  const size = spec.shape === 'circle' ? safeFormatCm(spec.widthUm) : `${safeFormatCm(spec.widthUm)}x${safeFormatCm(spec.heightUm)}`;
+  return `${base}-${size}cm.pdf`;
+}
+
+/** Names for the cards of one download; a repeated name gets `-2`, `-3` before `.pdf`. */
+export function staffPdfNames(cards: readonly StaffCardState[]): string[] {
+  const seen = new Map<string, number>();
+  return cards.map((card) => {
+    const spec = cardSpec(card);
+    const name = staffPdfName(card.file.name, spec ?? { shape: 'circle', widthUm: 0, heightUm: 0 });
+    const n = (seen.get(name) ?? 0) + 1;
+    seen.set(name, n);
+    return n === 1 ? name : name.replace(/\.pdf$/, `-${n}.pdf`);
+  });
+}
+
+export type StaffFileResult =
+  | { ok: true; bytes: Uint8Array; fileName: string }
+  | { ok: false; reason: 'prepare'; cardId: string; fileName: string; error: PrepareError }
+  | { ok: false; reason: 'build'; cardId: string; fileName: string };
+
+/**
+ * One design's PDF: prepare its artwork, then build a one-page PDF. pdf-lib is loaded only here
+ * (dynamic import). `fileName` is the name the PDF will be saved under.
+ */
+export async function buildStaffFile(
+  card: StaffCardState,
+  fileName: string,
   layoutSettings: LayoutSettings,
   quality: QualitySettings,
   now: Date = new Date(),
-): Promise<StaffDownloadResult> {
+): Promise<StaffFileResult> {
+  const failed = { cardId: card.id, fileName: card.file.name } as const;
   try {
-    const items: { layout: LayoutResult; artwork: NormalisedArtwork }[] = [];
-    for (const card of cards) {
-      const spec = cardSpec(card);
-      if (!spec || !card.design) return { ok: false, reason: 'build' };
-      const outcome = safeLayout(spec, layoutSettings);
-      if (!outcome.ok) return { ok: false, reason: 'build' };
-      const prepared = await prepareArtwork(card.design, spec, quality.targetDpi);
-      if (!prepared.ok) return { ok: false, reason: 'prepare', cardId: card.id, fileName: card.file.name, error: prepared.error };
-      items.push({ layout: outcome.layout, artwork: prepared.artwork });
-    }
+    const spec = cardSpec(card);
+    if (!spec || !card.design) return { ok: false, reason: 'build', ...failed };
+    const outcome = safeLayout(spec, layoutSettings);
+    if (!outcome.ok) return { ok: false, reason: 'build', ...failed };
+    const prepared = await prepareArtwork(card.design, spec, quality.targetDpi);
+    if (!prepared.ok) return { ok: false, reason: 'prepare', ...failed, error: prepared.error };
     const { buildStaffPdf } = await import('@/lib/pdf/build-staff-pdf');
-    const bytes = await buildStaffPdf(items, now);
-    return { ok: true, bytes, fileName: staffFileName(now) };
+    const bytes = await buildStaffPdf([{ layout: outcome.layout, artwork: prepared.artwork }], now);
+    return { ok: true, bytes, fileName };
   } catch {
-    return { ok: false, reason: 'build' };
+    return { ok: false, reason: 'build', ...failed };
   }
+}
+
+export interface StaffDownloadOptions {
+  /** Hands one finished file to the browser. */
+  save: (bytes: Uint8Array, fileName: string) => void;
+  /** Called before each file is prepared (1-based). */
+  onProgress?: (n: number, total: number) => void;
+  now?: Date;
+  /** Pause between two saves (tests pass a no-op). */
+  wait?: (ms: number) => Promise<void>;
+}
+
+export interface StaffDownloadSummary {
+  saved: string[];
+  failed: Exclude<StaffFileResult, { ok: true }>[];
+}
+
+/**
+ * One PDF per design, in card order, one after another: each file is prepared, built and saved
+ * before the next starts (phone memory), with a pause between saves. A design that fails is
+ * reported and the others carry on; files already saved stay saved.
+ */
+export async function downloadStaffFiles(
+  cards: readonly StaffCardState[],
+  layoutSettings: LayoutSettings,
+  quality: QualitySettings,
+  opts: StaffDownloadOptions,
+): Promise<StaffDownloadSummary> {
+  const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const now = opts.now ?? new Date();
+  const names = staffPdfNames(cards);
+  const summary: StaffDownloadSummary = { saved: [], failed: [] };
+  let savedAny = false;
+  for (let i = 0; i < cards.length; i++) {
+    opts.onProgress?.(i + 1, cards.length);
+    const out = await buildStaffFile(cards[i], names[i], layoutSettings, quality, now);
+    if (!out.ok) {
+      summary.failed.push(out);
+      continue;
+    }
+    if (savedAny) await wait(SAVE_GAP_MS);
+    try {
+      opts.save(out.bytes, out.fileName);
+      summary.saved.push(out.fileName);
+      savedAny = true;
+    } catch {
+      summary.failed.push({ ok: false, reason: 'build', cardId: cards[i].id, fileName: cards[i].file.name });
+    }
+  }
+  return summary;
 }

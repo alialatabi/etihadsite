@@ -12,7 +12,7 @@ import { uploadLimitMb } from '@/lib/upload-limit';
 import { cn } from '@/lib/utils';
 import type { LayoutSettings, QualitySettings } from '@/lib/types';
 import { StaffCard } from './StaffCard';
-import { MAX_STAFF_FILES, MAX_STAFF_FILE_BYTES, buildStaffDownload } from './staff-logic';
+import { MAX_STAFF_FILES, MAX_STAFF_FILE_BYTES, downloadStaffFiles, type StaffCardState } from './staff-logic';
 import { useStaffItems } from './useStaffItems';
 
 /** Hands the finished PDF to the browser as a download. */
@@ -42,32 +42,42 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ReactNode>(null);
+  const [progress, setProgress] = useState<{ n: number; total: number } | null>(null);
 
   const pick = (files: FileList | null) => {
     if (files && files.length) s.add(Array.from(files));
   };
 
-  const download = async () => {
-    if (busy || !s.ready) return;
+  const run = async (targets: StaffCardState[]) => {
+    if (busy || targets.length === 0) return;
     setBusy(true);
     setFailure(null);
     try {
-      const out = await buildStaffDownload(s.cards, layoutSettings, quality);
-      if (out.ok) {
-        saveFile(out.bytes, out.fileName);
-      } else if (out.reason === 'prepare') {
-        const why = builder.upload.errors[out.error];
+      const summary = await downloadStaffFiles(targets, layoutSettings, quality, {
+        save: saveFile,
+        onProgress: (n, total) => setProgress({ n, total }),
+      });
+      if (summary.failed.length) {
+        const mb = uploadLimitMb(MAX_STAFF_FILE_BYTES);
         setFailure(
-          <>
-            {fillLtr(staff.prepareFailed, { name: out.fileName })} {fillLtr(why, { mb: uploadLimitMb(MAX_STAFF_FILE_BYTES) })}
-          </>,
+          summary.failed.map((f) => (
+            <span key={f.cardId} className="block">
+              {fillLtr(staff.prepareFailed, { name: f.fileName })} {f.reason === 'prepare' ? fillLtr(builder.upload.errors[f.error], { mb }) : common.errors.generic}
+            </span>
+          )),
         );
-      } else {
-        setFailure(common.errors.generic);
       }
     } finally {
       setBusy(false);
+      setProgress(null);
     }
+  };
+  const download = () => {
+    if (s.ready) void run(s.cards);
+  };
+  const downloadOne = (id: string) => {
+    const card = s.cards.find((c) => c.id === id);
+    if (card) void run([card]);
   };
 
   const n = s.cards.length;
@@ -124,7 +134,7 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
       {n > 0 && (
         <ul className="space-y-4">
           {s.cards.map((card, i) => (
-            <StaffCard key={card.id} card={card} view={s.views[i]} onShape={s.setShape} onWidth={s.setWidth} onHeight={s.setHeight} onRemove={s.remove} />
+            <StaffCard key={card.id} card={card} view={s.views[i]} onShape={s.setShape} onWidth={s.setWidth} onHeight={s.setHeight} onRemove={s.remove} onDownload={downloadOne} busy={busy} />
           ))}
         </ul>
       )}
@@ -134,14 +144,15 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
           <p className="text-sm font-medium">
             {fillLtr(staff.summary, {
               designs: <Counted n={n} forms={common.plural.design} />,
-              pages: <Counted n={n} forms={common.plural.page} />,
+              files: <Counted n={n} forms={common.plural.file} />,
             })}
           </p>
         )}
-        <Button type="button" className="h-12 w-full px-6 text-base sm:w-auto" disabled={!s.ready || busy} onClick={() => void download()}>
+        <Button type="button" className="h-12 w-full px-6 text-base sm:w-auto" disabled={!s.ready || busy} onClick={download}>
           {busy ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <FileDown className="size-5" aria-hidden />}
-          {busy ? staff.preparing : staff.download}
+          {busy ? fillLtr(staff.preparing, { n: progress?.n ?? 1, total: progress?.total ?? 1 }) : staff.download}
         </Button>
+        {n > 1 && <p className="text-sm text-muted-foreground">{staff.multiHint}</p>}
         {n > 0 && !s.ready && !busy && <p className="text-sm text-muted-foreground">{staff.needValid}</p>}
         {failure && (
           <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

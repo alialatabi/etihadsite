@@ -68,7 +68,7 @@ pnpm purge:orders
 - مقاس الورقة 21 × 29.7 سم والهامش 3 ملم من كل جهة (الافتراضي)، والترتيب مركّز بالمنتصف.
 
 ### صفحة الموظفين (سرية)
-رابطها `/staff/<المفتاح>` والمفتاح هو قيمة `STAFF_PAGE_KEY` (24 حرف أو أكثر). أي واحد عنده الرابط يفتحها، فلا تنشره. الموظف يرفع كذا تصميم (PNG أو JPG أو PDF)، يكتب القياس لكل تصميم، ويضغط «نزّل ملف PDF» فيطلع ملف واحد بصفحة لكل تصميم، فيه النقاط السودة وجاهز للطباعة والقص. الملفات تبقى بجهاز الموظف وما تنرفع للسيرفر. اطبع الملف بحجم 100% (Actual size). لتغيير الرابط غيّر `STAFF_PAGE_KEY` على Vercel وأعد النشر.
+رابطها `/staff/<المفتاح>` والمفتاح هو قيمة `STAFF_PAGE_KEY` (24 حرف أو أكثر). أي واحد عنده الرابط يفتحها، فلا تنشره. الموظف يرفع كذا تصميم (PNG أو JPG أو PDF)، يكتب القياس لكل تصميم، ويضغط «نزّل ملفات PDF» فينزل ملف PDF لكل تصميم (صفحة A4 وحدة بكل ملف)، فيه النقاط السودة وجاهز للطباعة والقص. إذا المتصفح سأل عن تنزيل أكثر من ملف اختار «سماح»، وكل تصميم بعد عنده زر تنزيل خاص بيه. الملفات تبقى بجهاز الموظف وما تنرفع للسيرفر. اطبع الملف بحجم 100% (Actual size). لتغيير الرابط غيّر `STAFF_PAGE_KEY` على Vercel وأعد النشر.
 
 ### الموقع على الإنترنت
 - الرابط: **https://etihad-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
@@ -140,7 +140,7 @@ Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /ap
 The PDF contains the artwork and the 4 black cutter dots (5 mm wide, centre 7 mm from both nearest edges, in the `sk_marks` layer); no cut paths, tick marks or text. The plotter's camera reads only the printed paper, so no cut file is needed. Print at 100% / "Actual size", never "Fit to page" (shrinking moves the dots off the plotter's template; the PDF also asks viewers not to scale). The order id is stored in the PDF metadata.
 
 ### Staff page
-Employees open the hidden link `/staff/<STAFF_PAGE_KEY>` (shown to the owner in `/admin/settings`), add several designs, type a size for each and download one multi-page PDF (one A4 page per design, with the dots). It is built in the browser; nothing is uploaded. Same layout rules as the website, so counts match. Not in the sitemap or robots.txt, `noindex`, and ignored by analytics. Change the link by changing the variable on Vercel and redeploying.
+Employees open the hidden link `/staff/<STAFF_PAGE_KEY>` (shown to the owner in `/admin/settings`), add several designs, type a size for each and download one PDF file per design (one A4 page each, with the dots; the owner changed this on 2026-11-12 from a single multi-page PDF). It is built in the browser; nothing is uploaded. Same layout rules as the website, so counts match. Not in the sitemap or robots.txt, `noindex`, and ignored by analytics. Change the link by changing the variable on Vercel and redeploying.
 
 ### Layout rules (defaults, editable in settings)
 A4 21 × 29.7 cm, 3 mm margin, 4 cutter dots (stickers keep 3 mm away from them), block centred. Circle: 2 mm between columns, rows touching. Rounded rectangle: 2 mm. Sharp rectangle: 0. Custom: 2 mm and requires a transparent PNG.

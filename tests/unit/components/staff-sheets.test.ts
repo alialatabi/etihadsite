@@ -11,11 +11,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { builder, staff } from '@/content/ar';
-import type { DesignSource } from '@/lib/types';
+import type { DesignSource, StickerSpec } from '@/lib/types';
 import { installBrowserMock, type BrowserMock } from '../design/browser-mock';
 
 type Item = { layout: { countPerSheet: number }; artwork: { pxWidth: number } };
 const built = vi.hoisted(() => ({ calls: [] as { items: unknown[]; now: Date }[] }));
+const spec = (shape: 'circle' | 'rect', widthUm: number, heightUm = widthUm) => ({ shape, widthUm, heightUm }) as StickerSpec;
 vi.mock('@/lib/pdf/build-staff-pdf', () => ({
   buildStaffPdf: async (items: unknown[], now: Date) => {
     built.calls.push({ items, now });
@@ -35,11 +36,14 @@ import { StaffSheets } from '@/components/staff/StaffSheets';
 import { decodeDesign } from '@/lib/design/decode.client';
 import {
   MAX_STAFF_FILES,
-  buildStaffDownload,
+  SAVE_GAP_MS,
+  buildStaffFile,
+  downloadStaffFiles,
   canDownload,
   cardView,
   createViewCache,
-  staffFileName,
+  staffPdfName,
+  staffPdfNames,
   staffReducer,
   type StaffAction,
   type StaffCardState,
@@ -58,7 +62,7 @@ const design = (name: string, w: number, h: number): DesignSource => ({
 });
 const run = (actions: StaffAction[], from: StaffCardState[] = []) => actions.reduce(staffReducer, from);
 const add = (...names: string[]): StaffAction => ({ type: 'add', items: names.map((n) => ({ id: `${n}-0`, file: file(n) })) });
-const noop = { onShape() {}, onWidth() {}, onHeight() {}, onRemove() {} };
+const noop = { onShape() {}, onWidth() {}, onHeight() {}, onRemove() {}, onDownload() {}, busy: false };
 
 /** A card that is decoded and has the typed width (cm). */
 function ready(name: string, w: number, h: number, widthCm: string, shape: 'circle' | 'rounded' | 'sharp' = 'circle'): StaffCardState[] {
@@ -179,34 +183,97 @@ describe('the download button', () => {
   });
 });
 
+describe('file names', () => {
+  it('a circle is named by its diameter, with a dot as the decimal point', () => {
+    expect(staffPdfName('logo.png', spec('circle', 58_000))).toBe('logo-5.8cm.pdf');
+    expect(staffPdfName('logo.png', spec('circle', 50_000))).toBe('logo-5cm.pdf');
+  });
+  it('other shapes are named width x height', () => {
+    expect(staffPdfName('logo.jpg', spec('rect', 50_000, 30_000))).toBe('logo-5x3cm.pdf');
+    expect(staffPdfName('logo.jpg', spec('rect', 42_400, 30_000))).toBe('logo-4.24x3cm.pdf');
+  });
+  it('only the last extension is dropped; no extension is fine', () => {
+    expect(staffPdfName('a.b.png', spec('circle', 40_000))).toBe('a.b-4cm.pdf');
+    expect(staffPdfName('plain', spec('circle', 40_000))).toBe('plain-4cm.pdf');
+  });
+  it('removes characters Windows forbids, and spaces and dots at the ends', () => {
+    expect(staffPdfName('a\\b/c:d*e?f"g<h>i|j\u0001k.png', spec('circle', 40_000))).toBe('abcdefghijk-4cm.pdf');
+    expect(staffPdfName('  ..my logo.. .png', spec('circle', 40_000))).toBe('my logo-4cm.pdf');
+  });
+  it('keeps Arabic letters', () => {
+    expect(staffPdfName('شعار المطعم.png', spec('circle', 40_000))).toBe('شعار المطعم-4cm.pdf');
+  });
+  it('an empty name becomes "design"', () => {
+    expect(staffPdfName('.png', spec('circle', 40_000))).toBe('design-4cm.pdf');
+    expect(staffPdfName('???.png', spec('circle', 40_000))).toBe('design-4cm.pdf');
+  });
+  it('caps the base name at 80 characters', () => {
+    const name = staffPdfName(`${'x'.repeat(200)}.png`, spec('circle', 40_000));
+    expect(name).toBe(`${'x'.repeat(80)}-4cm.pdf`);
+    expect(staffPdfName(`${'ا'.repeat(100)}.png`, spec('circle', 40_000))).toBe(`${'ا'.repeat(80)}-4cm.pdf`);
+  });
+  it('two cards with the same name get -2, -3 before .pdf', () => {
+    const cards = [...ready('a.png', 400, 400, '5'), ...ready('a.jpg', 400, 400, '5'), ...ready('b.png', 400, 400, '5'), ...ready('a.webp', 400, 400, '5')];
+    expect(staffPdfNames(cards)).toEqual(['a-5cm.pdf', 'a-5cm-2.pdf', 'b-5cm.pdf', 'a-5cm-3.pdf']);
+  });
+});
+
 describe('download', () => {
   beforeEach(() => {
     built.calls.length = 0;
   });
+  const noWait = async () => {};
 
-  it('calls buildStaffPdf once with one item per card in card order, and names the file in Baghdad time', async () => {
-    const cards = [...ready('a.png', 400, 400, '5'), ...ready('b.png', 300, 300, '4', 'sharp')];
+  it('N ready cards give N one-design PDFs, in card order, with the right names', async () => {
+    const cards = [...ready('a.png', 400, 400, '5'), ...ready('b.png', 300, 300, '4', 'sharp'), ...ready('c.png', 200, 200, '3')];
     const now = new Date('2026-11-12T10:05:00Z');
-    const out = await buildStaffDownload(cards, LAYOUT, QUALITY, now);
-    if (!out.ok) throw new Error(JSON.stringify(out));
-    expect(out.fileName).toMatch(/^softy-sheets-\d{8}-\d{4}\.pdf$/);
-    expect(out.fileName).toBe('softy-sheets-20261112-1305.pdf');
+    const saved: { name: string; bytes: Uint8Array }[] = [];
+    const progress: number[] = [];
+    const out = await downloadStaffFiles(cards, LAYOUT, QUALITY, { save: (bytes, name) => saved.push({ name, bytes }), onProgress: (n) => progress.push(n), now, wait: noWait });
+    expect(out.failed).toEqual([]);
+    expect(saved.map((f) => f.name)).toEqual(['a-5cm.pdf', 'b-4x4cm.pdf', 'c-3cm.pdf']);
+    expect(out.saved).toEqual(saved.map((f) => f.name));
+    expect(progress).toEqual([1, 2, 3]);
+    expect(built.calls).toHaveLength(3);
+    for (const c of built.calls) {
+      expect(c.items).toHaveLength(1); // one page per file
+      expect(c.now).toBe(now);
+    }
+    expect((built.calls.map((c) => (c.items as Item[])[0].artwork.pxWidth))).toEqual([400, 300, 200]);
+  });
+
+  it('prepares, builds and saves one file before it starts the next, and waits between saves', async () => {
+    const cards = [...ready('a.png', 400, 400, '5'), ...ready('b.png', 300, 300, '4')];
+    const log: string[] = [];
+    await downloadStaffFiles(cards, LAYOUT, QUALITY, {
+      save: (_b, name) => log.push(`save ${name} after ${built.calls.length} builds`),
+      wait: async (ms) => void log.push(`wait ${ms}`),
+    });
+    expect(log).toEqual(['save a-5cm.pdf after 1 builds', `wait ${SAVE_GAP_MS}`, 'save b-4cm.pdf after 2 builds']);
+    expect(SAVE_GAP_MS).toBe(400);
+  });
+
+  it('one design that cannot be prepared does not stop the others, and is reported', async () => {
+    const cards = [...ready('a.png', 400, 400, '5'), ...ready('locked.pdf', 400, 400, '5'), ...ready('c.png', 300, 300, '4')];
+    const saved: string[] = [];
+    const out = await downloadStaffFiles(cards, LAYOUT, QUALITY, { save: (_b, n) => saved.push(n), wait: noWait });
+    expect(saved).toEqual(['a-5cm.pdf', 'c-4cm.pdf']);
+    expect(out.failed).toHaveLength(1);
+    expect(out.failed[0]).toMatchObject({ ok: false, reason: 'prepare', fileName: 'locked.pdf', error: 'encrypted' });
+  });
+
+  it('one card alone: buildStaffFile builds a single-page PDF under the given name', async () => {
+    const [card] = ready('a.png', 400, 400, '5');
+    const out = await buildStaffFile(card, 'a-5cm.pdf', LAYOUT, QUALITY);
+    expect(out).toMatchObject({ ok: true, fileName: 'a-5cm.pdf' });
     expect(built.calls).toHaveLength(1);
-    const items = built.calls[0].items as Item[];
-    expect(items).toHaveLength(2);
-    expect(items.map((i) => i.artwork.pxWidth)).toEqual([400, 300]);
-    expect(items[0].layout.countPerSheet).not.toBe(items[1].layout.countPerSheet);
-    expect(built.calls[0].now).toBe(now);
+    expect(built.calls[0].items).toHaveLength(1);
   });
 
-  it('names the card whose artwork could not be prepared, and builds nothing', async () => {
-    const out = await buildStaffDownload([...ready('a.png', 400, 400, '5'), ...ready('locked.pdf', 400, 400, '5')], LAYOUT, QUALITY);
-    expect(out).toMatchObject({ ok: false, reason: 'prepare', fileName: 'locked.pdf', error: 'encrypted' });
-    expect(built.calls).toHaveLength(0);
-  });
-
-  it('file name: 24 h clock, zero padded, next day in Baghdad', () => {
-    expect(staffFileName(new Date('2026-01-02T21:09:00Z'))).toBe('softy-sheets-20260103-0009.pdf');
+  it('a card without a size is a build failure, not a crash', async () => {
+    const out = await downloadStaffFiles(run([add('x.png')]), LAYOUT, QUALITY, { save: () => {}, wait: noWait });
+    expect(out.saved).toEqual([]);
+    expect(out.failed[0]).toMatchObject({ reason: 'build', fileName: 'x.png' });
   });
 });
 

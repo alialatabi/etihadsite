@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { FileText, LoaderCircle, Trash2, TriangleAlert } from 'lucide-react';
+import { FileDown, FileText, LoaderCircle, Trash2, TriangleAlert } from 'lucide-react';
 import { builder, common, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
@@ -21,6 +21,9 @@ interface Props {
   onWidth: (id: string, text: string) => void;
   onHeight: (id: string, text: string) => void;
   onRemove: (id: string) => void;
+  onDownload: (id: string) => void;
+  /** A download is running: the per-card buttons wait. */
+  busy: boolean;
 }
 
 function problemText(p: StaffProblem, maxWidthUm: number | null) {
@@ -52,7 +55,7 @@ function SizeField({ id, label, value, onChange, invalid, describedBy }: { id: s
 }
 
 /** One design: thumbnail, name, shape, size, the sheet preview and its messages. */
-export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth, onHeight, onRemove }: Props) {
+export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth, onHeight, onRemove, onDownload, busy }: Props) {
   const isCircle = card.shape === 'circle';
   const sizeProblem = view.problem?.kind === 'size';
   const msgId = `staff-msg-${card.id}`;
@@ -76,6 +79,11 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
             <p className="min-w-0 flex-1 truncate text-sm font-medium">
               <Ltr>{card.file.name}</Ltr>
             </p>
+            {view.valid && (
+              <Button type="button" variant="outline" size="icon" className="size-11" disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
+                <FileDown className="size-4" aria-hidden />
+              </Button>
+            )}
             <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
               <Trash2 className="size-4" aria-hidden />
             </Button>

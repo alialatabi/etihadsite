@@ -10,13 +10,13 @@ The shop cuts stickers on a cutting plotter with a camera. **The machine reads o
 2. **The same dots on customer orders from the website**, so a customer order PDF also goes straight to the printer and the cutter.
 3. Stickers may now go **up to 3 mm from the paper edge** (today the margin is a setting: 7 mm by default, 4 mm on the live site), but **never near the dots**. Correction (final review, 2026-11-12): against the live site (4 mm, no dots) the dots cost stickers on many sizes, so **fewer stickers fit on about 30 % of sizes and a customer may pay for more sheets**. See section 8a; the owner approves that table before the deploy.
 
-Success: an employee drops in 5 files, types 5 sizes, presses one button and gets one PDF with 5 pages that print and cut without opening CorelDRAW. A customer order PDF arriving on Telegram or in the admin is the same: print, cut, done.
+Success: an employee drops in 5 files, types 5 sizes, presses one button and gets 5 PDF files (one per design) that print and cut without opening CorelDRAW. A customer order PDF arriving on Telegram or in the admin is the same: print, cut, done.
 
 ## 2. Owner decisions (2026-11-12, in their words or chosen options)
 
 | # | Question | Answer |
 |---|---|---|
-| D1 | One design per sheet, or mix designs on one sheet? | **One design per sheet** (like `example.pdf`). One PDF, one page per design. |
+| D1 | One design per sheet, or mix designs on one sheet? | **One design per sheet** (like `example.pdf`). ~~One PDF, one page per design.~~ **Changed by the owner, 2026-11-12: every design is its own PDF file** (one A4 page each); see B2 and B4. |
 | D2 | How close may stickers go to the edge? | "The 7 mm is constant for the black dots, but the designs can go up to **3 mm** from the edges." |
 | D3 | Who can open the staff page? | **Secret link, no password.** |
 | D4 | Dots on customer orders too? | **Yes, all shapes** (circle, rectangle, custom): dots + up to 3 mm from the edge, never near the dots. |
@@ -29,7 +29,7 @@ Success: an employee drops in 5 files, types 5 sizes, presses one button and get
 Goals
 - Every sheet PDF (customer orders and staff page) carries the 4 dots.
 - One layout rule for both: margin 3 mm, gaps per shape as today, dots kept clear.
-- Staff page: many files in, one multi-page PDF out, nothing uploaded to the server.
+- Staff page: many files in, one PDF file per design out, nothing uploaded to the server.
 
 Non-goals
 - Mixing different designs on one sheet (D1 said no; can come later).
@@ -137,7 +137,7 @@ Step 3's rule is a fixed rule, not a theorem: the mixed packer's search limits d
 1. A title and a file picker / drop area: several PNG, JPG or PDF files at once. Limits (my calls): up to 30 files, 50 MB each, nothing leaves the browser.
 2. One card per file: a thumbnail, the file name, the **shape** (the 4 shapes of the website: circle, rectangle with rounded corners, rectangle with sharp corners, custom; default circle), and the **size in cm** with the same input rules as the website (aspect locked: type width or height and the other follows; a circle has one field, the diameter; a PDF prefills its size from its page box). Custom shape needs a transparent PNG, as on the website.
 3. Under each card: a small sheet preview (the website's `SheetPreview`, with the dots), "N stickers per sheet", and the website's messages for too small, too big, ratio too extreme, and low resolution. Low resolution is a **warning only** on this page (my call: employees decide), not a block.
-4. A remove button per card, and one main button «نزّل ملف PDF» that is enabled when every card is valid. It produces **one PDF with one page per design**, in the order of the cards, named `softy-sheets-YYYYMMDD-HHmm.pdf` (Baghdad time).
+4. A remove button per card, and one main button «نزّل ملفات PDF» that is enabled when every card is valid. **Owner change, 2026-11-12 (replaces D1's "one PDF, one page per design"): every design is its own PDF file.** The button downloads the files in card order, one after another (each is prepared, built and saved before the next starts, about 400 ms apart because Chrome can drop quick downloads). Each file has one A4 page, the same drawing and dots. A design that fails is reported (with the website's messages) and the others still download. With 2 or more cards a hint says to choose «Allow» if the browser asks about several downloads. Each ready card also has a small download button for just that design (a fallback when the browser blocked a file or one design changed). File name: `<design file name without extension>-<size>.pdf`, e.g. `logo-5.8cm.pdf` for a circle (diameter) and `logo-5x3cm.pdf` for other shapes (width x height, the size fields' number format, dot as decimal point); characters Windows forbids are removed, spaces and dots at the ends trimmed, the base name capped at 80 characters, `design` if nothing is left; two cards with the same name get `-2`, `-3` before `.pdf`.
 
 The layout rules are the website's, read from the live settings when the page loads: margin, gaps per shape, rotation on/off, minimum side, rounded radius, plus the dots.
 
@@ -150,7 +150,7 @@ Same result as the server's `normaliseArtwork`, done in the browser (no sharp):
 
 ### B4. The PDF
 
-Built in the browser with pdf-lib (dynamic import, only on this page), using the shared page drawer from A3: per design, one A4 page, artwork embedded once, drawn N times, then the dots. Metadata: title `Softy sheets`, producer and creator `Softy Printing`, no customer data.
+Built in the browser with pdf-lib (dynamic import, only on this page), using the shared page drawer from A3: one PDF per design (`buildStaffPdf([item], now)` called once per file), each with one A4 page, artwork embedded once, drawn N times, then the dots. Metadata: title `Softy sheets`, producer and creator `Softy Printing`, no customer data.
 
 ### B5. Code layout (builder may adjust)
 
@@ -160,8 +160,8 @@ Built in the browser with pdf-lib (dynamic import, only on this page), using the
 
 ## 7. Tests and the golden snapshots
 
-- New unit tests: the near-dot test, the candidate areas and tie-breaks (including "choose after removal"), the fast path, `turnedCount` after removal, the `example.pdf` reproduction, the property test (A2), and `maxWidthFor()` returning the same width as the 1 µm walk with a bounded number of runs; dots in the PDF (position, size, colour, `f*`, the `sk_marks` layer, `drawCount` unchanged), the rounded-corner clip, and the print-scaling entry (A3); staff page key check (404 cases), analytics and tracker ignoring `/staff`, the browser artwork preparation, and the multi-page PDF (one page per design, dots on each).
-- One Playwright test: open `/staff/<test key>`, add two files, set sizes, download, check the PDF has 2 pages with dots; a wrong key gives 404.
+- New unit tests: the near-dot test, the candidate areas and tie-breaks (including "choose after removal"), the fast path, `turnedCount` after removal, the `example.pdf` reproduction, the property test (A2), and `maxWidthFor()` returning the same width as the 1 µm walk with a bounded number of runs; dots in the PDF (position, size, colour, `f*`, the `sk_marks` layer, `drawCount` unchanged), the rounded-corner clip, and the print-scaling entry (A3); staff page key check (404 cases), analytics and tracker ignoring `/staff`, the browser artwork preparation, and the PDF (one page per design, dots on each; the page flow builds one file per design).
+- One Playwright test: open `/staff/<test key>`, add two files, set sizes, download, check that two files arrive, each with 1 page and the dots, with the expected names; a wrong key gives 404.
 - Golden snapshots that are **expected** to change because the owner asked (update one file at a time and read every line of the diff; any change not explained by "dots added, margin 3 mm, counts per sheet changed, new strings" is a bug): layout, builder logic, design/PDF hashes, settings/schemas, copy, page metadata if the staff page adds an entry, routes (counts and prices in order answers), order text if it prints counts. `src/lib/__fixtures__/layout-cases.json` must **not** change; new mark cases go in a new fixture file.
 - `CI=1 pnpm check` and `pnpm build` green before the deploy.
 
