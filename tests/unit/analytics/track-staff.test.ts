@@ -8,6 +8,7 @@ vi.mock('@/lib/storage', () => ({
 
 import { POST } from '@/app/api/track/route';
 import { isAdminPath, isStaffPath } from '@/lib/analytics/paths';
+import { STAFF_PAGE_ROUTE } from '@/lib/staff-gate';
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile/15E148';
 const req = (body: unknown) =>
@@ -26,6 +27,9 @@ describe('staff paths are never tracked', () => {
   it('isStaffPath matches /staff and /staff/*, nothing else', () => {
     expect(isStaffPath('/staff')).toBe(true);
     expect(isStaffPath('/staff/abc')).toBe(true);
+    expect(isStaffPath(STAFF_PAGE_ROUTE)).toBe(true); // the real route, kept in step with staff-gate.ts
+    expect(isStaffPath('/staff-sheets')).toBe(true);
+    expect(isStaffPath('/Staff-Sheets/x')).toBe(true);
     expect(isStaffPath('/staffing')).toBe(false);
     expect(isStaffPath('/')).toBe(false);
     expect(isStaffPath('/how-it-works')).toBe(false);
