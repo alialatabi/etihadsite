@@ -31,5 +31,6 @@ export const staff = {
   needValid: 'لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.',
   /** {name} = file name; followed by the reason. */
   prepareFailed: 'تعذر تجهيز «{name}».',
-  printActualSize: 'اطبع الملف بحجم 100% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها.',
+  /** {percent} = the print scale. */
+  printActualSize: 'اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها.',
 } as const;

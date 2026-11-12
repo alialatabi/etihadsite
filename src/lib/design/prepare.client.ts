@@ -14,8 +14,10 @@
  *    effectiveDpi uses the oriented, trimmed ORIGINAL pixels over spec.widthUm (a circle uses
  *    the shorter side), like the server. It is not a gate here: the caller decides.
  *  - PDF: the original bytes, page 1 box and turn from `pdfArtworkBox()` (shared with the
- *    server). Encrypted -> 'encrypted'; unreadable -> 'corrupt'; shape 'custom' -> 'no_alpha'
- *    (transparency in PDFs is not trusted, as in decodeDesign).
+ *    server). Encrypted -> 'encrypted'; shape 'custom' -> 'no_alpha' (transparency in PDFs is
+ *    not trusted, as in decodeDesign). A PDF that pdf-lib cannot load (and is not encrypted) or
+ *    whose box is empty is rasterised (page 1, at the target DPI, like the website's
+ *    `needs_raster` fallback) and continues as a raster design; if that fails too -> 'corrupt'.
  */
 import { effectiveDpi as dpiOf, pxForUmAtDpi } from '@/lib/units';
 import type { DesignSource, NormalisedArtwork, PixelBox, StickerSpec } from '@/lib/types';
@@ -29,13 +31,17 @@ export type PrepareOutcome =
   | { ok: false; error: PrepareError };
 
 const JPEG_QUALITY = 0.92;
+/** iOS Safari refuses a canvas above 16,777,216 pixels (getContext then returns null). */
+export const MAX_CANVAS_PIXELS = 16_777_216;
 const STRIP_ROWS = 256;
 
 const fail = (error: PrepareError): PrepareOutcome => ({ ok: false, error });
 
 export async function prepareArtwork(source: DesignSource, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
   try {
-    return source.kind === 'pdf' ? await preparePdf(source, spec) : await prepareRaster(source, spec, targetDpi);
+    return source.kind === 'pdf'
+      ? await preparePdf(source, spec, targetDpi)
+      : await prepareRaster(source.file, source.hasAlpha, source.trim, spec, targetDpi);
   } catch {
     return fail('corrupt');
   }
@@ -97,15 +103,42 @@ const insideBitmap = (b: PixelBox, bitmap: ImageBitmap) =>
   Number.isInteger(b.left) && Number.isInteger(b.top) && Number.isInteger(b.width) && Number.isInteger(b.height) &&
   b.left >= 0 && b.top >= 0 && b.width >= 1 && b.height >= 1 && b.left + b.width <= bitmap.width && b.top + b.height <= bitmap.height;
 
-async function prepareRaster(source: DesignSource, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
-  if (spec.shape === 'custom' && !source.hasAlpha) return fail('no_alpha');
-  const bitmap = await createImageBitmap(source.file, { imageOrientation: 'from-image' });
+/**
+ * The canvas sizes to halve through, from a `sw` x `sh` region towards `outW` x `outH` (the
+ * server's "halve while more than 2x too big" rule). No canvas is ever above `maxPixels`: when
+ * the plain halving step would be, the step is drawn at the largest scale that fits the cap
+ * instead, and halving carries on from there. Pure, so it is unit-tested without a DOM.
+ */
+export function downscaleSteps(sw: number, sh: number, outW: number, outH: number, maxPixels = MAX_CANVAS_PIXELS): [number, number][] {
+  const steps: [number, number][] = [];
+  while (sw > outW * 2 && sh > outH * 2) {
+    let nw = Math.ceil(sw / 2);
+    let nh = Math.ceil(sh / 2);
+    if (nw * nh > maxPixels) {
+      const k = Math.sqrt(maxPixels / (nw * nh));
+      nw = Math.max(1, Math.floor(nw * k));
+      nh = Math.max(1, Math.floor(nh * k));
+      while (nw * nh > maxPixels) {
+        if (nw >= nh) nw--;
+        else nh--;
+      }
+    }
+    steps.push([nw, nh]);
+    sw = nw;
+    sh = nh;
+  }
+  return steps;
+}
+
+async function prepareRaster(file: File, sourceHasAlpha: boolean, trim: PixelBox | undefined, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
+  if (spec.shape === 'custom' && !sourceHasAlpha) return fail('no_alpha');
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
     if (bitmap.width < 1 || bitmap.height < 1) return fail('corrupt');
-    let hasAlpha = source.hasAlpha;
+    let hasAlpha = sourceHasAlpha;
     let region: PixelBox = { left: 0, top: 0, width: bitmap.width, height: bitmap.height };
     if (spec.shape === 'custom') {
-      let box = source.trim && insideBitmap(source.trim, bitmap) ? source.trim : null;
+      let box = trim && insideBitmap(trim, bitmap) ? trim : null;
       if (!box) {
         const scan = scanAlpha(bitmap);
         if (!scan.hasAlpha) return fail('no_alpha');
@@ -126,30 +159,36 @@ async function prepareRaster(source: DesignSource, spec: StickerSpec, targetDpi:
     const outH = Math.max(1, Math.round(region.height * scale));
 
     // Halve in steps while more than 2x too big: one big drawImage jump aliases in some browsers.
+    // Every canvas stays under the browser's pixel cap (see downscaleSteps).
     let src: CanvasImageSource = bitmap;
     let step: HTMLCanvasElement | null = null;
     let { left: sx, top: sy, width: sw, height: sh } = region;
-    while (sw > outW * 2 && sh > outH * 2) {
-      const nw = Math.ceil(sw / 2);
-      const nh = Math.ceil(sh / 2);
-      const next = makeCanvas(nw, nh);
-      context(next).drawImage(src, sx, sy, sw, sh, 0, 0, nw, nh);
-      if (step) release(step);
-      step = next;
-      src = next;
-      [sx, sy, sw, sh] = [0, 0, nw, nh];
-    }
+    let out: HTMLCanvasElement | null = null;
+    let blob: Blob;
+    try {
+      for (const [nw, nh] of downscaleSteps(sw, sh, outW, outH)) {
+        const next = makeCanvas(nw, nh);
+        context(next).drawImage(src, sx, sy, sw, sh, 0, 0, nw, nh);
+        if (step) release(step);
+        step = next;
+        src = next;
+        [sx, sy, sw, sh] = [0, 0, nw, nh];
+      }
 
-    const out = makeCanvas(outW, outH);
-    const ctx = context(out);
-    if (!hasAlpha) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, outW, outH);
+      out = makeCanvas(outW, outH);
+      const ctx = context(out);
+      if (!hasAlpha) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, outW, outH);
+      }
+      ctx.drawImage(src, sx, sy, sw, sh, 0, 0, outW, outH);
+      if (step) release(step);
+      step = null;
+      blob = hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', JPEG_QUALITY);
+    } finally {
+      if (step) release(step);
+      if (out) release(out);
     }
-    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, outW, outH);
-    if (step) release(step);
-    const blob = hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', JPEG_QUALITY);
-    release(out);
 
     const artwork: NormalisedArtwork = {
       kind: 'raster',
@@ -168,7 +207,7 @@ async function prepareRaster(source: DesignSource, spec: StickerSpec, targetDpi:
 
 /* ───────────────────────────────── PDF ───────────────────────────────── */
 
-async function preparePdf(source: DesignSource, spec: StickerSpec): Promise<PrepareOutcome> {
+async function preparePdf(source: DesignSource, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
   if (spec.shape === 'custom') return fail('no_alpha');
   const bytes = new Uint8Array(await source.file.arrayBuffer());
   const { PDFDocument } = await import('pdf-lib');
@@ -176,9 +215,26 @@ async function preparePdf(source: DesignSource, spec: StickerSpec): Promise<Prep
   try {
     doc = await PDFDocument.load(bytes); // never ignoreEncryption, as on the server
   } catch (e) {
-    return fail(isEncryptedPdfError(e) ? 'encrypted' : 'corrupt');
+    return isEncryptedPdfError(e) ? fail('encrypted') : rasterisedPdf(source.file, spec, targetDpi);
   }
-  const a = pdfArtworkBox(doc); // a throw here is caught by prepareArtwork -> 'corrupt'
-  if (!a) return fail('corrupt');
+  let a: ReturnType<typeof pdfArtworkBox> = null;
+  try {
+    a = pdfArtworkBox(doc);
+  } catch {
+    // a malformed page tree: treated like an empty box
+  }
+  if (!a) return rasterisedPdf(source.file, spec, targetDpi);
   return { ok: true, artwork: { kind: 'pdf', bytes, box: a.box, rotate: a.rotate, pageCount: a.pageCount }, effectiveDpi: null };
+}
+
+/** What the website does for a PDF the server cannot embed (`needs_raster`): page 1 as an image at the target DPI. */
+async function rasterisedPdf(file: File, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
+  try {
+    const { rasterisePdfPage } = await import('./decode.client');
+    const blob = await rasterisePdfPage(file, targetDpi);
+    const png = new File([blob], file.name.replace(/\.pdf$/i, '') + '.png', { type: 'image/png' });
+    return await prepareRaster(png, false, undefined, spec, targetDpi); // rendered on white: no transparency
+  } catch {
+    return fail('corrupt');
+  }
 }

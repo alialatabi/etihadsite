@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { FileText, LoaderCircle, Trash2, TriangleAlert } from 'lucide-react';
-import { builder, common, staff } from '@/content/ar';
+import { builder, common, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { Button } from '@/components/ui/button';
@@ -76,7 +76,7 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
             <p className="min-w-0 flex-1 truncate text-sm font-medium">
               <Ltr>{card.file.name}</Ltr>
             </p>
-            <Button type="button" variant="outline" size="icon" className="size-11" aria-label={staff.removeAria.replace('{name}', card.file.name)} onClick={() => onRemove(card.id)}>
+            <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
               <Trash2 className="size-4" aria-hidden />
             </Button>
           </div>

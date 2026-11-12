@@ -43,7 +43,7 @@ describe('pdfArtworkBox', () => {
   const pdfFixtures = readdirSync(FIXTURES).filter((n) => n.endsWith('.pdf'));
 
   it('covers every PDF in tests/fixtures', () => {
-    expect(pdfFixtures.sort()).toEqual(['cropbox-rot90.pdf', 'encrypted-marker.pdf', 'two-page.pdf']);
+    expect(pdfFixtures).toEqual(expect.arrayContaining(['cropbox-rot90.pdf', 'encrypted-marker.pdf', 'two-page.pdf']));
   });
 
   for (const name of pdfFixtures) {

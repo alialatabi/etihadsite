@@ -20,7 +20,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{n} x2",
   "{name} x3",
   "{pages} x2",
-  "{percent} x3",
+  "{percent} x4",
   "{price} x1",
   "{rotated} x1",
   "{rows} x1",
@@ -892,7 +892,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
   "preparing": "جاري تجهيز الملف…",
   "needValid": "لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.",
   "prepareFailed": "تعذر تجهيز «{name}».",
-  "printActualSize": "اطبع الملف بحجم 100% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها."
+  "printActualSize": "اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها."
 }"
 `;
 
@@ -900,12 +900,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 726,
+  "chars": 732,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 2,
-  "sha256OfRawJson": "baa281801cefe7efc821be2f6be5cd4fe73f04b8ba86c404f034ead9065ae64c",
+  "sha256OfRawJson": "599c22d3abc29f3a1adf91908fec0c674ccfa0409dac885994863a0b04e596e7",
   "strings": 21,
 }
 `;

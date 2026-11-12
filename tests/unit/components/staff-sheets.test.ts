@@ -113,6 +113,25 @@ describe('staff cards', () => {
     expect(stale[0]).toBe(toCustom[0]);
   });
 
+  it('a height typed while the design is still decoding is kept when it decodes (height first)', () => {
+    const id = 'late.png-0';
+    const decoding = run([add('late.png'), { type: 'shape', id, shape: 'sharp' }, { type: 'height', id, text: '5' }]);
+    expect(decoding[0].status).toBe('decoding');
+    const cards = run([{ type: 'decoded', id, seq: 1, outcome: { ok: true, source: design('late.png', 600, 300) } }], decoding);
+    expect(cards[0].heightText).toBe('5');
+    expect(cards[0].widthText).toBe('10');
+    expect(cards[0].sizeUm).toEqual({ widthUm: 100_000, heightUm: 50_000 });
+  });
+
+  it('a width typed while the design is still decoding is kept when it decodes (width first)', () => {
+    const id = 'late.png-0';
+    const decoding = run([add('late.png'), { type: 'shape', id, shape: 'sharp' }, { type: 'width', id, text: '6' }]);
+    const cards = run([{ type: 'decoded', id, seq: 1, outcome: { ok: true, source: design('late.png', 600, 300) } }], decoding);
+    expect(cards[0].widthText).toBe('6');
+    expect(cards[0].heightText).toBe('3');
+    expect(cards[0].sizeUm).toEqual({ widthUm: 60_000, heightUm: 30_000 });
+  });
+
   it('a PDF design prefills its page size when nothing was typed', () => {
     const pdf: DesignSource = { ...design('p.pdf', 595, 842), kind: 'pdf', hasAlpha: false, pdf: { pageCount: 1, pageWidthPt: 283.465, pageHeightPt: 283.465 } };
     const cards = run([add('p.pdf'), { type: 'decoded', id: 'p.pdf-0', seq: 1, outcome: { ok: true, source: pdf } }]);
@@ -144,7 +163,8 @@ describe('the download button', () => {
     const download = [...html.matchAll(button)].map((m) => m[0]).find((b) => b.includes(staff.download));
     expect(download).toBeDefined();
     expect(download).toContain('disabled');
-    expect(html).toContain(staff.printActualSize);
+    const [before, after] = staff.printActualSize.split('{percent}');
+    expect(html).toContain(before + '<bdi dir="ltr" class="tabular-nums">100</bdi>' + after);
     expect(html).toContain(staff.empty);
   });
 

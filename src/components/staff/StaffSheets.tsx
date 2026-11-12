@@ -149,7 +149,7 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
             <span>{failure}</span>
           </p>
         )}
-        <p className="text-sm text-muted-foreground">{staff.printActualSize}</p>
+        <p className="text-sm text-muted-foreground">{fillLtr(staff.printActualSize, { percent: 100 })}</p>
         <p className="text-sm text-muted-foreground">{common.marksHint}</p>
       </div>
     </div>

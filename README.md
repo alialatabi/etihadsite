@@ -137,7 +137,7 @@ Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers` 
 Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /api/upload/direct`, then `/api/upload/direct/commit`, where the server re-checks size and magic bytes), because Vercel caps request and response bodies at 4.5 MB. Admin downloads redirect to 60-second signed links for the same reason.
 
 ### Printing
-The PDF contains the artwork and the 4 black cutter dots (5 mm wide, 7 mm from the corners, in the `sk_marks` layer); no cut paths, tick marks or text. The plotter's camera reads only the printed paper, so no cut file is needed. Print at 100% / "Actual size", never "Fit to page" (shrinking moves the dots off the plotter's template; the PDF also asks viewers not to scale). The order id is stored in the PDF metadata.
+The PDF contains the artwork and the 4 black cutter dots (5 mm wide, centre 7 mm from both nearest edges, in the `sk_marks` layer); no cut paths, tick marks or text. The plotter's camera reads only the printed paper, so no cut file is needed. Print at 100% / "Actual size", never "Fit to page" (shrinking moves the dots off the plotter's template; the PDF also asks viewers not to scale). The order id is stored in the PDF metadata.
 
 ### Staff page
 Employees open the hidden link `/staff/<STAFF_PAGE_KEY>` (shown to the owner in `/admin/settings`), add several designs, type a size for each and download one multi-page PDF (one A4 page per design, with the dots). It is built in the browser; nothing is uploaded. Same layout rules as the website, so counts match. Not in the sitemap or robots.txt, `noindex`, and ignored by analytics. Change the link by changing the variable on Vercel and redeploying.

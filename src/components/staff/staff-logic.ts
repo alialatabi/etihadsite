@@ -44,6 +44,8 @@ export interface StaffCardState {
   error: DesignDecodeError | null;
   widthText: string;
   heightText: string;
+  /** The field the employee typed last; when the design finishes decoding, that one is kept. */
+  lastEdited: 'width' | 'height';
   sizeUm: SizeUm | null;
 }
 
@@ -102,6 +104,7 @@ export function staffReducer(state: StaffCardState[], action: StaffAction): Staf
           error: null,
           widthText: '',
           heightText: '',
+          lastEdited: 'width',
           sizeUm: null,
         }),
       );
@@ -115,8 +118,11 @@ export function staffReducer(state: StaffCardState[], action: StaffAction): Staf
         if (!action.outcome.ok) return { ...card, status: 'error', design: null, error: action.outcome.error };
         const design = action.outcome.source;
         const ready: StaffCardState = { ...card, status: 'ready', design, error: null };
+        const shape = baseShape(card.shape).shape;
+        const h = card.shape !== 'circle' && card.lastEdited === 'height' ? safeParseCm(card.heightText) : null;
+        if (h) return withSize(ready, safeDerive(shape, aspectOf(card.shape, design), { heightUm: h }));
         const w = safeParseCm(card.widthText);
-        if (w) return withSize(ready, safeDerive(baseShape(card.shape).shape, aspectOf(card.shape, design), { widthUm: w }));
+        if (w) return withSize(ready, safeDerive(shape, aspectOf(card.shape, design), { widthUm: w }));
         const prefill = pdfPrefillUm(design, baseShape(card.shape).shape);
         return prefill ? withSize(ready, prefill) : ready;
       });
@@ -136,7 +142,7 @@ export function staffReducer(state: StaffCardState[], action: StaffAction): Staf
     case 'width':
       return update(state, action.id, (card) => {
         const um = safeParseCm(action.text);
-        const base = { ...card, widthText: action.text };
+        const base: StaffCardState = { ...card, widthText: action.text, lastEdited: 'width' };
         if (!um) return { ...base, sizeUm: null, heightText: card.shape !== 'circle' && !action.text.trim() ? '' : card.heightText };
         const d = safeDerive(baseShape(card.shape).shape, aspectOf(card.shape, card.design), { widthUm: um });
         return { ...base, sizeUm: d, heightText: card.shape === 'circle' ? '' : safeFormatCm(d.heightUm) };
@@ -144,7 +150,7 @@ export function staffReducer(state: StaffCardState[], action: StaffAction): Staf
     case 'height':
       return update(state, action.id, (card) => {
         const um = safeParseCm(action.text);
-        const base = { ...card, heightText: action.text };
+        const base: StaffCardState = { ...card, heightText: action.text, lastEdited: 'height' };
         if (!um) return { ...base, sizeUm: null, widthText: !action.text.trim() ? '' : card.widthText };
         const d = safeDerive(baseShape(card.shape).shape, aspectOf(card.shape, card.design), { heightUm: um });
         return { ...base, sizeUm: d, widthText: safeFormatCm(d.widthUm) };

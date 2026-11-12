@@ -12,7 +12,7 @@ Arabic-only (RTL, Iraqi dialect) A4 sticker-ordering site for a print shop in Ir
 ## Handle with care
 - `supabase/migrations/*` — never edit a file that has been applied; add a new one.
 - `src/content/ar/*` — visible text. Changing a string is a content change, not a refactor.
-- `src/lib/layout/*`, `src/lib/__fixtures__/*`, `src/lib/pdf/build-sheet.ts` — they decide what gets printed; their output is pinned to the byte.
+- `src/lib/layout/*`, `src/lib/__fixtures__/*`, `src/lib/pdf/build-sheet.ts`, `src/lib/pdf/sheet-page.ts`, `src/lib/pdf/build-staff-pdf.ts` (these hold the drawing code) — they decide what gets printed; their output is pinned to the byte.
 - `tests/unit/golden/**` — the behaviour oracle. A failing golden test means behaviour changed: fix the code. Update a snapshot only for a change the owner asked for, one file at a time.
 - `src/components/ui/*` — generated shadcn code; leave it alone.
 - Old-brand identifiers that are data (bucket `etihad`, cookie `ep_admin`, order prefix `EP-`, browser storage keys, env var names) — see `docs/ARCHITECTURE.md` section 9.

@@ -6,11 +6,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { PDFDocument } from 'pdf-lib';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normaliseArtwork } from '@/lib/design/normalise.server';
 import { ALPHA_THRESHOLD, alphaBoundingBox } from '@/lib/design/pixels';
-import { prepareArtwork } from '@/lib/design/prepare.client';
+import { MAX_CANVAS_PIXELS, downscaleSteps, prepareArtwork } from '@/lib/design/prepare.client';
 import type { DesignSource, NormalisedArtwork, PixelBox, StickerSpec } from '@/lib/types';
+const rasterise = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/design/decode.client', () => ({ rasterisePdfPage: rasterise }));
+
 import { installBrowserMock, type BrowserMock } from './browser-mock';
 
 const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, '..', '..', 'fixtures', n)));
@@ -47,6 +51,8 @@ const raster = (a: NormalisedArtwork) => {
 let mock: BrowserMock;
 beforeEach(() => {
   mock = installBrowserMock();
+  rasterise.mockReset();
+  rasterise.mockRejectedValue(new Error('pdf.js is not available in node'));
 });
 afterEach(() => {
   mock.restore();
@@ -221,8 +227,55 @@ describe('prepareArtwork pdf', () => {
     });
   });
 
-  it('an unreadable PDF is corrupt', async () => {
-    const junk = new TextEncoder().encode('%PDF-1.4\nthis is not a pdf at all\n%%EOF');
-    expect(await prepareArtwork(source(junk, 'pdf', { px: [100, 100], hasAlpha: false }), rect(30, 30), 300)).toEqual({ ok: false, error: 'corrupt' });
+  const junkPdf = new TextEncoder().encode('%PDF-1.4\nthis is not a pdf at all\n%%EOF');
+
+  it('an unreadable PDF that cannot be rasterised either is corrupt', async () => {
+    expect(await prepareArtwork(source(junkPdf, 'pdf', { px: [100, 100], hasAlpha: false }), rect(30, 30), 300)).toEqual({ ok: false, error: 'corrupt' });
+    expect(rasterise).toHaveBeenCalledTimes(1);
+  });
+
+  it('a PDF pdf-lib cannot load is rasterised at the target DPI and continues as a raster design', async () => {
+    const page = await sharp({ create: { width: 600, height: 400, channels: 3, background: '#336699' } }).png().toBuffer();
+    rasterise.mockResolvedValue(new Blob([new Uint8Array(page)], { type: 'image/png' }));
+    const r = await prepareArtwork(source(junkPdf, 'pdf', { px: [100, 100], hasAlpha: false }), rect(60, 40), 300);
+    if (!r.ok) throw new Error(r.error);
+    expect(rasterise).toHaveBeenCalledWith(expect.any(File), 300);
+    const a = raster(r.artwork);
+    expect([a.mime, a.pxWidth, a.pxHeight, a.hasAlpha]).toEqual(['image/jpeg', 600, 400, false]);
+  });
+
+  it('a PDF with an empty box is rasterised too', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]).setMediaBox(0, 0, 0, 0);
+    const bytes = new Uint8Array(await doc.save());
+    const page = await sharp({ create: { width: 300, height: 300, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    rasterise.mockResolvedValue(new Blob([new Uint8Array(page)], { type: 'image/png' }));
+    const r = await prepareArtwork(source(bytes, 'pdf', { px: [200, 200], hasAlpha: false }), rect(30, 30), 300);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.artwork.kind).toBe('raster');
+  });
+
+  it('an encrypted PDF is never rasterised', async () => {
+    await prepareArtwork(source(fx('encrypted-marker.pdf'), 'pdf', { px: [100, 100], hasAlpha: false }), rect(30, 30), 300);
+    expect(rasterise).not.toHaveBeenCalled();
+  });
+});
+
+describe('downscaleSteps', () => {
+  it('halves while more than 2x too big, like before', () => {
+    expect(downscaleSteps(4000, 3000, 1000, 750)).toEqual([[2000, 1500]]);
+    expect(downscaleSteps(4001, 3001, 1000, 750)).toEqual([[2001, 1501], [1001, 751]]);
+    expect(downscaleSteps(1500, 1000, 1000, 700)).toEqual([]);
+  });
+
+  it('never makes a canvas above the pixel cap, even when the first halving step would', () => {
+    const steps = downscaleSteps(20_000, 20_000, 2_000, 2_000);
+    expect(Math.ceil(20_000 / 2) ** 2).toBeGreaterThan(MAX_CANVAS_PIXELS);
+    expect(steps.length).toBeGreaterThan(1);
+    for (const [w, h] of steps) expect(w * h).toBeLessThanOrEqual(MAX_CANVAS_PIXELS);
+    // The first step is the largest scale that fits, and sizes keep shrinking.
+    expect(steps[0][0] * steps[0][1]).toBeGreaterThan(MAX_CANVAS_PIXELS * 0.99);
+    const last = steps[steps.length - 1];
+    expect(last[0] <= 4_000 && last[1] <= 4_000).toBe(true);
   });
 });

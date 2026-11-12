@@ -45,7 +45,7 @@ Rules:
 - Gaps are page-axis properties (never rotate with the sticker).
 - **Auto-rotate is OFF by default** (config flag `allowRotate`). The engine supports it, the UI does not expose it in v1.
 - Size entry: text input, `inputMode="decimal"`, LTR, unit «سم» outside the field. Accepts Arabic-Indic digits and `.` `,` `٫` decimals. Parsed once to µm. The dependent dimension stays unrounded internally and is rounded for display only.
-- Range: min 1 cm; max = fits once inside the usable area (A4 minus the margin). Specific Arabic errors for "too big" and "ratio too extreme".
+- Range: min 1 cm; max = fits once inside the usable area (A4 minus the margin); the cutter-dot keep-out limits it too. Specific Arabic errors for "too big" and "ratio too extreme".
 - PDF uploads prefill the size from the page's trim/crop box (in cm); user can override.
 - Circle with a non-square image: centre-cropped, visibly, with hint «ارفع صورة مربعة للحصول على أفضل نتيجة».
 - **Cutter dots (added 2026-11-12):** 4 black dots, 5 mm wide, centre 7 mm from both nearest page edges, one per corner. No printed part of a sticker within 3 mm of a dot's edge (keep-out radius 5.5 mm; for a circle clip the printed circle, otherwise the whole cell). The engine searches the usable area and two inset areas and keeps the one with the most stickers after removal. Geometry and rules: `docs/ARCHITECTURE.md` ("Cutter dots") and `docs/superpowers/specs/2026-11-12-cut-dots-and-staff-sheets-design.md`.
