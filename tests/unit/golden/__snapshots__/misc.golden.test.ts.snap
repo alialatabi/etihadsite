@@ -5,6 +5,8 @@ exports[`golden: admin proxy (src/proxy.ts) > matcher config 1`] = `
   "matcher": [
     "/admin/:path*",
     "/api/admin/:path*",
+    "/staff/:path*",
+    "/staff-sheets",
   ],
 }
 `;

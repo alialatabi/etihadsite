@@ -7,7 +7,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 
 import { POST } from '@/app/api/track/route';
-import { isStaffPath } from '@/lib/analytics/paths';
+import { isAdminPath, isStaffPath } from '@/lib/analytics/paths';
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile/15E148';
 const req = (body: unknown) =>
@@ -29,6 +29,27 @@ describe('staff paths are never tracked', () => {
     expect(isStaffPath('/staffing')).toBe(false);
     expect(isStaffPath('/')).toBe(false);
     expect(isStaffPath('/how-it-works')).toBe(false);
+  });
+
+  it('isStaffPath and isAdminPath ignore letter case', () => {
+    for (const p of ['/Staff', '/STAFF', '/Staff/abc', '/STAFF/abc', '/sTaFf/abc/def']) expect(isStaffPath(p)).toBe(true);
+    for (const p of ['/Staffing', '/STAFFX/abc', '/x/staff']) expect(isStaffPath(p)).toBe(false);
+    for (const p of ['/admin', '/admin/orders', '/Admin', '/ADMIN/orders', '/aDmIn/stats']) expect(isAdminPath(p)).toBe(true);
+    for (const p of ['/administrator', '/Adminx', '/', '/x/admin']) expect(isAdminPath(p)).toBe(false);
+  });
+
+  it('POST /api/track for /Staff/<key> or /Admin/...: 204 and nothing stored, whatever the letter case', async () => {
+    for (const body of [
+      { type: 'pageview', path: '/Staff/abc' },
+      { type: 'pageview', path: '/STAFF/abc', referrer: 'https://example.com/' },
+      { type: 'step', step: 'size', path: '/sTaFf' },
+      { type: 'install', step: 'shown', path: '/STAFF/abc' },
+      { type: 'pageview', path: '/Admin/orders' },
+      { type: 'pageview', path: '/ADMIN' },
+    ]) {
+      expect((await POST(req(body))).status).toBe(204);
+    }
+    expect(recordEvent).not.toHaveBeenCalled();
   });
 
   it('POST /api/track for /staff/abc: 204 and nothing stored, for every event type', async () => {

@@ -8,14 +8,22 @@ const notFound = vi.fn(() => {
 });
 vi.mock('next/navigation', () => ({ notFound: () => notFound() }));
 
-import StaffPage, { generateMetadata } from '@/app/staff/[key]/page';
+// The proxy passes the key to the page in a request header (STAFF_KEY_HEADER).
+let requestHeaders = new Headers();
+vi.mock('next/headers', () => ({ headers: async () => requestHeaders }));
+
+import StaffPage, { generateMetadata } from '@/app/staff-sheets/page';
 import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 import { staff } from '@/content/ar';
+import { STAFF_KEY_HEADER } from '@/lib/staff-gate';
 
 const KEY = 'AbCdEfGhIjKlMnOpQrStUvWx1234';
 const saved = process.env.STAFF_PAGE_KEY;
-const call = (key: string) => StaffPage({ params: Promise.resolve({ key }) });
+const call = (key: string | null) => {
+  requestHeaders = new Headers(key === null ? {} : { [STAFF_KEY_HEADER]: key });
+  return StaffPage();
+};
 
 beforeEach(() => {
   notFound.mockClear();
@@ -27,11 +35,11 @@ afterEach(() => {
 });
 
 describe('staff page', () => {
-  it('wrong key, different case or short key: the normal 404', async () => {
-    for (const key of ['wrong', KEY.toLowerCase(), KEY.slice(0, 10), '']) {
+  it('wrong key, different case, short key or no key header: the normal 404', async () => {
+    for (const key of ['wrong', KEY.toLowerCase(), KEY.slice(0, 10), '', null]) {
       await expect(call(key)).rejects.toBeInstanceOf(NotFound);
     }
-    expect(notFound).toHaveBeenCalledTimes(4);
+    expect(notFound).toHaveBeenCalledTimes(5);
   });
 
   it('key not configured: 404 even for a candidate that looks right', async () => {

@@ -27,9 +27,45 @@ test('staff page: a wrong key is a plain 404', async ({ page }) => {
   await expect(page.getByRole('button', { name: staff.download })).toHaveCount(0);
 });
 
+/**
+ * `next dev` echoes every 404's own URL in the flight data's canonical-URL field
+ * (`\"c\":[\"\",\"nonexistent-page\"]`); a production build serves one static page with no
+ * URL in it. Remove that echo (and the per-render id) before comparing.
+ */
+const withoutUrlEcho = (html: string) =>
+  html.replace(/\\"c\\":\[[^\]]*\]/g, '"c":[URL]').replace(/self\.__next_r="[^"]*"/g, 'self.__next_r=""');
+/** `<!DOCTYPE html><html ...>` up to the end of the html start tag. */
+const shellOf = (html: string) => html.slice(0, html.indexOf('>', html.indexOf('<html')) + 1);
+
+test('staff page: a wrong key is answered exactly like an unknown URL', async ({ request }) => {
+  const WRONG = 'wrong-key-xyz-wrong-key-xyz-123';
+  const unknown = await request.get('/nonexistent-page');
+  expect(unknown.status()).toBe(404);
+  const unknownHtml = await unknown.text();
+  expect(unknownHtml).toContain('<html lang="ar"');
+  expect(withoutUrlEcho(unknownHtml)).not.toContain('nonexistent-page');
+
+  for (const url of [`/staff/${WRONG}`, '/staff', `/staff/${STAFF_KEY}/extra`, `/staff/${STAFF_KEY.toUpperCase()}`]) {
+    const res = await request.get(url);
+    expect(res.status(), url).toBe(404);
+    expect(res.headers()['referrer-policy'], url).toBeUndefined();
+    const html = await res.text();
+    // The same <html lang="ar" dir="rtl" ...> shell as the unknown URL, not the bare error shell.
+    expect(shellOf(html), url).toBe(shellOf(unknownHtml));
+    expect(html, url).not.toContain('__next_error__');
+    const body = withoutUrlEcho(html);
+    expect(body, url).not.toContain(WRONG);
+    expect(body, url).not.toContain(STAFF_KEY);
+    expect(body.toLowerCase(), url).not.toContain('staff'); // no route data naming the staff route
+    expect(body, url).toBe(withoutUrlEcho(unknownHtml));
+  }
+});
+
 test('staff page: two designs in, one 2-page PDF with the cutter dots out', async ({ page }) => {
   const res = await page.goto(`/staff/${STAFF_KEY}`);
   expect(res?.status()).toBe(200);
+  expect(res?.headers()['referrer-policy']).toBe('no-referrer');
+  expect(res?.headers()['x-robots-tag']).toBe('noindex, nofollow');
 
   await page.locator('#staff-files').setInputFiles([
     path.join(FIXTURES, 'padded-400x400.png'),

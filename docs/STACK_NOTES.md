@@ -30,6 +30,8 @@
 - `<input type="number">` misbehaves with Arabic keyboards. Use `type="text" inputMode="decimal" dir="ltr"` and `parseCm()`.
 - Vercel function request and response bodies are limited to 4.5 MB. Files therefore never pass through a function on Vercel (direct upload, signed download links; see Decisions); the multipart `POST /api/upload` serves `STORAGE=local` only. Keep the JSON order route file-free.
 - `pnpm purge` is a pnpm built-in (an alias of `pnpm clean`, which removes `node_modules`). The retention script is therefore named `purge:orders`.
+- A page's own `notFound()` inside a dynamic route answers with an error shell (`<html id="__next_error__">`) whose flight data names the route and its params; an unknown URL gets the prerendered `/_not-found` page instead. A proxy `NextResponse.rewrite()` always adds `x-middleware-rewrite: <target>` to the response (and rewriting to `/_not-found` itself serves it with `Cache-Control: s-maxage=31536000`). To make a URL answer exactly like an unknown one, let it match no route (`NextResponse.next()`). The staff page is built this way (`docs/ARCHITECTURE.md` section 1).
+- `next dev` echoes each 404's own URL in the flight data (`"c":["","some","path"]`); a production build does not. Compare 404 bodies against a production build, or strip that field first.
 
 ## Rate limiting / TRUST_PROXY
 - `x-forwarded-for` is client-controlled, so by default (`TRUST_PROXY=0`) it is **ignored**: every route uses one global bucket with limits x20 (uploads 400/h, orders 100/h, log 1200/h, admin login 200/15 min).

@@ -5,18 +5,14 @@ import { requireAdmin } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
 import { staffPagePath } from '@/lib/staff-key';
 import { SettingsForm } from './SettingsForm';
+import { staffLinkFor } from './staff-link';
 
 export const dynamic = 'force-dynamic';
 
 /** Absolute staff link built from the request host, or null when STAFF_PAGE_KEY is not set. */
 async function staffLink(): Promise<string | null> {
   const path = staffPagePath();
-  if (path === null) return null;
-  const h = await headers();
-  const host = h.get('x-forwarded-host') ?? h.get('host');
-  if (!host) return path;
-  const proto = h.get('x-forwarded-proto') ?? (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? 'http' : 'https');
-  return `${proto}://${host}${path}`;
+  return path === null ? null : staffLinkFor(path, await headers());
 }
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {

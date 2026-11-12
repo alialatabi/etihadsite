@@ -20,7 +20,7 @@ Pages (`src/app`):
 | `/admin/stats` | `admin/stats/page.tsx` | Statistics for the last 7, 30 or 90 days (`aggregate.ts` computes, `rows.ts` labels, `parts.tsx` draws). |
 | `/admin/customers` | `admin/customers/page.tsx` | Customer list with search and filter; CSV download. |
 | `/admin/settings` | `admin/settings/page.tsx` | Settings form (`SettingsForm.tsx`, `saveSettingsAction`). Also shows the full staff link when `STAFF_PAGE_KEY` is set. |
-| `/staff/<key>` | `staff/[key]/page.tsx` | Hidden staff page (see "The staff page" below). A missing, short or wrong key is the normal 404. |
+| `/staff/<key>` | `staff-sheets/page.tsx` | Hidden staff page (see "The staff page" below). `src/proxy.ts` rewrites only the right key to the real route `/staff-sheets`; any other `/staff` URL, and `/staff-sheets` asked for directly, is the normal 404, byte for byte the same answer as an unknown URL. |
 
 Metadata routes: `manifest.ts`, `robots.ts` (disallows `/admin` and `/api`; it deliberately does not mention `/staff`, which would advertise it), `sitemap.ts`, `opengraph-image.tsx`, plus the committed icon files.
 
@@ -42,12 +42,17 @@ Server actions (`src/app/admin/actions.ts`): `loginAction`, `logoutAction`, `upd
 
 Admin protection has two layers and both stay:
 
-1. `src/proxy.ts` (Next 16's replacement for `middleware.ts`) guards `/admin/*` and `/api/admin/*`, except `/admin/login`. No valid cookie: pages redirect to the login page, API routes answer 401 JSON.
+1. `src/proxy.ts` (Next 16's replacement for `middleware.ts`) guards `/admin/*` and `/api/admin/*`, except `/admin/login`. No valid cookie: pages redirect to the login page, API routes answer 401 JSON. (The same file also gates the staff page, below; its matcher has `/staff/:path*` and `/staff-sheets` for that.)
 2. Every admin page behind the login and the two guarded actions (`updateOrderStatus`, `saveSettingsAction`) call `await requireAdmin()` (`src/lib/auth/guard.ts`) as their first statement, and every admin route handler calls `adminApiGuard()` (`src/lib/auth/session.ts`). The login page and the admin layout call `verifySession()` directly.
 
 The session is an HS256 JWT (`src/lib/auth/token.ts`) in the HttpOnly cookie `ep_admin`, valid 7 days.
 
-**The staff page** (`/staff/<key>`, added 2026-11-12) is NOT behind the admin login: it is a secret link, no password (owner decision D3). The page is `force-dynamic`; `isStaffKey()` in `src/lib/staff-key.ts` (`server-only`) compares the key with `STAFF_PAGE_KEY` in constant time (sha256 digests, case-sensitive; a key shorter than 24 characters counts as "not set") and anything else calls `notFound()`. It is `noindex, nofollow`, sends `Referrer-Policy: no-referrer` (metadata `referrer`), is absent from the sitemap and `robots.txt`, and is ignored by analytics (`src/lib/analytics/paths.ts` `isStaffPath`, used by `Tracker`, `/api/track` and `InstallPrompt`), so the key never reaches the stats. The page changes no customer data and uploads nothing: the client component (`src/components/staff/StaffSheets.tsx`, with `StaffCard`, `useStaffItems` and the pure `staff-logic.ts`) decodes each design in the browser (`decodeDesign`), arranges it with the website's own layout engine (`layoutParamsFor`, so the same margin, gaps, rotation and dots), prepares the artwork (`prepareArtwork` in `src/lib/design/prepare.client.ts`: EXIF upright, alpha trim, 300 DPI downscale, or the original PDF with the server's box and turn from `src/lib/design/pdf-box.ts`) and builds one PDF with one A4 page per design (`buildStaffPdf`, dynamically imported). Limits: 30 files, 50 MB each. Copy is in `src/content/ar/staff.ts`. The owner changes the link only through the Vercel variable (then redeploys).
+**The staff page** (`/staff/<key>`, added 2026-11-12) is NOT behind the admin login: it is a secret link, no password (owner decision D3). There is no `/staff/[key]` route: a page's own `notFound()` would answer with an error shell whose embedded route data names the route and echoes the key, which an unknown URL never does. Instead `src/proxy.ts` checks the key with `matchesStaffKey()` from `src/lib/staff-gate.ts` (constant time over sha256 digests, case-sensitive; a `STAFF_PAGE_KEY` shorter than 24 characters counts as "not set") and:
+- right key: rewrites to the real route `/staff-sheets` (`STAFF_PAGE_ROUTE`), passes the key in the request header `x-staff-key` (`STAFF_KEY_HEADER`, always overwritten by the proxy) and adds the response headers `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex, nofollow`. They are set there, not in `next.config` `headers()`, because a config rule for `/staff/:path*` would also put them on the wrong-key 404 and make it differ from an unknown URL;
+- any other `/staff` URL (wrong, missing or unset key, other letter case, extra segments): `NextResponse.next()`. No route matches it, so Next serves its normal 404 with the same bytes and headers as an unknown URL (checked against a production build). A proxy rewrite is not used here on purpose: Next copies every rewrite target into an `x-middleware-rewrite` response header;
+- `/staff-sheets` asked for directly: rewritten to `/staff-sheets/not-found`, a path with no route, so it gets the same 404 page (it is the one URL whose answer also carries `x-middleware-rewrite`).
+
+The page (`force-dynamic`) checks the key again with `isStaffKey()` from `src/lib/staff-key.ts` (`server-only`) on the request header and calls `notFound()` otherwise, as a second line of defence. It is `noindex, nofollow` and `no-referrer` in its metadata too, is absent from the sitemap and `robots.txt`, and is ignored by analytics (`src/lib/analytics/paths.ts` `isStaffPath`, in any letter case, used by `Tracker`, `/api/track` and `InstallPrompt`; the browser keeps the `/staff/<key>` URL, which is what `Tracker` sees), so the key never reaches the stats. The admin settings link is built by `src/app/admin/settings/staff-link.ts` from the first value of `x-forwarded-host` / `x-forwarded-proto`. The page changes no customer data and uploads nothing: the client component (`src/components/staff/StaffSheets.tsx`, with `StaffCard`, `useStaffItems` and the pure `staff-logic.ts`) decodes each design in the browser (`decodeDesign`), arranges it with the website's own layout engine (`layoutParamsFor`, so the same margin, gaps, rotation and dots), prepares the artwork (`prepareArtwork` in `src/lib/design/prepare.client.ts`: EXIF upright, alpha trim, 300 DPI downscale, or the original PDF with the server's box and turn from `src/lib/design/pdf-box.ts`) and builds one PDF with one A4 page per design (`buildStaffPdf`, dynamically imported). Limits: 30 files, 50 MB each. Copy is in `src/content/ar/staff.ts`. The owner changes the link only through the Vercel variable (then redeploys).
 
 ## 2. Order pipeline
 
@@ -116,7 +121,7 @@ Settings are stored as the owner saved them. On read they are deep-merged over `
 | `ORDER_TRANSPORT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `notify/index.ts` | `getOrderEnv()` |
 | `TURNSTILE_SECRET_KEY` | `api/orders/route.ts` | `getOrderEnv()` |
 | `TRUST_PROXY` | `rate-limit.ts` | `process.env` directly |
-| `STAFF_PAGE_KEY` | `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
+| `STAFF_PAGE_KEY` | `src/proxy.ts` (through `staff-gate.ts`), `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
 | `CRON_SECRET` | `api/cron/purge/route.ts` | `process.env` directly |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | nowhere | listed in `.env.example` only |
 
@@ -126,6 +131,7 @@ The direct reads are deliberate:
 
 - The storage adapter and the rate limiter are needed by every page and route. Choosing them must not fail because an unrelated variable is invalid.
 - `auth/token.ts` must stay free of `server-only` and `next/*` imports because `proxy.ts` imports it, and for the proxy and `verifySession()` a missing secret has to mean "not logged in", not an exception.
+- `staff-gate.ts` follows the same rule for the same reason (`proxy.ts` imports it): no `server-only`, no `next/*`. It uses `node:crypto`, which the Next 16 proxy has because it runs on the Node.js runtime. A missing or short `STAFF_PAGE_KEY` means "not configured" (every `/staff` URL is a 404), never an exception.
 - `CRON_SECRET` belongs to one route, which answers 401 when it is missing or shorter than 16 characters.
 - `getOrderEnv()` still validates `STORAGE` (`local` or `supabase`, no surrounding spaces), `DATA_DIR` and `TRUST_PROXY` (whole number 0-10). A value the adapter or the limiter tolerates (for example `TRUST_PROXY=11` or `STORAGE=blob`) still makes every new `POST /api/orders` answer `server_error`.
 
@@ -138,7 +144,7 @@ First-party and cookieless. Events: `pageview` (sent by `src/components/shell/Tr
 - **Stored per event:** time, type, visitor hash, path, step, traffic source, device class, city, region and country (from Vercel's `x-vercel-ip-*` headers, absent locally) and a small `meta` object (for an order: material, sheets, the typed sticker count when there is one, total, governorate, shape, size).
 - **Never stored:** IP address, user agent, the referrer URL (it is reduced to a source name such as `instagram`), cookies, names or phone numbers.
 - **Visitor hash:** the first 16 hex characters of `sha256(shop day | IP | user agent | salt)`. It changes every day, so one visitor cannot be followed across days. The salt is `SESSION_SECRET`: changing that secret splits the same day's visitors in two.
-- **Dropped:** bots, an empty user agent, every `/admin` and `/staff` path, and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
+- **Dropped:** bots, an empty user agent, every `/admin` and `/staff` path in any letter case (`isAdminPath`, `isStaffPath`), and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
 
 Retention:
 
@@ -171,18 +177,19 @@ Shared helpers that have exactly one home. Use them instead of writing the same 
 | `src/lib/pdf/sheet-page.ts` | `drawSheetPage`: one A4 sheet page (stickers drawn from one embedded artwork, rounded-corner clip, the 4 dots in the `sk_marks` layer) and `setPrintAtActualSize`. Isomorphic (no `server-only`): the server (`build-sheet.ts`) and the browser (`build-staff-pdf.ts`) both call it. |
 | `src/lib/pdf/build-staff-pdf.ts` | `buildStaffPdf`: the staff page's multi-page PDF. Isomorphic. |
 | `src/lib/design/pdf-box.ts` | `pdfArtworkBox`: which box (Trim, Crop or Media) and turn a PDF design uses, shared by `normalise.server.ts` and `prepare.client.ts`. |
-| `src/lib/staff-key.ts` | `isStaffKey`, `staffPagePath`: the secret-link check. |
+| `src/lib/staff-gate.ts` | `matchesStaffKey` (the constant-time key comparison), `STAFF_KEY_MIN_LENGTH`, `STAFF_PAGE_ROUTE`, `STAFF_KEY_HEADER`: what the proxy and the staff page share. No `server-only` (section 4). |
+| `src/lib/staff-key.ts` | `isStaffKey`, `staffPagePath`: the secret-link check for server code, on top of `staff-gate.ts`. |
 | `src/app/admin/settings/parse-form.ts`, `fields.ts` | Form data to `ShopSettings`, and the table of layout fields typed in millimetres. |
 | `src/components/builder/submitFlow.ts`, `orderApi.ts` | The upload and order sequence, and its HTTP calls. |
 
-Other rules of thumb: every dimension is an integer number of micrometres (`src/lib/units.ts`); every visible string comes from `src/content/ar`; app code imports `cn` from `@/lib/utils`; server modules under `src/lib` that touch `fs`, sharp, pdf-lib or secrets start with `import 'server-only'` (except `storage/local.ts`, see section 3, and `auth/token.ts`, see section 4; `src/proxy.ts` and route handlers are server code by nature and carry no marker).
+Other rules of thumb: every dimension is an integer number of micrometres (`src/lib/units.ts`); every visible string comes from `src/content/ar`; app code imports `cn` from `@/lib/utils`; server modules under `src/lib` that touch `fs`, sharp, pdf-lib or secrets start with `import 'server-only'` (except `storage/local.ts`, see section 3, and `auth/token.ts` and `staff-gate.ts`, see section 4; `src/proxy.ts` and route handlers are server code by nature and carry no marker).
 
 ## 7. Tests
 
 - **Pure library code**: a `*.test.ts` file next to the module (`src/lib/pricing.test.ts`, `src/lib/layout/layout.test.ts`).
 - **Anything that needs fixtures, environment variables, a mocked `fetch` or a route handler**: `tests/unit/<area>/` (`server`, `builder`, `admin`, `analytics`, `design`, `pdf`, `pages`, `components`).
 - **`tests/unit/golden/`**: the behaviour oracle. It pins what the code does today: every Arabic string, layout results, PDF content hashes, API status codes and bodies, stored JSON, exact Supabase requests. A failing golden test means behaviour changed. Fix the code. Update a snapshot only for a change the owner asked for, one file at a time (`pnpm exec vitest run <file> -u`), and read the snapshot diff line by line.
-- **`tests/e2e/`**: Playwright against `next dev` on port 3199 with `./data-e2e`. Run the whole suite: the admin spec uses the order that the order-flow spec creates. `staff.spec.ts` opens the hidden staff page with the test key from `playwright.config.ts`, adds two designs, downloads the PDF and checks 2 pages with the `sk_marks` dots; a wrong key is a 404. `data-e2e/settings.json` is gitignored and local only: if an older copy has `layout.marginUm` at 7000, `admin.spec.ts` fails on the margin round-trip; delete the file so the defaults (3 mm) apply.
+- **`tests/e2e/`**: Playwright against `next dev` on port 3199 with `./data-e2e`. Run the whole suite: the admin spec uses the order that the order-flow spec creates. `staff.spec.ts` opens the hidden staff page with the test key from `playwright.config.ts`, adds two designs, downloads the PDF and checks 2 pages with the `sk_marks` dots and the privacy headers; a wrong key is a 404 identical to `/nonexistent-page` (`next dev` echoes each 404's own URL in the flight data, so the test removes that echo before comparing). `data-e2e/settings.json` is gitignored and local only: if an older copy has `layout.marginUm` at 7000, `admin.spec.ts` fails on the margin round-trip; delete the file so the defaults (3 mm) apply.
 
 React `cache()` only memoises inside a server render, so under vitest `getSettings()` reads storage on every call and no unit test can see the memoisation; the rule "writers read through `getStorage().getSettings()`" is kept by review, not by a test.
 
@@ -227,4 +234,4 @@ Breaking one of these loses data, breaks a customer in the middle of an order, o
 8. **Security boundaries**: the session check stays the first statement of every admin page behind the login, of `updateOrderStatus` and `saveSettingsAction`, and of both `/api/admin` route handlers (see section 1); server modules keep `import 'server-only'`; the price is always recomputed on the server; no IP or user agent is added to a stored event.
 9. **The visitor hash inputs** (section 5). `ipOf()` in `analytics/server.ts` and `clientIp()` in `rate-limit.ts` are separate on purpose: merging them changes stored hashes.
 10. **The dots geometry** (`REG_MARKS`: 5 mm wide, centre 7 mm from both edges, 3 mm clearance, K black, layer `sk_marks`) matches the plotter's template. A dot at 6.8 mm or 4.8 mm wide may be rejected by the machine, and a sticker within 3 mm of a dot may make the camera misread the sheet. Change it only on the owner's word after a plotter test. The same goes for `PrintScaling /None`: a sheet shrunk by "fit to page" moves the dots off the template.
-11. **The staff key never leaks**: `/staff` stays out of the sitemap, `robots.txt` and analytics, and the staff page sends no design file to the server.
+11. **The staff key never leaks**: `/staff` stays out of the sitemap, `robots.txt` and analytics, the staff page sends no design file to the server, and a wrong key gets exactly the answer of an unknown URL (so no route may match `/staff/<anything>`; the page stays behind the proxy rewrite).
