@@ -27,7 +27,7 @@ export const orderRequestSchema = z.object({
     phone: z.string().trim().min(5).max(40),
     governorate: z.string().trim().min(1).max(60),
     district: z.string().trim().max(120),
-    landmark: z.string().trim().min(1).max(200),
+    landmark: z.string().trim().max(200),
     notes: z.string().trim().max(1000).optional(),
   }),
   turnstileToken: z.string().max(4096).optional(),

@@ -131,6 +131,7 @@ export const builder = {
     governoratePlaceholder: 'اختار المحافظة',
     district: 'المنطقة / القضاء',
     landmark: 'أقرب نقطة دالة',
+    landmarkOptional: '(اختياري)',
     landmarkPlaceholder: 'مثلاً: قرب مطعم المنصور، شارع الصناعة',
     notes: 'ملاحظات',
     notesOptional: '(اختياري)',
@@ -140,7 +141,6 @@ export const builder = {
       invalid_phone: 'اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567',
       governorate: 'اختار المحافظة.',
       district: 'اكتب المنطقة أو القضاء.',
-      landmark: 'اكتب أقرب نقطة دالة للمندوب.',
     },
   },
   summary: {

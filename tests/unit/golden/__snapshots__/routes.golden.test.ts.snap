@@ -428,9 +428,14 @@ exports[`golden: POST /api/orders — rejected requests > server_error when the 
 
 exports[`golden: POST /api/orders — rejected requests > status + JSON for malformed bodies, schema failures and every pipeline error 1`] = `
 {
-  "eventsWritten": [],
-  "filesUnderOrders": [],
-  "ordersStored": 0,
+  "eventsWritten": [
+    "{"ts":"2026-11-10T09:00:00.000Z","visitor":"d07bca053d4e2711","device":"mobile","type":"order","meta":{"material":"paper","sheets":20,"totalIqd":19000,"governorate":"بغداد","shape":"circle","widthMm":30,"heightMm":30}}",
+  ],
+  "filesUnderOrders": [
+    "orders/order-reject-00000010.json",
+    "orders/order-reject-00000010.pdf",
+  ],
+  "ordersStored": 1,
   "rows": [
     "not JSON -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
     "empty body -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
@@ -450,7 +455,7 @@ exports[`golden: POST /api/orders — rejected requests > status + JSON for malf
     "fractional sheets -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
     "sheets as a string -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
     "missing customer -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
-    "landmark blank -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
+    "landmark blank -> 200 [content-type=application/json] {"ok":true,"orderId":"order-reject-00000010","displayNo":"EP-261110-<RAND>","summary":{"displayNo":"EP-261110-<RAND>","shape":"circle","widthUm":30000,"heightUm":30000,"countPerSheet":54,"sheets":20,"material":"paper","totalStickers":1080,"unitPriceIqd":720,"discountPercent":10,"subtotalIqd":14000,"deliveryFeeIqd":5000,"totalIqd":19000},"whatsappUrl":"","notified":{"telegram":"skipped"}}",
     "governorate missing -> 400 [content-type=application/json] {"ok":false,"error":"invalid_request","message":"بيانات الطلب غير صحيحة."}",
     "phone that is not Iraqi mobile -> 400 [content-type=application/json] {"ok":false,"error":"invalid_phone","message":"رقم الموبايل غير صحيح."}",
     "landline-looking phone -> 400 [content-type=application/json] {"ok":false,"error":"invalid_phone","message":"رقم الموبايل غير صحيح."}",

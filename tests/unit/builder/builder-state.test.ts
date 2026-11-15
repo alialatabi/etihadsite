@@ -189,7 +189,6 @@ describe('CUSTOMER_FIELD_IDS', () => {
       ['phone', 'cust-phone'],
       ['governorate', 'cust-gov'],
       ['district', 'cust-district'],
-      ['landmark', 'cust-landmark'],
     ]);
   });
 

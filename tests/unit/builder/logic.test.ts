@@ -95,7 +95,7 @@ describe('validateCustomer', () => {
   });
   it('flags every missing required field', () => {
     const r = validateCustomer({ ...ok, phone: '12', governorate: '', district: ' ', landmark: '' });
-    expect(Object.keys(r.errors).sort()).toEqual(['district', 'governorate', 'landmark', 'phone']);
+    expect(Object.keys(r.errors).sort()).toEqual(['district', 'governorate', 'phone']);
   });
 });
 

@@ -115,7 +115,6 @@ export interface CustomerErrors {
   phone?: boolean;
   governorate?: boolean;
   district?: boolean;
-  landmark?: boolean;
 }
 
 export function validateCustomer(f: FormFields): { errors: CustomerErrors; phoneE164: string | null } {
@@ -129,7 +128,6 @@ export function validateCustomer(f: FormFields): { errors: CustomerErrors; phone
   if (!phoneE164) errors.phone = true;
   if (!f.governorate) errors.governorate = true;
   if (!f.district.trim()) errors.district = true;
-  if (!f.landmark.trim()) errors.landmark = true;
   return { errors, phoneE164 };
 }
 
@@ -138,7 +136,6 @@ export const CUSTOMER_FIELD_IDS = {
   phone: 'cust-phone',
   governorate: 'cust-gov',
   district: 'cust-district',
-  landmark: 'cust-landmark',
 } as const satisfies Record<keyof CustomerErrors, string>;
 
 /** The `customer` block of the order request, built from the form and the validated phone. */

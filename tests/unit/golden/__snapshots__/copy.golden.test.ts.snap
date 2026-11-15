@@ -437,6 +437,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "governoratePlaceholder": "اختار المحافظة",
     "district": "المنطقة / القضاء",
     "landmark": "أقرب نقطة دالة",
+    "landmarkOptional": "(اختياري)",
     "landmarkPlaceholder": "مثلاً: قرب مطعم المنصور، شارع الصناعة",
     "notes": "ملاحظات",
     "notesOptional": "(اختياري)",
@@ -445,8 +446,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "errors": {
       "invalid_phone": "اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567",
       "governorate": "اختار المحافظة.",
-      "district": "اكتب المنطقة أو القضاء.",
-      "landmark": "اكتب أقرب نقطة دالة للمندوب."
+      "district": "اكتب المنطقة أو القضاء."
     }
   },
   "summary": {
@@ -500,12 +500,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3304,
+  "chars": 3285,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 19,
-  "sha256OfRawJson": "b3012e027f10b2ae655e663d2b74c92e493bd44cc53a209ba987bf0a639aff61",
+  "sha256OfRawJson": "b956e87e426c6a2324da2670bbed417f7d2dc2b332ce45e274b4c104319effea",
   "strings": 148,
 }
 `;

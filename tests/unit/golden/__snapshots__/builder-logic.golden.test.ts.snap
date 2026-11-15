@@ -810,7 +810,6 @@ exports[`golden: validateCustomer > EMPTY_FIELDS 1`] = `
   "errors": {
     "district": true,
     "governorate": true,
-    "landmark": true,
     "phone": true,
   },
   "phoneE164": null,
@@ -827,9 +826,9 @@ exports[`golden: validateCustomer > missing / blank fields 1`] = `
   "governorate not in the list -> {"errors":{},"phoneE164":"9647701234567"}",
   "district empty -> {"errors":{"district":true},"phoneE164":"9647701234567"}",
   "district whitespace -> {"errors":{"district":true},"phoneE164":"9647701234567"}",
-  "landmark empty -> {"errors":{"landmark":true},"phoneE164":"9647701234567"}",
-  "landmark whitespace -> {"errors":{"landmark":true},"phoneE164":"9647701234567"}",
-  "everything empty -> {"errors":{"district":true,"governorate":true,"landmark":true,"phone":true},"phoneE164":null}",
+  "landmark empty -> {"errors":{},"phoneE164":"9647701234567"}",
+  "landmark whitespace -> {"errors":{},"phoneE164":"9647701234567"}",
+  "everything empty -> {"errors":{"district":true,"governorate":true,"phone":true},"phoneE164":null}",
   "only phone bad -> {"errors":{"phone":true},"phoneE164":null}",
 ]
 `;

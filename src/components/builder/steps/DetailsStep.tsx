@@ -112,9 +112,10 @@ export function DetailsStep({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={IDS.landmark}>{builder.details.landmark}</Label>
-          <Input id={IDS.landmark} placeholder={builder.details.landmarkPlaceholder} className="h-12" aria-invalid={e.landmark || undefined} aria-describedby={e.landmark ? errId('landmark') : undefined} {...text('landmark')} />
-          {e.landmark && <FieldError id={errId('landmark')}>{builder.details.errors.landmark}</FieldError>}
+          <Label htmlFor="cust-landmark">
+            {builder.details.landmark} <span className="font-normal text-muted-foreground">{builder.details.landmarkOptional}</span>
+          </Label>
+          <Input id="cust-landmark" placeholder={builder.details.landmarkPlaceholder} className="h-12" {...text('landmark')} />
         </div>
 
         <div className="space-y-2">
