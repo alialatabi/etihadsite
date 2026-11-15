@@ -6,7 +6,8 @@ import { nanoid } from 'nanoid';
 import { rasterisePdfPage } from '@/lib/design/decode.client';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { PRINT_DPI } from '@/lib/print-dpi';
-import { clearForm, saveSuccess } from './logic';
+import { clearDraftFile } from './draft-store';
+import { clearDraft, saveSuccess } from './logic';
 import { logClient } from './logClient';
 import { postOrder, uploadWithProgress } from './orderApi';
 import { submitOrderFlow, type AttemptContext, type SubmitInput } from './submitFlow';
@@ -47,7 +48,8 @@ export function useSubmitOrder(maxUploadBytes: number) {
 
       if (result.kind === 'ok') {
         saveSuccess(result.response);
-        clearForm();
+        clearDraft();
+        void clearDraftFile();
         router.push('/order/success');
         return;
       }

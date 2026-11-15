@@ -136,7 +136,7 @@ describe('restoredState', () => {
   it('does not copy keys it does not know, and does not change its input', () => {
     const saved = junk({ ...FULL, extra: 'x', step: 3 });
     const before = JSON.stringify(saved);
-    expect(Object.keys(restoredState(saved)).sort()).toEqual(['corners', 'fields', 'heightText', 'material', 'shape', 'sizeUm', 'stickersText', 'widthText']);
+    expect(Object.keys(restoredState(saved)).sort()).toEqual(['corners', 'fields', 'heightText', 'material', 'shape', 'sizeUm', 'step', 'stickersText', 'widthText']);
     expect(JSON.stringify(saved)).toBe(before);
   });
 });

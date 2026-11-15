@@ -1,6 +1,6 @@
 /**
  * Builder helpers with no React, unit-tested in Node. Everything here is pure except the
- * sessionStorage section at the bottom, which is this module's only I/O.
+ * browser-storage section at the bottom (localStorage draft + sessionStorage), which is this module's only I/O.
  */
 import { effectiveDpi, ptToUm } from '@/lib/units';
 import { widthPixelsFor } from '@/lib/design/pixels';
@@ -49,12 +49,20 @@ export interface PersistedForm extends FormFields {
   material: Material | null;
   /** What the customer typed in the sticker count box; '' when they never typed one. */
   stickersText: string;
+  /** Index into STEPS the customer was on. Optional: forms saved before it existed have none. */
+  step?: number;
+  /** Id of the design file kept in IndexedDB for this form (draft-store). A stored file with another id is not this order's. */
+  fileId?: string;
 }
 
 export const EMPTY_FIELDS: FormFields = { name: '', phone: '', governorate: '', district: '', landmark: '', notes: '' };
 
 export const FORM_KEY = 'ub:form:v1';
 export const SUCCESS_KEY = 'ub:order-success:v1';
+/** localStorage key of the draft envelope `{ v, savedAt, form }` (the plain form stays in sessionStorage under FORM_KEY). */
+export const DRAFT_KEY = 'ub:draft:v1';
+/** A saved draft (form and design file) is dropped after this long. */
+export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type DpiStatus = 'ok' | 'warn' | 'block';
 
@@ -180,6 +188,10 @@ export interface RestoredState {
   sizeUm?: { widthUm: number; heightUm: number };
   material?: Material;
   stickersText?: string;
+  /** The saved step index, only when it is a valid index into STEPS. */
+  step?: number;
+  /** The id of the stored design file this form belongs to. */
+  fileId?: string;
   fields: FormFields;
 }
 
@@ -203,7 +215,42 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   if (saved.material != null && MATERIALS.includes(saved.material)) r.material = saved.material;
   // A form saved by an older page has `sheetsText` (a sheet count): it is ignored on purpose.
   if (typeof saved.stickersText === 'string' && saved.stickersText.trim()) r.stickersText = saved.stickersText;
+  if (typeof saved.step === 'number' && Number.isInteger(saved.step) && saved.step >= 0 && saved.step < STEPS.length) r.step = saved.step;
+  if (typeof saved.fileId === 'string' && saved.fileId.length > 0 && saved.fileId.length <= 64) r.fileId = saved.fileId;
   return r;
+}
+
+/** How far the customer may go from step 0: the index of the first step that is not done yet (never past the last step). */
+export function furthestStep(ok: Record<StepId, boolean>): number {
+  let i = 0;
+  while (i < STEPS.length - 1 && ok[STEPS[i]]) i++;
+  return i;
+}
+
+/** The step to open after a restore: the saved one, but never further than `furthest` (see furthestStep). Junk gives 0. */
+export function clampStep(saved: unknown, furthest: number): number {
+  if (typeof saved !== 'number' || !Number.isInteger(saved)) return 0;
+  return Math.max(0, Math.min(saved, furthest, STEPS.length - 1));
+}
+
+/** True when a saved timestamp is missing, unreadable, or further than `ttl` from `now` (either direction: a clock that jumped). */
+export function isDraftExpired(savedAt: unknown, now: number, ttl: number = DRAFT_TTL_MS): boolean {
+  if (typeof savedAt !== 'number' || !Number.isFinite(savedAt)) return true;
+  return Math.abs(now - savedAt) > ttl;
+}
+
+/** Reads the localStorage draft envelope. `form` is null when it is junk or expired; `expired` tells the caller to delete it. */
+export function parseDraft(raw: string | null | undefined, now: number): { form: Partial<PersistedForm> | null; expired: boolean } {
+  if (!raw) return { form: null, expired: false };
+  try {
+    const v = JSON.parse(raw) as { savedAt?: unknown; form?: unknown } | null;
+    if (!v || typeof v !== 'object') return { form: null, expired: false };
+    if (isDraftExpired(v.savedAt, now)) return { form: null, expired: true };
+    const f = v.form;
+    return { form: f && typeof f === 'object' && !Array.isArray(f) ? (f as Partial<PersistedForm>) : null, expired: false };
+  } catch {
+    return { form: null, expired: false };
+  }
 }
 
 /* ───────────────────────── quantity (stickers, priced in sheets) ───────────────────────── */
@@ -308,7 +355,7 @@ export function stickersTextFor(typed: string | null, countPerSheet: number | nu
   return countPerSheet === null ? '' : String(minStickers(countPerSheet, pricing));
 }
 
-/* ───────────────────────── sessionStorage (all try/catch) ───────────────────────── */
+/* ───────────────────────── browser storage (all try/catch) ───────────────────────── */
 
 function store(): Storage | null {
   try {
@@ -340,6 +387,69 @@ export function loadForm(): Partial<PersistedForm> | null {
 export function clearForm(): void {
   try {
     store()?.removeItem(FORM_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function localStore(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The fields that identify the customer. They are never written to localStorage (see saveDraft). */
+const PERSONAL_KEYS = ['name', 'phone', 'governorate', 'district', 'landmark', 'notes'] as const;
+
+/** The form without the customer's personal fields: what is allowed to outlive the tab. */
+export function withoutPersonal(form: PersistedForm): PersistedForm {
+  return { ...form, ...EMPTY_FIELDS };
+}
+
+/**
+ * Saves the in-progress order. localStorage keeps the order (shape, size, quantity, step, design id) for
+ * DRAFT_TTL_MS across tab closes, but NOT the name, phone and address: those stay in sessionStorage (FORM_KEY,
+ * the full form) so they survive a reload and vanish with the tab (a shared phone must not show them to the next person).
+ */
+export function saveDraft(form: PersistedForm, now: number = Date.now()): void {
+  saveForm(form);
+  try {
+    localStore()?.setItem(DRAFT_KEY, JSON.stringify({ v: 1, savedAt: now, form: withoutPersonal(form) }));
+  } catch {
+    /* storage unavailable or full */
+  }
+}
+
+/**
+ * The saved order: the fresh localStorage draft (an expired one is deleted) with the personal fields of this
+ * tab's sessionStorage form merged in, else the sessionStorage form alone.
+ */
+export function loadDraft(now: number = Date.now()): Partial<PersistedForm> | null {
+  const session = loadForm();
+  try {
+    const raw = localStore()?.getItem(DRAFT_KEY);
+    const d = parseDraft(raw, now);
+    if (d.expired) {
+      clearDraft();
+      return null;
+    }
+    if (d.form) {
+      const merged: Partial<PersistedForm> = { ...d.form };
+      if (session) for (const k of PERSONAL_KEYS) if (typeof session[k] === 'string') merged[k] = session[k];
+      return merged;
+    }
+  } catch {
+    /* fall through to sessionStorage */
+  }
+  return session;
+}
+
+export function clearDraft(): void {
+  clearForm();
+  try {
+    localStore()?.removeItem(DRAFT_KEY);
   } catch {
     /* ignore */
   }
