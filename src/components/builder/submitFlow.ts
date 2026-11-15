@@ -40,7 +40,8 @@ export type FlowResult =
 export interface FlowDeps {
   upload: (file: File, onProgress: (fraction: number) => void) => Promise<UploadResponse>;
   postOrder: (body: OrderRequest) => Promise<OrderResponse>;
-  rasterise: (file: File, dpi: number) => Promise<Blob>;
+  /** Page 1 of a PDF as a JPEG at `dpi`, sized for the ordered sticker (`target`). */
+  rasterise: (file: File, dpi: number, target?: { widthUm: number; heightUm: number }) => Promise<Blob>;
   onPhase: (phase: 'uploading' | 'processing') => void;
   onProgress: (fraction: number) => void;
   targetDpi: number;
@@ -92,9 +93,15 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
 
     if (!res.ok && res.error === 'needs_raster' && !ctx.rastered && input.design.kind === 'pdf') {
       ctx.rastered = true;
-      const blob = await deps.rasterise(input.design.file, deps.targetDpi);
-      const png = new File([blob], input.design.file.name.replace(/\.pdf$/i, '') + '.png', { type: 'image/png' });
-      const failed = await doUpload(png);
+      let blob = await deps.rasterise(input.design.file, deps.targetDpi, input.spec);
+      // A very detailed page at the pixel cap can still be over the upload limit: render once more
+      // with the pixel count scaled down (about 0.8 x limit / size) so the upload is not refused.
+      const limit = deps.maxUploadMb * 1024 * 1024;
+      if (blob.size > limit) {
+        blob = await deps.rasterise(input.design.file, deps.targetDpi * Math.sqrt((0.8 * limit) / blob.size), input.spec);
+      }
+      const jpg = new File([blob], input.design.file.name.replace(/\.pdf$/i, '') + '.jpg', { type: 'image/jpeg' });
+      const failed = await doUpload(jpg);
       if (failed) return failed;
       deps.onPhase('processing');
       res = await deps.postOrder(body());

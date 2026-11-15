@@ -7,6 +7,7 @@
 import { dpiFor, dpiStatus, pdfPrefillUm } from '@/components/builder/logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm } from '@/components/builder/safe';
 import { prepareArtwork, type PrepareError } from '@/lib/design/prepare.client';
+import { PRINT_DPI } from '@/lib/print-dpi';
 import type {
   Corners,
   DesignDecodeError,
@@ -282,7 +283,7 @@ export async function buildStaffFile(
   card: StaffCardState,
   fileName: string,
   layoutSettings: LayoutSettings,
-  quality: QualitySettings,
+  _quality: QualitySettings, // kept for callers; the print resolution is the fixed PRINT_DPI
   now: Date = new Date(),
 ): Promise<StaffFileResult> {
   const failed = { cardId: card.id, fileName: card.file.name } as const;
@@ -291,7 +292,7 @@ export async function buildStaffFile(
     if (!spec || !card.design) return { ok: false, reason: 'build', ...failed };
     const outcome = safeLayout(spec, layoutSettings);
     if (!outcome.ok) return { ok: false, reason: 'build', ...failed };
-    const prepared = await prepareArtwork(card.design, spec, quality.targetDpi);
+    const prepared = await prepareArtwork(card.design, spec, PRINT_DPI);
     if (!prepared.ok) return { ok: false, reason: 'prepare', ...failed, error: prepared.error };
     const { buildStaffPdf } = await import('@/lib/pdf/build-staff-pdf');
     const bytes = await buildStaffPdf([{ layout: outcome.layout, artwork: prepared.artwork }], now);

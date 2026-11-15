@@ -22,7 +22,10 @@
 import { effectiveDpi as dpiOf, pxForUmAtDpi } from '@/lib/units';
 import type { DesignSource, NormalisedArtwork, PixelBox, StickerSpec } from '@/lib/types';
 import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
-import { scanAlphaStrips, widthPixelsFor } from './pixels';
+import { MAX_CANVAS_PIXELS, fitToPixelCap, scanAlphaStrips, widthPixelsFor } from './pixels';
+
+// Kept importable from here for existing callers and tests; the one source of truth is pixels.ts.
+export { MAX_CANVAS_PIXELS };
 
 export type PrepareError = 'encrypted' | 'corrupt' | 'no_alpha';
 
@@ -31,8 +34,6 @@ export type PrepareOutcome =
   | { ok: false; error: PrepareError };
 
 const JPEG_QUALITY = 0.92;
-/** iOS Safari refuses a canvas above 16,777,216 pixels (getContext then returns null). */
-export const MAX_CANVAS_PIXELS = 16_777_216;
 const STRIP_ROWS = 256;
 
 const fail = (error: PrepareError): PrepareOutcome => ({ ok: false, error });
@@ -130,6 +131,43 @@ export function downscaleSteps(sw: number, sh: number, outW: number, outH: numbe
   return steps;
 }
 
+/**
+ * `region` of `bitmap` drawn at `outW` x `outH` and encoded (PNG with transparency, else JPEG on
+ * white). Halves in steps while more than 2x too big: one big drawImage jump aliases in some
+ * browsers. Every STEP canvas stays under the browser's pixel cap (see downscaleSteps); the final
+ * canvas is the print size, so the caller handles a browser that refuses it.
+ */
+async function renderRaster(bitmap: ImageBitmap, region: PixelBox, outW: number, outH: number, hasAlpha: boolean): Promise<Blob> {
+  let src: CanvasImageSource = bitmap;
+  let step: HTMLCanvasElement | null = null;
+  let { left: sx, top: sy, width: sw, height: sh } = region;
+  let out: HTMLCanvasElement | null = null;
+  try {
+    for (const [nw, nh] of downscaleSteps(sw, sh, outW, outH)) {
+      const next = makeCanvas(nw, nh);
+      context(next).drawImage(src, sx, sy, sw, sh, 0, 0, nw, nh);
+      if (step) release(step);
+      step = next;
+      src = next;
+      [sx, sy, sw, sh] = [0, 0, nw, nh];
+    }
+
+    out = makeCanvas(outW, outH);
+    const ctx = context(out);
+    if (!hasAlpha) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, outW, outH);
+    }
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, outW, outH);
+    if (step) release(step);
+    step = null;
+    return hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', JPEG_QUALITY);
+  } finally {
+    if (step) release(step);
+    if (out) release(out);
+  }
+}
+
 async function prepareRaster(file: File, sourceHasAlpha: boolean, trim: PixelBox | undefined, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
   if (spec.shape === 'custom' && !sourceHasAlpha) return fail('no_alpha');
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -151,43 +189,24 @@ async function prepareRaster(file: File, sourceHasAlpha: boolean, trim: PixelBox
 
     const dpi = dpiOf(widthPixelsFor(spec.shape, region.width, region.height), spec.widthUm);
 
-    // The server's resample rule: fit the ordered size at targetDpi, never upscale.
+    // The server's resample rule: fit the ordered size at targetDpi (PRINT_DPI, a maximum), never upscale.
     const targetW = pxForUmAtDpi(spec.widthUm, targetDpi);
     const targetH = pxForUmAtDpi(spec.heightUm, targetDpi);
     const scale = Math.min(1, Math.max(targetW / region.width, targetH / region.height));
-    const outW = Math.max(1, Math.round(region.width * scale));
-    const outH = Math.max(1, Math.round(region.height * scale));
+    let outW = Math.max(1, Math.round(region.width * scale));
+    let outH = Math.max(1, Math.round(region.height * scale));
 
-    // Halve in steps while more than 2x too big: one big drawImage jump aliases in some browsers.
-    // Every canvas stays under the browser's pixel cap (see downscaleSteps).
-    let src: CanvasImageSource = bitmap;
-    let step: HTMLCanvasElement | null = null;
-    let { left: sx, top: sy, width: sw, height: sh } = region;
-    let out: HTMLCanvasElement | null = null;
     let blob: Blob;
     try {
-      for (const [nw, nh] of downscaleSteps(sw, sh, outW, outH)) {
-        const next = makeCanvas(nw, nh);
-        context(next).drawImage(src, sx, sy, sw, sh, 0, 0, nw, nh);
-        if (step) release(step);
-        step = next;
-        src = next;
-        [sx, sy, sw, sh] = [0, 0, nw, nh];
-      }
-
-      out = makeCanvas(outW, outH);
-      const ctx = context(out);
-      if (!hasAlpha) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, outW, outH);
-      }
-      ctx.drawImage(src, sx, sy, sw, sh, 0, 0, outW, outH);
-      if (step) release(step);
-      step = null;
-      blob = hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', JPEG_QUALITY);
-    } finally {
-      if (step) release(step);
-      if (out) release(out);
+      blob = await renderRaster(bitmap, region, outW, outH, hasAlpha);
+    } catch (e) {
+      // A browser that cannot make a canvas this big (iOS Safari above MAX_CANVAS_PIXELS: no 2d
+      // context; others: toBlob fails) gets the same artwork one size down. Desktop keeps full size.
+      const fit = fitToPixelCap(outW, outH, MAX_CANVAS_PIXELS);
+      if (fit.width === outW && fit.height === outH) throw e;
+      outW = fit.width;
+      outH = fit.height;
+      blob = await renderRaster(bitmap, region, outW, outH, hasAlpha);
     }
 
     const artwork: NormalisedArtwork = {
@@ -231,9 +250,9 @@ async function preparePdf(source: DesignSource, spec: StickerSpec, targetDpi: nu
 async function rasterisedPdf(file: File, spec: StickerSpec, targetDpi: number): Promise<PrepareOutcome> {
   try {
     const { rasterisePdfPage } = await import('./decode.client');
-    const blob = await rasterisePdfPage(file, targetDpi);
-    const png = new File([blob], file.name.replace(/\.pdf$/i, '') + '.png', { type: 'image/png' });
-    return await prepareRaster(png, false, undefined, spec, targetDpi); // rendered on white: no transparency
+    const blob = await rasterisePdfPage(file, targetDpi, spec);
+    const jpg = new File([blob], file.name.replace(/\.pdf$/i, '') + '.jpg', { type: 'image/jpeg' });
+    return await prepareRaster(jpg, false, undefined, spec, targetDpi); // rendered on white: no transparency
   } catch {
     return fail('corrupt');
   }

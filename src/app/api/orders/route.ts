@@ -30,6 +30,7 @@ import type {
   OrderResponse,
   ShopSettings,
 } from "@/lib/types";
+import { PRINT_DPI } from "@/lib/print-dpi";
 import { umToMm } from "@/lib/units";
 
 export const maxDuration = 60;
@@ -56,6 +57,11 @@ const STATUS: Record<OrderError, number> = {
 
 /** Max JSON body for POST /api/orders (the real payload is a few KiB). */
 const MAX_BODY_BYTES = 64 * 1024;
+
+/** The sheet PDF must fit the storage bucket (15 MiB, migration 20261111000000); a little headroom. */
+const MAX_SHEET_PDF_BYTES = 14 * 1024 * 1024;
+/** Lower resolutions tried, in order, when the 1200 DPI sheet PDF is over the limit. */
+const FALLBACK_DPI = [600, 300] as const;
 
 type Failure = Extract<OrderResponse, { ok: false }>;
 const fail = (error: OrderError): Failure => ({
@@ -142,23 +148,39 @@ async function processOrder(
       ? sheetsForStickers(req.stickers, layout.countPerSheet)
       : (req.sheets ?? 0);
 
-  const norm = await normaliseArtwork(upload.bytes, {
+  let norm = await normaliseArtwork(upload.bytes, {
     spec,
-    targetDpi: settings.quality.targetDpi,
+    targetDpi: PRINT_DPI,
     blockDpi: settings.quality.blockDpi,
   });
   if (!norm.ok) return fail(norm.error);
 
   const displayNo = makeDisplayNo();
   const fileName = pdfFileNameFor(displayNo, spec, sheets);
-  const pdf = await buildSheetPdf({
-    layout,
-    artwork: norm.artwork,
-    meta: {
-      displayNo,
-      description: `${spec.shape} ${umToMm(spec.widthUm)}x${umToMm(spec.heightUm)}mm x${layout.countPerSheet}`,
-    },
-  });
+  const buildPdf = (artwork: Parameters<typeof buildSheetPdf>[0]["artwork"]) =>
+    buildSheetPdf({
+      layout,
+      artwork,
+      meta: {
+        displayNo,
+        description: `${spec.shape} ${umToMm(spec.widthUm)}x${umToMm(spec.heightUm)}mm x${layout.countPerSheet}`,
+      },
+    });
+  let pdf = await buildPdf(norm.artwork);
+  // The storage bucket refuses a file over its limit, and a full-resolution raster at 1200 DPI can
+  // push the sheet PDF over it. Rare: only then re-normalise at a lower DPI (the owner's 1200 is a
+  // maximum, see print-dpi.ts) until the file fits. Vector PDFs do not grow with the DPI.
+  for (const dpi of FALLBACK_DPI) {
+    if (pdf.bytes.length <= MAX_SHEET_PDF_BYTES || norm.artwork.kind !== "raster") break;
+    const again = await normaliseArtwork(upload.bytes, {
+      spec,
+      targetDpi: dpi,
+      blockDpi: settings.quality.blockDpi,
+    });
+    if (!again.ok) break;
+    norm = again;
+    pdf = await buildPdf(norm.artwork);
+  }
 
   const price =
     req.stickers !== undefined

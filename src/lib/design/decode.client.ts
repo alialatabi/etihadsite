@@ -18,7 +18,7 @@
  * design is replaced or the component unmounts.
  */
 import type { DesignDecodeError, DesignDecodeOutcome, DesignKind, DesignSource, Shape } from '@/lib/types';
-import { fitWithin, scanAlphaStrips, type PixelRect } from './pixels';
+import { MAX_CANVAS_PIXELS, fitWithin, pdfRenderScale, scanAlphaStrips, type PixelRect } from './pixels';
 
 export interface DecodeOptions {
   shape: Shape;
@@ -122,9 +122,9 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
 
 /* ───────────────────────────────── PDF ───────────────────────────────── */
 
-type PdfjsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+export type PdfjsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 
-async function loadPdfjs(): Promise<PdfjsModule> {
+export async function loadPdfjs(): Promise<PdfjsModule> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   return pdfjs;
@@ -236,20 +236,24 @@ async function decodePdf(file: File, opts: DecodeOptions): Promise<DesignDecodeO
   }
 }
 
+const RASTERISED_PDF_JPEG_QUALITY = 0.92;
+
 /**
- * Render page 1 of a PDF to a PNG Blob at `dpi` (physical size of the trim/crop box).
- * Used as the fallback when the server answers `needs_raster`. Throws on failure.
- * The long side is capped at 12000 px (the effective dpi is lowered if needed).
+ * Render page 1 of a PDF to a JPEG Blob at `dpi` (physical size of the trim/crop box), or, when
+ * `target` (the ordered sticker) is given, at the size the sticker needs at `dpi`. Used as the
+ * fallback when the server answers `needs_raster`, and by the staff page. Throws on failure.
+ * Two caps lower the effective dpi when needed (see pdfRenderScale): the long side at 12000 px
+ * and the canvas area at MAX_CANVAS_PIXELS (iOS Safari refuses a bigger canvas).
  */
-export async function rasterisePdfPage(file: File, dpi: number): Promise<Blob> {
+export async function rasterisePdfPage(file: File, dpi: number, target?: { widthUm: number; heightUm: number }): Promise<Blob> {
   const pdfjs = await loadPdfjs();
   const { pdf, geo } = await pdfGeometry(pdfjs, file);
   try {
-    let scale = dpi / 72;
-    const long = Math.max(geo.region.width, geo.region.height) * scale;
-    if (long > MAX_CANVAS_SIDE) scale *= MAX_CANVAS_SIDE / long;
+    const scale = pdfRenderScale(geo.region.width, geo.region.height, dpi, target, { maxSide: MAX_CANVAS_SIDE, maxPixels: MAX_CANVAS_PIXELS });
     const canvas = await renderRegion(geo, scale);
-    return await toBlob(canvas, 'image/png');
+    // JPEG, not PNG: the page is opaque (drawn on white, PDFs are refused for custom shapes) and a
+    // photographic page at the 16.7 MP cap is ~25-30 MB as a PNG, over the upload limit.
+    return await toBlob(canvas, 'image/jpeg', RASTERISED_PDF_JPEG_QUALITY);
   } finally {
     await pdf.destroy();
   }

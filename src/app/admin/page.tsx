@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SheetPdfPreview } from "@/components/admin/SheetPdfPreview";
 import { Ltr } from "@/components/Ltr";
 import { Money } from "@/components/Money";
 import { admin, common, order } from "@/content/ar";
@@ -37,11 +38,12 @@ export default async function OrdersPage() {
           {admin.orders.empty}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{c.no}</TableHead>
+                <TableHead>{c.preview}</TableHead>
                 <TableHead>{c.date}</TableHead>
                 <TableHead>{c.customer}</TableHead>
                 <TableHead>{c.phone}</TableHead>
@@ -64,6 +66,17 @@ export default async function OrdersPage() {
                         className="font-medium underline-offset-4 hover:underline"
                       >
                         <Ltr>{o.displayNo}</Ltr>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {/* The number link in the previous cell is the accessible one; this is a bigger click target. */}
+                      <Link
+                        href={`/admin/orders/${o.orderId}`}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        className="block w-14"
+                      >
+                        <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="thumb" />
                       </Link>
                     </TableCell>
                     <TableCell>{formatBaghdad(o.createdAt)}</TableCell>

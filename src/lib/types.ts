@@ -254,12 +254,32 @@ export interface PricingSettings {
 }
 
 export interface LayoutSettings {
+  /** General sheet margin. Since per-shape margins it is only the FALLBACK for a shape without its own margin below. */
   marginUm: number;
+  /** Gap between circles along the page width. */
   circleGapXUm: number;
+  /** Gap between circles along the page height. */
   circleGapYUm: number;
+  /** Rounded rectangles: horizontal gap (and the vertical one while `rectRoundedGapYUm` is absent). */
   rectRoundedGapUm: number;
+  /** Sharp rectangles: horizontal gap (and the vertical one while `rectSharpGapYUm` is absent). */
   rectSharpGapUm: number;
+  /** Custom shapes: horizontal gap (and the vertical one while `customGapYUm` is absent). */
   customGapUm: number;
+  /** Sheet margin for circles. Absent: `marginUm`. Read through `resolveShapeSpacing` (src/lib/layout/spacing.ts). */
+  circleMarginUm?: number;
+  /** Sheet margin for rounded rectangles. Absent: `marginUm`. */
+  roundedMarginUm?: number;
+  /** Sheet margin for sharp rectangles. Absent: `marginUm`. */
+  sharpMarginUm?: number;
+  /** Sheet margin for custom shapes. Absent: `marginUm`. */
+  customMarginUm?: number;
+  /** Rounded rectangles: vertical gap. Absent: `rectRoundedGapUm`. */
+  rectRoundedGapYUm?: number;
+  /** Sharp rectangles: vertical gap. Absent: `rectSharpGapUm`. */
+  rectSharpGapYUm?: number;
+  /** Custom shapes: vertical gap. Absent: `customGapUm`. */
+  customGapYUm?: number;
   roundedRadiusUm: number;
   allowRotate: boolean;
   minSideUm: number;
@@ -270,7 +290,7 @@ export interface QualitySettings {
   warnDpi: number;
   /** Refuse the order below this effective DPI. */
   blockDpi: number;
-  /** Resample rasters to this DPI for print. */
+  /** @deprecated Ignored since 2026-11-15: print resolution is fixed at PRINT_DPI (src/lib/print-dpi.ts). Kept so stored settings still parse. */
   targetDpi: number;
 }
 

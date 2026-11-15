@@ -329,7 +329,7 @@ describe('golden: record material labels', () => {
       materials.map((m) =>
         buildCaption(rec({ price: { material: m } }), DEFAULT_SETTINGS)
           .split('\n')
-          .slice(4, 6)
+          .slice(2, 3)
           .join(' | '),
       ),
     ).toMatchSnapshot();

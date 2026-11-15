@@ -74,6 +74,7 @@ function StickersInput({ b }: { b: BuilderApi }) {
   const minS = minStickers(cps, pricing);
   const maxS = maxStickers(cps, pricing);
   const picks = quickPickStickers(pricing, cps);
+  const pickTiers = sortedTiers(pricing.tiers);
   const atMin = b.stickers !== null && b.stickers <= minS;
   const atMax = b.stickers !== null && b.stickers >= maxS;
 
@@ -110,20 +111,28 @@ function StickersInput({ b }: { b: BuilderApi }) {
 
       {picks.length > 0 && (
         <div role="group" aria-label={builder.quantity.quickPicks} className="flex flex-wrap gap-2">
-          {picks.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => b.setStickers(n)}
-              aria-pressed={b.stickers === n}
-              className={cn(
-                'min-h-11 min-w-14 rounded-full border px-4 text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                b.stickers === n ? 'border-brand bg-brand text-brand-foreground' : 'bg-background hover:bg-muted',
-              )}
-            >
-              <Ltr>{formatCount(n)}</Ltr>
-            </button>
-          ))}
+          {picks.map((n) => {
+            const percent = activeTier(n / cps, pickTiers)?.percent ?? 0;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => b.setStickers(n)}
+                aria-pressed={b.stickers === n}
+                className={cn(
+                  'flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 rounded-2xl border px-4 py-1 text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                  b.stickers === n ? 'border-brand bg-brand text-brand-foreground' : 'bg-background hover:bg-muted',
+                )}
+              >
+                <Ltr>{formatCount(n)}</Ltr>
+                {percent > 0 && (
+                  <span className="rounded-full bg-discount px-1.5 text-[11px] font-bold leading-4 text-discount-foreground">
+                    {builder.quantity.discountWord} <Ltr>{percent}%</Ltr>
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -146,37 +155,108 @@ function DiscountLadder({ b }: { b: BuilderApi }) {
   const reached = activeTier(b.sheets, tiers);
   const cps = b.countPerSheet ?? 0;
   const nudge = nextTierNudgeStickers(b.stickers, b.sheets, cps, tiers);
+  const currentSheets = b.sheets ?? 0;
+  const maxS = maxStickers(cps, b.settings.pricing);
   return (
-    <div className="space-y-2 rounded-2xl border bg-muted/40 p-3">
-      <p className="text-sm font-medium">{builder.quantity.discountTitle}</p>
-      <ul className="flex flex-wrap gap-2">
+    <div className="space-y-3 rounded-2xl border bg-muted/40 p-3">
+      <p className="text-base font-bold">{builder.quantity.discountTitle}</p>
+      <ul className={cn('grid gap-2', tiers.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
         {tiers.map((t) => {
           const on = reached?.minSheets === t.minSheets;
+          const passed = !on && b.sheets !== null && currentSheets >= t.minSheets;
           return (
             <li
               key={t.minSheets}
               aria-current={on ? 'true' : undefined}
-              className={cn('rounded-full border px-3 py-1 text-xs font-medium', on
-                  ? 'border-discount-foreground/40 bg-discount font-bold text-discount-foreground shadow-sm'
-                  : 'border-discount bg-discount/25 text-discount-foreground')}
+              className={cn(
+                'relative flex flex-col items-center gap-0.5 rounded-xl border px-2 py-3 text-center transition-colors',
+                on
+                  ? 'border-discount-foreground/40 bg-discount text-discount-foreground shadow-sm ring-2 ring-discount-foreground/30'
+                  : passed
+                    ? 'border-discount bg-discount/25 text-foreground'
+                    : 'border-dashed bg-background text-muted-foreground',
+              )}
             >
-              <Ltr>{formatCount(t.minSheets * cps)}+</Ltr> {count(t.minSheets * cps, common.plural.sticker)} · {builder.quantity.discountWord} <Ltr>{t.percent}%</Ltr>
+              {on && <Check className="absolute end-1.5 top-1.5 size-4" aria-hidden />}
+              <span className="text-2xl font-bold leading-none">
+                <Ltr>{t.percent}%</Ltr>
+              </span>
+              <span className="text-xs font-medium">{builder.quantity.discountWord}</span>
+              <span className="mt-1 text-xs font-bold">
+                <Ltr>{formatCount(t.minSheets * cps)}+</Ltr> {count(t.minSheets * cps, common.plural.sticker)}
+              </span>
+              <span className={cn('text-[11px]', on ? 'text-discount-foreground/80' : 'text-muted-foreground')}>
+                (<Ltr>{t.minSheets}</Ltr> {count(t.minSheets, common.plural.sheet)})
+              </span>
             </li>
           );
         })}
       </ul>
-      {nudge && (
-        <p className="text-sm font-medium text-brand">
-          {builder.quantity.nudgeAdd} <Ltr>{formatCount(nudge.add)}</Ltr> {count(nudge.add, common.plural.sticker)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
-        </p>
+      {nudge && b.stickers !== null && b.stickers + nudge.add <= maxS && (
+        <button
+          type="button"
+          onClick={() => b.setStickers(b.stickers! + nudge.add)}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-discount px-4 py-2 text-sm font-bold text-discount-foreground outline-none transition-colors hover:bg-discount/85 focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Plus className="size-4 shrink-0" aria-hidden />
+          <span>
+            {builder.quantity.nudgeAdd} <Ltr>{formatCount(nudge.add)}</Ltr> {count(nudge.add, common.plural.sticker)} {builder.quantity.nudgeGet} <Ltr>{nudge.percent}%</Ltr>
+          </span>
+        </button>
       )}
     </div>
   );
 }
 
+function ResultBlock({ b }: { b: BuilderApi }) {
+  const cps = b.countPerSheet ?? 0;
+  const sheets = b.sheets;
+  const received = sheets !== null ? sheets * cps : null;
+  const discount = sheets !== null ? (b.price?.discountPercent ?? 0) : 0;
+  const partial = b.stickers !== null && received !== null && b.stickers !== received;
+  const dash = <span className="text-muted-foreground">—</span>;
+  return (
+    <section id="qty-result" aria-live="polite" className="space-y-2">
+      {discount > 0 && (
+        <div className="flex justify-center">
+          <span className="rounded-full bg-discount px-3 py-1 text-sm font-bold text-discount-foreground shadow-sm">
+            {builder.quantity.discountWord} <Ltr>{discount}%</Ltr>
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand/30 bg-brand/5 px-2 py-4 text-center">
+          <span className="text-sm text-muted-foreground">{builder.quantity.receive}</span>
+          <span className="text-3xl font-bold leading-tight text-brand sm:text-4xl">
+            {received !== null ? <Ltr>{formatCount(received)}</Ltr> : dash}
+          </span>
+          <span className="min-h-5 text-sm font-medium">{received !== null ? count(received, common.plural.sticker) : null}</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 rounded-2xl border border-[#8a2b8f]/30 bg-[#8a2b8f]/5 px-2 py-4 text-center">
+          <span className="text-sm text-muted-foreground">{builder.summary.sheets}</span>
+          <span className="text-3xl font-bold leading-tight text-[#8a2b8f] sm:text-4xl">
+            {sheets !== null ? <Ltr>{sheets}</Ltr> : dash}
+          </span>
+          <span className="min-h-5 text-sm font-medium">{sheets !== null ? count(sheets, common.plural.sheet) : null}</span>
+        </div>
+      </div>
+      {b.countPerSheet !== null && (
+        <p className="text-center text-sm text-muted-foreground">
+          <CountLabel n={cps} /> {builder.summary.perSheet}
+        </p>
+      )}
+      {partial && (
+        <p className="text-center text-xs text-muted-foreground">
+          {builder.summary.requestedStickers} <CountLabel n={b.stickers!} />
+        </p>
+      )}
+    </section>
+  );
+}
+
 function PriceRow({ label, children, strong }: { label: ReactNode; children: ReactNode; strong?: boolean }) {
   return (
-    <div className={cn('flex items-baseline justify-between gap-4 py-2', strong ? 'text-base font-bold' : 'text-sm')}>
+    <div className={cn('flex items-baseline justify-between gap-4 py-2', strong ? 'text-lg font-bold' : 'text-sm')}>
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-end">{children}</dd>
     </div>
@@ -197,7 +277,7 @@ function PriceBox({ b }: { b: BuilderApi }) {
               )}
               <span className="font-bold"><Money amount={p.unitPriceIqd} /></span>
               {p.discountPercent > 0 && (
-                <span className="rounded-full bg-discount px-2 py-0.5 text-xs font-bold text-discount-foreground">
+                <span className="rounded-full bg-discount px-3 py-1 text-sm font-bold text-discount-foreground">
                   {builder.quantity.discountWord} <Ltr>{p.discountPercent}%</Ltr>
                 </span>
               )}
@@ -219,12 +299,9 @@ function PriceBox({ b }: { b: BuilderApi }) {
         )}
         <PriceRow label={builder.quantity.delivery}><Money amount={p.deliveryFeeIqd} /></PriceRow>
         <PriceRow label={builder.quantity.total} strong>
-          {p.totalIqd !== null ? <Money amount={p.totalIqd} /> : builder.quantity.priceUnset}
+          {p.totalIqd !== null ? <span className="text-xl text-brand"><Money amount={p.totalIqd} /></span> : builder.quantity.priceUnset}
         </PriceRow>
       </dl>
-      <p className="mt-2 text-sm font-medium">
-        {builder.quantity.receive} <CountLabel n={p.totalStickers} /> (<Ltr>{p.sheets}</Ltr> {count(p.sheets, common.plural.sheet)})
-      </p>
       {p.perStickerIqd !== null && (
         <p className="text-xs text-muted-foreground">{fillLtr(builder.quantity.perSticker, { price: <Money amount={p.perStickerIqd} /> })}</p>
       )}
@@ -261,6 +338,7 @@ export function QuantityStep({ b }: { b: BuilderApi }) {
     <div className="space-y-5">
       <MaterialPicker b={b} />
       <StickersInput b={b} />
+      <ResultBlock b={b} />
       <DiscountLadder b={b} />
       <PriceBox b={b} />
     </div>

@@ -21,6 +21,10 @@
 import { A4_UM } from '@/lib/units';
 import { REG_MARKS, isNearMark, markCentres, markInsetUm } from './marks';
 import { packMixed, type PackResult } from './pack';
+import { resolveShapeSpacing, shapeKeyOf } from './spacing';
+
+export { SHAPE_KEYS, resolveShapeSpacing, shapeKeyOf } from './spacing';
+export type { ShapeKey, ShapeSpacing } from './spacing';
 import type {
   LayoutOutcome,
   LayoutParams,
@@ -300,10 +304,10 @@ export function placementRotated(layout: LayoutResult, p: Placement): boolean {
 }
 
 /**
- * Derive the LayoutParams for a given spec from the shop's LayoutSettings:
- * circle → circleGapX/Y + clip circle; rect rounded → rectRoundedGap both axes +
- * clip roundedRect (radius = min(roundedRadiusUm, floor(min(w,h)/2)));
- * rect sharp → rectSharpGap both axes, clip none; custom → customGap both axes, clip none.
+ * Derive the LayoutParams for a given spec from the shop's LayoutSettings: each shape has its own
+ * margin, horizontal gap and vertical gap (resolveShapeSpacing in ./spacing.ts, which also holds
+ * the fallbacks for settings saved before per-shape spacing). Clip: circle → circle; rect rounded →
+ * roundedRect (radius = min(roundedRadiusUm, floor(min(w,h)/2))); rect sharp and custom → none.
  * Every shape gets the cutter dots (REG_MARKS), so the website, the order route and the staff
  * page all keep stickers clear of them.
  */
@@ -312,20 +316,21 @@ export function layoutParamsFor(spec: StickerSpec, settings: LayoutSettings): La
 }
 
 function shapeParams(spec: StickerSpec, settings: LayoutSettings): LayoutParams {
-  const base = { marginUm: settings.marginUm, allowRotate: settings.allowRotate, minSideUm: settings.minSideUm };
+  const { marginUm, gapXUm, gapYUm } = resolveShapeSpacing(settings, shapeKeyOf(spec));
+  const base = { marginUm, allowRotate: settings.allowRotate, minSideUm: settings.minSideUm };
   switch (spec.shape) {
     case 'circle':
-      return { ...base, gapXUm: settings.circleGapXUm, gapYUm: settings.circleGapYUm, clip: { kind: 'circle' } };
+      return { ...base, gapXUm, gapYUm, clip: { kind: 'circle' } };
     case 'rect': {
       if (spec.corners === 'sharp') {
-        return { ...base, gapXUm: settings.rectSharpGapUm, gapYUm: settings.rectSharpGapUm, clip: { kind: 'none' } };
+        return { ...base, gapXUm, gapYUm, clip: { kind: 'none' } };
       }
       const radiusUm = Math.min(settings.roundedRadiusUm, Math.floor(Math.min(spec.widthUm, spec.heightUm) / 2));
-      return { ...base, gapXUm: settings.rectRoundedGapUm, gapYUm: settings.rectRoundedGapUm, clip: { kind: 'roundedRect', radiusUm } };
+      return { ...base, gapXUm, gapYUm, clip: { kind: 'roundedRect', radiusUm } };
     }
     case 'custom':
     default:
-      return { ...base, gapXUm: settings.customGapUm, gapYUm: settings.customGapUm, clip: { kind: 'none' } };
+      return { ...base, gapXUm, gapYUm, clip: { kind: 'none' } };
   }
 }
 

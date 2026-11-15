@@ -68,6 +68,8 @@ export function parseSettingsForm(formData: FormData, current: ShopSettings): Se
   const nums = [m.paper.pricePerSheetIqd, m.plastic.pricePerSheetIqd, pricing.minSheets, pricing.maxSheets, ...tiers.flatMap((x) => [x.minSheets, x.percent])];
   if (nums.some((n) => !Number.isInteger(n))) return { ok: false, error: s.errors.number };
 
+  // marginUm stays as stored: it is only the fallback of a shape without its own margin, and the
+  // form writes all four per-shape margins explicitly below.
   const layout: ShopSettings['layout'] = { ...current.layout, allowRotate: formData.get('allowRotate') === 'on' };
   for (const { name, key } of LAYOUT_MM_FIELDS) layout[key] = formMmToUm(formData, name);
 

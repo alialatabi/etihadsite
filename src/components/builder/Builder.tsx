@@ -34,7 +34,7 @@ const CUSTOMER_FIELD_KEYS = Object.keys(CUSTOMER_FIELD_IDS) as (keyof typeof CUS
 
 export function Builder({ settings }: { settings: ShopSettings }) {
   const b = useBuilder(settings);
-  const sub = useSubmitOrder(settings.quality.targetDpi, settings.maxUploadBytes);
+  const sub = useSubmitOrder(settings.maxUploadBytes);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
   const navRowRef = useRef<HTMLDivElement>(null);
@@ -106,7 +106,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
   const inquiry = whatsappLink(settings.whatsapp);
 
   return (
-    <div id="builder" className="scroll-mt-4">
+    <div id="builder" className="scroll-mt-14 sm:scroll-mt-16">{/* = sticky header height, so #builder links land on the stepper */}
       <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
         <div className="min-w-0 space-y-6">
           <Stepper b={b} />

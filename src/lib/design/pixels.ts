@@ -4,6 +4,7 @@
  * `data` is tightly packed RGBA (4 bytes per pixel).
  */
 import type { PixelBox, Shape } from '@/lib/types';
+import { pxForUmAtDpi } from '@/lib/units';
 
 export type PixelRect = PixelBox;
 
@@ -100,4 +101,59 @@ export function fitWithin(w: number, h: number, maxLongSide: number): { width: n
   if (long <= maxLongSide) return { width: w, height: h };
   const k = maxLongSide / long;
   return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+}
+
+/** iOS Safari refuses a canvas above 16,777,216 pixels (getContext then returns null). */
+export const MAX_CANVAS_PIXELS = 16_777_216;
+
+/**
+ * Scale (w, h) down, aspect kept, until w * h <= `maxPixels`; never upscales. Used when a browser
+ * cannot make a canvas of the full print size (see prepareRaster). Pure.
+ */
+export function fitToPixelCap(w: number, h: number, maxPixels: number = MAX_CANVAS_PIXELS): { width: number; height: number } {
+  if (w * h <= maxPixels) return { width: w, height: h };
+  const k = Math.sqrt(maxPixels / (w * h));
+  let width = Math.max(1, Math.floor(w * k));
+  let height = Math.max(1, Math.floor(h * k));
+  while (width * height > maxPixels && (width > 1 || height > 1)) {
+    if (width >= height) width--;
+    else height--;
+  }
+  return { width, height };
+}
+
+export interface PdfRenderLimits {
+  /** Longest canvas side, in px. */
+  maxSide: number;
+  /** Largest canvas area, in px. */
+  maxPixels: number;
+}
+
+/**
+ * Render scale (canvas px per PDF point) for page 1's visible region of `regionWPt` x `regionHPt`
+ * points, used by the browser's PDF -> PNG fallback.
+ *  - With `target` (the ordered sticker): the region is rendered to cover the sticker at `dpi`
+ *    (what the print needs, however large the PDF page is).
+ *  - Without it: the region's own physical size at `dpi`.
+ * Then capped so the canvas fits the long-side and area limits (the effective DPI drops instead;
+ * rounded canvas sizes never exceed `maxPixels`). Pure.
+ */
+export function pdfRenderScale(
+  regionWPt: number,
+  regionHPt: number,
+  dpi: number,
+  target: { widthUm: number; heightUm: number } | undefined,
+  limits: PdfRenderLimits,
+): number {
+  let scale = dpi / 72;
+  if (target) {
+    scale = Math.max(pxForUmAtDpi(target.widthUm, dpi) / regionWPt, pxForUmAtDpi(target.heightUm, dpi) / regionHPt);
+  }
+  const long = Math.max(regionWPt, regionHPt) * scale;
+  if (long > limits.maxSide) scale *= limits.maxSide / long;
+  const area = regionWPt * regionHPt * scale * scale;
+  if (area > limits.maxPixels) scale *= Math.sqrt(limits.maxPixels / area);
+  // The canvas is Math.round()ed per side: shave the scale until the rounded canvas fits.
+  while (Math.max(1, Math.round(regionWPt * scale)) * Math.max(1, Math.round(regionHPt * scale)) > limits.maxPixels && scale > 1e-6) scale *= 0.9995;
+  return scale;
 }

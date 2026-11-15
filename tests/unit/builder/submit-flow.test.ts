@@ -53,7 +53,7 @@ describe('submitOrderFlow', () => {
     });
   });
 
-  it('retries needs_raster once with the rasterised PNG', async () => {
+  it('retries needs_raster once with the rasterised JPEG', async () => {
     const postOrder = vi
       .fn<FlowDeps['postOrder']>()
       .mockResolvedValueOnce({ ok: false, error: 'needs_raster', message: '' })
@@ -62,9 +62,38 @@ describe('submitOrderFlow', () => {
     const d = deps({ postOrder, upload });
     const r = await submitOrderFlow(input(), { orderId: 'id', rastered: false }, d);
     expect(r.kind).toBe('ok');
-    expect(d.rasterise).toHaveBeenCalledWith(expect.any(File), 300);
-    expect((upload.mock.calls[1][0] as File).name).toBe('a.png');
+    expect(d.rasterise).toHaveBeenCalledWith(expect.any(File), 300, expect.objectContaining({ widthUm: expect.any(Number), heightUm: expect.any(Number) }));
+    expect((upload.mock.calls[1][0] as File).name).toBe('a.jpg');
+    expect((upload.mock.calls[1][0] as File).type).toBe('image/jpeg');
     expect(postOrder.mock.calls[1][0].uploadId).toBe('u2');
+  });
+
+  it('renders the PDF page again, smaller, when the first render is over the upload limit', async () => {
+    const postOrder = vi
+      .fn<FlowDeps['postOrder']>()
+      .mockResolvedValueOnce({ ok: false, error: 'needs_raster', message: '' })
+      .mockResolvedValueOnce(okOrder);
+    const upload = vi.fn<FlowDeps['upload']>().mockResolvedValueOnce(okUpload('u1')).mockResolvedValueOnce(okUpload('u2'));
+    const big = new Blob([new Uint8Array(30 * 1024 * 1024)]);
+    const small = new Blob(['x']);
+    const rasterise = vi.fn<FlowDeps['rasterise']>().mockResolvedValueOnce(big).mockResolvedValueOnce(small);
+    const d = deps({ postOrder, upload, rasterise, targetDpi: 1200 });
+    const r = await submitOrderFlow(input(), { orderId: 'id', rastered: false }, d);
+    expect(r.kind).toBe('ok');
+    expect(rasterise).toHaveBeenCalledTimes(2);
+    // 1200 * sqrt(0.8 * 15 / 30) ~ 759
+    expect(rasterise.mock.calls[1][1]).toBeCloseTo(1200 * Math.sqrt(0.4), 5);
+    expect((upload.mock.calls[1][0] as File).size).toBe(small.size);
+  });
+
+  it('does not render again when the first render fits the upload limit', async () => {
+    const postOrder = vi
+      .fn<FlowDeps['postOrder']>()
+      .mockResolvedValueOnce({ ok: false, error: 'needs_raster', message: '' })
+      .mockResolvedValueOnce(okOrder);
+    const d = deps({ postOrder, upload: vi.fn<FlowDeps['upload']>().mockResolvedValue(okUpload('u1')) });
+    await submitOrderFlow(input(), { orderId: 'id', rastered: false }, d);
+    expect(d.rasterise).toHaveBeenCalledTimes(1);
   });
 
   it('does not loop on a second needs_raster', async () => {

@@ -39,6 +39,8 @@ export const pages = {
       custom: {
         title: 'شكل مخصص',
         body: 'فراغ {gap} ملم بين الستيكرات. يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم.',
+        /** Shown after the columns/rows sentences when the horizontal and vertical gaps differ. */
+        png: 'يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم.',
       },
     },
     examplesTitle: 'شكد يدخل بالورقة؟',

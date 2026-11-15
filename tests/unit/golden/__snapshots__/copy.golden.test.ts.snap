@@ -20,6 +20,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{min} x1",
   "{n} x3",
   "{name} x4",
+  "{no} x1",
   "{pages} x1",
   "{percent} x4",
   "{price} x1",
@@ -66,7 +67,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
       "material": "الخامة",
       "total": "الإجمالي",
       "status": "الحالة",
-      "telegram": "تيليغرام"
+      "telegram": "تيليغرام",
+      "preview": "المعاينة"
     },
     "totalUnset": "يُحدد عند التأكيد",
     "missing": "—",
@@ -80,6 +82,11 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "telegramFailed": "فشل تيليغرام",
     "telegramSkipped": "تيليغرام غير مفعّل"
   },
+  "preview": {
+    "loading": "جاري تحميل المعاينة…",
+    "error": "ما گدرنا نعرض المعاينة",
+    "label": "معاينة ورقة الطلب {no}"
+  },
   "detail": {
     "back": "رجوع للطلبات",
     "summary": "ملخص الطلب",
@@ -91,6 +98,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "landmark": "أقرب نقطة دالة",
     "notes": "ملاحظات",
     "files": "الملفات",
+    "preview": "معاينة الورقة",
     "shape": "الشكل",
     "size": "القياس",
     "perSheet": "بالورقة",
@@ -266,12 +274,16 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "deliveryFee": "التوصيل (د.ع) — ثابت لكل المحافظات",
     "pricesPublished": "إظهار الأسعار للزبائن",
     "layout": "إعدادات الترتيب",
+    "spacingHint": "لكل شكل هامش وفراغ خاص بيه. الهامش من حافة الورقة، والفراغ بين الستيكرات.",
+    "shapeHeading": {
+      "circle": "دائري",
+      "rounded": "مستطيل بزوايا دائرية",
+      "sharp": "مستطيل بزوايا حادة",
+      "custom": "شكل مخصص"
+    },
     "margin": "هامش الورقة (ملم)",
-    "circleGapX": "فراغ الدوائر أفقياً (ملم)",
-    "circleGapY": "فراغ الدوائر عمودياً (ملم)",
-    "roundedGap": "فراغ المستطيل (زوايا دائرية) (ملم)",
-    "sharpGap": "فراغ المستطيل (زوايا حادة) (ملم)",
-    "customGap": "فراغ الشكل المخصص (ملم)",
+    "gapX": "فراغ أفقي (ملم)",
+    "gapY": "فراغ عمودي (ملم)",
     "roundedRadius": "نصف قطر الزوايا (ملم)",
     "allowRotate": "السماح بالتدوير لزيادة العدد",
     "retentionDays": "الاحتفاظ بالملفات (يوم)"
@@ -283,13 +295,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2741,
+  "chars": 2841,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 18,
-  "sha256OfRawJson": "4dc66503f98ba155917fd9025e776f9301cb9c4fbc218cb6376428a7758b1fec",
-  "strings": 203,
+  "objects": 20,
+  "sha256OfRawJson": "548915f45af144032369aa0eb61c646114b2eb9a032e6033b83f6c1d848330e9",
+  "strings": 210,
 }
 `;
 
@@ -788,7 +800,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
       },
       "custom": {
         "title": "شكل مخصص",
-        "body": "فراغ {gap} ملم بين الستيكرات. يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم."
+        "body": "فراغ {gap} ملم بين الستيكرات. يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم.",
+        "png": "يحتاج PNG بخلفية شفافة حتى نقص على حدود التصميم."
       }
     },
     "examplesTitle": "شكد يدخل بالورقة؟",
@@ -868,13 +881,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1943,
+  "chars": 1991,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "abdc3f4173db650123007b83cbd8b98d87838f89e7927ca1f7566a4df5fac9f3",
-  "strings": 86,
+  "sha256OfRawJson": "0e36b98888308ed7e294eae6401def6d15db6572949c950548ac0c96f5f89a9e",
+  "strings": 87,
 }
 `;
 

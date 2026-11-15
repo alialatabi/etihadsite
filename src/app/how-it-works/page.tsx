@@ -6,6 +6,7 @@ import { CtaLink } from '@/components/shell/CtaLink';
 import { WhatsAppCard } from '@/components/WhatsAppButton';
 import { whatsappLink } from '@/components/shell/whatsapp';
 import { getSettings } from '@/lib/settings';
+import { SHAPE_KEYS, resolveShapeSpacing, type ShapeKey, type ShapeSpacing } from '@/lib/layout/spacing';
 import { count, countLabel } from '@/lib/plural';
 import { enabledMaterials, formatIqd } from '@/lib/pricing';
 import { A4_UM, umToMm, umToCm } from '@/lib/units';
@@ -61,11 +62,26 @@ export default async function HowItWorksPage() {
   const sheet = illustrationLayout(lay);
   const sheetLabel = sheet ? fill(t.illustrationAlt, { n: sheet.countPerSheet }) : '';
 
-  const marginMm = umToMm(lay.marginUm);
+  // Every shape has its own margin and gaps. The margin stat shows one value when all shapes agree
+  // and a min–max range otherwise; the usable area is the one of the illustration's shape (circle).
+  const spacing = Object.fromEntries(SHAPE_KEYS.map((k) => [k, resolveShapeSpacing(lay, k)])) as Record<ShapeKey, ShapeSpacing>;
+  const marginsMm = SHAPE_KEYS.map((k) => umToMm(spacing[k].marginUm));
+  const minMarginMm = Math.min(...marginsMm);
+  const maxMarginMm = Math.max(...marginsMm);
+  const marginText = minMarginMm === maxMarginMm ? minMarginMm : `${minMarginMm}–${maxMarginMm}`;
+  const illustrationMarginUm = spacing.circle.marginUm;
   const pageW = umToCm(A4_UM.widthUm);
   const pageH = umToCm(A4_UM.heightUm);
-  const usableW = umToCm(A4_UM.widthUm - 2 * lay.marginUm);
-  const usableH = umToCm(A4_UM.heightUm - 2 * lay.marginUm);
+  const usableW = umToCm(A4_UM.widthUm - 2 * illustrationMarginUm);
+  const usableH = umToCm(A4_UM.heightUm - 2 * illustrationMarginUm);
+
+  /** "gap between columns" plus "gap between rows" sentence, for a shape whose two gaps differ. */
+  const columnsAndRows = (sp: ShapeSpacing) => (
+    <>
+      {fillLtr(t.rules.circle.columns, { gapX: umToMm(sp.gapXUm) })}{' '}
+      {sp.gapYUm === 0 ? t.rules.circle.rowsTouching : fillLtr(t.rules.circle.rowsGap, { gapY: umToMm(sp.gapYUm) })}
+    </>
+  );
 
   const exampleLabel = (e: (typeof examples)[number]) => {
     const key = e.key;
@@ -138,7 +154,7 @@ export default async function HowItWorksPage() {
               </span>
             </SpecRow>
             <SpecRow label={t.spec.margin}>
-              <Ltr>{marginMm}</Ltr> {common.units.mm}
+              <Ltr>{marginText}</Ltr> {common.units.mm}
             </SpecRow>
             <SpecRow label={t.spec.usable}>
               <Ltr>
@@ -173,15 +189,27 @@ export default async function HowItWorksPage() {
           <h2 className="text-2xl font-bold">{t.rulesTitle}</h2>
           <p className="mt-2 text-muted-foreground">{t.rulesIntro}</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <RuleCard title={t.rules.circle.title}>
-              {fillLtr(t.rules.circle.columns, { gapX: umToMm(lay.circleGapXUm) })}{' '}
-              {lay.circleGapYUm === 0
-                ? t.rules.circle.rowsTouching
-                : fillLtr(t.rules.circle.rowsGap, { gapY: umToMm(lay.circleGapYUm) })}
+            <RuleCard title={t.rules.circle.title}>{columnsAndRows(spacing.circle)}</RuleCard>
+            <RuleCard title={t.rules.rounded.title}>
+              {spacing.rounded.gapXUm === spacing.rounded.gapYUm
+                ? fillLtr(t.rules.rounded.body, { gap: umToMm(spacing.rounded.gapXUm) })
+                : columnsAndRows(spacing.rounded)}
             </RuleCard>
-            <RuleCard title={t.rules.rounded.title}>{fillLtr(t.rules.rounded.body, { gap: umToMm(lay.rectRoundedGapUm) })}</RuleCard>
-            <RuleCard title={t.rules.sharp.title}>{fillLtr(t.rules.sharp.body, { gap: umToMm(lay.rectSharpGapUm) })}</RuleCard>
-            <RuleCard title={t.rules.custom.title}>{fillLtr(t.rules.custom.body, { gap: umToMm(lay.customGapUm) })}</RuleCard>
+            <RuleCard title={t.rules.sharp.title}>
+              {spacing.sharp.gapXUm !== spacing.sharp.gapYUm
+                ? columnsAndRows(spacing.sharp)
+                : // "No gap" copy only while the gap really is 0; otherwise the plain gap sentence.
+                  fillLtr(spacing.sharp.gapXUm > 0 ? t.rules.rounded.body : t.rules.sharp.body, { gap: umToMm(spacing.sharp.gapXUm) })}
+            </RuleCard>
+            <RuleCard title={t.rules.custom.title}>
+              {spacing.custom.gapXUm === spacing.custom.gapYUm
+                ? fillLtr(t.rules.custom.body, { gap: umToMm(spacing.custom.gapXUm) })
+                : (
+                  <>
+                    {columnsAndRows(spacing.custom)} {t.rules.custom.png}
+                  </>
+                )}
+            </RuleCard>
           </div>
         </div>
       </section>

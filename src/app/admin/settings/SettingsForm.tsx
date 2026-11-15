@@ -10,7 +10,8 @@ import { MAX_DISCOUNT_TIERS, MAX_TIER_PERCENT } from '@/lib/storage/settings-lim
 import { MATERIALS, type ShopSettings } from '@/lib/types';
 import { umToMm } from '@/lib/units';
 import { saveSettingsAction, type SettingsFormState } from '../actions';
-import { LAYOUT_MM_FIELDS } from './fields';
+import { resolveShapeSpacing } from '@/lib/layout/spacing';
+import { RADIUS_FIELD, SHAPE_SPACING_FIELDS } from './fields';
 
 interface TierRow {
   minSheets: string;
@@ -137,13 +138,26 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
         <CardHeader>
           <CardTitle>{s.layout}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          {LAYOUT_MM_FIELDS.map(({ name, key }) => (
-            <Field key={name} name={name} label={s[name]} defaultValue={String(umToMm(settings.layout[key]))} type="number" dir="ltr" />
-          ))}
-          <Field name="retentionDays" label={s.retentionDays} defaultValue={String(settings.retentionDays)} type="number" dir="ltr" />
-          <div className="flex items-end pb-1.5">
-            <Check name="allowRotate" label={s.allowRotate} defaultChecked={settings.layout.allowRotate} />
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">{s.spacingHint}</p>
+          {SHAPE_SPACING_FIELDS.map(({ shape, margin, gapX, gapY }) => {
+            // Prefill with what is in effect today (fallbacks applied), not with the raw stored keys.
+            const now = resolveShapeSpacing(settings.layout, shape);
+            return (
+              <fieldset key={shape} className="grid gap-3 rounded-lg border p-3 md:grid-cols-3">
+                <legend className="px-1 font-medium">{s.shapeHeading[shape]}</legend>
+                <Field name={margin.name} label={s.margin} defaultValue={String(umToMm(now.marginUm))} type="number" dir="ltr" />
+                <Field name={gapX.name} label={s.gapX} defaultValue={String(umToMm(now.gapXUm))} type="number" dir="ltr" />
+                <Field name={gapY.name} label={s.gapY} defaultValue={String(umToMm(now.gapYUm))} type="number" dir="ltr" />
+              </fieldset>
+            );
+          })}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field name={RADIUS_FIELD.name} label={s.roundedRadius} defaultValue={String(umToMm(settings.layout[RADIUS_FIELD.key]))} type="number" dir="ltr" />
+            <Field name="retentionDays" label={s.retentionDays} defaultValue={String(settings.retentionDays)} type="number" dir="ltr" />
+            <div className="flex items-end pb-1.5">
+              <Check name="allowRotate" label={s.allowRotate} defaultChecked={settings.layout.allowRotate} />
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -23,6 +23,14 @@ const FLOW_STYLE: { icon: LucideIcon; className: string }[] = [
 
 const flow = builder.hero.flow;
 
+/**
+ * Every step pill is a link down to the order form, which opens on the shape choice (owner request:
+ * customers kept tapping the pills). The pills sit inside aria-hidden copies of the sr-only <h1>, so they
+ * are taken out of the tab order; keyboard and screen-reader users reach the form next anyway.
+ */
+const TO_SHAPE = '#builder';
+const LINK = 'cursor-pointer transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0';
+
 /** Desktop / tablet: one row, arrows pointing to the next step (left, RTL). */
 function FlowRow() {
   return (
@@ -32,10 +40,10 @@ function FlowRow() {
         return (
           <Fragment key={label}>
             {i > 0 && <ArrowLeft className="size-6 shrink-0 text-muted-foreground md:size-7" />}
-            <span className={cn('inline-flex items-center gap-2 rounded-2xl px-4 py-2.5', className)}>
+            <a href={TO_SHAPE} tabIndex={-1} className={cn('inline-flex items-center gap-2 rounded-2xl px-4 py-2.5', LINK, className)}>
               <Icon className="size-6 shrink-0" />
               {label}
-            </span>
+            </a>
           </Fragment>
         );
       })}
@@ -46,10 +54,10 @@ function FlowRow() {
 function Tile({ i }: { i: number }) {
   const { icon: Icon, className } = FLOW_STYLE[i];
   return (
-    <span className={cn('flex h-16 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-center', className)}>
+    <a href={TO_SHAPE} tabIndex={-1} className={cn('flex h-16 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-center', LINK, className)}>
       <Icon className="size-5 shrink-0" />
       <span className="text-sm font-bold leading-tight">{flow[i]}</span>
-    </span>
+    </a>
   );
 }
 

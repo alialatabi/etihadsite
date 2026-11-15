@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { rasterisePdfPage } from '@/lib/design/decode.client';
 import { uploadLimitMb } from '@/lib/upload-limit';
+import { PRINT_DPI } from '@/lib/print-dpi';
 import { clearForm, saveSuccess } from './logic';
 import { logClient } from './logClient';
 import { postOrder, uploadWithProgress } from './orderApi';
@@ -19,7 +20,7 @@ export interface SubmitState {
   message: string | null;
 }
 
-export function useSubmitOrder(targetDpi: number, maxUploadBytes: number) {
+export function useSubmitOrder(maxUploadBytes: number) {
   const router = useRouter();
   const [state, setState] = useState<SubmitState>({ phase: 'idle', progress: 0, message: null });
   const ctxRef = useRef<AttemptContext | null>(null);
@@ -36,7 +37,7 @@ export function useSubmitOrder(targetDpi: number, maxUploadBytes: number) {
         upload: uploadWithProgress,
         postOrder,
         rasterise: rasterisePdfPage,
-        targetDpi,
+        targetDpi: PRINT_DPI,
         maxUploadMb: uploadLimitMb(maxUploadBytes),
         onPhase: (phase) => setState((s) => ({ ...s, phase, progress: phase === 'processing' ? 1 : 0 })),
         // The UI shows whole percents: keep the same state object (no re-render) until that changes.
@@ -63,7 +64,7 @@ export function useSubmitOrder(targetDpi: number, maxUploadBytes: number) {
         setState({ phase: 'failed', progress: 0, message: result.message });
       }
     },
-    [router, targetDpi, maxUploadBytes],
+    [router, maxUploadBytes],
   );
 
   return { state, submit };

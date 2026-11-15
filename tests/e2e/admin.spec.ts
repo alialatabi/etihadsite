@@ -65,21 +65,22 @@ test('admin: auth, orders, detail, pdf, status, settings', async ({ page }, info
   await page.goto('/admin/settings');
   await expect(page.getByLabel(admin.settings.deliveryFee)).toHaveValue('5000');
 
-  // Margin round-trip: 3 → 8 mm (reflected on the public how-it-works page) → back to 3.
-  const margin = page.getByLabel(admin.settings.margin);
-  await expect(margin).toHaveValue('3');
-  await margin.fill('8');
-  await page.getByRole('button', { name: admin.settings.save, exact: true }).click();
-  await expect(page.getByText(admin.settings.saved)).toBeVisible();
-  await page.goto('/admin/settings');
-  await expect(page.getByLabel(admin.settings.margin)).toHaveValue('8');
+  // Margin round-trip: every shape's margin 3 → 8 mm (reflected on the public how-it-works page) → back to 3.
+  const marginIds = ['#circleMargin', '#roundedMargin', '#sharpMargin', '#customMargin'];
+  const save = async () => {
+    await page.getByRole('button', { name: admin.settings.save, exact: true }).click();
+    await expect(page.getByText(admin.settings.saved)).toBeVisible();
+    await page.goto('/admin/settings');
+  };
+  for (const id of marginIds) await expect(page.locator(id)).toHaveValue('3');
+  for (const id of marginIds) await page.locator(id).fill('8');
+  await save();
+  for (const id of marginIds) await expect(page.locator(id)).toHaveValue('8');
   await page.goto('/how-it-works');
   await expect(page.getByText(`8 ${common.units.mm}`, { exact: true })).toBeVisible();
   await page.goto('/admin/settings');
-  await page.getByLabel(admin.settings.margin).fill('3');
-  await page.getByRole('button', { name: admin.settings.save, exact: true }).click();
-  await expect(page.getByText(admin.settings.saved)).toBeVisible();
-  await page.goto('/admin/settings');
-  await expect(page.getByLabel(admin.settings.margin)).toHaveValue('3');
+  for (const id of marginIds) await page.locator(id).fill('3');
+  await save();
+  for (const id of marginIds) await expect(page.locator(id)).toHaveValue('3');
   });
 });

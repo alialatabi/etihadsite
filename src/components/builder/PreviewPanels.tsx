@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Maximize2 } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { umToMm } from '@/lib/units';
+import { resolveShapeSpacing, shapeKeyOf } from '@/lib/layout/spacing';
 import { fillLtr } from '@/components/fill-ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,24 @@ import type { LayoutResult } from '@/lib/types';
 const STRIP_REVEAL_ROOT_MARGIN = '-64px 0px 0px 0px';
 
 /** The page-margin hint shown under the sheet (panel) and in the full-screen dialog. */
-const marginHintNodes = (b: BuilderApi) => fillLtr(builder.preview.marginHint, { margin: umToMm(b.settings.layout.marginUm) });
+const marginHintNodes = (b: BuilderApi) => {
+  const lay = b.settings.layout;
+  // The margin of the shape being built (known as soon as the shape is picked, before a size is
+  // typed); the general margin only while no shape is chosen.
+  const key = b.spec
+    ? shapeKeyOf(b.spec)
+    : b.shape === 'circle'
+      ? 'circle'
+      : b.shape === 'rect'
+        ? b.corners === 'sharp'
+          ? 'sharp'
+          : 'rounded'
+        : b.shape
+          ? 'custom'
+          : null;
+  const marginUm = key ? resolveShapeSpacing(lay, key).marginUm : lay.marginUm;
+  return fillLtr(builder.preview.marginHint, { margin: umToMm(marginUm) });
+};
 
 /** Desktop (≥ lg): sticky side panel. */
 export function PreviewPanel({ b }: { b: BuilderApi }) {

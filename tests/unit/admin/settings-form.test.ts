@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseSettingsForm } from '@/app/admin/settings/parse-form';
+import { LAYOUT_MM_FIELDS } from '@/app/admin/settings/fields';
 import { admin } from '@/content/ar';
 import type { ShopSettings } from '@/lib/types';
 
@@ -41,6 +42,13 @@ const CURRENT: ShopSettings = {
     rectRoundedGapUm: 2_500,
     rectSharpGapUm: 1_000,
     customGapUm: 1_500,
+    circleMarginUm: 4_000,
+    roundedMarginUm: 5_000,
+    sharpMarginUm: 6_000,
+    customMarginUm: 8_000,
+    rectRoundedGapYUm: 1_500,
+    rectSharpGapYUm: 750,
+    customGapYUm: 2_200,
     roundedRadiusUm: 3_000,
     allowRotate: false,
     minSideUm: 6_000,
@@ -81,12 +89,18 @@ function formOf(overrides: Overrides = {}): FormData {
     quickPicks: c.pricing.quickPicks.join(','),
     deliveryFeeIqd: String(c.deliveryFeeIqd),
     pricesPublished: on(c.pricesPublished),
-    margin: mm(c.layout.marginUm),
+    circleMargin: mm(c.layout.circleMarginUm!),
     circleGapX: mm(c.layout.circleGapXUm),
     circleGapY: mm(c.layout.circleGapYUm),
-    roundedGap: mm(c.layout.rectRoundedGapUm),
-    sharpGap: mm(c.layout.rectSharpGapUm),
-    customGap: mm(c.layout.customGapUm),
+    roundedMargin: mm(c.layout.roundedMarginUm!),
+    roundedGapX: mm(c.layout.rectRoundedGapUm),
+    roundedGapY: mm(c.layout.rectRoundedGapYUm!),
+    sharpMargin: mm(c.layout.sharpMarginUm!),
+    sharpGapX: mm(c.layout.rectSharpGapUm),
+    sharpGapY: mm(c.layout.rectSharpGapYUm!),
+    customMargin: mm(c.layout.customMarginUm!),
+    customGapX: mm(c.layout.customGapUm),
+    customGapY: mm(c.layout.customGapYUm!),
     roundedRadius: mm(c.layout.roundedRadiusUm),
     retentionDays: String(c.retentionDays),
     allowRotate: on(c.layout.allowRotate),
@@ -242,7 +256,9 @@ describe('parseSettingsForm: each check', () => {
   });
 
   it('layout millimetres: blank, not a number, negative or too large is invalid', () => {
-    for (const name of ['margin', 'circleGapX', 'circleGapY', 'roundedGap', 'sharpGap', 'customGap', 'roundedRadius']) {
+    const names = [...LAYOUT_MM_FIELDS.map((f) => f.name)];
+    expect(names).toHaveLength(13);
+    for (const name of names) {
       expect(errorOf({ [name]: '' }), `${name} blank`).toBe(INVALID);
       expect(errorOf({ [name]: 'abc' }), `${name} abc`).toBe(INVALID);
       expect(errorOf({ [name]: '-1' }), `${name} -1`).toBe(INVALID);
@@ -265,22 +281,36 @@ describe('parseSettingsForm: accepted form', () => {
 
   it('millimetres become whole micrometres, each field in its own key', () => {
     const s = settingsOf({
-      margin: '7.5',
+      circleMargin: '7.5',
       circleGapX: '1.25',
       circleGapY: '0.5',
-      roundedGap: '3',
-      sharpGap: '1',
-      customGap: '0',
+      roundedMargin: '3',
+      roundedGapX: '3',
+      roundedGapY: '4',
+      sharpMargin: '2',
+      sharpGapX: '1',
+      sharpGapY: '0',
+      customMargin: '9',
+      customGapX: '0',
+      customGapY: '6',
       roundedRadius: '2.3',
       allowRotate: 'on',
     });
     expect(s.layout).toEqual({
-      marginUm: 7_500,
+      // The general margin is not on the form: it stays as stored (the fallback).
+      marginUm: 7_000,
+      circleMarginUm: 7_500,
       circleGapXUm: 1_250,
       circleGapYUm: 500,
+      roundedMarginUm: 3_000,
       rectRoundedGapUm: 3_000,
+      rectRoundedGapYUm: 4_000,
+      sharpMarginUm: 2_000,
       rectSharpGapUm: 1_000,
+      rectSharpGapYUm: 0,
+      customMarginUm: 9_000,
       customGapUm: 0,
+      customGapYUm: 6_000,
       roundedRadiusUm: 2_300,
       allowRotate: true,
       minSideUm: 6_000,
@@ -304,7 +334,7 @@ describe('parseSettingsForm: accepted form', () => {
   });
 
   it('what the form does not carry is kept from the stored settings', () => {
-    const s = settingsOf({ shopName: 'Other', margin: '9', paperPrice: '1000', pricesPublished: null });
+    const s = settingsOf({ shopName: 'Other', circleMargin: '9', paperPrice: '1000', pricesPublished: null });
     expect(s.quality).toEqual(CURRENT.quality);
     expect(s.maxUploadBytes).toBe(CURRENT.maxUploadBytes);
     expect(s.layout.minSideUm).toBe(CURRENT.layout.minSideUm);
@@ -313,7 +343,7 @@ describe('parseSettingsForm: accepted form', () => {
 
   it('does not change the stored settings object it was given', () => {
     const before = structuredClone(CURRENT);
-    parse({ shopName: 'Other', margin: '9', tiers: '[]', quickPicks: '' });
+    parse({ shopName: 'Other', circleMargin: '9', tiers: '[]', quickPicks: '' });
     parse({ paperPrice: 'x' });
     expect(CURRENT).toEqual(before);
   });

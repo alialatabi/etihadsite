@@ -239,7 +239,7 @@ describe('prepareArtwork pdf', () => {
     rasterise.mockResolvedValue(new Blob([new Uint8Array(page)], { type: 'image/png' }));
     const r = await prepareArtwork(source(junkPdf, 'pdf', { px: [100, 100], hasAlpha: false }), rect(60, 40), 300);
     if (!r.ok) throw new Error(r.error);
-    expect(rasterise).toHaveBeenCalledWith(expect.any(File), 300);
+    expect(rasterise).toHaveBeenCalledWith(expect.any(File), 300, expect.objectContaining({ widthUm: expect.any(Number) }));
     const a = raster(r.artwork);
     expect([a.mime, a.pxWidth, a.pxHeight, a.hasAlpha]).toEqual(['image/jpeg', 600, 400, false]);
   });

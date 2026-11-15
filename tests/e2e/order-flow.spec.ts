@@ -31,7 +31,7 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
 
   // 1050 / 54 per sheet = 19.4 -> 20 sheets: the customer receives 1080 stickers.
   await chooseQuantity(page, 'plastic', 1050);
-  await expect(page.getByText(builder.quantity.receive)).toContainText('1,080');
+  await expect(page.locator('#qty-result')).toContainText('1,080');
   await snap(page, info, '05-quantity');
   await next(page).click();
 

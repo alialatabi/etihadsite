@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { SheetPdfPreview } from '@/components/admin/SheetPdfPreview';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -150,6 +151,15 @@ export default async function OrderDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{d.preview}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

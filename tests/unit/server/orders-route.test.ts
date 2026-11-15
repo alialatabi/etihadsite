@@ -247,6 +247,21 @@ describe("POST /api/orders", () => {
     expect(notifyShop).toHaveBeenCalledTimes(1);
   });
 
+  it("normalises at 1200 DPI and falls back to a lower DPI only when the sheet PDF is over the storage limit", async () => {
+    const huge = { bytes: new Uint8Array(15 * 1024 * 1024), report: {} };
+    buildSheetPdf.mockReset().mockResolvedValueOnce(huge).mockResolvedValue({ bytes: new Uint8Array([0x25]), report: {} });
+    const r = await json(await call(body({ orderId: "order-bigpdfaaaaaaaaaa" })));
+    expect(r.ok).toBe(true);
+    expect(normaliseArtwork.mock.calls.map((c) => (c[1] as { targetDpi: number }).targetDpi)).toEqual([1200, 600]);
+    expect(buildSheetPdf).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not re-normalise when the sheet PDF fits", async () => {
+    await call(body({ orderId: "order-smallpdfaaaaaaaa" }));
+    expect(normaliseArtwork).toHaveBeenCalledTimes(1);
+    expect((normaliseArtwork.mock.calls[0][1] as { targetDpi: number }).targetDpi).toBe(1200);
+  });
+
   it("returns an empty whatsappUrl when the shop has no WhatsApp", async () => {
     await getStorage().saveSettings({
       ...DEFAULT_SETTINGS,

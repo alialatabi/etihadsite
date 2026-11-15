@@ -64,14 +64,14 @@ const rec = (over: Partial<OrderRecord["customer"]> = {}): OrderRecord => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("telegram caption", () => {
-  it("shows the typed sticker count next to sheets and total stickers, only when present", () => {
+  it("has exactly the owner's lines, in order: sheets, material, shape, address, phone, total", () => {
     const r = rec();
-    const withCount = buildCaption({ ...r, price: { ...r.price, sheets: 12, totalStickers: 648, requestedStickers: 600 } }, DEFAULT_SETTINGS);
-    const lines = withCount.split("\n");
-    const i = lines.indexOf("العدد المطلوب: 600");
-    expect(i).toBeGreaterThan(0);
-    expect(lines.slice(i, i + 3)).toEqual(["العدد المطلوب: 600", "الأوراق: 12", "مجموع الستيكرات: 648"]);
-    expect(buildCaption(r, DEFAULT_SETTINGS)).not.toContain("العدد المطلوب");
+    const c = buildCaption({ ...r, price: { ...r.price, sheets: 12, totalStickers: 648, requestedStickers: 600 } }, DEFAULT_SETTINGS);
+    const labels = c.split("\n").slice(1).map((l) => l.split(":")[0]);
+    expect(labels).toEqual(["الأوراق", "الخامة", "الشكل", "العنوان", "الموبايل", "الإجمالي"]);
+    expect(c).toContain("الأوراق: 12");
+    expect(c).not.toContain("العدد المطلوب");
+    expect(c).not.toContain("مجموع الستيكرات");
   });
 
   it("stays valid HTML and under 1024 chars when fields are full of < > &", () => {
@@ -88,7 +88,6 @@ describe("telegram caption", () => {
     );
     expect(c.length).toBeLessThanOrEqual(1024);
     expect(c).not.toMatch(/&(?!(amp|lt|gt);)/);
-    expect(c).toContain("…");
     for (const line of c.split("\n")) {
       expect((line.match(/<b>/g) ?? []).length).toBe(
         (line.match(/<\/b>/g) ?? []).length,
@@ -99,7 +98,7 @@ describe("telegram caption", () => {
     }
   });
 
-  it("drops notes entirely when the budgeted fields still overflow", () => {
+  it("never shows the customer name or notes", () => {
     const c = buildCaption(
       rec({
         name: "<".repeat(60),
@@ -118,7 +117,7 @@ describe("telegram caption", () => {
     const c = buildCaption(rec({ notes: "ن".repeat(3000) }), DEFAULT_SETTINGS);
     expect(c).toContain('href="tel:+9647701234567"');
     expect(c).toContain('href="https://wa.me/9647701234567"');
-    expect(c).toContain("علي &lt;b&gt;");
+    expect(c).not.toContain("علي");
     expect(c).toContain("يُحدد عند التأكيد");
     expect(c.length).toBeLessThanOrEqual(1024);
   });
