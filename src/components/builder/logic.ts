@@ -6,7 +6,7 @@ import { effectiveDpi, ptToUm } from '@/lib/units';
 import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
-import { activeTier, maxStickers, minStickers, sortedTiers } from '@/lib/pricing';
+import { activeTier, maxStickers, minStickers, sortedTiers, totalBeforeDiscountIqd } from '@/lib/pricing';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
   BuilderStep,
@@ -145,9 +145,11 @@ export function toCustomerInfo(f: FormFields, phoneE164: string): CustomerInfo {
   };
 }
 
-export type SummaryData = Omit<OrderSummary, 'displayNo'>;
+/** What the summary card shows. totalBeforeDiscountIqd is display-only (null/absent: no discount or no published price). */
+export type SummaryData = Omit<OrderSummary, 'displayNo'> & { totalBeforeDiscountIqd?: number | null };
 
 export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: PriceBreakdown): SummaryData {
+  const beforeDiscount = totalBeforeDiscountIqd(price);
   return {
     shape: spec.shape,
     corners: spec.shape === 'rect' ? spec.corners : undefined,
@@ -162,6 +164,7 @@ export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: Pri
     subtotalIqd: price.subtotalIqd,
     deliveryFeeIqd: price.deliveryFeeIqd,
     totalIqd: price.totalIqd,
+    ...(beforeDiscount !== null ? { totalBeforeDiscountIqd: beforeDiscount } : {}),
     ...(price.requestedStickers !== undefined ? { requestedStickers: price.requestedStickers } : {}),
   };
 }

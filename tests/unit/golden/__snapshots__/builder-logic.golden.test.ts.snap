@@ -18,6 +18,7 @@ exports[`golden: buildSummary > key order and undefined corners are part of the 
     "subtotalIqd",
     "deliveryFeeIqd",
     "totalIqd",
+    "totalBeforeDiscountIqd",
   ],
 }
 `;
@@ -49,6 +50,7 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "shape": "circle",
     "sheets": 20,
     "subtotalIqd": 14000,
+    "totalBeforeDiscountIqd": 21000,
     "totalIqd": 19000,
     "totalStickers": 1080,
     "unitPriceIqd": 720,
@@ -109,6 +111,7 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "shape": "rect",
     "sheets": 50,
     "subtotalIqd": 64000,
+    "totalBeforeDiscountIqd": 80000,
     "totalIqd": 69000,
     "totalStickers": 1350,
     "unitPriceIqd": 1275,
@@ -124,6 +127,7 @@ exports[`golden: buildSummary > via the real layout + pricing pipeline 1`] = `
     "shape": "rect",
     "sheets": 100,
     "subtotalIqd": 64000,
+    "totalBeforeDiscountIqd": 85000,
     "totalIqd": 69000,
     "totalStickers": 3600,
     "unitPriceIqd": 640,

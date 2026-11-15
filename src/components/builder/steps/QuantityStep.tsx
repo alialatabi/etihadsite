@@ -9,7 +9,7 @@ import { fillLtr } from '@/components/fill-ltr';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { whatsappUrl } from '@/lib/parse/phone';
-import { PRICE_ROUND_IQD, maxStickers, minStickers } from '@/lib/pricing';
+import { PRICE_ROUND_IQD, maxStickers, minStickers, totalBeforeDiscountIqd } from '@/lib/pricing';
 import { count, formatCount } from '@/lib/plural';
 import { cn } from '@/lib/utils';
 import { activeTier, nextTierNudgeStickers, quickPickStickers, sortedTiers } from '../logic';
@@ -266,6 +266,7 @@ function PriceRow({ label, children, strong }: { label: ReactNode; children: Rea
 function PriceBox({ b }: { b: BuilderApi }) {
   const p = b.price;
   if (!p) return null;
+  const beforeDiscount = totalBeforeDiscountIqd(p);
   return (
     <section aria-live="polite" className="rounded-2xl border bg-card p-4">
       <dl className="divide-y">
@@ -298,9 +299,20 @@ function PriceBox({ b }: { b: BuilderApi }) {
           </PriceRow>
         )}
         <PriceRow label={builder.quantity.delivery}><Money amount={p.deliveryFeeIqd} /></PriceRow>
-        <PriceRow label={builder.quantity.total} strong>
-          {p.totalIqd !== null ? <span className="text-xl text-brand"><Money amount={p.totalIqd} /></span> : builder.quantity.priceUnset}
-        </PriceRow>
+        {beforeDiscount !== null && p.totalIqd !== null ? (
+          <>
+            <PriceRow label={builder.quantity.totalBefore}>
+              <span className="text-muted-foreground line-through"><Money amount={beforeDiscount} /></span>
+            </PriceRow>
+            <PriceRow label={builder.quantity.totalAfter} strong>
+              <span className="text-xl text-brand"><Money amount={p.totalIqd} /></span>
+            </PriceRow>
+          </>
+        ) : (
+          <PriceRow label={builder.quantity.total} strong>
+            {p.totalIqd !== null ? <span className="text-xl text-brand"><Money amount={p.totalIqd} /></span> : builder.quantity.priceUnset}
+          </PriceRow>
+        )}
       </dl>
       {p.perStickerIqd !== null && (
         <p className="text-xs text-muted-foreground">{fillLtr(builder.quantity.perSticker, { price: <Money amount={p.perStickerIqd} /> })}</p>

@@ -47,9 +47,20 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
         )}
         {summary.subtotalIqd != null && <Row label={builder.summary.subtotal}><Money amount={summary.subtotalIqd} /></Row>}
         <Row label={builder.summary.delivery}><Money amount={summary.deliveryFeeIqd} /></Row>
-        <Row label={builder.summary.total} strong>
-          {summary.totalIqd == null ? builder.summary.priceUnset : <Money amount={summary.totalIqd} />}
-        </Row>
+        {summary.totalBeforeDiscountIqd != null && summary.totalIqd != null ? (
+          <>
+            <Row label={builder.summary.totalBefore}>
+              <span className="text-muted-foreground line-through"><Money amount={summary.totalBeforeDiscountIqd} /></span>
+            </Row>
+            <Row label={builder.summary.totalAfter} strong>
+              <Money amount={summary.totalIqd} />
+            </Row>
+          </>
+        ) : (
+          <Row label={builder.summary.total} strong>
+            {summary.totalIqd == null ? builder.summary.priceUnset : <Money amount={summary.totalIqd} />}
+          </Row>
+        )}
       </dl>
     </section>
   );

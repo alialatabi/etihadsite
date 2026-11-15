@@ -105,6 +105,8 @@ export const builder = {
     delivery: 'التوصيل',
     deliveryNote: 'توصيل ثابت لكل المحافظات',
     total: 'الإجمالي',
+    totalBefore: 'الإجمالي قبل الخصم',
+    totalAfter: 'الإجمالي بعد الخصم',
     receive: 'ستستلم',
     roundingNote: 'الإجمالي مقرّب لأقرب {step}',
     perSticker: 'حوالي {price} للستيكر',
@@ -155,6 +157,8 @@ export const builder = {
     subtotal: 'سعر الأوراق',
     delivery: 'التوصيل',
     total: 'الإجمالي',
+    totalBefore: 'الإجمالي قبل الخصم',
+    totalAfter: 'الإجمالي بعد الخصم',
     priceUnset: 'يُحدد عند التأكيد',
   },
   success: {

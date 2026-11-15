@@ -411,6 +411,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "delivery": "التوصيل",
     "deliveryNote": "توصيل ثابت لكل المحافظات",
     "total": "الإجمالي",
+    "totalBefore": "الإجمالي قبل الخصم",
+    "totalAfter": "الإجمالي بعد الخصم",
     "receive": "ستستلم",
     "roundingNote": "الإجمالي مقرّب لأقرب {step}",
     "perSticker": "حوالي {price} للستيكر",
@@ -461,6 +463,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "subtotal": "سعر الأوراق",
     "delivery": "التوصيل",
     "total": "الإجمالي",
+    "totalBefore": "الإجمالي قبل الخصم",
+    "totalAfter": "الإجمالي بعد الخصم",
     "priceUnset": "يُحدد عند التأكيد"
   },
   "success": {
@@ -496,13 +500,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3232,
+  "chars": 3304,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 19,
-  "sha256OfRawJson": "b577efe932503306982e2c0e3f322d8341878a01433bf35913ea0775ae9f1e1b",
-  "strings": 144,
+  "sha256OfRawJson": "b3012e027f10b2ae655e663d2b74c92e493bd44cc53a209ba987bf0a639aff61",
+  "strings": 148,
 }
 `;
 

@@ -126,14 +126,36 @@ export function enabledMaterials(pricing: PricingSettings): Material[] {
   return MATERIALS.filter((m) => pricing.materials[m].enabled);
 }
 
+/** Rounded total for a per-sheet price: max(delivery, (unitPrice × sheets + delivery) rounded to PRICE_ROUND_IQD). */
+function roundedTotalIqd(unitPriceIqd: number, sheets: number, deliveryFeeIqd: number): { rawIqd: number; totalIqd: number } {
+  const rawIqd = unitPriceIqd * sheets + deliveryFeeIqd;
+  return { rawIqd, totalIqd: Math.max(deliveryFeeIqd, roundToStep(rawIqd, PRICE_ROUND_IQD)) };
+}
+
+/**
+ * The final total the same order would have WITHOUT the volume discount (same rounding as priceFor).
+ * null when there is no discount to show (discountPercent <= 0) or prices are not published (unitBaseIqd null).
+ * When the discounted `totalIqd` is passed, also null if rounding makes the before-total not greater than it
+ * (a tiny tier would otherwise show the same number twice).
+ */
+export function totalBeforeDiscountIqd(
+  p: Pick<PriceBreakdown, 'unitBaseIqd' | 'sheets' | 'deliveryFeeIqd' | 'discountPercent'> & { totalIqd?: number | null },
+): number | null {
+  if (!(p.discountPercent > 0) || p.unitBaseIqd === null) return null;
+  const before = roundedTotalIqd(unitPriceFor(p.unitBaseIqd, 0), p.sheets, p.deliveryFeeIqd).totalIqd;
+  if (p.totalIqd != null && before <= p.totalIqd) return null;
+  return before;
+}
+
 /** Price of `sheets` sheets (rounded total, see the rules at the top). Signature kept for the sheet-count path. */
 export function priceFor(material: Material, sheets: number, countPerSheet: number, settings: ShopSettings): PriceBreakdown {
   const { pricing, pricesPublished, deliveryFeeIqd } = settings;
   const discountPercent = discountFor(sheets, pricing.tiers);
   const base = pricesPublished ? pricing.materials[material].pricePerSheetIqd : null;
   const unitPriceIqd = base === null ? null : unitPriceFor(base, discountPercent);
-  const rawIqd = unitPriceIqd === null ? null : unitPriceIqd * sheets + deliveryFeeIqd;
-  const totalIqd = rawIqd === null ? null : Math.max(deliveryFeeIqd, roundToStep(rawIqd, PRICE_ROUND_IQD));
+  const rounded = unitPriceIqd === null ? null : roundedTotalIqd(unitPriceIqd, sheets, deliveryFeeIqd);
+  const rawIqd = rounded === null ? null : rounded.rawIqd;
+  const totalIqd = rounded === null ? null : rounded.totalIqd;
   const subtotalIqd = totalIqd === null ? null : totalIqd - deliveryFeeIqd;
   const roundingIqd = totalIqd === null || rawIqd === null ? null : totalIqd - rawIqd;
   const totalStickers = sheets * countPerSheet;
