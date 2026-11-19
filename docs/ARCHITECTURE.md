@@ -14,6 +14,7 @@ Pages (`src/app`):
 | `/how-it-works` | `how-it-works/page.tsx` | Sheet spec, gap rules, example counts and prices, all computed from the live settings with the real layout engine. |
 | `/order/success` | `order/success/page.tsx` | Client page. Reads the last order answer from `sessionStorage`; without one it goes back to `/`. |
 | 404 | `not-found.tsx` | |
+| Fatal error | `global-error.tsx` | Replaces the root layout when it crashes: reports the error to Sentry and shows `common.errors.generic` with a retry button. There is no `error.tsx`; this is the only error boundary. |
 | `/admin/login` | `admin/login/page.tsx` | Password form (`loginAction`). |
 | `/admin` | `admin/page.tsx` | Orders list. |
 | `/admin/orders/<orderId>` | `admin/orders/[orderId]/page.tsx` | Order detail, status form, file downloads. |
@@ -37,6 +38,8 @@ API (`src/app/api`):
 | `GET /api/cron/purge` | Daily retention purge. Needs `Authorization: Bearer $CRON_SECRET`. `?dry=1` only reports. |
 | `GET /api/admin/files/<orderId>/<pdf\|design>` | Admin download (a 302 to a 60-second signed link on Supabase). |
 | `GET /api/admin/customers` | Customer list as CSV (UTF-8 with BOM). |
+| `POST /monitoring` | Sentry tunnel: the browser sends its error events here (same origin, so ad-blockers do not drop them). Where the Node server runs the app, the Sentry SDK answers it first (`serveTunnelIntegration` in `src/sentry.server.config.ts`); on Vercel the route file `monitoring/route.ts` (`export { POST } from '@sentry/nextjs/tunnel'`) answers it. Forwards only for this site's own DSN (another DSN gets 403); while `NEXT_PUBLIC_SENTRY_DSN` is unset it answers 500 "Tunnel not configured" and forwards nothing. GET is 405, not matched by `src/proxy.ts`; `robots.ts` is golden-pinned and does not list it (crawlers only GET). See "Error monitoring (Sentry)". |
+| `POST /sentry-tunnel` | Second copy of the same route file (`app/sentry-tunnel/route.ts`), where `withSentryConfig` sends envelope requests (`content-type: application/x-sentry-envelope`) for any path the app does not serve, on Vercel only. With the file committed, the SDK does not generate one into the build. |
 
 Server actions (`src/app/admin/actions.ts`): `loginAction`, `logoutAction`, `updateOrderStatus`, `saveSettingsAction`.
 
@@ -124,6 +127,9 @@ Settings are stored as the owner saved them. On read they are deep-merged over `
 | `STAFF_PAGE_KEY` | `src/proxy.ts` (through `staff-gate.ts`), `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
 | `CRON_SECRET` | `api/cron/purge/route.ts` | `process.env` directly |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | nowhere | listed in `.env.example` only |
+| `NEXT_PUBLIC_SENTRY_DSN` | `lib/monitoring/config.ts` (`sentryDsn()`), used by `src/instrumentation-client.ts` and `src/sentry.server.config.ts` | `process.env` directly. Public-safe. **Inlined at build time** (a `NEXT_PUBLIC_` variable): after setting or changing it on Vercel, redeploy. Unset = Sentry is a no-op everywhere |
+| `SENTRY_ENVIRONMENT` | `src/sentry.server.config.ts` | Optional name of the environment in Sentry (default: the Vercel environment, else `NODE_ENV`). Server events only |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | `next.config.ts` (`withSentryConfig`), build time only | Secret token (and the org and project names) for the source map upload. Without the token nothing is uploaded and the build still passes. Never read at run time |
 
 `src/lib/env.ts` holds two zod schemas: `getOrderEnv()` for the public order path and `getAdminEnv()` for the admin secrets, so placing an order never depends on admin variables. Both parse on every call and throw when a variable is invalid.
 
@@ -155,6 +161,47 @@ Retention:
 | Analytics events | 400 days | the cron (the local script does not remove them) |
 | Customers | permanently (owner decision; the consent text says so) | never |
 
+## Error monitoring (Sentry)
+
+`@sentry/nextjs` 11.x reports every error a customer hits, **errors only**: no performance tracing (`tracesSampleRate` is left unset on purpose, 0 would still create spans), no session replay, no profiling, no logs, no release-health sessions. With `NEXT_PUBLIC_SENTRY_DSN` unset (local development, tests, the live site until the owner sets it) every init is skipped and every capture call is a no-op.
+
+| Piece | File |
+|---|---|
+| Browser init (errors, `tunnel: { path: '/monitoring' }`) | `src/instrumentation-client.ts` (no `onRouterTransitionStart`: it is a tracing hook) |
+| Server init (Node.js runtime) and the tunnel answer | `src/sentry.server.config.ts`, loaded by `register()` in `src/instrumentation.ts` |
+| Uncaught server errors (pages, route handlers, server actions, the proxy) | `export const onRequestError = Sentry.captureRequestError` in `src/instrumentation.ts` |
+| Uncaught browser errors and unhandled rejections | the SDK's global handlers; a render crash lands in `src/app/global-error.tsx` |
+| Build wrapper (source maps only when `SENTRY_AUTH_TOKEN` is set, deleted after upload, tracing code left out, no build-time instrumentation) | `next.config.ts` (`withSentryConfig` from `@sentry/nextjs/config`; the `nextConfig` object itself is unchanged) |
+| Shared settings (`dataCollection`, tunnel path, DSN reader) | `src/lib/monitoring/config.ts` |
+| The scrubber (pure, unit-tested in `tests/unit/monitoring/scrub.test.ts`) | `src/lib/monitoring/scrub.ts` |
+| Manual capture, server: `reportError(err, { where, route, tags, extra, level })` | `src/lib/monitoring/report.ts` (`server-only`) |
+| Manual capture, browser: `reportClientError(err, { where, tags, extra, level })` | `src/lib/monitoring/report.client.ts` |
+
+**No edge config.** The Next 16 proxy runs on the Node.js runtime and no route uses the edge runtime, so only the Node.js server init exists.
+
+**Version 11 has no `sendDefaultPii`.** `dataCollection` replaces it and collects everything by default, so `src/lib/monitoring/config.ts` switches off: user info (which also stops the IP address being inferred), cookies, headers, request/response bodies, query strings, database and queue payloads, and the local variables of stack frames (the order route holds name, phone and address in locals).
+
+**What the scrubber does** (`beforeSend` and `beforeBreadcrumb`, on both browser and server; there is no `beforeSendTransaction` because nothing is traced; every string anywhere in an event or breadcrumb is walked, not a list of fields):
+
+- `/staff/<anything>` becomes `/staff/[redacted]` in any letter case, also percent-encoded (URLs, transaction names, breadcrumbs, exception texts, contexts). On the server the literal values of `STAFF_PAGE_KEY`, `SESSION_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `SUPABASE_SECRET_KEY`, `TELEGRAM_BOT_TOKEN` and `TURNSTILE_SECRET_KEY` are blanked wherever they appear as text.
+- Query strings and fragments are cut from every URL (a Supabase signed upload or download link carries its token in the query). The Telegram bot token (it sits in the URL path), JWT-looking tokens and `token=` values are blanked.
+- Iraqi phone numbers and PostgreSQL `Key (phone)=(...)` and `Failing row contains (...)` details in error texts are blanked.
+- The `user` block (IP address included), the server host name, cookies, request headers (the staff key travels in `x-staff-key`) and request bodies are dropped. Console breadcrumbs are dropped (the order summary with the customer's name, phone and address is logged by `notifyShop`).
+- A scrubber failure drops the event; it never lets an unscrubbed one through.
+
+The tunnel does not forward cookies or custom headers, but it passes on the visitor's IP address (`X-Forwarded-For`), user agent and `Origin` / `Referer` to Sentry as transport metadata (the SDK does this on purpose: it is how Sentry tells the browser and checks the allowed domains). Events are sent with `infer_ip: never` and no `user` block, so Sentry has no reason to store the IP; as the second lock, tick "Prevent Storing of IP Addresses" in the sentry.io project settings (Settings, Security & Privacy). The staff page answers with `Referrer-Policy: no-referrer`, so its own error reports carry no `Referer`.
+
+**Where errors are captured by hand** (they are caught, logged and answered, so `onRequestError` never sees them; the existing `console.error` stays next to each capture):
+
+- `POST /api/orders`: the outer catch (`orders.post`), the customer upsert (`orders.customerUpsert`), and a failed shop notification (`orders.notify`, both the `notifyShop` result and a throw). Expected 4xx answers (validation, rate limit, captcha, unsupported file) are not reported.
+- `POST /api/upload`, `/api/upload/direct`, `/api/upload/direct/commit`, `GET /api/cron/purge`, `POST /api/track`: the outer catch of each.
+- `trackServer` (`analytics.record`), `verifyTurnstile` (Cloudflare unreachable), and two places in `storage/supabase.ts`: a corrupt upload meta file, and stored settings that fail validation (a warning: prices fall back to the defaults).
+- Browser: `logClient({ ... }, { report: { error } })` in `components/builder/logClient.ts` reports a thrown decode error and the degraded (WhatsApp fallback) order screen, not expected user errors; the staff page reports a failed PDF build, a failed save and a thrown decode (`staff.*`).
+- Admin server actions and admin route handlers have no catch: their errors reach `onRequestError`.
+- Not captured on purpose: `src/lib/storage/local.ts` and what it loads, `auth/token.ts` and `staff-gate.ts` stay free of Sentry (they run under tsx and in the proxy).
+
+Captures carry ids, route names and error codes only (`orderId`, `uploadId`, file type and size), never a name, phone, address or file name. `reportError` flushes inside `after()` so a serverless function does not freeze before the event is sent.
+
 ## 6. Module homes
 
 Shared helpers that have exactly one home. Use them instead of writing the same thing again.
@@ -173,6 +220,7 @@ Shared helpers that have exactly one home. Use them instead of writing the same 
 | `src/app/api/_lib/upload.ts` | Status table, JSON answers and file-name clean-up of the three upload routes, and the size cap of the two direct-upload steps (the multipart route has its own). `_lib/body.ts` has the byte-capped body readers and `SMALL_JSON_MAX_BYTES`, the cap of the small JSON bodies (direct-upload start and commit, analytics beacon). |
 | `src/lib/storage/settings-limits.ts` | Numeric limits shared by the settings schema and the settings form parser. |
 | `src/lib/turnstile.ts` | `verifyTurnstile`. |
+| `src/lib/monitoring/` | Sentry helpers: `scrub.ts` (pure privacy scrubber), `config.ts`, `report.ts` (server `reportError`), `report.client.ts` (browser `reportClientError`). See "Error monitoring (Sentry)". |
 | `src/lib/layout/spacing.ts` | Per-shape sheet spacing: `shapeKeyOf(spec)`, `resolveShapeSpacing(settings, key)` -> `{ marginUm, gapXUm, gapYUm }`. The ONE place of the fallbacks: the optional `circleMarginUm`/`roundedMarginUm`/`sharpMarginUm`/`customMarginUm` fall back to `marginUm`, and `rectRoundedGapYUm`/`rectSharpGapYUm`/`customGapYUm` to the shape's horizontal gap (`rectRoundedGapUm` etc.). These keys are deliberately not in `DEFAULT_SETTINGS`, so the deep merge cannot override values saved earlier. `layoutParamsFor`, the admin form prefill, the builder hint and `/how-it-works` all read through it. Pure and isomorphic. |
 | `src/lib/layout/marks.ts` | The cutter-dot constants (`REG_MARKS`: centre 7 mm from both edges, 5 mm wide, 3 mm clearance), `markCentres`, `isNearMark`. Pure and isomorphic. |
 | `src/lib/pdf/sheet-page.ts` | `drawSheetPage`: one A4 sheet page (stickers drawn from one embedded artwork, rounded-corner clip, the 4 dots in the `sk_marks` layer) and `setPrintAtActualSize`. Isomorphic (no `server-only`): the server (`build-sheet.ts`) and the browser (`build-staff-pdf.ts`) both call it. |
@@ -236,3 +284,4 @@ Breaking one of these loses data, breaks a customer in the middle of an order, o
 9. **The visitor hash inputs** (section 5). `ipOf()` in `analytics/server.ts` and `clientIp()` in `rate-limit.ts` are separate on purpose: merging them changes stored hashes.
 10. **The dots geometry** (`REG_MARKS`: 5 mm wide, centre 7 mm from both edges, 3 mm clearance, K black, layer `sk_marks`) matches the plotter's template. A dot at 6.8 mm or 4.8 mm wide may be rejected by the machine, and a sticker within 3 mm of a dot may make the camera misread the sheet. Change it only on the owner's word after a plotter test. The same goes for `PrintScaling /None`: a sheet shrunk by "fit to page" moves the dots off the template.
 11. **The staff key never leaks**: `/staff` stays out of the sitemap, `robots.txt` and analytics, the staff page sends no design file to the server, and a wrong key gets exactly the answer of an unknown URL (so no route may match `/staff/<anything>`; the page stays behind the proxy rewrite).
+12. **Nothing private goes to Sentry**: never the staff key or any `/staff/<key>` URL, never customer data (name, phone, address, file names or contents), never a signed URL with its token, a bot token or a cookie. Keep `dataCollection` in `src/lib/monitoring/config.ts` switched off (this SDK version has no `sendDefaultPii`; `dataCollection` is its replacement), keep every `Sentry.init` behind the scrubber hooks, and pass only ids and codes to `reportError` / `reportClientError`. Do not add tracing, replay or profiling.

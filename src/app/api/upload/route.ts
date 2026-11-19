@@ -4,6 +4,7 @@ import { cleanOriginalName, uploadFail, uploadOk } from "../_lib/upload";
 import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
 import { clientIp, limiters } from "@/lib/rate-limit";
+import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 
@@ -59,6 +60,7 @@ export async function POST(request: Request): Promise<Response> {
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error("[upload] failed", e);
+    reportError(e, { where: "upload.post", route: "/api/upload" });
     return uploadFail("server_error");
   }
 }

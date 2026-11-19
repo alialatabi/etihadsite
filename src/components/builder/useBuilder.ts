@@ -194,7 +194,10 @@ export function useBuilder(settings: ShopSettings) {
         else error = out.error;
       } catch (e) {
         error = 'corrupt';
-        logClient({ step: 'decode', message: e instanceof Error ? e.message : 'decode threw', fileType: file.type, fileSize: file.size });
+        logClient(
+          { step: 'decode', message: e instanceof Error ? e.message : 'decode threw', fileType: file.type, fileSize: file.size },
+          { report: { error: e } },
+        );
       }
       if (token !== decodeToken.current) {
         // A newer decode superseded this one: drop its object URL.

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { DAY_MS } from "@/lib/shop-time";
 import { getStorage } from "@/lib/storage";
@@ -40,6 +41,7 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ ok: true, dryRun, cutoff: cutoff.toISOString(), removed: removed.length, removedEvents: removedEvents.length });
   } catch (e) {
     console.error("[cron/purge] failed", e);
+    reportError(e, { where: "cron.purge", route: "/api/cron/purge" });
     return Response.json({ ok: false }, { status: 500 });
   }
 }

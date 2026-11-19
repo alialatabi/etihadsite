@@ -23,6 +23,7 @@ import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 import { effectiveDpi, pxForUmAtDpi } from '@/lib/units';
 import type { DesignKind, NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
+import { reportError } from '@/lib/monitoring/report';
 import { sniffKind } from './kind';
 import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
 import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha, widthPixelsFor } from './pixels';
@@ -50,7 +51,11 @@ export async function normaliseArtwork(bytes: Uint8Array, opts: NormaliseOptions
   if (kind === 'pdf') return normalisePdf(bytes);
   try {
     return await normaliseRaster(bytes, opts);
-  } catch {
+  } catch (e) {
+    // The browser already decoded this file before uploading it, so a sharp failure here is most likely
+    // ours (libvips, memory, the pixel limit), not the customer's. The answer stays 'corrupt'.
+    console.error('[normalise] raster failed', e);
+    reportError(e, { where: 'normalise.raster', level: 'warning', extra: { kind, byteLength: bytes.byteLength } });
     return fail('corrupt');
   }
 }

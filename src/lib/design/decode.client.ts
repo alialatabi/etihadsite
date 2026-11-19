@@ -17,6 +17,7 @@
  * The caller owns `source.previewUrl` and must URL.revokeObjectURL() it when the
  * design is replaced or the component unmounts.
  */
+import { reportClientError } from '@/lib/monitoring/report.client';
 import type { DesignDecodeError, DesignDecodeOutcome, DesignKind, DesignSource, Shape } from '@/lib/types';
 import { MAX_CANVAS_PIXELS, fitWithin, pdfRenderScale, scanAlphaStrips, type PixelRect } from './pixels';
 
@@ -41,6 +42,14 @@ function detectKind(file: File): DesignKind | null {
 
 const fail = (error: DesignDecodeError): DesignDecodeOutcome => ({ ok: false, error });
 
+/**
+ * A failure that is NOT about the customer's file (a chunk or worker that did not load, no canvas,
+ * toBlob failing). The customer still sees 'corrupt'; the owner is told. Only the kind and size go along.
+ */
+function reportDecodeFailure(e: unknown, kind: DesignKind, file: File): void {
+  reportClientError(e, { where: 'design.decode', level: 'warning', extra: { kind, fileSize: file.size } });
+}
+
 export async function decodeDesign(file: File, opts: DecodeOptions): Promise<DesignDecodeOutcome> {
   const kind = detectKind(file);
   if (!kind) return fail('unsupported_type');
@@ -48,7 +57,9 @@ export async function decodeDesign(file: File, opts: DecodeOptions): Promise<Des
   if (file.size === 0) return fail('empty');
   try {
     return kind === 'pdf' ? await decodePdf(file, opts) : await decodeRaster(file, kind, opts);
-  } catch {
+  } catch (e) {
+    // File problems are mapped to a code inside decodeRaster/decodePdf; what reaches here is the browser failing.
+    reportDecodeFailure(e, kind, file);
     return fail('corrupt');
   }
 }
@@ -67,7 +78,12 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
 }
 
 async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOptions): Promise<DesignDecodeOutcome> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    return fail('corrupt'); // the browser cannot read this image: the customer's file, not a site failure
+  }
   try {
     const W = bitmap.width;
     const H = bitmap.height;
@@ -80,7 +96,10 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
     if (kind === 'png') {
       const strip = makeCanvas(W, Math.min(STRIP_ROWS, H));
       const ctx = strip.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return fail('corrupt');
+      if (!ctx) {
+        reportDecodeFailure(new Error('no 2d context (strip)'), kind, file);
+        return fail('corrupt');
+      }
       const readStrip = (y0: number, rows: number) => {
         ctx.clearRect(0, 0, W, strip.height);
         ctx.drawImage(bitmap, 0, y0, W, rows, 0, 0, W, rows);
@@ -100,7 +119,10 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
     const { width: pw, height: ph } = fitWithin(art.width, art.height, PREVIEW_MAX_SIDE);
     const out = makeCanvas(pw, ph);
     const octx = out.getContext('2d');
-    if (!octx) return fail('corrupt');
+    if (!octx) {
+      reportDecodeFailure(new Error('no 2d context (preview)'), kind, file);
+      return fail('corrupt');
+    }
     octx.imageSmoothingQuality = 'high';
     octx.drawImage(bitmap, art.left, art.top, art.width, art.height, 0, 0, pw, ph);
     const blob = hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', 0.9);
@@ -202,7 +224,14 @@ async function renderRegion(geo: PdfPageGeometry, scale: number): Promise<HTMLCa
 
 async function decodePdf(file: File, opts: DecodeOptions): Promise<DesignDecodeOutcome> {
   if (opts.shape === 'custom') return fail('no_alpha'); // transparency in PDFs is not trusted
-  const pdfjs = await loadPdfjs();
+  let pdfjs: PdfjsModule;
+  try {
+    pdfjs = await loadPdfjs();
+  } catch (e) {
+    // The pdf.js chunk or its worker did not load (a deploy replaced the chunk, a flaky network): not the file's fault.
+    reportDecodeFailure(e, 'pdf', file);
+    return fail('corrupt');
+  }
   let opened: Awaited<ReturnType<typeof pdfGeometry>>;
   try {
     opened = await pdfGeometry(pdfjs, file);

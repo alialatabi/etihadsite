@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { decodeDesign } from '@/lib/design/decode.client';
+import { reportClientError } from '@/lib/monitoring/report.client';
 import type { LayoutSettings, QualitySettings } from '@/lib/types';
 import {
   MAX_STAFF_FILES,
@@ -52,7 +53,8 @@ export function useStaffItems(layoutSettings: LayoutSettings, quality: QualitySe
       let outcome: Awaited<ReturnType<typeof decodeDesign>>;
       try {
         outcome = await decodeDesign(next.file, { shape: baseShape(next.shape).shape, maxBytes: MAX_STAFF_FILE_BYTES });
-      } catch {
+      } catch (e) {
+        reportClientError(e, { where: 'staff.decode', extra: { fileSize: next.file.size } });
         outcome = { ok: false, error: 'corrupt' };
       }
       const cur = cardsRef.current.find((c) => c.id === next.id);

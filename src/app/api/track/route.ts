@@ -3,6 +3,7 @@ import { SMALL_JSON_MAX_BYTES, readJsonCapped } from '../_lib/body';
 import { classifySource, isBot } from '@/lib/analytics/classify';
 import { isAdminPath, isStaffPath } from '@/lib/analytics/paths';
 import { trackServer, visitorHash } from '@/lib/analytics/server';
+import { reportError } from '@/lib/monitoring/report';
 import { limiters } from '@/lib/rate-limit';
 import { BUILDER_STEPS, INSTALL_EVENTS } from '@/lib/types';
 
@@ -53,6 +54,7 @@ export async function POST(request: Request): Promise<Response> {
     return noContent();
   } catch (e) {
     console.error('[track] failed', e);
+    reportError(e, { where: 'track.post', route: '/api/track' });
     return noContent();
   }
 }

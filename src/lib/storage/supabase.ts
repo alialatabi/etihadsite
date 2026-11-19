@@ -18,6 +18,7 @@ import 'server-only';
  * against a strict pattern before any request, so a stored path can never escape the bucket.
  */
 import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { reportError } from '@/lib/monitoring/report';
 import type { AnalyticsEvent, CustomerRecord, OrderRecord, ShopSettings, StorageAdapter, StoredFileMeta } from '@/lib/types';
 import { ID_RE, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { parseStoredSettings } from './settings-schema';
@@ -199,7 +200,9 @@ export class SupabaseStorage implements StorageAdapter {
     if (!bin) return null;
     try {
       return { bytes: bin, meta: JSON.parse(Buffer.from(metaRaw).toString('utf8')) as StoredFileMeta };
-    } catch {
+    } catch (e) {
+      // The meta file exists but is not JSON: the customer sees "upload missing"; the owner must know.
+      reportError(e, { where: 'storage.readUpload', tags: { uploadId } });
       return null;
     }
   }
@@ -305,6 +308,11 @@ export class SupabaseStorage implements StorageAdapter {
     const parsed = parseStoredSettings(rows[0].data);
     if (parsed.ok) return parsed.settings;
     console.error('[storage] stored settings are invalid, using defaults:', parsed.issuePaths);
+    // Prices fall back to the defaults here, so this must not go unnoticed (paths only, no values).
+    reportError(new Error(`Stored settings are invalid, using defaults: ${parsed.issuePaths}`), {
+      where: 'storage.getSettings',
+      level: 'warning',
+    });
     return structuredClone(DEFAULT_SETTINGS);
   }
 

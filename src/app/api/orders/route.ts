@@ -5,6 +5,7 @@ import { getOrderEnv } from "@/lib/env";
 import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
 import { normaliseArtwork } from "@/lib/design/normalise.server";
 import { computeLayout, layoutParamsFor } from "@/lib/layout";
+import { reportError } from "@/lib/monitoring/report";
 import { notifyShop } from "@/lib/notify";
 import { buildOrderRecord, summaryOf } from "@/lib/order-record";
 import { orderRequestSchema } from "@/lib/order-schema";
@@ -208,6 +209,7 @@ async function processOrder(
     await storage.upsertCustomerFromOrder(record);
   } catch (e) {
     console.error("[orders] customer upsert failed", e);
+    reportError(e, { where: "orders.customerUpsert", route: "/api/orders", tags: { orderId: record.orderId } });
   }
   await trackServer(request, {
     type: "order",
@@ -229,9 +231,17 @@ async function processOrder(
   try {
     const result = await notifyShop(record, pdf.bytes, fileName, settings);
     notified = { telegram: result.telegram };
-    if (result.error) console.error("[orders] notify failed:", result.error);
+    if (result.error) {
+      console.error("[orders] notify failed:", result.error);
+      reportError(new Error(`Order notification failed: ${result.error}`), {
+        where: "orders.notify",
+        route: "/api/orders",
+        tags: { orderId: record.orderId },
+      });
+    }
   } catch (e) {
     console.error("[orders] notify threw", e);
+    reportError(e, { where: "orders.notify", route: "/api/orders", tags: { orderId: record.orderId } });
   }
   const updated = (await storage.updateOrder(record.orderId, { notified })) ?? {
     ...record,
@@ -288,6 +298,7 @@ export async function POST(request: Request): Promise<Response> {
     }
   } catch (e) {
     console.error("[orders] failed", e);
+    reportError(e, { where: "orders.post", route: "/api/orders" });
     return send(fail("server_error"));
   }
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../_lib/body";
 import { directUploadCap, uploadFail } from "../../_lib/upload";
 import { clientIp, limiters } from "@/lib/rate-limit";
+import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 import type { DirectUploadStart } from "@/lib/types";
@@ -46,6 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[upload/direct] failed", e);
+    reportError(e, { where: "upload.direct", route: "/api/upload/direct" });
     return uploadFail("server_error");
   }
 }

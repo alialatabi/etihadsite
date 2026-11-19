@@ -53,12 +53,16 @@ export function useSubmitOrder(maxUploadBytes: number) {
         router.push('/order/success');
         return;
       }
-      logClient({
-        step: result.kind === 'degraded' ? 'upload' : 'order',
-        message: result.kind === 'degraded' ? result.reason : `${result.code}: ${result.message}`,
-        fileType: input.design.file.type,
-        fileSize: input.design.file.size,
-      });
+      logClient(
+        {
+          step: result.kind === 'degraded' ? 'upload' : 'order',
+          message: result.kind === 'degraded' ? result.reason : `${result.code}: ${result.message}`,
+          fileType: input.design.file.type,
+          fileSize: input.design.file.size,
+        },
+        // The degraded screen (WhatsApp fallback) is a real failure; a validation error is not.
+        result.kind === 'degraded' ? { report: { error: result.error ?? new Error(`Order flow degraded: ${result.reason}`) } } : {},
+      );
       if (result.kind === 'degraded') {
         setState({ phase: 'degraded', progress: 0, message: null });
       } else {

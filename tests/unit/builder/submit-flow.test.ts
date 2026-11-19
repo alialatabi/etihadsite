@@ -207,17 +207,17 @@ describe('submitOrderFlow result branches', () => {
 
   it('a thrown Error degrades with its message as the reason', async () => {
     const postOrder = vi.fn<FlowDeps['postOrder']>().mockRejectedValue(new Error('bad_order_response_502'));
-    expect(await submitOrderFlow(input(), ctx(), deps({ postOrder }))).toEqual({ kind: 'degraded', reason: 'bad_order_response_502' });
+    expect(await submitOrderFlow(input(), ctx(), deps({ postOrder }))).toMatchObject({ kind: 'degraded', reason: 'bad_order_response_502' });
     const upload = vi.fn<FlowDeps['upload']>().mockRejectedValue(new Error('network'));
-    expect(await submitOrderFlow(input(), ctx(), deps({ upload }))).toEqual({ kind: 'degraded', reason: 'network' });
+    expect(await submitOrderFlow(input(), ctx(), deps({ upload }))).toMatchObject({ kind: 'degraded', reason: 'network' });
     const rasterise = vi.fn<FlowDeps['rasterise']>().mockRejectedValue(new Error('toBlob failed'));
     const needsRaster = orderFail('needs_raster', '');
-    expect(await submitOrderFlow(input(), ctx(), deps({ postOrder: needsRaster, rasterise }))).toEqual({ kind: 'degraded', reason: 'toBlob failed' });
+    expect(await submitOrderFlow(input(), ctx(), deps({ postOrder: needsRaster, rasterise }))).toMatchObject({ kind: 'degraded', reason: 'toBlob failed' });
   });
 
   it('a thrown non-Error degrades with reason unknown', async () => {
     const upload = vi.fn<FlowDeps['upload']>().mockRejectedValue('boom');
-    expect(await submitOrderFlow(input(), ctx(), deps({ upload }))).toEqual({ kind: 'degraded', reason: 'unknown' });
+    expect(await submitOrderFlow(input(), ctx(), deps({ upload }))).toEqual({ kind: 'degraded', reason: 'unknown', error: 'boom' });
   });
 
   it('reports the phases in order and skips the upload when the context already has one', async () => {

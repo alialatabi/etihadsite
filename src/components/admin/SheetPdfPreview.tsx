@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { admin, fill } from '@/content/ar';
 import { loadPdfjs, type PdfjsModule } from '@/lib/design/decode.client';
+import { reportClientError } from '@/lib/monitoring/report.client';
 import { cn } from '@/lib/utils';
 import {
   SHEET_ASPECT,
@@ -122,8 +123,13 @@ export function SheetPdfPreview({
       (ok) => {
         if (!signal.aborted && ok) setDone({ orderId, ok: true });
       },
-      () => {
-        if (!signal.aborted) setDone({ orderId, ok: false });
+      (e) => {
+        if (signal.aborted) return;
+        // A timeout, a cancelled fetch or an HTTP error (the server reports its own 5xx) is not reported; a chunk/worker load failure or a render error is ours to know about.
+        if (e instanceof Error && e.name !== 'AbortError' && e.message !== 'timeout' && !e.message.startsWith('HTTP ')) {
+          reportClientError(e, { where: 'admin.sheetPreview', tags: { orderId } });
+        }
+        setDone({ orderId, ok: false });
       },
     );
     return () => ac.abort();

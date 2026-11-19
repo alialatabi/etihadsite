@@ -3,6 +3,7 @@ import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../../_lib/body";
 import { cleanOriginalName, directUploadCap, uploadFail, uploadOk } from "../../../_lib/upload";
 import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
+import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 import { ID_RE, uploadPath } from "@/lib/storage/paths";
@@ -64,6 +65,7 @@ export async function POST(request: Request): Promise<Response> {
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error("[upload/direct/commit] failed", e);
+    reportError(e, { where: "upload.directCommit", route: "/api/upload/direct/commit" });
     return uploadFail("server_error");
   }
 }

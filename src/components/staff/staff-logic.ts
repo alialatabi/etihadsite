@@ -7,6 +7,7 @@
 import { dpiFor, dpiStatus, pdfPrefillUm } from '@/components/builder/logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm } from '@/components/builder/safe';
 import { prepareArtwork, type PrepareError } from '@/lib/design/prepare.client';
+import { reportClientError } from '@/lib/monitoring/report.client';
 import { PRINT_DPI } from '@/lib/print-dpi';
 import type {
   Corners,
@@ -293,11 +294,22 @@ export async function buildStaffFile(
     const outcome = safeLayout(spec, layoutSettings);
     if (!outcome.ok) return { ok: false, reason: 'build', ...failed };
     const prepared = await prepareArtwork(card.design, spec, PRINT_DPI);
-    if (!prepared.ok) return { ok: false, reason: 'prepare', ...failed, error: prepared.error };
+    if (!prepared.ok) {
+      // prepareArtwork turns every throw (canvas too big, toBlob, memory) into 'corrupt'; this design already decoded on this page.
+      if (prepared.error === 'corrupt') {
+        reportClientError(new Error('staff prepare failed: corrupt'), {
+          where: 'staff.prepare',
+          extra: { fileSize: card.file.size, kind: card.design.kind },
+        });
+      }
+      return { ok: false, reason: 'prepare', ...failed, error: prepared.error };
+    }
     const { buildStaffPdf } = await import('@/lib/pdf/build-staff-pdf');
     const bytes = await buildStaffPdf([{ layout: outcome.layout, artwork: prepared.artwork }], now);
     return { ok: true, bytes, fileName };
-  } catch {
+  } catch (e) {
+    // Building a staff PDF threw (no file name or design data goes along).
+    reportClientError(e, { where: 'staff.buildPdf', extra: { fileSize: card.file.size } });
     return { ok: false, reason: 'build', ...failed };
   }
 }
@@ -345,7 +357,8 @@ export async function downloadStaffFiles(
       opts.save(out.bytes, out.fileName);
       summary.saved.push(out.fileName);
       savedAny = true;
-    } catch {
+    } catch (e) {
+      reportClientError(e, { where: 'staff.savePdf' });
       summary.failed.push({ ok: false, reason: 'build', cardId: cards[i].id, fileName: cards[i].file.name });
     }
   }

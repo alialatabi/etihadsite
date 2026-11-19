@@ -1,5 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { reportError } from '@/lib/monitoring/report';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import type { AnalyticsEvent } from '@/lib/types';
@@ -65,5 +66,6 @@ export async function trackServer(
     await getStorage().recordEvent(event);
   } catch (e) {
     console.error('[analytics] record failed', e instanceof Error ? e.message : e);
+    reportError(e, { where: 'analytics.record', tags: { eventType: partial.type } });
   }
 }

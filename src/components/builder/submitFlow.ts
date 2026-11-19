@@ -35,7 +35,7 @@ export type FlowResult =
   /** A problem the customer can fix (message is Arabic). */
   | { kind: 'error'; code: OrderError | 'upload_error'; message: string }
   /** Network / server failure: offer the WhatsApp fallback. */
-  | { kind: 'degraded'; reason: string };
+  | { kind: 'degraded'; reason: string; /** The thrown value, when there was one (for error reporting; never stored or sent to the API). */ error?: unknown };
 
 export interface FlowDeps {
   upload: (file: File, onProgress: (fraction: number) => void) => Promise<UploadResponse>;
@@ -113,6 +113,6 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
       res.error === 'invalid_quantity' ? builder.quantity.errors.invalid_quantity : (order.errors[res.error] ?? res.message ?? common.errors.generic);
     return { kind: 'error', code: res.error, message };
   } catch (e) {
-    return { kind: 'degraded', reason: e instanceof Error ? e.message : 'unknown' };
+    return { kind: 'degraded', reason: e instanceof Error ? e.message : 'unknown', error: e };
   }
 }

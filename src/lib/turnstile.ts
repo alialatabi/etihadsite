@@ -1,4 +1,5 @@
 import "server-only";
+import { reportError } from "@/lib/monitoring/report";
 
 /**
  * Asks Cloudflare Turnstile whether `token` is valid for this secret. False for a missing
@@ -24,7 +25,9 @@ export async function verifyTurnstile(
     );
     const json = (await res.json()) as { success?: boolean };
     return json.success === true;
-  } catch {
+  } catch (e) {
+    // Cloudflare unreachable or an unreadable answer: the order is refused, so the owner must know.
+    reportError(e, { where: "turnstile.verify", route: "/api/orders" });
     return false;
   }
 }
