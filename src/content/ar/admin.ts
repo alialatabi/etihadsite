@@ -52,7 +52,7 @@ export const admin = {
     telegramSending: 'جاري الإرسال…',
     telegramResendFailed: 'ما انرسل، جرّب مرة ثانية',
     telegramNotConfigured: 'التيليغرام مو مفعّل بالإعدادات',
-    telegramFileMissing: 'ملف الطباعة انحذف، ما يمديني أرسله',
+    telegramFileMissing: 'ملف الطباعة انحذف، ما أگدر أرسله',
     telegramNotFound: 'الطلب مو موجود',
   },
   /** Preview of the stored A4 sheet PDF (orders list thumbnail + order page). */
