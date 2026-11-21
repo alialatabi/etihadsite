@@ -9,7 +9,7 @@ import {
   shapeStepOk,
   type PersistedForm,
 } from '@/components/builder/logic';
-import { addRefs, aiErrorMessage, isAiOffError, pngFileFromBase64, printableLines } from '@/components/builder/ai/ai-logic';
+import { addRefs, aiBusy, aiErrorMessage, isAiOffError, pngFileFromBase64, printableLines, showViewResult } from '@/components/builder/ai/ai-logic';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
 import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
 import { builder } from '@/content/ar';
@@ -194,13 +194,39 @@ describe('submit with an accepted AI design', () => {
 describe('ai helpers', () => {
   const png = (name: string, size = 10, type = 'image/png') => new File([new Uint8Array(size)], name, { type });
 
-  it('addRefs keeps PNG/JPEG only, at most 5, within the size limit', () => {
+  it('addRefs keeps PNG/JPEG only, at most 5, within the size limit, and counts what it left out', () => {
     const a = png('a.png');
     const got = addRefs([a], [png('b.jpg', 10, 'image/jpeg'), png('c.pdf', 10, 'application/pdf'), png('d.webp', 10, 'image/webp'), png('e.JPEG', 10, '')], 100);
-    expect(got.map((f) => f.name)).toEqual(['a.png', 'b.jpg', 'e.JPEG']);
+    expect(got.files.map((f) => f.name)).toEqual(['a.png', 'b.jpg', 'e.JPEG']);
+    expect(got.rejected).toBe(2);
     const many = addRefs([], Array.from({ length: 7 }, (_, i) => png(`${i}.png`)), 100);
-    expect(many).toHaveLength(5);
-    expect(addRefs([], [png('big.png', 101)], 100)).toEqual([]);
+    expect(many.files).toHaveLength(5);
+    expect(many.rejected).toBe(2);
+    expect(addRefs([], [png('big.png', 101)], 100)).toEqual({ files: [], rejected: 1 });
+    expect(addRefs([a], [png('ok.png')], 100)).toEqual({ files: [a, expect.any(File)], rejected: 0 });
+  });
+
+  it('two quick picks build on each other (the second sees the first)', () => {
+    const first = addRefs([], [png('1.png'), png('2.png'), png('3.png')], 100);
+    const second = addRefs(first.files, [png('4.png'), png('5.png'), png('6.png')], 100);
+    expect(second.files.map((f) => f.name)).toEqual(['1.png', '2.png', '3.png', '4.png', '5.png']);
+    expect(second.rejected).toBe(1);
+    expect(builder.ai.refRejected).toBe('الصورة لازم تكون PNG أو JPG، ولحد 5 صور.');
+  });
+
+  it('while a try runs: no Back, no second generate, and page 1 offers «شوف التصميم»', () => {
+    expect(aiBusy('generating', false)).toBe(true);
+    expect(aiBusy('idle', true)).toBe(true);
+    expect(aiBusy('result', false)).toBe(false);
+    expect(aiBusy('reviewing', false)).toBe(false);
+    expect(showViewResult('generating')).toBe(true);
+    expect(showViewResult('result')).toBe(true);
+    expect(['idle', 'reviewing', 'error'].some((p) => showViewResult(p as never))).toBe(false);
+    // The page-1 button reads the same busy flag.
+    const ready = { shape: 'circle' as const, size: { widthUm: 30_000, heightUm: 30_000 }, sizeOk: true, idea: 'x', unavailable: false };
+    expect(generateBlock({ ...ready, busy: aiBusy('generating', false) })).toBe('busy');
+    expect(generateBlock({ ...ready, busy: aiBusy('result', false) })).toBeNull();
+    expect(builder.ai.viewResult).toBe('شوف التصميم');
   });
 
   it('pngFileFromBase64 wraps the bytes as ai-design.png', async () => {
@@ -214,6 +240,10 @@ describe('ai helpers', () => {
     expect(aiErrorMessage('ip_limit')).toBe(builder.ai.errors.ip_limit);
     expect(aiErrorMessage('rate_limited')).toBe(builder.ai.unavailable);
     expect(aiErrorMessage('nonsense' as never)).toBe(builder.ai.errors.failed);
+    // A failure on this side never claims the try was not counted.
+    expect(aiErrorMessage('network')).toBe('صار خلل بالاتصال. جرّب مرة لخ.');
+    expect(aiErrorMessage('failed')).toContain('ما انحسبت المحاولة');
+    expect(aiErrorMessage('network')).not.toContain('ما انحسبت');
     expect(['unavailable', 'site_limit', 'blocked'].every((c) => isAiOffError(c as never))).toBe(true);
     expect(['ip_limit', 'failed', 'refused', 'text_too_long'].some((c) => isAiOffError(c as never))).toBe(false);
   });
@@ -240,10 +270,12 @@ describe('api fetchers', () => {
     await expect(postGenerate({} as never)).resolves.toEqual({ ok: false, error: 'ip_limit' });
   });
 
-  it('a network failure or a non-JSON answer becomes failed', async () => {
+  it('a network failure or a non-JSON answer becomes the client-side code network', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
-    await expect(postGenerate({} as never)).resolves.toEqual({ ok: false, error: 'failed' });
+    await expect(postGenerate({} as never)).resolves.toEqual({ ok: false, error: 'network' });
     vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>', { status: 504 })));
-    await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'failed' });
+    await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ nope: 1 }), { status: 200 })));
+    await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
   });
 });

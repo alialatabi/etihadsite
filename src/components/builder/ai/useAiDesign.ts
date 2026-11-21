@@ -7,10 +7,10 @@ import { generateBlock, type GenerateBlock } from '../logic';
 import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
-import { addRefs, isAiOffError, pngFileFromBase64, printableLines, type AiErrorCode } from './ai-logic';
+import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, printableLines, type AiErrorCode, type AiPhase } from './ai-logic';
 import { postBrief, postGenerate } from './api';
 
-export type AiPhase = 'idle' | 'reviewing' | 'generating' | 'result' | 'error';
+export type { AiPhase };
 
 export interface AiRef {
   key: number;
@@ -54,6 +54,8 @@ export function useAiDesign(b: BuilderApi) {
   const [off, setOff] = useState(b.settings.ai?.enabled === false);
   const [briefing, setBriefing] = useState(false);
   const [refs, setRefs] = useState<AiRef[]>([]);
+  // The last reference pick left files out (wrong type, too big, over 5).
+  const [refRejected, setRefRejected] = useState(false);
   // The lines printed on the design the customer accepted (memory only: not in the draft).
   const [acceptedLines, setAcceptedLines] = useState<string[] | null>(null);
 
@@ -61,14 +63,12 @@ export function useAiDesign(b: BuilderApi) {
   const busy = useRef(false);
   const token = useRef(0);
   const refKey = useRef(0);
+  // The reference list, written together with setRefs so two quick picks both see the latest list.
   const refsRef = useRef<AiRef[]>([]);
   // Upload id of each reference image (by key), so every later try reuses it.
   const refUploads = useRef(new Map<number, string>());
   const resultUrl = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    refsRef.current = refs;
-  }, [refs]);
   useEffect(
     () => () => {
       for (const r of refsRef.current) revoke(r.previewUrl);
@@ -84,7 +84,7 @@ export function useAiDesign(b: BuilderApi) {
   }, []);
 
   const { shape, spec, corners, idea, sizeOk } = b;
-  const block: GenerateBlock | null = generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: briefing });
+  const block: GenerateBlock | null = generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: aiBusy(phase, briefing) });
 
   const printable = useMemo(() => printableLines(lines), [lines]);
   const capacity = useMemo<TextCapacity>(
@@ -100,11 +100,13 @@ export function useAiDesign(b: BuilderApi) {
     if (code === 'refused') setRemainingToday((n) => (n === null ? null : Math.max(0, n - 1)));
   }, []);
 
-  /** «ولّد التصميم»: the idea → the printed lines (spelling fixed) for the review box. */
+  /**
+   * «ولّد التصميم»: the idea → the printed lines (spelling fixed) for the review box. The mode stays as it is:
+   * only a generation that starts makes it 'ai' (an upload customer who only looks keeps the upload step).
+   */
   const review = useCallback(async () => {
     if (busy.current || !shape || !spec || generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: false })) return;
     busy.current = true;
-    b.startAi();
     setBriefing(true);
     setError(undefined);
     const my = ++token.current;
@@ -121,7 +123,7 @@ export function useAiDesign(b: BuilderApi) {
     setLinesState(res.lines.slice(0, AI_MAX_LINES).map((l) => l.slice(0, AI_LINE_MAX_CHARS)));
     setFixes(res.fixes);
     setPhase('reviewing');
-  }, [b, shape, spec, sizeOk, idea, off, fail]);
+  }, [shape, spec, sizeOk, idea, off, fail]);
 
   const setLines = useCallback((l: string[]) => setLinesState(l.slice(0, AI_MAX_LINES).map((x) => x.slice(0, AI_LINE_MAX_CHARS))), []);
 
@@ -149,7 +151,7 @@ export function useAiDesign(b: BuilderApi) {
         refUploads.current.set(ref.key, up.uploadId);
         ids.push(up.uploadId);
       } catch {
-        return 'failed';
+        return 'network';
       }
     }
     return ids;
@@ -165,6 +167,7 @@ export function useAiDesign(b: BuilderApi) {
     setError(undefined);
     replaceResult(undefined);
     setPhase('generating');
+    b.startAi();
     b.showDesignStep();
     const madeFor = { shape, widthUm: spec.widthUm, heightUm: spec.heightUm };
 
@@ -201,7 +204,7 @@ export function useAiDesign(b: BuilderApi) {
     try {
       file = pngFileFromBase64(res.png);
     } catch {
-      fail('failed');
+      fail('network'); // an unreadable answer on this side: the server counted the try
       setPhase('error');
       return;
     }
@@ -215,13 +218,13 @@ export function useAiDesign(b: BuilderApi) {
   /** «أكمل بهذا»: the result becomes the order's design; the arrangement step opens. */
   const accept = useCallback(async () => {
     if (!result || busy.current) return;
-    busy.current = true;
     if (b.shape !== result.madeFor.shape) return; // the button is disabled then
+    busy.current = true;
     const ok = await b.acceptAi(result.file, result.uploadId, result.madeFor);
     busy.current = false;
     if (!ok) {
-      // The generated PNG did not decode (should not happen): say so; another try is offered.
-      fail('failed');
+      // The generated PNG did not decode in this browser (should not happen): say so; another try is offered.
+      fail('network');
       setPhase('error');
       return;
     }
@@ -239,24 +242,30 @@ export function useAiDesign(b: BuilderApi) {
 
   const addRefFiles = useCallback(
     (picked: File[]) => {
-      const kept = addRefs(
-        refsRef.current.map((r) => r.file),
+      const current = refsRef.current;
+      const { files, rejected } = addRefs(
+        current.map((r) => r.file),
         picked,
         b.settings.maxUploadBytes,
       );
-      const fresh = kept.slice(refsRef.current.length).map((file) => ({ key: ++refKey.current, file, previewUrl: URL.createObjectURL(file) }));
-      if (fresh.length) setRefs((r) => [...r, ...fresh]);
+      setRefRejected(rejected > 0);
+      const fresh = files.slice(current.length).map((file) => ({ key: ++refKey.current, file, previewUrl: URL.createObjectURL(file) }));
+      if (!fresh.length) return;
+      const next = [...current, ...fresh];
+      refsRef.current = next;
+      setRefs(next);
     },
     [b.settings.maxUploadBytes],
   );
 
   const removeRef = useCallback((key: number) => {
-    setRefs((r) => {
-      const gone = r.find((x) => x.key === key);
-      revoke(gone?.previewUrl);
-      refUploads.current.delete(key);
-      return r.filter((x) => x.key !== key);
-    });
+    const gone = refsRef.current.find((x) => x.key === key);
+    revoke(gone?.previewUrl);
+    refUploads.current.delete(key);
+    const next = refsRef.current.filter((x) => x.key !== key);
+    refsRef.current = next;
+    setRefs(next);
+    setRefRejected(false);
   }, []);
 
   return {
@@ -274,6 +283,7 @@ export function useAiDesign(b: BuilderApi) {
     /** Why «ولّد التصميم» is disabled (null: it may run). */
     block,
     refs,
+    refRejected,
     acceptedLines,
     review,
     setLines,

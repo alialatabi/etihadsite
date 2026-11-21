@@ -14,6 +14,8 @@ const OPTIONS: { id: Shape; Icon: typeof Circle; label: string; hint: string }[]
 ];
 
 export function ShapeStep({ b }: { b: BuilderApi }) {
+  // «يحتاج PNG شفاف» is advice for an uploaded file; a design made here needs none.
+  const hintFor = (id: Shape, hint: string) => (id === 'custom' && b.mode !== 'upload' ? builder.shape.customHintAi : hint);
   return (
     <div className="space-y-5">
       <div role="radiogroup" aria-label={builder.shape.title} className="grid gap-3 sm:grid-cols-3">
@@ -41,7 +43,7 @@ export function ShapeStep({ b }: { b: BuilderApi }) {
               </span>
               <span className="min-w-0">
                 <span className="block text-lg font-bold">{label}</span>
-                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{hint}</span>
+                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{hintFor(id, hint)}</span>
               </span>
             </button>
           );

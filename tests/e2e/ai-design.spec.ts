@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   ORDERS_DIR,
   builder,
+  common,
   chooseQuantity,
   chooseShape,
   expect,
@@ -158,4 +159,61 @@ test('AI unavailable: a notice, and «عندي تصميم جاهز» still leads
   await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();
   await next(page).click();
   await expect(perSheetBadge(page, 54)).toBeVisible();
+});
+
+test('an upload customer who only tries the idea box keeps the upload step', async ({ page }) => {
+  await page.route('**/api/design/brief', (route) => route.fulfill({ status: 500, json: { ok: false, error: 'failed' } }));
+  const { png } = await makeFixtures();
+  await page.goto('/');
+  await chooseShape(page, builder.shape.circle);
+  // The AI page does not give the upload-only PNG advice for custom shapes.
+  await expect(page.getByText(builder.shape.customHintAi)).toBeVisible();
+  await readyDesign(page);
+  await upload(page, png);
+  await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();
+
+  await page.getByRole('button', { name: common.actions.back, exact: true }).click();
+  await expect(page.getByText(builder.shape.customHint)).toBeVisible();
+  await setSize(page, '3');
+  await page.locator('#ai-idea').fill('مقهي الورد');
+  await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+  await expect(page.getByText(builder.ai.errors.failed)).toBeVisible();
+
+  // Still an upload: Next is there and the design step is the upload, with the file.
+  await next(page).click();
+  await expect(page.getByRole('heading', { level: 2, name: builder.upload.title })).toBeVisible();
+  await expect(page.getByRole('button', { name: builder.upload.replace })).toBeVisible();
+});
+
+test('after accepting an AI design, an own upload replaces it and is uploaded at submit', async ({ page }) => {
+  const { png } = await makeFixtures();
+  const uploads: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/api\/upload/.test(r.url())) uploads.push(r.url());
+  });
+  await page.goto('/');
+  await chooseShape(page, builder.shape.circle);
+  await setSize(page, '3');
+  await page.locator('#ai-idea').fill('مقهي الورد');
+  await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+  await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+  await page.getByRole('button', { name: builder.ai.accept, exact: true }).click({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+
+  // Back to page 1, «عندي تصميم جاهز», own file.
+  const back = page.getByRole('button', { name: common.actions.back, exact: true });
+  await back.click();
+  await back.click();
+  await readyDesign(page);
+  await upload(page, png);
+  await expect(page.getByText(/design-.*\.png/)).toBeVisible();
+  await next(page).click();
+  await expect(perSheetBadge(page, 54)).toBeVisible();
+  await next(page).click();
+  await chooseQuantity(page, 'plastic', 1050);
+  await next(page).click();
+  await fillDetails(page);
+  await page.getByRole('button', { name: builder.details.submit, exact: true }).click();
+  await page.waitForURL('**/order/success', { timeout: 60_000 });
+  expect(uploads.length, 'the own file is uploaded').toBeGreaterThan(0);
 });

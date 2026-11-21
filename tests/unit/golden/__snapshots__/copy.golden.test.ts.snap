@@ -355,6 +355,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "sheet": "ورقة A4",
     "perSheet": "بالورقة",
     "empty": "ارفع تصميمك حتى تشوف المعاينة",
+    "emptyAi": "صمّم أو ارفع تصميمك حتى تشوف المعاينة",
     "marginHint": "الهامش {margin} ملم من كل جهة",
     "expand": "كبّر المعاينة",
     "close": "إغلاق المعاينة",
@@ -369,6 +370,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "rectHint": "مربع أو مستطيل.",
     "custom": "شكل مخصص",
     "customHint": "يُقطع على حدود تصميمك. يحتاج PNG شفاف.",
+    "customHintAi": "يُقطع على حدود الرسمة.",
     "corners": "الزوايا",
     "rounded": "زوايا دائرية",
     "roundedHint": "فراغ 2 ملم بين الستيكرات",
@@ -382,6 +384,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "refs": "صور مرجعية (اختياري، لحد 5)",
     "addRef": "أضف صورة",
     "removeRef": "احذف الصورة",
+    "refRejected": "الصورة لازم تكون PNG أو JPG، ولحد 5 صور.",
     "generate": "ولّد التصميم",
     "readyDesign": "عندي تصميم جاهز",
     "reviewTitle": "الكتابة اللي راح تنطبع على الستيكر",
@@ -404,6 +407,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "accept": "أكمل بهذا",
     "retry": "جرّب مرة لخ",
     "editIdea": "عدّل الفكرة",
+    "viewResult": "شوف التصميم",
     "shrinkWarning": "صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع",
     "unavailable": "التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.",
     "aspect": "للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.",
@@ -415,7 +419,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
       "refused": "ما نكدر نصمم هذي الفكرة. جرّب فكرة ثانية.",
       "failed": "صار خلل بالتصميم، ما انحسبت المحاولة. جرّب مرة لخ.",
       "invalid_request": "تأكد من الفكرة والصور وجرّب مرة لخ.",
-      "unavailable": "التصميم بالموقع مو متوفر هسه."
+      "unavailable": "التصميم بالموقع مو متوفر هسه.",
+      "network": "صار خلل بالاتصال. جرّب مرة لخ."
     }
   },
   "upload": {
@@ -555,13 +560,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3841,
+  "chars": 3981,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "2db74f51aefdf775b579fc3563f56bb63e25accee45d680656d745ce56abbb7e",
-  "strings": 176,
+  "sha256OfRawJson": "9561ad9736c5602a12cbe3e6dc110dfbbf17977f377bb1029f947890eb5da2cf",
+  "strings": 181,
 }
 `;
 
@@ -811,17 +816,17 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
 "{
   "howItWorks": {
     "title": "شلون نشتغل؟",
-    "hero": "من الملف للطباعة بثلاث خطوات",
-    "heroSub": "ارفع تصميمك وحدد القياس، والموقع يرتب ورقة A4 ويحسب العدد بالضبط.",
+    "hero": "من الفكرة للطباعة بثلاث خطوات",
+    "heroSub": "صمّم ستيكرك بالموقع أو ارفع تصميمك الجاهز، والموقع يرتب ورقة A4 ويحسب العدد بالضبط.",
     "stepsTitle": "ثلاث خطوات",
     "steps": [
       {
-        "title": "اختار الشكل وارفع تصميمك",
+        "title": "صمّم ستيكرك أو ارفع تصميمك",
         "body": "اختار الشكل والقياس واكتب فكرتك — نصمم لك الستيكر بثواني، أو ارفع تصميمك الجاهز."
       },
       {
-        "title": "حدد القياس",
-        "body": "اكتب القياس بالسنتيمتر وشوف العدد فوراً."
+        "title": "شوف الترتيب وحدد القياس",
+        "body": "شوف شلون يتصفّط على ورقة A4، وغيّر القياس بالسنتيمتر وشوف العدد فوراً."
       },
       {
         "title": "اختار الخامة والعدد وأرسل",
@@ -936,12 +941,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1936,
+  "chars": 2000,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "863155a456d9adff0ac5f4eab3057118326ce55adfbe059784a834995f8272f7",
+  "sha256OfRawJson": "a63f423c0d401fb6798db0ac62dcc3e781be02f470b376f3db99e4444905dae4",
   "strings": 84,
 }
 `;

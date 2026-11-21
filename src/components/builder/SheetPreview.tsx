@@ -13,6 +13,8 @@ interface Props {
   className?: string;
   /** Hide the count badge (the mobile strip renders its own). */
   hideBadge?: boolean;
+  /** Text shown without a layout (default builder.preview.empty). */
+  emptyText?: string;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * Memoised: all four props are referentially stable between layouts, so typing in the
  * form or upload progress does not re-render the sheet.
  */
-export const SheetPreview = memo(function SheetPreview({ layout, previewUrl, className, hideBadge }: Props) {
+export const SheetPreview = memo(function SheetPreview({ layout, previewUrl, className, hideBadge, emptyText }: Props) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const artId = `art-${uid}`;
   const clipId = `clip-${uid}`;
@@ -76,7 +78,7 @@ export const SheetPreview = memo(function SheetPreview({ layout, previewUrl, cla
       </svg>
       {!layout && (
         <p className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
-          {builder.preview.empty}
+          {emptyText ?? builder.preview.empty}
         </p>
       )}
       {layout && !hideBadge && (
