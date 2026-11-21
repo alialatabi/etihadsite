@@ -51,7 +51,7 @@ export async function GET(
   const bytes = await storage.readFile(path);
   if (!bytes) return which === "pdf" ? pdfPurged() : new Response(null, { status: 404 });
 
-  return new Response(Buffer.from(bytes), {
+  return new Response(bytes as BodyInit, {
     headers: {
       "Content-Type": mime,
       "Content-Length": String(bytes.byteLength),
