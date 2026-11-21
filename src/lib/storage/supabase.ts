@@ -225,8 +225,11 @@ export class SupabaseStorage implements StorageAdapter {
    * page starts after the rows actually received, and only an EMPTY page ends the read, so a
    * server cap below PAGE_ROWS can never cut the list short.
    */
-  private async selectAllPaged(pathAndQuery: string, opts: { untilEmpty?: boolean } = {}): Promise<Record<string, unknown>[]> {
-    const rows: Record<string, unknown>[] = [];
+  private async selectAllPaged<T = Record<string, unknown>>(
+    pathAndQuery: string,
+    opts: { untilEmpty?: boolean; map?: (r: Record<string, unknown>) => T } = {},
+  ): Promise<T[]> {
+    const rows: T[] = [];
     for (let from = 0, pages = 0; ; ) {
       if (opts.untilEmpty && ++pages > MAX_PURGE_PAGES) throw new Error('[supabase] select: page ceiling reached');
       const res = await this.req(pathAndQuery, {
@@ -235,7 +238,9 @@ export class SupabaseStorage implements StorageAdapter {
       });
       const page = (await res.json()) as Record<string, unknown>[];
       if (!Array.isArray(page)) throw new Error('[supabase] select: unexpected answer');
-      rows.push(...page);
+      // Each page is converted before the next one is requested.
+      if (opts.map) for (const r of page) rows.push(opts.map(r));
+      else rows.push(...(page as T[]));
       if (opts.untilEmpty ? page.length === 0 : page.length < PAGE_ROWS) return rows;
       from += opts.untilEmpty ? page.length : PAGE_ROWS;
     }
@@ -451,17 +456,10 @@ export class SupabaseStorage implements StorageAdapter {
   /** Oldest first; pages through PostgREST's 1000-row cap with Range headers. */
   async listEvents(since: Date): Promise<AnalyticsEvent[]> {
     const iso = encodeURIComponent(since.toISOString());
-    const out: AnalyticsEvent[] = [];
-    for (let from = 0; ; from += PAGE_ROWS) {
-      const res = await this.req(
-        `/rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.${iso}&order=ts.asc,id.asc`,
-        { headers: { Range: `${from}-${from + PAGE_ROWS - 1}`, 'Range-Unit': 'items' }, timeoutMs: OBJECT_TIMEOUT_MS },
-      );
-      // Each page is converted before the next one is requested.
-      const rows = (await res.json()) as Record<string, unknown>[];
-      for (const r of rows) out.push(rowToEvent(r));
-      if (rows.length < PAGE_ROWS) return out;
-    }
+    return this.selectAllPaged(
+      `/rest/v1/events?select=ts,type,visitor,path,step,source,device,city,region,country,meta&ts=gte.${iso}&order=ts.asc,id.asc`,
+      { map: rowToEvent },
+    );
   }
 
   async upsertCustomerFromOrder(record: OrderRecord): Promise<void> {
