@@ -570,8 +570,10 @@ export interface StorageAdapter {
   saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
   /**
    * Optional: what a committed upload looks like WITHOUT reading its bytes: the stored meta and
-   * the size of the .bin. null when the meta is missing or unreadable, or the .bin is gone, i.e.
-   * exactly when readUpload() would answer null. Lets the commit step answer a retry cheaply.
+   * the size of the .bin. null when the meta is missing or unreadable, the .bin is gone, or the
+   * storage's answer was not a clean success (unknown): a null is NOT proof that the upload is
+   * missing, so the commit step asks readUpload() before treating it as missing (the AI reference
+   * pre-check treats it as an invalid reference, which costs nothing). Only a thrown network error propagates. Lets the commit step answer a retry cheaply.
    */
   uploadInfo?(uploadId: string): Promise<{ meta: StoredFileMeta; size: number } | null>;
   /** Optional: short-lived signed download URL for an admin download. */

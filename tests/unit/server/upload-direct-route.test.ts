@@ -356,15 +356,42 @@ describe("POST /api/upload/direct/commit", () => {
     expect(await res.json()).toMatchObject({ ok: false, error: "unsupported_type" });
   });
 
-  it("with uploadInfo returning null (no meta, or the .bin was purged) it takes the fresh path: a missing .bin is still 400 corrupt", async () => {
+  it("with uploadInfo returning null (no meta, or the .bin was purged) readUpload is asked, then the fresh path: a missing .bin is still 400 corrupt", async () => {
     const f = makeFake();
     (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
     fake = f;
     const res = await commit(commitReq({ uploadId: ID }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
-    expect(f.readUpload).not.toHaveBeenCalled();
+    expect(f.readUpload).toHaveBeenCalledWith(ID);
     expect(f.readFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+  });
+
+  it("with uploadInfo returning null for an already-committed id (the info call was inconclusive), it falls back to readUpload and answers 200, not 500", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, new Uint8Array([...PNG, 9]));
+    f.metas.set(ID, { mime: "image/png", originalName: "a.png", bytes: 9, createdAt: new Date().toISOString() });
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: 9 });
+    expect(f.readUpload).toHaveBeenCalledTimes(1);
+    expect(f.readFile).not.toHaveBeenCalled();
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo throwing (a network error), the answer is 500 server_error as before, and readUpload is not tried", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    fake = f;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, error: "server_error" });
+    expect(f.readUpload).not.toHaveBeenCalled();
   });
 
   it("with uploadInfo returning null and fresh bytes in place, commits them normally", async () => {

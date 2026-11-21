@@ -164,17 +164,53 @@ describe("SupabaseStorage objects", () => {
     expect(await store().uploadInfo("../x")).toBeNull();
   });
 
-  it("uploadInfo falls back to meta.bytes when the info answer has no size, and is null for a meta that is not JSON", async () => {
-    const meta: StoredFileMeta = { mime: "image/png", originalName: "a.png", bytes: 77, createdAt: "x" };
-    respond(json(meta), json({ name: "x" }));
-    expect((await store().uploadInfo(ID))?.size).toBe(77);
-    respond(bytes(new TextEncoder().encode("not json")));
+  const okMeta: StoredFileMeta = { mime: "image/png", originalName: "a.png", bytes: 77, createdAt: "x" };
+
+  it("uploadInfo is null (not a throw) when the info call answers 400 with an inner 404, as Storage does for a missing object or bucket", async () => {
+    respond(json(okMeta), json({ statusCode: "404", error: "not_found", message: "Object not found" }, 400));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(okMeta), json({ statusCode: "404", error: "Bucket not found", message: "Bucket not found" }, 400));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    expect(calls).toHaveLength(4);
+  });
+
+  it("uploadInfo is null when the meta call answers 404 (and the info call is never made)", async () => {
+    respond(json({ statusCode: "404", error: "not_found" }, 404));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("uploadInfo is null on a 500 from the info call, and on a 500 or any other 4xx from the meta call", async () => {
+    respond(json(okMeta), json({ error: "x" }, 500));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json({ error: "x" }, 500));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json({ error: "bad" }, 400));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(okMeta), json({ error: "bad" }, 403));
     expect(await store().uploadInfo(ID)).toBeNull();
   });
 
-  it("uploadInfo throws on an outage, like the other reads", async () => {
-    respond(json({ error: "x" }, 500));
-    await expect(store().uploadInfo(ID)).rejects.toThrow(/-> 500/);
+  it("uploadInfo is null when the info answer is not JSON, has no usable size, or the meta is not JSON or not an object", async () => {
+    respond(json(okMeta), bytes(new TextEncoder().encode("<html>")));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(okMeta), json({ name: "x" }));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(okMeta), json({ size: "77" }));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(okMeta), json({ size: -1 }));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(bytes(new TextEncoder().encode("not json")));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    respond(json(null));
+    expect(await store().uploadInfo(ID)).toBeNull();
+  });
+
+  it("uploadInfo still throws on a network error (a rejected fetch), like readUpload does", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+    await expect(store().uploadInfo(ID)).rejects.toThrow(/fetch failed/);
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+    await expect(store().readUpload(ID)).rejects.toThrow(/fetch failed/);
   });
 
   it("deleteFile sends DELETE with prefixes to the bucket", async () => {

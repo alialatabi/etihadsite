@@ -191,20 +191,21 @@ export class SupabaseStorage implements StorageAdapter {
 
   /**
    * One request. Throws on network errors, timeouts and non-2xx answers, except a
-   * "not found" when `allowNotFound` (then the Response is returned with ok === false).
+   * "not found" when `allowNotFound` (then the Response is returned with ok === false), and
+   * never for a non-2xx status when `anyStatus` (the caller reads `res.ok`; a network error still throws).
    */
   private async req(
     path: string,
-    init: RequestInit & { allowNotFound?: boolean; allowStatus?: number; timeoutMs?: number } = {},
+    init: RequestInit & { allowNotFound?: boolean; allowStatus?: number; anyStatus?: boolean; timeoutMs?: number } = {},
   ): Promise<Response> {
-    const { allowNotFound, allowStatus, timeoutMs, ...rest } = init;
+    const { allowNotFound, allowStatus, anyStatus, timeoutMs, ...rest } = init;
     const res = await fetch(`${this.base}${path}`, {
       ...rest,
       headers: { apikey: this.key, Authorization: `Bearer ${this.key}`, ...((rest.headers as Record<string, string>) ?? {}) },
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs ?? TIMEOUT_MS),
     });
-    if (res.ok || res.status === allowStatus) return res;
+    if (res.ok || res.status === allowStatus || anyStatus) return res;
     if (allowNotFound && (await isNotFound(res))) return res;
     const text = await res.text().catch(() => '');
     throw new Error(`[supabase] ${rest.method ?? 'GET'} ${path.split('?')[0]} -> ${res.status} ${text.slice(0, 200)}`);
@@ -286,24 +287,41 @@ export class SupabaseStorage implements StorageAdapter {
     }
   }
 
-  /** Meta and .bin size of a committed upload, without downloading the .bin (see StorageAdapter.uploadInfo). */
+  /**
+   * Meta and .bin size of a committed upload, without downloading the .bin (see StorageAdapter.uploadInfo).
+   * Any answer that is not a clean 2xx with a usable body (404, Storage's 400 with an inner 404, 5xx, a body
+   * that is not JSON, no size) is "unknown" and gives null: the caller then asks readUpload, which decides
+   * (and throws on a real outage, exactly as before uploadInfo existed). Only a thrown network error propagates.
+   */
   async uploadInfo(uploadId: string) {
     if (!ID_RE.test(uploadId)) return null;
-    const metaRaw = await this.getObject(uploadMetaPath(uploadId));
-    if (!metaRaw) return null;
+    const metaRes = await this.req(`/storage/v1/object/authenticated/${BUCKET}/${safePath(uploadMetaPath(uploadId))}`, {
+      anyStatus: true,
+      timeoutMs: OBJECT_TIMEOUT_MS,
+    });
+    if (!metaRes.ok) return this.uploadInfoUnknown(uploadId, 'meta', metaRes);
     let meta: StoredFileMeta;
     try {
-      meta = JSON.parse(Buffer.from(metaRaw).toString('utf8')) as StoredFileMeta;
+      meta = JSON.parse(Buffer.from(await metaRes.arrayBuffer()).toString('utf8')) as StoredFileMeta;
     } catch (e) {
       reportError(e, { where: 'storage.uploadInfo', tags: { uploadId } });
       return null;
     }
+    if (typeof meta !== 'object' || meta === null) return null;
     // Object info (JSON, no body): a purged .bin answers 404 and so the caller treats the upload as missing, like readUpload.
-    const res = await this.req(`/storage/v1/object/info/authenticated/${BUCKET}/${safePath(uploadPath(uploadId))}`, { allowNotFound: true });
-    if (!res.ok) return null;
+    const res = await this.req(`/storage/v1/object/info/authenticated/${BUCKET}/${safePath(uploadPath(uploadId))}`, { anyStatus: true });
+    if (!res.ok) return this.uploadInfoUnknown(uploadId, 'info', res);
     const info = (await res.json().catch(() => null)) as { size?: unknown } | null;
-    const size = typeof info?.size === 'number' && Number.isFinite(info.size) ? info.size : Number(meta.bytes);
-    return { meta, size };
+    if (typeof info?.size !== 'number' || !Number.isFinite(info.size) || info.size < 0) return null;
+    return { meta, size: info.size };
+  }
+
+  /** A non-2xx answer of uploadInfo: null. A clean "not found" is the normal case; anything else is also reported (status only). */
+  private async uploadInfoUnknown(uploadId: string, call: 'meta' | 'info', res: Response): Promise<null> {
+    if (!(await isNotFound(res))) {
+      reportError(new Error(`[supabase] uploadInfo ${call} -> ${res.status}`), { where: 'storage.uploadInfo', tags: { uploadId }, level: 'warning' });
+    }
+    return null;
   }
 
   async savePdf(orderId: string, bytes: Uint8Array): Promise<string> {

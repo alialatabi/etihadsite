@@ -50,13 +50,13 @@ export async function POST(request: Request): Promise<Response> {
         if (!kind) return uploadFail("unsupported_type");
         return uploadOk(uploadId, kind, info.size);
       }
-    } else {
-      const existing = await storage.readUpload(uploadId);
-      if (existing) {
-        const kind = sniffKind(existing.bytes);
-        if (!kind) return uploadFail("unsupported_type");
-        return uploadOk(uploadId, kind, existing.bytes.byteLength);
-      }
+    }
+    // No adapter info, or a null from it (missing, or not a clean answer, which is not proof): readUpload decides.
+    const existing = await storage.readUpload(uploadId);
+    if (existing) {
+      const kind = sniffKind(existing.bytes);
+      if (!kind) return uploadFail("unsupported_type");
+      return uploadOk(uploadId, kind, existing.bytes.byteLength);
     }
 
     const bytes = await storage.readFile(uploadPath(uploadId));
