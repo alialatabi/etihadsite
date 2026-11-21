@@ -1,8 +1,7 @@
 import { nanoid } from "nanoid";
 import { BodyTooLarge, declaredLength, readCapped } from "../_lib/body";
-import { rasterHeaderOk } from "../_lib/image-header";
-import { cleanOriginalName, uploadFail, uploadOk } from "../_lib/upload";
-import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
+import { checkUploadBytes } from "../_lib/image-header";
+import { uploadFail, uploadMetaFor, uploadOk } from "../_lib/upload";
 import { trackServer } from "@/lib/analytics/server";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { reportError } from "@/lib/monitoring/report";
@@ -45,19 +44,13 @@ export async function POST(request: Request): Promise<Response> {
     if (file.size === 0) return uploadFail("corrupt");
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const kind = sniffKind(bytes);
-    if (!kind) return uploadFail("unsupported_type");
     // Magic bytes alone prove nothing: a PNG/JPEG must have a readable header within the pixel cap (PDFs are never judged).
-    if (!(await rasterHeaderOk(bytes, kind))) return uploadFail("corrupt");
+    const checked = await checkUploadBytes(bytes);
+    if (!checked.ok) return uploadFail(checked.error);
+    const { kind } = checked;
 
     const uploadId = nanoid();
-    const originalName = cleanOriginalName(file.name);
-    await getStorage().saveUpload(uploadId, bytes, {
-      mime: MIME_BY_KIND[kind],
-      originalName,
-      bytes: bytes.byteLength,
-      createdAt: new Date().toISOString(),
-    });
+    await getStorage().saveUpload(uploadId, bytes, uploadMetaFor(kind, file.name, bytes.byteLength));
 
     await trackServer(request, { type: "upload", meta: { kind } });
     return uploadOk(uploadId, kind, bytes.byteLength);

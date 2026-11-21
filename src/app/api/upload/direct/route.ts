@@ -1,7 +1,6 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../_lib/body";
-import { directUploadCap, uploadFail } from "../../_lib/upload";
+import { directUploadCap, parseSmallJson, uploadFail } from "../../_lib/upload";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
@@ -30,16 +29,11 @@ export async function POST(request: Request): Promise<Response> {
     const rl = limiters().upload.check(clientIp(request));
     if (!rl.ok) return uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
 
-    let parsed;
-    try {
-      parsed = bodySchema.safeParse(await readJsonCapped(request, SMALL_JSON_MAX_BYTES));
-    } catch {
-      return uploadFail("corrupt");
-    }
-    if (!parsed.success) return uploadFail("corrupt");
+    const data = await parseSmallJson(request, bodySchema);
+    if (!data) return uploadFail("corrupt");
     const settings = await getSettings();
     const max = directUploadCap(settings, storage);
-    if (parsed.data.size > max) return uploadFail("too_large");
+    if (data.size > max) return uploadFail("too_large");
 
     const uploadId = nanoid();
     const url = await storage.createDirectUpload(uploadId);

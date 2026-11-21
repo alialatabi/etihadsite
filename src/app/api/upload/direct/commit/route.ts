@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../../_lib/body";
-import { rasterHeaderOk } from "../../../_lib/image-header";
-import { cleanOriginalName, directUploadCap, uploadFail, uploadOk } from "../../../_lib/upload";
-import { MIME_BY_KIND, kindForMime, sniffKind } from "@/lib/design/kind";
+import { checkUploadBytes } from "../../../_lib/image-header";
+import { directUploadCap, parseSmallJson, uploadFail, uploadMetaFor, uploadOk } from "../../../_lib/upload";
+import { kindForMime, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { reportError } from "@/lib/monitoring/report";
@@ -30,14 +29,9 @@ export async function POST(request: Request): Promise<Response> {
     const rl = limiters().commit.check(clientIp(request));
     if (!rl.ok) return uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
 
-    let parsed;
-    try {
-      parsed = bodySchema.safeParse(await readJsonCapped(request, SMALL_JSON_MAX_BYTES));
-    } catch {
-      return uploadFail("corrupt");
-    }
-    if (!parsed.success) return uploadFail("corrupt");
-    const { uploadId } = parsed.data;
+    const data = await parseSmallJson(request, bodySchema);
+    if (!data) return uploadFail("corrupt");
+    const { uploadId } = data;
 
     const storage = getStorage();
     if (!storage.createDirectUpload) return uploadFail("corrupt");
@@ -68,13 +62,12 @@ export async function POST(request: Request): Promise<Response> {
     };
     if (bytes.byteLength === 0) return reject("corrupt");
     if (bytes.byteLength > directUploadCap(settings, storage)) return reject("too_large");
-    const kind = sniffKind(bytes);
-    if (!kind) return reject("unsupported_type");
     // A file with only the magic bytes (and junk after them) or an absurd pixel count is deleted, never kept.
-    if (!(await rasterHeaderOk(bytes, kind))) return reject("corrupt");
+    const checked = await checkUploadBytes(bytes);
+    if (!checked.ok) return reject(checked.error);
+    const { kind } = checked;
 
-    const originalName = cleanOriginalName(parsed.data.name);
-    const meta = { mime: MIME_BY_KIND[kind], originalName, bytes: bytes.byteLength, createdAt: new Date().toISOString() };
+    const meta = uploadMetaFor(kind, data.name, bytes.byteLength);
     // The meta marks the bytes as checked (readUpload needs both files).
     if (storage.saveUploadMeta) await storage.saveUploadMeta(uploadId, meta);
     else await storage.saveUpload(uploadId, bytes, meta);
