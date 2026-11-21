@@ -284,7 +284,6 @@ export async function buildStaffFile(
   card: StaffCardState,
   fileName: string,
   layoutSettings: LayoutSettings,
-  _quality: QualitySettings, // kept for callers; the print resolution is the fixed PRINT_DPI
   now: Date = new Date(),
 ): Promise<StaffFileResult> {
   const failed = { cardId: card.id, fileName: card.file.name } as const;
@@ -337,7 +336,6 @@ export interface StaffDownloadSummary {
 export async function downloadStaffFiles(
   cards: readonly StaffCardState[],
   layoutSettings: LayoutSettings,
-  quality: QualitySettings,
   opts: StaffDownloadOptions,
 ): Promise<StaffDownloadSummary> {
   const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -347,7 +345,7 @@ export async function downloadStaffFiles(
   let savedAny = false;
   for (let i = 0; i < cards.length; i++) {
     opts.onProgress?.(i + 1, cards.length);
-    const out = await buildStaffFile(cards[i], names[i], layoutSettings, quality, now);
+    const out = await buildStaffFile(cards[i], names[i], layoutSettings, now);
     if (!out.ok) {
       summary.failed.push(out);
       continue;

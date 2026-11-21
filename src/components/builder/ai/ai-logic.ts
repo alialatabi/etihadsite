@@ -5,7 +5,7 @@ import { cleanLine, stripUnprintable } from '@/lib/ai/sanitize';
 import { textCapacity } from '@/lib/ai/text-capacity';
 import type { Corners, LayoutSettings, QualitySettings, Shape } from '@/lib/types';
 import { aiAcceptedSize, dpiFor, dpiStatus, type DpiStatus } from '../logic';
-import { safeMaxWidth } from '../safe';
+import { maxWidthAtAspect } from '../safe';
 import type { BriefError, ClientError, GenerateError } from './api';
 
 export type AiPhase = 'idle' | 'reviewing' | 'generating' | 'result' | 'error';
@@ -130,7 +130,7 @@ export function printableLines(lines: string[]): string[] {
 export type TextWarning = { kind: 'enlarge'; sizeUm: number } | { kind: 'reduce' } | null;
 
 /**
- * The widest size the size step accepts for a sticker with the ratio of `size` (the twin of `maxWidthUm` in useBuilder,
+ * The widest size the size step accepts for a sticker with the ratio of `size` (shares `maxWidthAtAspect` with `maxWidthUm` in useBuilder,
  * which is taken at the current design's ratio): for the checks where the size is not the design's own, such as the
  * review box (a rectangle is typed freely there) and a result that is not accepted yet.
  */
@@ -141,25 +141,25 @@ export function maxWidthAtSize(
   layout: LayoutSettings,
 ): number | null {
   if (!shape || !size || !(size.widthUm > 0) || !(size.heightUm > 0)) return null;
-  const probe = { shape, ...(shape === 'rect' ? { corners } : {}), widthUm: 50_000, heightUm: 50_000 };
-  const m = safeMaxWidth(shape === 'circle' ? 1 : size.widthUm / size.heightUm, probe, layout);
-  return m && m > 0 ? m : null;
+  return maxWidthAtAspect(shape, corners, size.widthUm / size.heightUm, layout);
 }
 
 /**
  * Warning for `lines` (as typed or as printed: cleaned here exactly as for the print) on `size`.
  * `maxWidthUm` is the widest size the size step accepts (null: unknown): a larger size is never recommended.
+ * It may be a function, called only when the text does not fit.
  */
 export function textWarning(
   lines: string[],
   shape: Shape | null,
   size: { widthUm: number; heightUm: number } | null,
-  maxWidthUm: number | null,
+  maxWidthUm: number | null | (() => number | null),
 ): TextWarning {
   if (!shape || !size) return null;
   const capacity = textCapacity(printableLines(lines), shape, size.widthUm, size.heightUm);
   if (capacity.ok) return null;
   const min = capacity.minSizeUm;
-  if (min !== null && (maxWidthUm === null || min <= maxWidthUm)) return { kind: 'enlarge', sizeUm: min };
+  const max = typeof maxWidthUm === 'function' ? maxWidthUm() : maxWidthUm;
+  if (min !== null && (max === null || min <= max)) return { kind: 'enlarge', sizeUm: min };
   return { kind: 'reduce' };
 }

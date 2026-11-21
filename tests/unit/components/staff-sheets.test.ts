@@ -229,7 +229,7 @@ describe('download', () => {
     const now = new Date('2026-11-12T10:05:00Z');
     const saved: { name: string; bytes: Uint8Array }[] = [];
     const progress: number[] = [];
-    const out = await downloadStaffFiles(cards, LAYOUT, QUALITY, { save: (bytes, name) => saved.push({ name, bytes }), onProgress: (n) => progress.push(n), now, wait: noWait });
+    const out = await downloadStaffFiles(cards, LAYOUT, { save: (bytes, name) => saved.push({ name, bytes }), onProgress: (n) => progress.push(n), now, wait: noWait });
     expect(out.failed).toEqual([]);
     expect(saved.map((f) => f.name)).toEqual(['a-5cm.pdf', 'b-4x4cm.pdf', 'c-3cm.pdf']);
     expect(out.saved).toEqual(saved.map((f) => f.name));
@@ -245,7 +245,7 @@ describe('download', () => {
   it('prepares, builds and saves one file before it starts the next, and waits between saves', async () => {
     const cards = [...ready('a.png', 400, 400, '5'), ...ready('b.png', 300, 300, '4')];
     const log: string[] = [];
-    await downloadStaffFiles(cards, LAYOUT, QUALITY, {
+    await downloadStaffFiles(cards, LAYOUT, {
       save: (_b, name) => log.push(`save ${name} after ${built.calls.length} builds`),
       wait: async (ms) => void log.push(`wait ${ms}`),
     });
@@ -256,7 +256,7 @@ describe('download', () => {
   it('one design that cannot be prepared does not stop the others, and is reported', async () => {
     const cards = [...ready('a.png', 400, 400, '5'), ...ready('locked.pdf', 400, 400, '5'), ...ready('c.png', 300, 300, '4')];
     const saved: string[] = [];
-    const out = await downloadStaffFiles(cards, LAYOUT, QUALITY, { save: (_b, n) => saved.push(n), wait: noWait });
+    const out = await downloadStaffFiles(cards, LAYOUT, { save: (_b, n) => saved.push(n), wait: noWait });
     expect(saved).toEqual(['a-5cm.pdf', 'c-4cm.pdf']);
     expect(out.failed).toHaveLength(1);
     expect(out.failed[0]).toMatchObject({ ok: false, reason: 'prepare', fileName: 'locked.pdf', error: 'encrypted' });
@@ -264,14 +264,14 @@ describe('download', () => {
 
   it('one card alone: buildStaffFile builds a single-page PDF under the given name', async () => {
     const [card] = ready('a.png', 400, 400, '5');
-    const out = await buildStaffFile(card, 'a-5cm.pdf', LAYOUT, QUALITY);
+    const out = await buildStaffFile(card, 'a-5cm.pdf', LAYOUT);
     expect(out).toMatchObject({ ok: true, fileName: 'a-5cm.pdf' });
     expect(built.calls).toHaveLength(1);
     expect(built.calls[0].items).toHaveLength(1);
   });
 
   it('a card without a size is a build failure, not a crash', async () => {
-    const out = await downloadStaffFiles(run([add('x.png')]), LAYOUT, QUALITY, { save: () => {}, wait: noWait });
+    const out = await downloadStaffFiles(run([add('x.png')]), LAYOUT, { save: () => {}, wait: noWait });
     expect(out.saved).toEqual([]);
     expect(out.failed[0]).toMatchObject({ reason: 'build', fileName: 'x.png' });
   });

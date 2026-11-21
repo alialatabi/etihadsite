@@ -31,7 +31,7 @@ import {
   type FormFields,
   type StepId,
 } from './logic';
-import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm, safePriceForStickers } from './safe';
+import { safeDerive, safeFormatCm, safeLayout, maxWidthAtAspect, safeParseCm, safePriceForStickers } from './safe';
 import { useDebounced } from './useDebounced';
 import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
@@ -42,30 +42,16 @@ const RESTORE_TIMEOUT_MS = 10_000;
 
 /** Object URL hygiene: revokes the previous URL when `url` changes, and the last one on unmount. */
 function useRevokeObjectUrl(url: string | null): void {
-  const urlRef = useRef<string | null>(null);
   useEffect(() => {
-    const prev = urlRef.current;
-    if (prev && prev !== url) {
+    if (!url) return;
+    return () => {
       try {
-        URL.revokeObjectURL(prev);
+        URL.revokeObjectURL(url);
       } catch {
         /* ignore */
       }
-    }
-    urlRef.current = url;
+    };
   }, [url]);
-  useEffect(
-    () => () => {
-      if (urlRef.current) {
-        try {
-          URL.revokeObjectURL(urlRef.current);
-        } catch {
-          /* ignore */
-        }
-      }
-    },
-    [],
-  );
 }
 
 /** Analytics: one 'step' event per step per session (still sent when sessionStorage throws). */
@@ -420,12 +406,10 @@ export function useBuilder(settings: ShopSettings) {
   const settled = debouncedSpec === spec;
   const layout = outcome && outcome.ok ? outcome.layout : null;
 
-  const maxWidthUm = useMemo(() => {
-    if (!shape) return null;
-    const probe: StickerSpec = { shape, ...(shape === 'rect' ? { corners } : {}), widthUm: 50_000, heightUm: 50_000 };
-    const m = safeMaxWidth(shape === 'circle' ? 1 : aspect, probe, settings.layout);
-    return m && m > 0 ? m : null;
-  }, [shape, corners, aspect, settings.layout]);
+  const maxWidthUm = useMemo(
+    () => (shape ? maxWidthAtAspect(shape, corners, aspect, settings.layout) : null),
+    [shape, corners, aspect, settings.layout],
+  );
 
   const dpi = design && spec ? dpiFor(design, spec) : null;
   const dpiState = dpiStatus(dpi, settings.quality);

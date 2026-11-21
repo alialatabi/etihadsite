@@ -418,6 +418,19 @@ describe('textWarning', () => {
     expect(textWarning(BIRTHDAY, 'circle', circle30, min - 1)).toEqual({ kind: 'reduce' });
   });
 
+  it('reads a max-width function only when the text does not fit, and gives the same result as the number', () => {
+    const min = textCapacity(BIRTHDAY, 'circle', 30_000, 30_000).minSizeUm as number;
+    const fits = vi.fn(() => min);
+    expect(textWarning(['حلويات الريم'], 'circle', circle30, fits)).toBeNull();
+    expect(fits).not.toHaveBeenCalled();
+    const tooBig = vi.fn(() => min - 1);
+    expect(textWarning(BIRTHDAY, 'circle', circle30, tooBig)).toEqual(textWarning(BIRTHDAY, 'circle', circle30, min - 1));
+    expect(tooBig).toHaveBeenCalledTimes(1);
+    const ok = vi.fn(() => min);
+    expect(textWarning(BIRTHDAY, 'circle', circle30, ok)).toEqual({ kind: 'enlarge', sizeUm: min });
+    expect(ok).toHaveBeenCalledTimes(1);
+  });
+
   it('says reduce when no size up to the shop maximum fits', () => {
     expect(textCapacity(HUGE, 'circle', 30_000, 30_000).minSizeUm).toBeNull();
     expect(textWarning(HUGE, 'circle', circle30, null)).toEqual({ kind: 'reduce' });
