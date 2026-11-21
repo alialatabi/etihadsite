@@ -1,5 +1,4 @@
 import { readJsonCapped } from "../../_lib/body";
-import { botBlocked } from "@/lib/botid";
 import { reportError } from "@/lib/monitoring/report";
 import {
   AI_BODY_MAX_BYTES,
@@ -17,16 +16,13 @@ export const dynamic = "force-dynamic";
  * as base64 PNG. Logic and the order of checks in src/lib/ai/service.ts.
  */
 export async function POST(request: Request): Promise<Response> {
-  // The time budget of the image call counts from here: the bot check (up to 3 s) and the body read use up the route's maxDuration too.
+  // The time budget of the image call counts from here: the body read uses up the route's maxDuration too.
   const startedAt = Date.now();
   const send = (body: GenerateResponse, retryAfterSec?: number) =>
     Response.json(body, {
       status: body.ok ? 200 : GENERATE_STATUS[body.error],
       headers: retryAfterSec !== undefined ? { "Retry-After": String(retryAfterSec) } : undefined,
     });
-
-  // Bot check (log-only unless BOTID_ENFORCE=1): the 403 answer of this route.
-  if (await botBlocked("/api/design/generate")) return send({ ok: false, error: "blocked" });
 
   let json: unknown;
   try {

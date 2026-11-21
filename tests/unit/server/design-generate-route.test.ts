@@ -579,10 +579,10 @@ describe("generate: time budget", () => {
     expect(spy).toHaveBeenCalledWith(25_000);
   });
 
-  it("counts the time spent before runGenerate (bot check, body read) from the route's start", async () => {
+  it("counts the time spent before runGenerate (the body read) from the route's start", async () => {
     stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    // The route started at 0; the bot check and the body read took 10 s, so runGenerate begins at 10 s: 60 - 10 - 5 = 45 s.
+    // The route started at 0; the body read took 10 s, so runGenerate begins at 10 s: 60 - 10 - 5 = 45 s.
     expect((await runGenerate(req(), body(), () => 10_000, 0)).body.ok).toBe(true);
     expect(spy).toHaveBeenCalledWith(45_000);
   });

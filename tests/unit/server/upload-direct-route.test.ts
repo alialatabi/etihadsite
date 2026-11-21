@@ -23,9 +23,6 @@ vi.mock("@/lib/storage", async (importOriginal) => {
   return { getStorage: () => fake ?? actual.getStorage() };
 });
 
-const botBlocked = vi.hoisted(() => vi.fn<(route: string) => Promise<boolean>>(async () => false));
-vi.mock("@/lib/botid", () => ({ botBlocked }));
-
 import { POST as start } from "@/app/api/upload/direct/route";
 import { POST as commit } from "@/app/api/upload/direct/commit/route";
 
@@ -109,16 +106,6 @@ afterEach(() => {
 });
 
 describe("POST /api/upload/direct", () => {
-  it("refuses with rate_limited when the bot check says so, before reading the body", async () => {
-    fake = makeFake();
-    botBlocked.mockResolvedValueOnce(true);
-    const res = await start(startReq({ size: 1000, name: "a.png" }));
-    expect(res.status).toBe(429);
-    expect((await res.json()) as UploadResponse).toMatchObject({ ok: false, error: "rate_limited" });
-    expect(botBlocked).toHaveBeenCalledWith("/api/upload/direct");
-    expect(fake.createDirectUpload).not.toHaveBeenCalled();
-  });
-
   it("answers mode:'server' for local storage (no createDirectUpload)", async () => {
     const res = await start(startReq({ size: 1000, name: "a.png" }));
     expect(res.status).toBe(200);

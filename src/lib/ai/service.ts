@@ -336,7 +336,7 @@ async function precheckAi(
 }
 
 /**
- * `startedAt`: when the route started (before the bot check and the body read, which count against its `maxDuration`);
+ * `startedAt`: when the route started (before the body read, which counts against its `maxDuration`);
  * without it the budget starts here. `clock` is for tests only (the time budget).
  */
 export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now, startedAt?: number): Promise<GenerateOutcome> {
