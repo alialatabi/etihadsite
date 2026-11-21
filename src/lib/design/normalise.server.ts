@@ -63,7 +63,8 @@ export async function normaliseArtwork(bytes: Uint8Array, opts: NormaliseOptions
 
 async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promise<NormaliseOutcome> {
   const { spec, targetDpi, blockDpi } = opts;
-  const meta = await sharp(bytes).metadata();
+  // limitInputPixels false: only the header is read here (no decode), so sharp must not throw above its own default (about 268 MP) before our check below.
+  const meta = await sharp(bytes, { limitInputPixels: false }).metadata();
   // The header is read, nothing is decoded yet: refuse an image that would need a huge raw buffer (about 4 bytes a pixel, up to 3 attempts per order).
   if (pixelsOverCap(meta.width, meta.height)) return fail('corrupt');
   const channelHasAlpha = meta.hasAlpha === true;

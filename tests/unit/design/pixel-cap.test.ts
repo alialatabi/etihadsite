@@ -42,6 +42,13 @@ describe('normaliseArtwork pixel cap (VB-7)', () => {
     expect(err).not.toHaveBeenCalled(); // the explicit check returns before the decode (a throw would be logged and reported)
   });
 
+  it('also refuses, without logging, a header over the sharp default limit (20000 x 20000 = 400 MP)', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await normaliseArtwork(pngWithDeclaredSize(20_000, 20_000), { spec, targetDpi: 300, blockDpi: 72 });
+    expect(r).toEqual({ ok: false, error: 'corrupt' });
+    expect(err).not.toHaveBeenCalled();
+  });
+
   it('still normalises an ordinary image', async () => {
     const r = await normaliseArtwork(fx('exif6-600x400.jpg'), { spec, targetDpi: 300, blockDpi: 72 });
     expect(r.ok).toBe(true);

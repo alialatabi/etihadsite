@@ -272,6 +272,24 @@ describe("POST /api/upload/direct/commit", () => {
     expect(f.files.has(`uploads/${ID}.bin`)).toBe(false);
   });
 
+  it("without saveUploadMeta, a real PNG is committed through saveUpload (bytes + meta)", async () => {
+    const f = makeFake();
+    const png = fx("padded-400x400.png");
+    const saved: { id: string; bytes: number; meta: StoredFileMeta }[] = [];
+    (f as StorageAdapter).saveUploadMeta = undefined;
+    f.saveUpload.mockImplementation(async (id: string, bytes: Uint8Array, meta: StoredFileMeta) => {
+      saved.push({ id, bytes: bytes.byteLength, meta });
+      return `uploads/${id}.bin`;
+    });
+    f.files.set(`uploads/${ID}.bin`, png);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "logo.png" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: png.byteLength });
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ id: ID, bytes: png.byteLength, meta: { mime: "image/png", originalName: "logo.png", bytes: png.byteLength } });
+  });
+
   it("commits a PNG header at 139.2 MP (full A4 at 1200 DPI)", async () => {
     const f = makeFake();
     f.files.set(`uploads/${ID}.bin`, pngWithDeclaredSize(9921, 14031));
