@@ -140,6 +140,8 @@ export const builder = {
     quickPicks: 'اختيار سريع',
     discountTitle: 'كل ما زاد العدد، زاد الخصم',
     discountWord: 'خصم',
+    /** Screen-reader-only prefix of the struck-through price per sheet. */
+    beforeDiscountSr: 'السعر قبل الخصم:',
     nudgeAdd: 'زيد',
     nudgeGet: 'وتاخذ خصم',
     unitPrice: 'سعر الورقة',

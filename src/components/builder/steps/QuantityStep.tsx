@@ -274,7 +274,10 @@ function PriceBox({ b }: { b: BuilderApi }) {
           {p.unitPriceIqd !== null ? (
             <span className="flex flex-wrap items-baseline justify-end gap-x-2">
               {p.discountPercent > 0 && p.unitBaseIqd !== null && (
-                <span className="text-muted-foreground line-through"><Money amount={p.unitBaseIqd} /></span>
+                <span className="text-muted-foreground line-through">
+                  <span className="sr-only">{builder.quantity.beforeDiscountSr} </span>
+                  <Money amount={p.unitBaseIqd} />
+                </span>
               )}
               <span className="font-bold"><Money amount={p.unitPriceIqd} /></span>
               {p.discountPercent > 0 && (
@@ -337,7 +340,7 @@ export function QuantityStep({ b }: { b: BuilderApi }) {
             href={wa}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 text-base font-bold text-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 text-base font-bold text-[#052e16] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <MessageCircle className="size-5" aria-hidden />
             {builder.success.whatsapp}

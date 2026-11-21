@@ -482,6 +482,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "quickPicks": "اختيار سريع",
     "discountTitle": "كل ما زاد العدد، زاد الخصم",
     "discountWord": "خصم",
+    "beforeDiscountSr": "السعر قبل الخصم:",
     "nudgeAdd": "زيد",
     "nudgeGet": "وتاخذ خصم",
     "unitPrice": "سعر الورقة",
@@ -569,13 +570,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 4024,
+  "chars": 4040,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "6c188529b93b54e3ad372ec61d17af1c885134d019bf57f4f5abcf40c3e815b1",
-  "strings": 182,
+  "sha256OfRawJson": "edad5440b621d1b632d6c4a7740e819d5ff90a5a06945a4a5f6cdeb518f272ba",
+  "strings": 183,
 }
 `;
 
