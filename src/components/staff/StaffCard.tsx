@@ -2,14 +2,14 @@
 
 import { memo } from 'react';
 import { FileDown, FileText, LoaderCircle, Trash2, TriangleAlert } from 'lucide-react';
-import { builder, common, fill, staff } from '@/content/ar';
+import { builder, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SheetPreview } from '@/components/builder/SheetPreview';
+import { SizeField } from '@/components/builder/SizeField';
 import { safeFormatCm } from '@/components/builder/safe';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { MAX_STAFF_FILE_BYTES, STAFF_SHAPES, type StaffCardState, type StaffCardView, type StaffProblem, type StaffShape } from './staff-logic';
@@ -29,29 +29,6 @@ interface Props {
 function problemText(p: StaffProblem, maxWidthUm: number | null) {
   if (p.kind === 'decode') return fillLtr(builder.upload.errors[p.error], { mb: uploadLimitMb(MAX_STAFF_FILE_BYTES) });
   return fillLtr(builder.size.errors[p.reason], { max: maxWidthUm ? safeFormatCm(maxWidthUm) : '—' });
-}
-
-function SizeField({ id, label, value, onChange, invalid, describedBy }: { id: string; label: string; value: string; onChange: (v: string) => void; invalid: boolean; describedBy: string }) {
-  return (
-    <div className="flex-1 space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex items-center gap-2">
-        <Input
-          id={id}
-          type="text"
-          inputMode="decimal"
-          dir="ltr"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
-          className="h-11 text-center text-base md:text-base"
-        />
-        <span className="shrink-0 text-sm text-muted-foreground">{common.units.cm}</span>
-      </div>
-    </div>
-  );
 }
 
 /** One design: thumbnail, name, shape, size, the sheet preview and its messages. */
@@ -107,11 +84,11 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
 
           <div className="flex flex-col gap-4 sm:flex-row">
             {isCircle ? (
-              <SizeField id={`staff-w-${card.id}`} label={builder.size.diameter} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} />
+              <SizeField id={`staff-w-${card.id}`} label={builder.size.diameter} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
             ) : (
               <>
-                <SizeField id={`staff-w-${card.id}`} label={builder.size.width} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} />
-                <SizeField id={`staff-h-${card.id}`} label={builder.size.height} value={card.heightText} onChange={(t) => onHeight(card.id, t)} invalid={sizeProblem} describedBy={msgId} />
+                <SizeField id={`staff-w-${card.id}`} label={builder.size.width} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
+                <SizeField id={`staff-h-${card.id}`} label={builder.size.height} value={card.heightText} onChange={(t) => onHeight(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
               </>
             )}
           </div>
