@@ -17,6 +17,7 @@
  * The caller owns `source.previewUrl` and must URL.revokeObjectURL() it when the
  * design is replaced or the component unmounts.
  */
+import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { reportClientError } from '@/lib/monitoring/report.client';
 import type { DesignDecodeError, DesignDecodeOutcome, DesignKind, DesignSource, Shape } from '@/lib/types';
 import { ALPHA_STRIP_ROWS, canvasToBlob, makeCanvas, releaseCanvas } from './canvas.client';
@@ -177,8 +178,7 @@ async function readTrimBox(file: File): Promise<[number, number, number, number]
 }
 
 interface PdfPageGeometry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  page: any;
+  page: PDFPageProxy;
   pageCount: number;
   /** Visible region in viewport space at scale 1 (points, after /Rotate). */
   region: { x: number; y: number; width: number; height: number };
@@ -212,6 +212,7 @@ async function renderRegion(geo: PdfPageGeometry, scale: number): Promise<HTMLCa
     ctx.fillRect(0, 0, w, h);
     const viewport = geo.page.getViewport({ scale });
     await geo.page.render({
+      canvas,
       canvasContext: ctx,
       viewport,
       transform: [1, 0, 0, 1, -geo.region.x * scale, -geo.region.y * scale],
