@@ -11,11 +11,11 @@ const d = admin.designs;
 /** Cards of generated designs, newest first. Server component: no state. */
 export function DesignGrid({ rows }: { rows: AiGenerationRecord[] }) {
   return (
-    <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
       {rows.map((g) => (
         <li
           key={g.id}
-          className="flex flex-col gap-3 overflow-hidden rounded-xl border border-[#e7dfdf] bg-white p-3 shadow-[0_10px_28px_-18px_rgba(18,31,52,0.25)]"
+          className="flex flex-col gap-2 overflow-hidden rounded-xl border border-[#e7dfdf] bg-white p-2 shadow sm:gap-3 sm:p-3-[0_10px_28px_-18px_rgba(18,31,52,0.25)]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- admin-only, auth-guarded route; next/image would re-fetch it unauthenticated */}
           <img

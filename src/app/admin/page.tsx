@@ -59,7 +59,7 @@ export default async function OrdersPage() {
       {orders.length === 0 ? (
         <EmptyState title={admin.orders.empty} />
       ) : (
-        <TableFrame>
+        <TableFrame label={admin.orders.title}>
           <Table>
             <TableHeader>
               <TableRow className="border-[#e7dfdf] hover:bg-transparent">

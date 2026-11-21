@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Ltr } from '@/components/Ltr';
 import { admin } from '@/content/ar';
@@ -16,6 +17,11 @@ const under = (prefix: string) => (path: string) => path === prefix || path.star
  */
 export function AdminNav({ designAlerts = 0, className }: { designAlerts?: number; className?: string }) {
   const pathname = usePathname() ?? '';
+  const navRef = useRef<HTMLElement>(null);
+  // On phones the pill row scrolls sideways: bring the active pill into view.
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [pathname]);
   const items: Item[] = [
     { href: '/admin', label: admin.nav.orders, match: (p) => p === '/admin' || under('/admin/orders')(p) },
     { href: '/admin/stats', label: admin.nav.stats, match: under('/admin/stats') },
@@ -24,7 +30,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
     { href: '/admin/settings', label: admin.nav.settings, match: under('/admin/settings') },
   ];
   return (
-    <nav aria-label={admin.title} className={className}>
+    <nav ref={navRef} aria-label={admin.title} className={className}>
       <ul className="flex items-center gap-1">
         {items.map((item) => {
           const active = item.match(pathname);

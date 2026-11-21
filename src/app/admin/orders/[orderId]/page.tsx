@@ -183,8 +183,8 @@ export default async function OrderDetailPage({
           </Panel>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          <Panel title={d.status}>
+        <div className="contents min-w-0 lg:flex lg:flex-col lg:gap-6">
+          <Panel title={d.status} className="order-first lg:order-none">
             <StatusForm orderId={o.orderId} status={o.status} />
           </Panel>
 

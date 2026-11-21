@@ -16,7 +16,7 @@ export function StatusForm({ orderId, status }: { orderId: string; status: Order
       <input type="hidden" name="orderId" value={orderId} />
       <input type="hidden" name="status" value={value} />
       <Select value={value} onValueChange={(v) => setValue(v as OrderStatus)}>
-        <SelectTrigger className={cn(field.input, 'w-full')} aria-label={admin.detail.status}>
+        <SelectTrigger className={cn(field.input, 'w-full data-[size=default]:h-11')} aria-label={admin.detail.status}>
           <SelectValue>{order.status[value]}</SelectValue>
         </SelectTrigger>
         <SelectContent dir="rtl">
