@@ -197,8 +197,8 @@ describe("LocalStorage", () => {
     });
     await s.savePdf("order-old-1", new Uint8Array([1]));
     await s.saveOrder(record("order-old-1", new Date(keep - 10 * 86_400_000).toISOString()));
-    await s.saveOrder(record("order-new-1", new Date().toISOString()));
     const cutoff = new Date(keep - 2 * 86_400_000);
+    await s.saveOrder(record("order-new-1", new Date(cutoff.getTime() + 86_400_000).toISOString()));
     const dry = await s.purgeOlderThan(cutoff, true);
     expect(dry).toContain("orders/order-old-1.json");
     expect(await s.getOrder("order-old-1")).not.toBeNull();

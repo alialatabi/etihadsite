@@ -322,6 +322,17 @@ describe("SupabaseStorage purge (keep forever)", () => {
   });
 });
 
+describe("SupabaseStorage purge: orphan metas", () => {
+  it("removes a .json without its .bin in the window, keeps one whose .bin path is in use", async () => {
+    sbObjects("uploads/meta-only-0001.json")(inWindow(NEW_CUTOFF, 4));
+    sbObjects("uploads/meta-only-used1.json")(inWindow(NEW_CUTOFF, 4));
+    sbObjects("orders/order-uses-meta-1.pdf")(at(NEW_CUTOFF.getTime() + DAY));
+    db.orders.push({ order_id: "order-uses-meta-1", created_at: at(NEW_CUTOFF.getTime() + DAY), files: { designPath: "uploads/meta-only-used1.bin", pdfPath: "orders/order-uses-meta-1.pdf" } });
+    expect(await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).toEqual(["uploads/meta-only-0001.json"]);
+    expect(objectNames()).toEqual(["orders/order-uses-meta-1.pdf", "uploads/meta-only-used1.json"]);
+  });
+});
+
 /* ───────────────────────── admin PDF route ───────────────────────── */
 
 describe("GET /api/admin/files/<orderId>/pdf after the purge", () => {

@@ -325,7 +325,14 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
     const real = await run([...responses(), json([]), empty(204)], (s) => s.purgeOlderThan(cutoff, false));
     const explicitOrphanCutoff = await run(responses(), (s) => s.purgeOlderThan(cutoff, true, new Date('2026-11-10T08:30:00.000Z')), (r) => r.filter((p) => p.includes('uncommitted')));
     const nothingOld = await run([json([]), json([]), json([]), json([])], (s) => s.purgeOlderThan(cutoff, false));
-    const keepForever = await run([...keepResponses(), json([])], (s) => s.purgeOlderThan(keepCutoff, false, new Date(KEEP + 70 * DAY)));
+    // Request dates derive from KEEP_DESIGNS_FROM: shown relative to it, so moving the constant keeps the snapshot.
+    const relToKeep = (line: string) =>
+      line.replace(/\d{4}-\d{2}-\d{2}T\d{2}%3A\d{2}%3A\d{2}\.\d{3}Z/g, (enc) => {
+        const days = (new Date(decodeURIComponent(enc)).getTime() - KEEP) / DAY;
+        return `<KEEP${days >= 0 ? '+' : ''}${days}d>`;
+      });
+    const keepRun = await run([...keepResponses(), json([])], (s) => s.purgeOlderThan(keepCutoff, false, new Date(KEEP + 70 * DAY)));
+    const keepForever = { ...keepRun, requests: keepRun.requests.map(relToKeep) };
     expect({ dry, real, explicitOrphanCutoff, nothingOld, keepForever }).toMatchSnapshot();
   });
 
