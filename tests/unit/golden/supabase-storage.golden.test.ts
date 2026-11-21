@@ -258,6 +258,7 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { order_id: 'order-kept-0002', created_at: '2026-10-21T00:00:00+00:00', files: null },
       { order_id: 'order-kept-0003', created_at: '2026-11-09T00:00:00+00:00', files: { designPath: 'uploads/upload-new-0001.bin', pdfPath: 'orders/order-kept-0003.pdf' } },
     ]),
+    json([]), // only an empty page ends a retention read
     // ai_generations upload ids
     json([]),
     // bucket listing of uploads/, newest first
@@ -288,6 +289,7 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { name: 'order-old-0002.pdf', created_at: '2026-09-20T00:00:00.000Z' },
       { name: 'order-old-0001.pdf', created_at: '2026-09-20T00:00:00.000Z' },
     ]),
+    json([]), // not past the window start yet: one more (empty) page
   ];
 
   // New rule (orders from KEEP_DESIGNS_FROM on): dates derive from the constant so the owner can move it.
@@ -301,7 +303,9 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { order_id: 'order-keep-0002', created_at: at(21).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0002.bin', pdfPath: 'orders/order-keep-0002.pdf' } }, // PDF already purged
       { order_id: 'order-keep-0003', created_at: at(45).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0003.bin', pdfPath: 'orders/order-keep-0003.pdf' } }, // newer than the cutoff
     ]),
+    json([]),
     json([{ upload_id: 'upload-ai-00001' }, { upload_id: null }]),
+    json([]),
     json([
       { name: 'upload-keep-0003.bin', created_at: at(45) },
       { name: 'upload-keep-0003.json', created_at: at(45) },
@@ -314,10 +318,12 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { name: 'upload-unused-01.bin', created_at: at(15) }, // nobody uses it: removed
       { name: 'upload-unused-01.json', created_at: at(15) },
     ]),
+    json([]),
     json([
       { name: 'order-keep-0003.pdf', created_at: at(45) },
       { name: 'order-keep-0001.pdf', created_at: at(20) },
     ]),
+    json([]),
   ];
 
   it('purgeOlderThan: dry run and real run', async () => {
