@@ -499,17 +499,22 @@ export class SupabaseStorage implements StorageAdapter {
   /** Deletes analytics events older than `cutoff`. Returns `events:<n>` (empty when none). Never touches customers. */
   async purgeEventsOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
     const iso = encodeURIComponent(cutoff.toISOString());
+    return this.countOrDelete('events', 'id', `ts=lt.${iso}`, dryRun);
+  }
+
+  /** Counts (dry run, up to DRY_RUN_COUNT_LIMIT) or deletes the rows of `table` matching `filter`; returns `<table>:<n>` (empty when none). */
+  private async countOrDelete(table: 'events' | 'ai_usage', col: string, filter: string, dryRun: boolean): Promise<string[]> {
     if (dryRun) {
-      const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}&limit=${DRY_RUN_COUNT_LIMIT}`);
+      const res = await this.req(`/rest/v1/${table}?select=${col}&${filter}&limit=${DRY_RUN_COUNT_LIMIT}`);
       const n = ((await res.json()) as unknown[]).length;
-      return n ? [`events:${n}`] : [];
+      return n ? [`${table}:${n}`] : [];
     }
-    const res = await this.req(`/rest/v1/events?select=id&ts=lt.${iso}`, {
+    const res = await this.req(`/rest/v1/${table}?select=${col}&${filter}`, {
       method: 'DELETE',
       headers: { Prefer: 'return=representation' },
     });
     const n = ((await res.json().catch(() => [])) as unknown[]).length;
-    return n ? [`events:${n}`] : [];
+    return n ? [`${table}:${n}`] : [];
   }
 
   /* ───────────── AI designer ───────────── */
@@ -612,17 +617,7 @@ export class SupabaseStorage implements StorageAdapter {
   /** Deletes usage counters of days before `day` (YYYY-MM-DD). Returns `ai_usage:<n>` (empty when none). */
   async aiPurgeUsageBefore(day: string, dryRun: boolean): Promise<string[]> {
     if (!DAY_RE.test(day)) throw new Error('Invalid day');
-    if (dryRun) {
-      const res = await this.req(`/rest/v1/ai_usage?select=day&day=lt.${day}&limit=${DRY_RUN_COUNT_LIMIT}`);
-      const n = ((await res.json()) as unknown[]).length;
-      return n ? [`ai_usage:${n}`] : [];
-    }
-    const res = await this.req(`/rest/v1/ai_usage?select=day&day=lt.${day}`, {
-      method: 'DELETE',
-      headers: { Prefer: 'return=representation' },
-    });
-    const n = ((await res.json().catch(() => [])) as unknown[]).length;
-    return n ? [`ai_usage:${n}`] : [];
+    return this.countOrDelete('ai_usage', 'day', `day=lt.${day}`, dryRun);
   }
 
   /* ───────────── retention ───────────── */
