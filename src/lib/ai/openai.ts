@@ -55,7 +55,10 @@ function isAbort(e: unknown): boolean {
   );
 }
 
-/** OpenAI's error envelope is `{ error: { code, type, message } }`. */
+/**
+ * OpenAI's error envelope is `{ error: { code, type, message } }`. Deliberately narrow: a bare
+ * "safety" would also match parameter errors such as one about `safety_identifier`.
+ */
 function isRefusal(body: unknown): boolean {
   if (typeof body !== 'object' || body === null) return false;
   const err = (body as { error?: unknown }).error;
@@ -63,7 +66,7 @@ function isRefusal(body: unknown): boolean {
   const { code, type, message } = err as { code?: unknown; type?: unknown; message?: unknown };
   if (code === 'moderation_blocked' || code === 'content_policy_violation') return true;
   const text = `${typeof type === 'string' ? type : ''} ${typeof message === 'string' ? message : ''}`;
-  return /safety|content[ _-]?policy/i.test(text);
+  return /content[ _-]?policy|safety system/i.test(text);
 }
 
 function report(endpoint: string, what: string, tags: Record<string, string | number> = {}, level: 'warning' | 'error' = 'error'): void {

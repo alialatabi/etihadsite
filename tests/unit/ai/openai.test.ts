@@ -103,6 +103,20 @@ describe('generateImage', () => {
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'refused' });
   });
 
+  it('a parameter error about safety_identifier is NOT refused', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { code: 'invalid_value', type: 'invalid_request_error', param: 'safety_identifier', message: "Invalid 'safety_identifier': string too long." } }, 400),
+    );
+    expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'error' });
+  });
+
+  it('"safety system" wording → refused', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { code: null, type: 'invalid_request_error', message: 'Your request was rejected as a result of our safety system.' } }, 400),
+    );
+    expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'refused' });
+  });
+
   it('abort → timeout', async () => {
     fetchMock.mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'timeout' });

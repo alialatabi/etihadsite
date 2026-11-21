@@ -61,6 +61,7 @@ describe('extractBrief', () => {
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe(AI_BRIEF_MODEL);
     expect(body.input).toBe('اكتب اهلا وسهلا');
+    expect(body.store).toBe(false);
     expect(body.instructions).not.toContain('اكتب اهلا وسهلا');
     expect(body.text.format.type).toBe('json_schema');
     expect(body.text.format.name).toBe('brief');
@@ -113,8 +114,31 @@ describe('extractBrief', () => {
     await extractBrief(cfg, 'idea');
     const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
     expect(body.instructions).toContain(CAFE);
-    expect(body.instructions).toContain('["كافيه گلبهار"]');
+    expect(body.instructions).toContain('"printed_text":["كافيه گلبهار"]');
     expect(body.instructions).toContain('WRITTEN');
     expect(body.instructions).toContain('NEVER printed text');
+    // Only the Answer JSON per example: no duplicated `printed_text: [...]` line.
+    expect(body.instructions).not.toMatch(/^printed_text:/m);
+  });
+
+  it('instructions keep tanween/hamza and resolve name references (live findings)', async () => {
+    fetchMock.mockResolvedValue(ok(responsesBody({ printed_text: [], visual_description: 'x', spelling_fixes: [] })));
+    await extractBrief(cfg, 'idea');
+    const instructions: string = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string).instructions;
+
+    // Rules.
+    expect(instructions).toContain('«اهلا» → «أهلاً»');
+    expect(instructions).toContain('«ابو حسين» → «أبو حسين»');
+    expect(instructions).toContain('handles (@...)');
+    expect(instructions).toContain('«اسم المحل»');
+
+    // Worked examples (at most 6), each with its expected answer.
+    const examples = instructions.match(/^Example \d+$/gm) ?? [];
+    expect(examples.length).toBeGreaterThanOrEqual(5);
+    expect(examples.length).toBeLessThanOrEqual(6);
+    expect(instructions).toContain('اهلا وسهلا وبالسطر الثاني شكرا لطلبكم منا');
+    expect(instructions).toContain('"printed_text":["أهلاً وسهلاً","شكراً لطلبكم منا"]');
+    expect(instructions).toContain('شعار لمطعم البيك العراقي، بيه دجاجة مشوية وصحن تمن، اكتبوا المطعم بخط كبير وتحته توصيل مجاني');
+    expect(instructions).toContain('"printed_text":["مطعم البيك العراقي","توصيل مجاني"]');
   });
 });
