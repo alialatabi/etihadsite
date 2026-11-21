@@ -58,6 +58,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
   "orders": {
     "title": "الطلبات",
     "empty": "ماكو طلبات بعد.",
+    "capped": "يظهر آخر 1000 طلب فقط.",
     "columns": {
       "no": "رقم الطلب",
       "date": "التاريخ",
@@ -318,13 +319,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3115,
+  "chars": 3137,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "23c7ff28cab18233decebfe0be20e715d68f5248e6bf22c147ed819ea9e0a345",
-  "strings": 231,
+  "sha256OfRawJson": "d2a9497fb3ec4fa6d52a63dd63cc7b5484e7ba56da7bb9256354783ab79914d5",
+  "strings": 232,
 }
 `;
 

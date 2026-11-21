@@ -12,7 +12,7 @@ import type { AiBlock, AiGenerationRecord, AiUsageRow } from '@/lib/types';
 import { formatBaghdad } from '../_lib';
 import { blockIpAction, unblockIpAction } from './actions';
 import { DesignGrid } from './DesignGrid';
-import { designsSummary } from './summary';
+import { designsSummary, pageFromParam, usageSince } from './summary';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,22 +40,29 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
   const sp = await searchParams;
   const ipParam = first(sp.ip);
   const ipKey = ipParam && IP_KEY_RE.test(ipParam) ? ipParam : undefined;
-  const pageNo = Math.max(1, Math.floor(Number(first(sp.page))) || 1);
+  const pageNo = pageFromParam(first(sp.page));
 
   const storage = getStorage();
   const settings = await getSettings();
   const today = shopDayKey(new Date());
 
-  const [generations, usage, blocks]: [{ rows: AiGenerationRecord[]; total: number }, AiUsageRow[], AiBlock[]] =
-    await Promise.all([
-      storage.aiListGenerations?.({ limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE, ipKey }) ?? { rows: [], total: 0 },
-      // Usage rows are kept 400 days (retention purge), so this loads at most ~400 days of rows.
-      storage.aiUsage?.('2000-01-01') ?? [],
-      storage.aiListBlocks?.() ?? [],
-    ]);
+  const [generations, allTimeFiltered, usage, blocks]: [
+    { rows: AiGenerationRecord[]; total: number },
+    number | null,
+    AiUsageRow[],
+    AiBlock[],
+  ] = await Promise.all([
+    storage.aiListGenerations?.({ limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE, ipKey }) ?? { rows: [], total: 0 },
+    // All time = every stored generation. Without ?ip the page's own total already is that number.
+    ipKey && storage.aiListGenerations ? storage.aiListGenerations({ limit: 0, offset: 0 }).then((g) => g.total) : null,
+    // Today, this month and the alerts (today and yesterday) need nothing older.
+    storage.aiUsage?.(usageSince(today), 'image') ?? [],
+    storage.aiListBlocks?.() ?? [],
+  ]);
 
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));
   const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit, blockedKeys);
+  const allTime = allTimeFiltered ?? generations.total;
   const pages = Math.max(1, Math.ceil(generations.total / PAGE_SIZE));
   const href = (page: number) => {
     const q = new URLSearchParams();
@@ -79,7 +86,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
           <Ltr>{summary.month}</Ltr>
         </Counter>
         <Counter label={d.all}>
-          <Ltr>{summary.allTime}</Ltr>
+          <Ltr>{allTime}</Ltr>
         </Counter>
       </div>
 
