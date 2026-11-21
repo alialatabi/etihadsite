@@ -93,6 +93,7 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
         accept={ACCEPTED_EXTENSIONS.join(',')}
         className="sr-only"
         tabIndex={-1}
+        aria-hidden="true"
         onChange={(e) => {
           pick(e.target.files);
           e.target.value = ''; // allow picking the same files again

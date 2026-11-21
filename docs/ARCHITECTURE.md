@@ -338,6 +338,14 @@ React `cache()` only memoises inside a server render, so under vitest `getSettin
 4. Add tests for both adapters (`tests/unit/server/storage*.test.ts`, `supabase-storage.test.ts`).
 5. Apply the migration to the Supabase project before deploying the code that needs it.
 
+**Accessibility conventions of the builder** (`tests/unit/components/a11y-markup.test.ts` pins them)
+
+- Live regions (`role="status"`) are always mounted and empty when idle (`DesignStep` loading, `DetailsStep` `#submit-status`); they name a phase and never carry a percent. The visible progress block is not a live region and the progress bar is named by `#submit-status` (`aria-labelledby`).
+- After a file has been read, `DesignStep` moves focus to the replace button (or the drop zone on failure) only when focus fell to `<body>`.
+- The hand-made shape radio group keeps `role="radio"` (the e2e helper `chooseShape` needs it): roving `tabIndex` and arrow keys through `src/components/builder/radio-nav.ts` (RTL: Left/Down next, Right/Up previous).
+- Hidden file inputs are `aria-hidden` + `tabIndex={-1}`; the visible button is the control. The required delivery fields carry `aria-required` (the form stays `noValidate`).
+- `html { scroll-padding-top: var(--header-h) }` keeps focused and anchored elements below the sticky header; do not add `scroll-mt-*` for the header on top of it.
+
 ## 9. Hard invariants
 
 Breaking one of these loses data, breaks a customer in the middle of an order, or changes what gets printed. Each needs an explicit decision by the owner.
