@@ -85,3 +85,19 @@ describe('copy', () => {
     expect(builder.quantity.beforeDiscountSr).toBe('السعر قبل الخصم:');
   });
 });
+
+describe('DesignStep AI result', () => {
+  const aiB = { ...baseB, mode: 'ai', shape: 'circle' };
+  const result = { previewUrl: 'blob:x', lines: [], madeFor: { shape: 'circle' } };
+  const ai = { phase: 'result', result, remainingToday: 3, error: null, off: false, acceptedLines: null };
+
+  it('gives the design image a meaningful alt', () => {
+    const html = render(DesignStep as never, { b: aiB, ai });
+    expect(html).toContain(`alt="${builder.ai.resultAlt}"`);
+    expect(html).not.toContain('alt=""');
+  });
+  it('makes the live region focusable (programmatically) so focus can return to it', () => {
+    const html = render(DesignStep as never, { b: aiB, ai });
+    expect(html).toMatch(/<div[^>]*tabindex="-1"[^>]*aria-live="polite"|<div[^>]*aria-live="polite"[^>]*tabindex="-1"/);
+  });
+});

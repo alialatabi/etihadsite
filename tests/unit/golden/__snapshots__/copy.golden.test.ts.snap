@@ -403,6 +403,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "tooMuchText": "كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}",
     "generating": "جاري تصميم ستيكرك… (حوالي 15 ثانية)",
     "printedText": "الكتابة:",
+    "resultAlt": "التصميم المقترح",
     "remaining": "باقيلك {n} {attempts} اليوم",
     "attempts": {
       "zero": "محاولات",
@@ -570,13 +571,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 4040,
+  "chars": 4055,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "edad5440b621d1b632d6c4a7740e819d5ff90a5a06945a4a5f6cdeb518f272ba",
-  "strings": 183,
+  "sha256OfRawJson": "583dac0710a6b2a70b404f4322d3637386afb000e6e5e2f4dc43a0df83e2c2bf",
+  "strings": 184,
 }
 `;
 

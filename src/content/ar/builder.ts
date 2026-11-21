@@ -66,6 +66,7 @@ export const builder = {
     tooMuchText: 'كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}',
     generating: 'جاري تصميم ستيكرك… (حوالي 15 ثانية)',
     printedText: 'الكتابة:',
+    resultAlt: 'التصميم المقترح',
     /** {n} = the number, {attempts} = its plural form (attempts below, via count()). */
     remaining: 'باقيلك {n} {attempts} اليوم',
     attempts: { zero: 'محاولات', one: 'محاولة', two: 'محاولتين', few: 'محاولات', many: 'محاولة', other: 'محاولة' },

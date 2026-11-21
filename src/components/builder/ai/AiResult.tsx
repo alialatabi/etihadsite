@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Check, LoaderCircle, Pencil, RefreshCw, TriangleAlert, Upload } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ function DesignImage({ src, custom, circle }: { src: string; custom: boolean; ci
   return (
     <div className={cn('mx-auto flex aspect-square w-full max-w-sm items-center justify-center overflow-hidden rounded-2xl border p-3', custom ? CHECKER : 'bg-white')}>
       {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL preview */}
-      <img src={src} alt="" className={cn('max-h-full max-w-full object-contain', circle && 'aspect-square rounded-full object-cover')} />
+      <img src={src} alt={builder.ai.resultAlt} className={cn('max-h-full max-w-full object-contain', circle && 'aspect-square rounded-full object-cover')} />
     </div>
   );
 }
@@ -47,8 +48,23 @@ function Remaining({ n }: { n: number | null }) {
  * One polite live region, so the progress, the result and an error are announced as they replace each other.
  */
 export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
+  const regionRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
+
+  // «جرّب مرة ثانية» and «أكمل بهذا» unmount the focused button when the phase changes, which would
+  // drop keyboard focus on <body>. Put it on this region then, but only when it really was lost (never
+  // steal it from a field the customer moved to) and not on first paint (pattern: Builder.tsx step heading).
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const active = document.activeElement;
+    if (active === null || active === document.body) regionRef.current?.focus({ preventScroll: true });
+  }, [ai.phase]);
+
   return (
-    <div aria-live="polite">
+    <div ref={regionRef} tabIndex={-1} className="outline-none" aria-live="polite">
       <AiResultBody b={b} ai={ai} />
     </div>
   );
