@@ -42,8 +42,19 @@ function Remaining({ n }: { n: number | null }) {
   return <p className="text-sm text-muted-foreground">{fillLtr(builder.ai.remaining, { n, attempts: <>{count(n, builder.ai.attempts)}</> })}</p>;
 }
 
-/** The design step when the site designs the sticker: progress, then the result with accept / retry / edit the idea. */
+/**
+ * The design step when the site designs the sticker: progress, then the result with accept / retry / edit the idea.
+ * One polite live region, so the progress, the result and an error are announced as they replace each other.
+ */
 export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
+  return (
+    <div aria-live="polite">
+      <AiResultBody b={b} ai={ai} />
+    </div>
+  );
+}
+
+function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   const custom = b.shape === 'custom';
   const circle = b.shape === 'circle';
   const noTriesLeft = ai.remainingToday === 0;
@@ -65,7 +76,7 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
     return (
       <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-2xl border bg-card p-6 text-center">
         <LoaderCircle className="size-10 animate-spin text-brand" aria-hidden />
-        <p role="status" className="text-base font-medium">
+        <p className="text-base font-medium">
           {builder.ai.generating}
         </p>
       </div>
@@ -104,7 +115,7 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
     const canRetry = !ai.off && !noTriesLeft && ai.error !== 'ip_limit' && ai.error !== 'text_too_long' && ai.error !== 'invalid_request';
     return (
       <div className="space-y-4">
-        <div role="alert" className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           <TriangleAlert className="size-5 shrink-0" aria-hidden />
           <p className="min-w-0 flex-1">{aiErrorMessage(ai.error)}</p>
         </div>

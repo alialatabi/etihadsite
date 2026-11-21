@@ -218,9 +218,11 @@ export function useBuilder(settings: ShopSettings) {
       opts: { restore?: boolean; keepSize?: boolean; ai?: { uploadId: string; typed: SizeUm } } = {},
     ): Promise<boolean> => {
       const token = ++decodeToken.current;
+      const previousFile = lastFile.current;
       lastFile.current = file;
       setDecoding(true);
-      setDesignError(null);
+      // An AI accept that fails must leave the current design (and its message) as they are.
+      if (!opts.ai) setDesignError(null);
       let error: DesignDecodeError | null = null;
       let source: DesignSource | null = null;
       try {
@@ -242,6 +244,11 @@ export function useBuilder(settings: ShopSettings) {
       setDecoding(false);
       if (!source) {
         if (error && error !== 'no_alpha') logClient({ step: 'decode', message: error, fileType: file.type, fileSize: file.size });
+        if (opts.ai) {
+          // A generated PNG that does not decode here: keep whatever design was loaded before.
+          lastFile.current = previousFile;
+          return false;
+        }
         setDesign(null);
         setDesignError(error);
         // A failed pick, or a stored file that no longer decodes: no design is left to keep.

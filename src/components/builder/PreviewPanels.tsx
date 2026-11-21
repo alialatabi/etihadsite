@@ -51,7 +51,7 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto max-w-[320px]">
-          <SheetPreview layout={layout} previewUrl={previewUrl} />
+          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={b.mode === 'ai' ? builder.preview.emptyAi : undefined} />
         </div>
         {spec && layout && (
           <p className="mt-4 text-center text-sm text-muted-foreground">

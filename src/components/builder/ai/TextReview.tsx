@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,27 @@ import type { AiDesignApi } from './useAiDesign';
 export function TextReview({ ai }: { ai: AiDesignApi }) {
   const { lines, fixes, capacity } = ai;
   const canConfirm = capacity.ok && !ai.block;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  // After a delete: the line that takes its place (or the one before, or «أضف سطر») gets the focus.
+  const focusAfterDelete = useRef<number | null>(null);
+
+  // The box just opened (after «ولّد التصميم»): move the focus to it.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const i = focusAfterDelete.current;
+    if (i === null) return;
+    focusAfterDelete.current = null;
+    if (lines.length === 0) addRef.current?.focus();
+    else document.getElementById(`ai-line-${Math.min(i, lines.length - 1)}`)?.focus();
+  }, [lines.length]);
 
   return (
     <section aria-labelledby="ai-review-title" className="space-y-4 rounded-2xl border-2 border-brand/40 bg-brand/5 p-4">
-      <h3 id="ai-review-title" className="text-base font-bold">
+      <h3 id="ai-review-title" ref={headingRef} tabIndex={-1} className="text-base font-bold outline-none">
         {builder.ai.reviewTitle}
       </h3>
 
@@ -38,7 +56,10 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
               variant="ghost"
               className="size-11 shrink-0"
               aria-label={builder.ai.removeLine}
-              onClick={() => ai.setLines(lines.filter((_, k) => k !== i))}
+              onClick={() => {
+                focusAfterDelete.current = i;
+                ai.setLines(lines.filter((_, k) => k !== i));
+              }}
             >
               <Trash2 className="size-5" aria-hidden />
             </Button>
@@ -47,6 +68,7 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
       </ul>
 
       <Button
+        ref={addRef}
         type="button"
         variant="outline"
         className="h-11 px-4"

@@ -15,6 +15,7 @@ import { QuantityStep } from './steps/QuantityStep';
 import { SizeStep } from './steps/SizeStep';
 import { StartStep } from './steps/StartStep';
 import { useAiDesign } from './ai/useAiDesign';
+import { aiBusy } from './ai/ai-logic';
 import { CUSTOMER_FIELD_IDS, STEPS, seedUploadId, toCustomerInfo } from './logic';
 import { useBuilder } from './useBuilder';
 import { useSubmitOrder } from './useSubmitOrder';
@@ -139,7 +140,8 @@ export function Builder({ settings }: { settings: ShopSettings }) {
 
             <div className="cut-line mt-6 h-px text-border" aria-hidden />
             <div ref={navRowRef} className="mt-4 flex items-center justify-between gap-3">
-              {b.step > 0 ? (
+              {/* While a try runs (counted and paid) the page stays on the progress: no Back. */}
+              {b.step > 0 && !aiBusy(ai.phase, false) ? (
                 <Button type="button" variant="outline" className="h-12 px-5 text-base" onClick={b.back}>
                   <ArrowRight className="size-5" aria-hidden />
                   {common.actions.back}
