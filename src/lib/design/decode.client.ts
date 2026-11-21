@@ -17,8 +17,10 @@
  * The caller owns `source.previewUrl` and must URL.revokeObjectURL() it when the
  * design is replaced or the component unmounts.
  */
+import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { reportClientError } from '@/lib/monitoring/report.client';
 import type { DesignDecodeError, DesignDecodeOutcome, DesignKind, DesignSource, Shape } from '@/lib/types';
+import { ALPHA_STRIP_ROWS, canvasToBlob, makeCanvas, releaseCanvas } from './canvas.client';
 import { MAX_CANVAS_PIXELS, fitWithin, pdfRenderScale, scanAlphaStrips, type PixelRect } from './pixels';
 
 export interface DecodeOptions {
@@ -28,7 +30,6 @@ export interface DecodeOptions {
 
 const PREVIEW_MAX_SIDE = 1600;
 const PREVIEW_PDF_DPI = 150;
-const STRIP_ROWS = 256;
 const MAX_CANVAS_SIDE = 12000;
 
 function detectKind(file: File): DesignKind | null {
@@ -64,19 +65,6 @@ export async function decodeDesign(file: File, opts: DecodeOptions): Promise<Des
   }
 }
 
-function makeCanvas(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
-function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), type, quality);
-  });
-}
-
 async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOptions): Promise<DesignDecodeOutcome> {
   let bitmap: ImageBitmap;
   try {
@@ -94,19 +82,23 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
 
     // JPEG never has alpha. PNG: scan in strips to bound memory on huge images.
     if (kind === 'png') {
-      const strip = makeCanvas(W, Math.min(STRIP_ROWS, H));
-      const ctx = strip.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
-        reportDecodeFailure(new Error('no 2d context (strip)'), kind, file);
-        return fail('corrupt');
+      const strip = makeCanvas(W, Math.min(ALPHA_STRIP_ROWS, H));
+      try {
+        const ctx = strip.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+          reportDecodeFailure(new Error('no 2d context (strip)'), kind, file);
+          return fail('corrupt');
+        }
+        const readStrip = (y0: number, rows: number) => {
+          ctx.clearRect(0, 0, W, strip.height);
+          ctx.drawImage(bitmap, 0, y0, W, rows, 0, 0, W, rows);
+          return ctx.getImageData(0, 0, W, rows).data;
+        };
+        // Only 'custom' needs the alpha box; other shapes stop at the first strip with alpha.
+        ({ hasAlpha, box } = scanAlphaStrips(W, H, ALPHA_STRIP_ROWS, readStrip, opts.shape === 'custom'));
+      } finally {
+        releaseCanvas(strip);
       }
-      const readStrip = (y0: number, rows: number) => {
-        ctx.clearRect(0, 0, W, strip.height);
-        ctx.drawImage(bitmap, 0, y0, W, rows, 0, 0, W, rows);
-        return ctx.getImageData(0, 0, W, rows).data;
-      };
-      // Only 'custom' needs the alpha box; other shapes stop at the first strip with alpha.
-      ({ hasAlpha, box } = scanAlphaStrips(W, H, STRIP_ROWS, readStrip, opts.shape === 'custom'));
     }
 
     if (opts.shape === 'custom') {
@@ -118,14 +110,19 @@ async function decodeRaster(file: File, kind: 'png' | 'jpeg', opts: DecodeOption
 
     const { width: pw, height: ph } = fitWithin(art.width, art.height, PREVIEW_MAX_SIDE);
     const out = makeCanvas(pw, ph);
-    const octx = out.getContext('2d');
-    if (!octx) {
-      reportDecodeFailure(new Error('no 2d context (preview)'), kind, file);
-      return fail('corrupt');
+    let blob: Blob;
+    try {
+      const octx = out.getContext('2d');
+      if (!octx) {
+        reportDecodeFailure(new Error('no 2d context (preview)'), kind, file);
+        return fail('corrupt');
+      }
+      octx.imageSmoothingQuality = 'high';
+      octx.drawImage(bitmap, art.left, art.top, art.width, art.height, 0, 0, pw, ph);
+      blob = hasAlpha ? await canvasToBlob(out, 'image/png') : await canvasToBlob(out, 'image/jpeg', 0.9);
+    } finally {
+      releaseCanvas(out);
     }
-    octx.imageSmoothingQuality = 'high';
-    octx.drawImage(bitmap, art.left, art.top, art.width, art.height, 0, 0, pw, ph);
-    const blob = hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', 0.9);
 
     const source: DesignSource = {
       kind,
@@ -181,8 +178,7 @@ async function readTrimBox(file: File): Promise<[number, number, number, number]
 }
 
 interface PdfPageGeometry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  page: any;
+  page: PDFPageProxy;
   pageCount: number;
   /** Visible region in viewport space at scale 1 (points, after /Rotate). */
   region: { x: number; y: number; width: number; height: number };
@@ -209,17 +205,23 @@ async function renderRegion(geo: PdfPageGeometry, scale: number): Promise<HTMLCa
   const w = Math.max(1, Math.round(geo.region.width * scale));
   const h = Math.max(1, Math.round(geo.region.height * scale));
   const canvas = makeCanvas(w, h);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('no 2d context');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, w, h);
-  const viewport = geo.page.getViewport({ scale });
-  await geo.page.render({
-    canvasContext: ctx,
-    viewport,
-    transform: [1, 0, 0, 1, -geo.region.x * scale, -geo.region.y * scale],
-  }).promise;
-  return canvas;
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    const viewport = geo.page.getViewport({ scale });
+    await geo.page.render({
+      canvas,
+      canvasContext: ctx,
+      viewport,
+      transform: [1, 0, 0, 1, -geo.region.x * scale, -geo.region.y * scale],
+    }).promise;
+    return canvas;
+  } catch (e) {
+    releaseCanvas(canvas);
+    throw e;
+  }
 }
 
 async function decodePdf(file: File, opts: DecodeOptions): Promise<DesignDecodeOutcome> {
@@ -247,7 +249,12 @@ async function decodePdf(file: File, opts: DecodeOptions): Promise<DesignDecodeO
     const fit = fitWithin(Math.round(wPt * scale), Math.round(hPt * scale), PREVIEW_MAX_SIDE);
     scale = fit.width / wPt;
     const canvas = await renderRegion(geo, scale);
-    const blob = await toBlob(canvas, 'image/jpeg', 0.9);
+    let blob: Blob;
+    try {
+      blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
+    } finally {
+      releaseCanvas(canvas);
+    }
     const source: DesignSource = {
       kind: 'pdf',
       file,
@@ -282,7 +289,11 @@ export async function rasterisePdfPage(file: File, dpi: number, target?: { width
     const canvas = await renderRegion(geo, scale);
     // JPEG, not PNG: the page is opaque (drawn on white, PDFs are refused for custom shapes) and a
     // photographic page at the 16.7 MP cap is ~25-30 MB as a PNG, over the upload limit.
-    return await toBlob(canvas, 'image/jpeg', RASTERISED_PDF_JPEG_QUALITY);
+    try {
+      return await canvasToBlob(canvas, 'image/jpeg', RASTERISED_PDF_JPEG_QUALITY);
+    } finally {
+      releaseCanvas(canvas);
+    }
   } finally {
     await pdf.destroy();
   }
