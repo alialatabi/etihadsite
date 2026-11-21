@@ -2,9 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/guard';
-import { pdfFileNameFor } from '@/lib/display-no';
+import { orderPdfFileName } from '@/lib/display-no';
 import { notifyShop } from '@/lib/notify';
-import { orderPriceView } from '@/lib/order-price-view';
 import { getSettings } from '@/lib/settings';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
@@ -40,7 +39,7 @@ export async function resendTelegramAction(
   if (!pdf) return { status: 'missing_file' };
 
   const settings = await getSettings();
-  const fileName = pdfFileNameFor(record.displayNo, record.spec, orderPriceView(record).sheets ?? 0);
+  const fileName = orderPdfFileName(record);
   const result = await notifyShop(record, pdf, fileName, settings);
   // Only the order id and the error text (no caption, phone or address) may reach the log.
   if (result.error) console.error('[telegram-resend] failed', orderId, result.error);

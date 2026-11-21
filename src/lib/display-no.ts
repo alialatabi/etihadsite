@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { DISPLAY_NO_ALPHABET, SHOP_TIME_ZONE } from '@/config/defaults';
-import type { StickerSpec } from '@/lib/types';
+import { orderPriceView } from '@/lib/order-price-view';
+import type { OrderRecord, StickerSpec } from '@/lib/types';
 import { umToMm } from '@/lib/units';
 
 const DATE_PARTS_FORMAT = new Intl.DateTimeFormat('en-GB', {
@@ -28,4 +29,9 @@ export function pdfFileNameFor(
   sheets: number,
 ): string {
   return `${displayNo}_${spec.shape}-${mm(spec.widthUm)}x${mm(spec.heightUm)}mm_x${sheets}.pdf`;
+}
+
+/** Print-PDF file name of a stored order: the admin download and the Telegram resend use the same name. */
+export function orderPdfFileName(record: OrderRecord): string {
+  return pdfFileNameFor(record.displayNo, record.spec, orderPriceView(record).sheets ?? 0);
 }
