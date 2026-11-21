@@ -30,7 +30,7 @@ export const orderRequestSchema = z.object({
     landmark: z.string().trim().max(200),
     notes: z.string().trim().max(1000).optional(),
     // Optional WhatsApp-offers consent; the page sends it only when ticked. Absent = false.
-    marketingOptIn: z.boolean().default(false),
+    marketingOptIn: z.boolean().optional(),
   }),
   turnstileToken: z.string().max(4096).optional(),
 }).refine((r) => r.stickers !== undefined || r.sheets !== undefined, { message: 'stickers or sheets is required', path: ['sheets'] });

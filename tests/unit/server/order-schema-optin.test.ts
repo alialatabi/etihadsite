@@ -13,9 +13,9 @@ const parse = (marketingOptIn?: unknown) =>
   orderRequestSchema.safeParse({ ...BASE, customer: { ...BASE.customer, ...(marketingOptIn === undefined ? {} : { marketingOptIn }) } });
 
 describe("orderRequestSchema customer.marketingOptIn", () => {
-  it("defaults to false when the page does not send it (an older cached page)", () => {
+  it("stays absent when the page does not send it (an older cached page); every reader treats anything but true as false", () => {
     const r = parse();
-    expect(r.success && r.data.customer.marketingOptIn).toBe(false);
+    expect(r.success && "marketingOptIn" in r.data.customer).toBe(false);
   });
   it("accepts true and false", () => {
     const t = parse(true);
