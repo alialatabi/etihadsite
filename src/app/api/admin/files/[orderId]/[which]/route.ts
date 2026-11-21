@@ -1,3 +1,4 @@
+import { admin } from "@/content/ar";
 import { adminApiGuard } from "@/lib/auth/session";
 import { EXT_BY_KIND, MIME_BY_KIND } from "@/lib/design/kind";
 import { pdfFileNameFor } from "@/lib/display-no";
@@ -7,7 +8,13 @@ import { ID_RE } from "@/lib/storage/paths";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/files/<orderId>/<pdf|design> — attachment download. Auth re-checked here. */
+/** The print PDF is purged after retentionDays while the order and its design are kept (D10). */
+const pdfPurged = () => Response.json({ error: "purged", message: admin.orders.pdfPurged }, { status: 410 });
+
+/**
+ * GET /api/admin/files/<orderId>/<pdf|design> — attachment download. Auth re-checked here.
+ * A missing PDF answers 410 `{ error: "purged" }`; a missing design stays 404.
+ */
 export async function GET(
   _request: Request,
   ctx: { params: Promise<{ orderId: string; which: string }> },
@@ -38,11 +45,11 @@ export async function GET(
   // Cloud storage: hand out a 60-second signed link (serverless responses are capped at 4.5 MB).
   if (storage.signedDownloadUrl) {
     const url = await storage.signedDownloadUrl(path, safeName, 60);
-    if (!url) return new Response(null, { status: 404 });
+    if (!url) return which === "pdf" ? pdfPurged() : new Response(null, { status: 404 });
     return new Response(null, { status: 302, headers: { Location: url, "Cache-Control": "private, no-store" } });
   }
   const bytes = await storage.readFile(path);
-  if (!bytes) return new Response(null, { status: 404 });
+  if (!bytes) return which === "pdf" ? pdfPurged() : new Response(null, { status: 404 });
 
   return new Response(Buffer.from(bytes), {
     headers: {

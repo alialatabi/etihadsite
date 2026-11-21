@@ -20,9 +20,11 @@ function authorised(request: Request): boolean {
 
 /**
  * GET /api/cron/purge — daily retention purge (vercel.json crons). Vercel Cron sends
- * `Authorization: Bearer $CRON_SECRET`; anything else gets 401. Deletes orders, PDFs and
- * designs older than settings.retentionDays (the promise in the consent line) plus
- * never-committed direct uploads, and analytics events older than 400 days.
+ * `Authorization: Bearer $CRON_SECRET`; anything else gets 401. Deletes print PDFs older than
+ * settings.retentionDays (orders and their designs are kept forever, owner decision D10; orders
+ * from before KEEP_DESIGNS_FROM are removed whole, as their customers were told), uploads no
+ * order or AI generation uses, never-committed direct uploads, and analytics events older
+ * than 400 days.
  * Customers (name/phone/address) are NEVER deleted here: kept permanently by owner decision.
  * `?dry=1` only reports.
  */

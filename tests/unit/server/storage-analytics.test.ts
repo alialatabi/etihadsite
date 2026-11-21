@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/cron/purge/route";
+import { KEEP_DESIGNS_FROM } from "@/config/defaults";
 import { LocalStorage } from "@/lib/storage/local";
 import { SupabaseStorage } from "@/lib/storage/supabase";
 import type { AnalyticsEvent, OrderRecord } from "@/lib/types";
@@ -98,8 +99,8 @@ describe("LocalStorage analytics", () => {
     expect(existsSync(path.join(s.root, "analytics", "events-2025-01.jsonl"))).toBe(true);
     await s.purgeEventsOlderThan(cutoff, false);
     expect(await s.listEvents(new Date(0))).toHaveLength(1);
-    // orders purge (30 days) leaves customers alone too
-    await s.saveOrder(order("order-0001", "2025-01-10T00:00:00.000Z"));
+    // orders purge (30 days) leaves customers alone too (an old-rule order inside the 30-day window)
+    await s.saveOrder(order("order-0001", "2026-09-15T00:00:00.000Z"));
     await s.purgeOlderThan(new Date("2026-10-01T00:00:00Z"), false);
     expect(await s.getOrder("order-0001")).toBeNull();
     expect(await s.listCustomers()).toHaveLength(1);
@@ -116,10 +117,16 @@ describe("cron purge keeps customers", () => {
   it("GET deletes old events and orders but not customers", async () => {
     const dir = setupEnv({ CRON_SECRET: SECRET });
     const s = new LocalStorage(dir);
+    // The clock sits 10 days after KEEP_DESIGNS_FROM; the order is an old-rule one inside the purge window.
+    const keep = new Date(KEEP_DESIGNS_FROM).getTime();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(keep + 10 * 86_400_000);
+    const orderAt = new Date(keep - 30 * 86_400_000).toISOString();
     await s.recordEvent(ev("2020-01-01T00:00:00.000Z"));
-    await s.saveOrder(order("order-0001", "2020-01-01T00:00:00.000Z"));
-    await s.upsertCustomerFromOrder(order("order-0001", "2020-01-01T00:00:00.000Z"));
+    await s.saveOrder(order("order-0001", orderAt));
+    await s.upsertCustomerFromOrder(order("order-0001", orderAt));
     const res = await GET(new Request("http://localhost/api/cron/purge", { headers: { authorization: `Bearer ${SECRET}` } }));
+    vi.useRealTimers();
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, removedEvents: 1 });
     expect(await s.listEvents(new Date(0))).toEqual([]);

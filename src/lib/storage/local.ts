@@ -11,7 +11,7 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DEFAULT_SETTINGS } from "../../config/defaults";
+import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM, PURGE_WINDOW_DAYS } from "../../config/defaults";
 import type {
   AiBlock,
   AiGenerationRecord,
@@ -467,9 +467,15 @@ export class LocalStorage implements StorageAdapter {
   }
 
   /**
-   * Retention purge (used by scripts/purge-orders.ts). Removes orders created before
-   * `cutoff` with their PDF and design upload, plus orphan uploads older than `cutoff`.
-   * Returns the relative paths removed (or that would be removed when dryRun).
+   * Retention purge (used by scripts/purge-orders.ts), same rules as the Supabase adapter
+   * (owner decision D10). Only orders and uploads created in the window
+   * [cutoff − PURGE_WINDOW_DAYS, cutoff) are looked at:
+   *   - orders created before KEEP_DESIGNS_FROM (old rule): record, PDF and design removed;
+   *   - orders from KEEP_DESIGNS_FROM on: only their print PDF is removed, the record and the
+   *     design are kept forever;
+   *   - uploads (by mtime) that no order and no AI generation (ai/generations.json) uses are removed.
+   * Interrupted .tmp writes older than `cutoff` are removed too. Returns the relative paths
+   * removed (or that would be removed when dryRun).
    */
   async purgeOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
     const removed: string[] = [];
@@ -478,23 +484,24 @@ export class LocalStorage implements StorageAdapter {
       removed.push(rel);
       if (!dryRun) await this.deleteFile(rel);
     };
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
+    const keepFrom = new Date(KEEP_DESIGNS_FROM);
+    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
     const orders = await this.listOrders();
-    // Uploads still referenced by an order we keep must survive, whatever their age.
-    const kept = new Set(
-      orders
-        .filter((o) => new Date(o.createdAt) >= cutoff)
-        .map((o) => o.files.designPath),
-    );
+    const oldRule = orders.filter((o) => inWindow(new Date(o.createdAt)) && new Date(o.createdAt) < keepFrom);
+    const deleting = new Set(oldRule.map((o) => o.orderId));
+    // Designs used by any order we keep, and uploads behind an AI generation, survive whatever their age.
+    const used = new Set(orders.filter((o) => !deleting.has(o.orderId)).map((o) => o.files.designPath));
+    for (const g of await this.readAiList<AiGenerationRecord>("generations")) used.add(uploadPath(g.uploadId));
     for (const order of orders) {
-      if (new Date(order.createdAt) >= cutoff) continue;
-      if (kept.has(order.files.designPath)) {
-        await drop(order.files.pdfPath);
-        await drop(orderJsonPath(order.orderId));
-        continue;
-      }
+      const created = new Date(order.createdAt);
+      if (!inWindow(created)) continue;
       await drop(order.files.pdfPath);
-      await drop(order.files.designPath);
-      await drop(metaPathForDesign(order.files.designPath));
+      if (!deleting.has(order.orderId)) continue;
+      if (!used.has(order.files.designPath)) {
+        await drop(order.files.designPath);
+        await drop(metaPathForDesign(order.files.designPath));
+      }
       await drop(orderJsonPath(order.orderId));
     }
     const list = async (dir: string): Promise<string[]> => {
@@ -519,9 +526,9 @@ export class LocalStorage implements StorageAdapter {
     }
     for (const name of await list("uploads")) {
       if (!name.endsWith(".bin")) continue;
-      if (kept.has(`uploads/${name}`)) continue;
+      if (used.has(`uploads/${name}`)) continue;
       const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name));
-      if (stat.mtime < cutoff) {
+      if (inWindow(stat.mtime)) {
         await drop(`uploads/${name}`);
         await drop(metaPathForDesign(`uploads/${name}`));
       }

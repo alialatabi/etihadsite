@@ -565,11 +565,13 @@ export interface StorageAdapter {
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 
   /**
-   * Optional (retention purge): removes orders created before `cutoff` together with their PDF
-   * and design upload, plus uploads older than `cutoff` that no kept order uses, and
-   * adapter-specific leftovers (Supabase: direct uploads never committed after 3 hours; local:
-   * interrupted .tmp writes older than `cutoff`). Returns what was removed, or what would be
-   * when `dryRun` is true. Customers are never removed.
+   * Optional (retention purge, owner decision D10). Looks only at items created in
+   * [cutoff − PURGE_WINDOW_DAYS, cutoff). Orders created from KEEP_DESIGNS_FROM on keep their
+   * record and design forever and lose only their print PDF; older orders keep the old rule
+   * (record, PDF and design removed). Uploads that no order and no AI generation uses are
+   * removed, plus adapter-specific leftovers (Supabase: direct uploads never committed after
+   * 3 hours; local: interrupted .tmp writes older than `cutoff`). Returns what was removed, or
+   * what would be when `dryRun` is true. Customers are never removed.
    */
   purgeOlderThan?(cutoff: Date, dryRun: boolean): Promise<string[]>;
   /**

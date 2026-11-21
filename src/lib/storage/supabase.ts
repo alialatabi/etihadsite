@@ -18,7 +18,7 @@ import 'server-only';
  * Paths match the local adapter (relative, `uploads/…` / `orders/…`) and are validated
  * against a strict pattern before any request, so a stored path can never escape the bucket.
  */
-import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM, PURGE_WINDOW_DAYS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
 import type {
   AiBlock,
@@ -46,12 +46,11 @@ const OBJECT_TIMEOUT_MS = 30_000;
 const PAGE_ROWS = 1000;
 /** Object paths per bulk-delete request. */
 const DELETE_CHUNK = 500;
-/** The `limit=` sent on both purge selects of orders (the old ones to remove, and the kept ones whose designs must stay); PostgREST's max-rows (default 1000) caps the rows actually read. */
-const PURGE_ORDER_LIMIT = 10_000;
 /** The `limit=` sent on the dry-run purge select of event ids (it counts what would be deleted); PostgREST's max-rows (default 1000) caps the rows actually read. */
 const DRY_RUN_COUNT_LIMIT = 100_000;
 /** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
 const ORPHAN_UPLOAD_MAX_AGE_MS = 3 * 3600_000;
+const DAY_MS = 86_400_000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AI_RESERVE_RESULTS: readonly AiReserveResult[] = ['ok', 'ip_limit', 'site_limit', 'blocked'];
 
@@ -530,70 +529,114 @@ export class SupabaseStorage implements StorageAdapter {
 
   /* ───────────── retention ───────────── */
 
-  private async listPrefix(prefix: 'uploads' | 'orders'): Promise<ListedObject[]> {
+  /**
+   * Objects under `prefix`, NEWEST first, paged until a page reaches objects created before
+   * `from` (everything from `from` on is then listed; a few older ones may come along).
+   * Objects without a date (folder placeholders) never end the listing.
+   */
+  private async listPrefixSince(prefix: 'uploads' | 'orders', from: Date): Promise<ListedObject[]> {
     const out: ListedObject[] = [];
     for (let offset = 0; ; offset += PAGE_ROWS) {
       const res = await this.req(`/storage/v1/object/list/${BUCKET}`, {
         method: 'POST',
-        ...this.json({ prefix, limit: PAGE_ROWS, offset, sortBy: { column: 'created_at', order: 'asc' } }),
+        ...this.json({ prefix, limit: PAGE_ROWS, offset, sortBy: { column: 'created_at', order: 'desc' } }),
       });
       const page = (await res.json()) as ListedObject[];
       out.push(...page);
       if (page.length < PAGE_ROWS) return out;
+      const dated = page.filter((o) => o.created_at);
+      const oldest = dated[dated.length - 1]?.created_at;
+      if (oldest && new Date(oldest) < from) return out;
     }
   }
 
   /**
-   * Retention purge (Vercel Cron → /api/cron/purge). Removes orders created before `cutoff`
-   * with their PDF and design, uploads older than `cutoff` that no kept order uses, and
-   * never-committed uploads (.bin without .json) older than `orphanCutoff`.
+   * Retention purge (Vercel Cron → /api/cron/purge), owner decision D10. Only items created in
+   * the window [cutoff − PURGE_WINDOW_DAYS, cutoff) are looked at, so the work stays flat as
+   * data grows.
+   *   - Orders created before KEEP_DESIGNS_FROM (old rule): row, PDF and design are removed.
+   *   - Orders from KEEP_DESIGNS_FROM on: only their print PDF is removed (when still there);
+   *     the row and the design are kept forever.
+   *   - Uploads no order and no ai_generations row uses are removed; so are never-committed
+   *     uploads (.bin without .json) older than `orphanCutoff`.
    * Returns the paths (and `order:<id>` rows) removed, or that would be when dryRun.
    */
   async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - ORPHAN_UPLOAD_MAX_AGE_MS)): Promise<string[]> {
-    const removed: string[] = [];
-    const iso = encodeURIComponent(cutoff.toISOString());
-    const oldRes = await this.req(`/rest/v1/orders?select=order_id,files:record->files&created_at=lt.${iso}&limit=${PURGE_ORDER_LIMIT}`);
-    const old = (await oldRes.json()) as { order_id: string; files: OrderRecord['files'] | null }[];
-    const keptRes = await this.req(`/rest/v1/orders?select=design:record->files->>designPath&created_at=gte.${iso}&limit=${PURGE_ORDER_LIMIT}`);
-    const kept = new Set(((await keptRes.json()) as { design: string | null }[]).map((r) => r.design).filter(Boolean));
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
+    const keepFrom = new Date(KEEP_DESIGNS_FROM);
+    const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
+    // References are read from a day before the window: an upload is always older than the
+    // order or generation that uses it, and the day covers clocks that disagree.
+    const refFrom = encodeURIComponent(new Date(windowStart.getTime() - DAY_MS).toISOString());
+    const orders = (await this.selectAllPaged(
+      `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.${refFrom}&order=created_at.asc,order_id.asc`,
+    )) as { order_id: string; created_at: string; files: OrderRecord['files'] | null }[];
+    const ai = (await this.selectAllPaged(
+      `/rest/v1/ai_generations?select=upload_id&created_at=gte.${refFrom}&order=created_at.asc,id.asc`,
+    )) as { upload_id: string | null }[];
+    const uploads = await this.listPrefixSince('uploads', windowStart);
+    const pdfs = new Set((await this.listPrefixSince('orders', windowStart)).map((o) => `orders/${o.name}`));
 
+    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
+    const oldRule: typeof orders = [];
+    const pdfOnly: typeof orders = [];
+    const used = new Set<string>();
+    for (const o of orders) {
+      const created = new Date(o.created_at);
+      if (inWindow(created) && created < oldRuleEnd) oldRule.push(o);
+      else {
+        if (inWindow(created)) pdfOnly.push(o);
+        if (o.files?.designPath) used.add(o.files.designPath);
+      }
+    }
+    for (const g of ai) if (g.upload_id && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
+
+    const removed: string[] = [];
     const files = new Set<string>();
-    for (const o of old) {
+    for (const o of oldRule) {
       if (o.files?.pdfPath && PATH_RE.test(o.files.pdfPath)) files.add(o.files.pdfPath);
       const d = o.files?.designPath;
-      if (d && PATH_RE.test(d) && !kept.has(d)) {
+      if (d && PATH_RE.test(d) && !used.has(d)) {
         files.add(d);
         files.add(metaPathForDesign(d));
       }
       removed.push(`order:${o.order_id}`);
     }
+    for (const o of pdfOnly) {
+      const p = o.files?.pdfPath;
+      if (p && PATH_RE.test(p) && pdfs.has(p)) files.add(p);
+    }
 
-    const uploads = await this.listPrefix('uploads');
     const names = new Set(uploads.map((u) => u.name));
     for (const u of uploads) {
       if (!u.name.endsWith('.bin')) continue;
       const rel = `uploads/${u.name}`;
-      if (!PATH_RE.test(rel) || kept.has(rel)) continue;
+      if (!PATH_RE.test(rel) || used.has(rel)) continue;
       const created = u.created_at ? new Date(u.created_at) : null;
-      if (!created) continue;
+      if (!created || created < windowStart) continue;
       const committed = names.has(metaPathForDesign(u.name));
       if (created < cutoff || (!committed && created < orphanCutoff)) {
         files.add(rel);
         if (committed) files.add(metaPathForDesign(rel));
       }
     }
-    // Orphan metas (bin already gone) older than the cutoff.
+    // Orphan metas (bin already gone) in the window.
     for (const u of uploads) {
       if (!u.name.endsWith('.json')) continue;
       const rel = `uploads/${u.name}`;
+      const bin = u.name.replace(/\.json$/, '.bin');
       const created = u.created_at ? new Date(u.created_at) : null;
-      if (PATH_RE.test(rel) && created && created < cutoff && !names.has(u.name.replace(/\.json$/, '.bin'))) files.add(rel);
+      if (PATH_RE.test(rel) && created && inWindow(created) && !names.has(bin) && !used.has(`uploads/${bin}`)) files.add(rel);
     }
 
     removed.push(...files);
     if (!dryRun) {
       await this.deleteMany([...files]);
-      if (old.length) await this.req(`/rest/v1/orders?created_at=lt.${iso}`, { method: 'DELETE' });
+      if (oldRule.length) {
+        const from = encodeURIComponent(windowStart.toISOString());
+        const to = encodeURIComponent(oldRuleEnd.toISOString());
+        await this.req(`/rest/v1/orders?created_at=gte.${from}&created_at=lt.${to}`, { method: 'DELETE' });
+      }
     }
     return removed;
   }
