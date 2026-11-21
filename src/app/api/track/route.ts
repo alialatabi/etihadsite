@@ -39,9 +39,10 @@ export async function POST(request: Request): Promise<Response> {
 
     // Per address first: the visitor hash below changes with every User-Agent string, so it alone cannot stop a script
     // that rotates it. clientIp() is only the limiter key here (ipOf() stays separate: it feeds the stored hash).
-    if (!limiters().trackIp.check(clientIp(request)).ok) return noContent();
+    const l = limiters();
+    if (!l.trackIp.check(clientIp(request)).ok) return noContent();
     const visitor = visitorHash(request);
-    if (!limiters().track.check(visitor).ok) return noContent();
+    if (!l.track.check(visitor).ok) return noContent();
 
     const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
     await trackServer(request, {

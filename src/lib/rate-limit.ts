@@ -79,6 +79,24 @@ export function clientIp(
 }
 
 const HOUR = 60 * 60 * 1000;
+/** Per-address limits; multiplied by 20 when there is no trusted proxy (one global bucket). */
+const SCALED = {
+  upload: { limit: 20, windowMs: HOUR },
+  commit: { limit: 40, windowMs: HOUR },
+  trackIp: { limit: 600, windowMs: HOUR },
+  order: { limit: 5, windowMs: HOUR },
+  log: { limit: 60, windowMs: HOUR },
+  login: { limit: 10, windowMs: 15 * 60 * 1000 },
+  brief: { limit: 30, windowMs: HOUR },
+  generate: { limit: 15, windowMs: HOUR },
+} as const;
+type ScaledName = keyof typeof SCALED;
+const scaled = (name: ScaledName, k: number) =>
+  createRateLimiter({ limit: SCALED[name].limit * k, windowMs: SCALED[name].windowMs });
+// Keyed by the visitor hash, not by clientIp(): no shared "global" bucket, so no x20, and a mode change does not reset it.
+const trackLimiter = () => createRateLimiter({ limit: 300, windowMs: HOUR });
+// Added after the first limiter set (2026-11-21): a set that survived a dev hot reload gets them without resetting the others.
+const BACKFILLED = ['brief', 'generate', 'commit', 'trackIp'] as const satisfies readonly ScaledName[];
 type Limiters = {
   upload: RateLimiter;
   /** POST /api/upload/direct/commit: kept apart from `upload`, so the start and the commit of one real upload do not use two hits of the same allowance. */
@@ -104,31 +122,23 @@ const g = globalThis as unknown as { __epLimiters?: Limiters };
 export function limiters(): Limiters {
   const hops = trustProxyHops();
   const mode = hops > 0 ? 1 : 0;
+  const k = mode ? 1 : 20;
   if (g.__epLimiters?.mode !== mode) {
-    const k = mode ? 1 : 20;
     const prevTrack = g.__epLimiters?.track;
     g.__epLimiters = {
       mode,
-      upload: createRateLimiter({ limit: 20 * k, windowMs: HOUR }),
-      commit: createRateLimiter({ limit: 40 * k, windowMs: HOUR }),
-      trackIp: createRateLimiter({ limit: 600 * k, windowMs: HOUR }),
-      order: createRateLimiter({ limit: 5 * k, windowMs: HOUR }),
-      log: createRateLimiter({ limit: 60 * k, windowMs: HOUR }),
-      login: createRateLimiter({ limit: 10 * k, windowMs: 15 * 60 * 1000 }),
-      brief: createRateLimiter({ limit: 30 * k, windowMs: HOUR }),
-      generate: createRateLimiter({ limit: 15 * k, windowMs: HOUR }),
-      // Keyed by the visitor hash, not by clientIp(): no shared "global" bucket, so no x20, and a mode change does not reset it.
-      track: prevTrack ?? createRateLimiter({ limit: 300, windowMs: HOUR }),
+      upload: scaled('upload', k),
+      commit: scaled('commit', k),
+      trackIp: scaled('trackIp', k),
+      order: scaled('order', k),
+      log: scaled('log', k),
+      login: scaled('login', k),
+      brief: scaled('brief', k),
+      generate: scaled('generate', k),
+      track: prevTrack ?? trackLimiter(),
     };
   }
-  // An object built before `track` existed can survive a dev hot reload: add it without resetting the others.
-  g.__epLimiters.track ??= createRateLimiter({ limit: 300, windowMs: HOUR });
-  // Same for `brief` and `generate` (added 2026-11-21).
-  g.__epLimiters.brief ??= createRateLimiter({ limit: 30 * (mode ? 1 : 20), windowMs: HOUR });
-  g.__epLimiters.generate ??= createRateLimiter({ limit: 15 * (mode ? 1 : 20), windowMs: HOUR });
-  // And for `commit` (added 2026-11-21).
-  g.__epLimiters.commit ??= createRateLimiter({ limit: 40 * (mode ? 1 : 20), windowMs: HOUR });
-  // And for `trackIp` (added 2026-11-21).
-  g.__epLimiters.trackIp ??= createRateLimiter({ limit: 600 * (mode ? 1 : 20), windowMs: HOUR });
+  g.__epLimiters.track ??= trackLimiter();
+  for (const name of BACKFILLED) g.__epLimiters[name] ??= scaled(name, k);
   return g.__epLimiters;
 }
