@@ -68,7 +68,6 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
         <p role="status" className="text-base font-medium">
           {builder.ai.generating}
         </p>
-        {editIdea}
       </div>
     );
   }
@@ -82,7 +81,8 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
-            disabled={b.decoding}
+            // The first page changed shape while the result waited: this image is not for it.
+            disabled={b.decoding || b.shape !== ai.result.madeFor.shape}
             onClick={() => void ai.accept()}
             className="h-12 bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90"
           >

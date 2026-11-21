@@ -1,6 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ORDERS_DIR, builder, chooseQuantity, chooseShape, expect, fakeIpHeaders, fillDetails, next, perSheetBadge, setSize, snap, test } from './helpers';
+import {
+  ORDERS_DIR,
+  builder,
+  chooseQuantity,
+  chooseShape,
+  expect,
+  fakeIpHeaders,
+  fillDetails,
+  makeFixtures,
+  next,
+  perSheetBadge,
+  readyDesign,
+  setSize,
+  snap,
+  test,
+  upload,
+} from './helpers';
 import { MOCK_BRIEF } from './openai-mock';
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
@@ -77,4 +93,69 @@ test('a shrunk AI design shows the text-size warning', async ({ page }) => {
   await expect(page.getByText(builder.ai.shrinkWarning)).toHaveCount(0);
   await setSize(page, '3');
   await expect(page.getByText(builder.ai.shrinkWarning)).toBeVisible();
+});
+
+test('with a reference image, the accepted design survives a reload and is still not uploaded again', async ({ page }) => {
+  const { png } = await makeFixtures();
+  const uploads: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/api\/upload/.test(r.url())) uploads.push(r.url());
+  });
+
+  await page.goto('/');
+  await chooseShape(page, builder.shape.circle);
+  await setSize(page, '3');
+  await page.locator('#ai-idea').fill('مقهي الورد');
+  await page.locator('#ai-refs').setInputFiles(png);
+  await expect(page.getByRole('button', { name: builder.ai.removeRef })).toBeVisible();
+  await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+  await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+  await page.getByRole('button', { name: builder.ai.accept, exact: true }).click({ timeout: 60_000 });
+  // The reference image went up once (it goes to /images/edits); nothing else.
+  expect(uploads.length).toBeGreaterThan(0);
+  uploads.length = 0;
+
+  await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+  await expect(perSheetBadge(page, 54)).toBeVisible();
+  await next(page).click();
+  await chooseQuantity(page, 'plastic', 1050);
+  await expect(page.locator('#qty-result')).toContainText('1,080');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 2, name: builder.quantity.title })).toBeVisible();
+  await expect(page.locator('#stickers-input')).toHaveValue('1050');
+  await next(page).click();
+  await fillDetails(page);
+  await page.getByRole('button', { name: builder.details.submit, exact: true }).click();
+  await page.waitForURL('**/order/success', { timeout: 60_000 });
+  expect(uploads, 'the restored AI design is not uploaded again').toEqual([]);
+});
+
+test('too much text for the size: the confirm button is disabled', async ({ page }) => {
+  await page.goto('/');
+  await chooseShape(page, builder.shape.circle);
+  await setSize(page, '1');
+  await page.locator('#ai-idea').fill('مقهي الورد');
+  await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+  await expect(page.locator('#ai-line-0')).toHaveValue(MOCK_BRIEF.printed_text[0]);
+  await expect(page.getByRole('alert').filter({ hasText: builder.ai.tooMuchText.split(' — ')[0] })).toBeVisible();
+  await expect(page.getByRole('button', { name: builder.ai.confirm, exact: true })).toBeDisabled();
+});
+
+test('AI unavailable: a notice, and «عندي تصميم جاهز» still leads to the upload', async ({ page }) => {
+  await page.route('**/api/design/brief', (route) => route.fulfill({ status: 503, json: { ok: false, error: 'unavailable' } }));
+  const { png } = await makeFixtures();
+  await page.goto('/');
+  await chooseShape(page, builder.shape.circle);
+  await setSize(page, '3');
+  await page.locator('#ai-idea').fill('مقهي الورد');
+  await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+  await expect(page.getByText(builder.ai.unavailable)).toBeVisible();
+  await expect(page.locator('#ai-idea')).toHaveCount(0);
+
+  await readyDesign(page);
+  await upload(page, png);
+  await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();
+  await next(page).click();
+  await expect(perSheetBadge(page, 54)).toBeVisible();
 });

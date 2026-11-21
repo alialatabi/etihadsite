@@ -5,6 +5,7 @@ import { builder, common } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { fillLtr } from '@/components/fill-ltr';
+import { Ltr } from '@/components/Ltr';
 import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
 import { safeFormatCm } from '../safe';
 import type { AiDesignApi } from './useAiDesign';
@@ -76,7 +77,13 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             {capacity.minSizeUm !== null
-              ? fillLtr(builder.ai.tooMuchText, { size: `${safeFormatCm(capacity.minSizeUm)} ${common.units.cm}` })
+              ? fillLtr(builder.ai.tooMuchText, {
+                  size: (
+                    <>
+                      <Ltr>{safeFormatCm(capacity.minSizeUm)}</Ltr> {common.units.cm}
+                    </>
+                  ),
+                })
               : builder.ai.errors.text_too_long}
           </span>
         </p>

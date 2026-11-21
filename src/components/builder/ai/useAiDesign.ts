@@ -6,6 +6,7 @@ import { textCapacity, type TextCapacity } from '@/lib/ai/text-capacity';
 import { generateBlock, type GenerateBlock } from '../logic';
 import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
+import type { Shape } from '@/lib/types';
 import { addRefs, isAiOffError, pngFileFromBase64, printableLines, type AiErrorCode } from './ai-logic';
 import { postBrief, postGenerate } from './api';
 
@@ -21,6 +22,8 @@ export interface AiResultData {
   file: File;
   uploadId: string;
   previewUrl: string;
+  /** The shape and size the image was made for (the first page may change while the result waits). */
+  madeFor: { shape: Shape; widthUm: number; heightUm: number };
   /** The lines this image was asked to print. */
   lines: string[];
 }
@@ -162,7 +165,8 @@ export function useAiDesign(b: BuilderApi) {
     setError(undefined);
     replaceResult(undefined);
     setPhase('generating');
-    b.goTo(1);
+    b.showDesignStep();
+    const madeFor = { shape, widthUm: spec.widthUm, heightUm: spec.heightUm };
 
     const refIds = await uploadRefs();
     if (my !== token.current) {
@@ -201,7 +205,7 @@ export function useAiDesign(b: BuilderApi) {
       setPhase('error');
       return;
     }
-    replaceResult({ file, uploadId: res.uploadId, previewUrl: URL.createObjectURL(file), lines: sent });
+    replaceResult({ file, uploadId: res.uploadId, previewUrl: URL.createObjectURL(file), lines: sent, madeFor });
     setRemainingToday(res.remainingToday);
     setPhase('result');
   }, [b, shape, spec, corners, idea, off, printable, uploadRefs, fail, replaceResult]);
@@ -212,7 +216,8 @@ export function useAiDesign(b: BuilderApi) {
   const accept = useCallback(async () => {
     if (!result || busy.current) return;
     busy.current = true;
-    const ok = await b.acceptAi(result.file, result.uploadId);
+    if (b.shape !== result.madeFor.shape) return; // the button is disabled then
+    const ok = await b.acceptAi(result.file, result.uploadId, result.madeFor);
     busy.current = false;
     if (!ok) {
       // The generated PNG did not decode (should not happen): say so; another try is offered.
@@ -225,12 +230,9 @@ export function useAiDesign(b: BuilderApi) {
     setPhase('idle');
   }, [b, result, replaceResult, fail]);
 
-  /** «عدّل الفكرة»: back to the first page. A running try is abandoned (its answer is dropped). */
+  /** «عدّل الفكرة»: back to the first page (not offered while a try runs: it is counted and its answer is kept). */
   const editIdea = useCallback(() => {
-    if (phase === 'generating') {
-      token.current++;
-      busy.current = false;
-    }
+    if (phase === 'generating') return;
     setPhase(brief.current && phase !== 'idle' ? 'reviewing' : 'idle');
     b.goTo(0);
   }, [b, phase]);

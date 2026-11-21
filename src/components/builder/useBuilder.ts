@@ -509,18 +509,26 @@ export function useBuilder(settings: ShopSettings) {
   /* ── AI designer ── */
   const sizeStep = STEPS.indexOf('size');
   const designStep = STEPS.indexOf('design');
-  /** Wrap a generated PNG as the design (decode, preview, draft) at the size it was made for, then open the arrangement. */
+  /**
+   * Wrap a generated PNG as the design (decode, preview, draft) at the size it was made for (`typed`), then open the
+   * arrangement. Refused when the shape changed since the image was made (a circle PNG is no custom die-cut).
+   */
   const acceptAi = useCallback(
-    async (file: File, uploadId: string) => {
-      if (!shape || !spec) return false;
+    async (file: File, uploadId: string, madeFor: { shape: Shape; widthUm: number; heightUm: number }) => {
+      if (!shape || shape !== madeFor.shape) return false;
       cancelRestore();
       setMode('ai');
-      const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: spec.widthUm, heightUm: spec.heightUm } } });
+      const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: madeFor.widthUm, heightUm: madeFor.heightUm } } });
       if (ok) setStep(sizeStep);
       return ok;
     },
-    [shape, spec, loadDesign, cancelRestore, sizeStep],
+    [shape, loadDesign, cancelRestore, sizeStep],
   );
+  /** Open the design step directly (a generation started from a valid first page; no debounce wait). */
+  const showDesignStep = useCallback(() => {
+    cancelRestore();
+    setStep(designStep);
+  }, [cancelRestore, designStep]);
   /** «عندي تصميم جاهز»: the customer's own file, the existing upload step. */
   const chooseUpload = useCallback(() => {
     if (!shape) return;
@@ -561,6 +569,7 @@ export function useBuilder(settings: ShopSettings) {
     startAi,
     chooseUpload,
     acceptAi,
+    showDesignStep,
     idea,
     setIdea,
     aiUploadId,
