@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Sparkles, type Lu
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
 import { fillLtr } from '@/components/fill-ltr';
-import { aiReady } from '@/lib/ai/service';
+import { aiReady } from '@/lib/ai/ready';
 import { getSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 

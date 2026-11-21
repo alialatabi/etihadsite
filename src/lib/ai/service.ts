@@ -26,7 +26,7 @@ import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind, ShopSettings, StorageAdapter } from '@/lib/types';
+import type { AiKind } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
@@ -41,6 +41,7 @@ import {
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, openAiConfig, type ImageRef } from './openai';
+import { aiReady, hasAiStorage, secretReady, type AiStorage } from './ready';
 import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
@@ -107,22 +108,8 @@ export function hardenVisualDescription(s: string): string {
 
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
-/**
- * The token key must be a real secret in production: with SESSION_SECRET blank there, both routes
- * answer `unavailable` instead of signing with the public dev salt (anyone could forge a token).
- */
-export function secretReady(): boolean {
-  return process.env.NODE_ENV !== 'production' || (process.env.SESSION_SECRET ?? '').trim() !== '';
-}
-
-/**
- * The site can design now: the same checks both routes make before anything else (switch on, OpenAI key set,
- * token secret ready, AI tables available). The home page passes it to the builder, so a missing key shows the
- * notice before the customer types.
- */
-export function aiReady(settings: Pick<ShopSettings, 'ai'>): boolean {
-  return settings.ai.enabled && openAiConfig() !== null && secretReady() && hasAiStorage(getStorage());
-}
+// secretReady / aiReady / hasAiStorage live in ready.ts (the home page imports it without the image code).
+export { aiReady, secretReady };
 
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
 export function briefToken(visualDescription: string): string {
@@ -195,12 +182,6 @@ export const generateRequestSchema = z
 
 function report(where: string, what: string, tags: Record<string, string | number> = {}, level: 'warning' | 'error' = 'error'): void {
   reportError(new Error(`ai ${what}`), { where, tags, level });
-}
-
-type AiStorage = StorageAdapter & Required<Pick<StorageAdapter, 'aiReserve' | 'aiRelease'>>;
-
-function hasAiStorage(s: StorageAdapter): s is AiStorage {
-  return typeof s.aiReserve === 'function' && typeof s.aiRelease === 'function';
 }
 
 /** The limit key: '' (site-only) when there is no trusted proxy and clientIp() is 'global'. */
