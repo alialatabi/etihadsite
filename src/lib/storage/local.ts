@@ -91,6 +91,16 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
+  private async exists(rel: string): Promise<boolean> {
+    try {
+      await fs.stat(this.resolveSafe(rel));
+      return true;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw e;
+    }
+  }
+
   async saveUpload(
     uploadId: string,
     bytes: Uint8Array,
@@ -532,7 +542,7 @@ export class LocalStorage implements StorageAdapter {
   async purgeOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
     const removed: string[] = [];
     const drop = async (rel: string) => {
-      if ((await this.readOptional(rel)) === null) return;
+      if (!(await this.exists(rel))) return;
       removed.push(rel);
       if (!dryRun) await this.deleteFile(rel);
     };
@@ -570,9 +580,10 @@ export class LocalStorage implements StorageAdapter {
         return []; // directory does not exist
       }
     };
+    const uploadNames = await list("uploads");
     // Interrupted writeAtomic() leftovers.
     for (const dir of ["uploads", "orders"]) {
-      for (const name of await list(dir)) {
+      for (const name of dir === "uploads" ? uploadNames : await list(dir)) {
         if (!name.endsWith(".tmp")) continue;
         const stat = await fs
           .stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, dir, name))
@@ -583,7 +594,7 @@ export class LocalStorage implements StorageAdapter {
         }
       }
     }
-    for (const name of await list("uploads")) {
+    for (const name of uploadNames) {
       if (!name.endsWith(".bin")) continue;
       if (used.has(`uploads/${name}`)) continue;
       const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name));
