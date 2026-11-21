@@ -1,20 +1,19 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
-import { builder, common } from '@/content/ar';
+import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { builder } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { fillLtr } from '@/components/fill-ltr';
-import { Ltr } from '@/components/Ltr';
 import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
-import { safeFormatCm } from '../safe';
+import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
 
-/** The box after «ولّد التصميم»: the exact lines that will be printed (editable), the spelling fixes, the 12 pt check. */
+/** The box after «ولّد التصميم»: the exact lines that will be printed (editable), the spelling fixes, the 12 pt warning (never a block). */
 export function TextReview({ ai }: { ai: AiDesignApi }) {
-  const { lines, fixes, capacity } = ai;
-  const canConfirm = capacity.ok && !ai.block;
+  const { lines, fixes, textWarning } = ai;
+  // Too much text for the size only warns: the customer may go on.
+  const canConfirm = !ai.block;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
   // After a delete: the line that takes its place (or the one before, or «أضف سطر») gets the focus.
@@ -94,22 +93,7 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
         </div>
       )}
 
-      {!capacity.ok && (
-        <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            {capacity.minSizeUm !== null
-              ? fillLtr(builder.ai.tooMuchText, {
-                  size: (
-                    <>
-                      <Ltr>{safeFormatCm(capacity.minSizeUm)}</Ltr> {common.units.cm}
-                    </>
-                  ),
-                })
-              : builder.ai.errors.text_too_long}
-          </span>
-        </p>
-      )}
+      <TextWarningNote warning={textWarning} />
 
       <Button
         type="button"

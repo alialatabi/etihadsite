@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
-import { textCapacity, type TextCapacity } from '@/lib/ai/text-capacity';
 import { generateBlock, type GenerateBlock } from '../logic';
 import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
-import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, printableLines, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
+import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
 import { postBrief, postGenerate } from './api';
 
 export type { AiPhase };
@@ -30,8 +29,6 @@ export interface AiResultData {
   /** The lines this image was asked to print. */
   lines: string[];
 }
-
-const NO_CAPACITY: TextCapacity = { ok: false, rowsNeeded: 0, rowsAllowed: 0, minSizeUm: null };
 
 function revoke(url: string | undefined): void {
   if (!url) return;
@@ -60,8 +57,6 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   const [refs, setRefs] = useState<AiRef[]>([]);
   // The last reference pick left files out (wrong type, too big, over 5).
   const [refRejected, setRefRejected] = useState(false);
-  // The lines printed on the design the customer accepted (memory only: not in the draft).
-  const [acceptedLines, setAcceptedLines] = useState<string[] | null>(null);
 
   const brief = useRef<{ visualDescription: string; briefToken: string } | null>(null);
   const busy = useRef(false);
@@ -91,9 +86,12 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   const block: GenerateBlock | null = generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: aiBusy(phase, briefing) });
 
   const printable = useMemo(() => printableLines(lines), [lines]);
-  const capacity = useMemo<TextCapacity>(
-    () => (shape && spec ? textCapacity(printable, shape, spec.widthUm, spec.heightUm) : NO_CAPACITY),
-    [printable, shape, spec],
+  // Too much text for the size: a warning in the review box, never a block.
+  // The cap on a recommended size is taken at the ratio typed on this page (a rectangle is free here), not the design's.
+  const { settings } = b;
+  const textWarning = useMemo(
+    () => textWarningFor(printable, shape, spec, maxWidthAtSize(shape, corners, spec, settings.layout)),
+    [printable, shape, spec, corners, settings.layout],
   );
 
   const fail = useCallback((code: AiErrorCode) => {
@@ -172,7 +170,6 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   const generate = useCallback(async () => {
     if (busy.current || !shape || !spec || !brief.current || off) return;
     const sent = printable;
-    if (!textCapacity(sent, shape, spec.widthUm, spec.heightUm).ok) return;
     busy.current = true;
     const my = ++token.current;
     setError(undefined);
@@ -238,7 +235,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     if (!result || busy.current) return;
     if (b.shape !== result.madeFor.shape) return; // the button is disabled then
     busy.current = true;
-    const ok = await b.acceptAi(result.file, result.uploadId, result.madeFor);
+    const ok = await b.acceptAi(result.file, result.uploadId, result.madeFor, result.lines);
     busy.current = false;
     if (!ok) {
       // The generated PNG did not decode in this browser (should not happen): say so; another try is offered.
@@ -246,7 +243,6 @@ export function useAiDesign(b: BuilderApi, ready = true) {
       setPhase('error');
       return;
     }
-    setAcceptedLines(result.lines);
     replaceResult(undefined);
     // Accepted after a failed retry: that try's message must not come back on page 1.
     setError(undefined);
@@ -292,7 +288,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     phase,
     lines,
     fixes,
-    capacity,
+    textWarning,
     error,
     result,
     remainingToday,
@@ -304,7 +300,6 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     block,
     refs,
     refRejected,
-    acceptedLines,
     review,
     setLines,
     onIdeaChange,

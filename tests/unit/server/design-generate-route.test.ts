@@ -142,13 +142,14 @@ describe("POST /api/design/generate", () => {
     expect(rows.every((r) => r.idea.includes(SENTINEL))).toBe(true);
   });
 
-  it("generate re-checks text capacity", async () => {
+  it("generate does not refuse too much text for the size (the page only warns)", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const res = await call(body({ widthUm: 30000, heightUm: 30000, lines: ["كلام طويل جداً ".repeat(4).trim(), "سطر ثاني طويل أيضاً هنا", "سطر ثالث"] }));
-    expect(res.status).toBe(400);
-    expect(await read(res)).toEqual({ ok: false, error: "text_too_long" });
-    expect(calls).toHaveLength(0);
-    expect(await imageUsage()).toBe(0);
+    expect(res.status).toBe(200);
+    const out = await read(res);
+    expect(out).toMatchObject({ ok: true });
+    expect(calls).toHaveLength(1);
+    expect(await imageUsage()).toBe(1);
   });
 
   it("generate rejects a forged visualDescription (bad briefToken)", async () => {

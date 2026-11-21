@@ -2,8 +2,10 @@
 import { builder } from '@/content/ar';
 import { AI_MAX_REFS } from '@/lib/ai/config';
 import { cleanLine, stripUnprintable } from '@/lib/ai/sanitize';
-import type { QualitySettings, Shape } from '@/lib/types';
+import { textCapacity } from '@/lib/ai/text-capacity';
+import type { Corners, LayoutSettings, QualitySettings, Shape } from '@/lib/types';
 import { aiAcceptedSize, dpiFor, dpiStatus, type DpiStatus } from '../logic';
+import { safeMaxWidth } from '../safe';
 import type { BriefError, ClientError, GenerateError } from './api';
 
 export type AiPhase = 'idle' | 'reviewing' | 'generating' | 'result' | 'error';
@@ -81,6 +83,22 @@ export function canRetryAi(s: { off: boolean; remainingToday: number | null; pha
 }
 
 /**
+ * The shape and size an AI result will have once accepted: `aiAcceptedSize` at the decoded ratio (the one the
+ * arrangement step starts from, spec 5.7). For a custom shape the pixels are the full canvas (the trim happens at
+ * accept), so the ratio can only differ slightly. null when the pixel size is unknown.
+ */
+export function resultAcceptedSpec(r: {
+  pxWidth: number;
+  pxHeight: number;
+  madeFor: { shape: Shape; widthUm: number; heightUm: number };
+}): { shape: Shape; widthUm: number; heightUm: number } | null {
+  if (!(r.pxWidth > 0) || !(r.pxHeight > 0)) return null;
+  const { shape } = r.madeFor;
+  const size = aiAcceptedSize(shape, r.madeFor, r.pxWidth / r.pxHeight);
+  return { shape, widthUm: size.widthUm, heightUm: shape === 'circle' ? size.widthUm : size.heightUm };
+}
+
+/**
  * The DPI state the arrangement step would show for a result accepted at the size it was made for (spec 5.7):
  * the size is the one `aiAcceptedSize` gives at accept. For a custom shape the pixels are the full canvas (the
  * trim happens at accept), so this can only read better than the arrangement step, never worse.
@@ -89,10 +107,8 @@ export function resultDpiStatus(
   r: { pxWidth: number; pxHeight: number; madeFor: { shape: Shape; widthUm: number; heightUm: number } },
   quality: QualitySettings,
 ): DpiStatus {
-  if (!(r.pxWidth > 0) || !(r.pxHeight > 0)) return 'ok';
-  const { shape } = r.madeFor;
-  const size = aiAcceptedSize(shape, r.madeFor, r.pxWidth / r.pxHeight);
-  const spec = { shape, widthUm: size.widthUm, heightUm: shape === 'circle' ? size.widthUm : size.heightUm };
+  const spec = resultAcceptedSpec(r);
+  if (!spec) return 'ok';
   return dpiStatus(dpiFor({ kind: 'png', pxWidth: r.pxWidth, pxHeight: r.pxHeight }, spec), quality);
 }
 
@@ -104,4 +120,46 @@ export function typedLine(line: string): string {
 /** The lines that are sent and printed: cleaned exactly as the server cleans them, without empty ones. */
 export function printableLines(lines: string[]): string[] {
   return lines.map(cleanLine).filter((l) => l.length > 0);
+}
+
+/**
+ * The text does not fit the size at 12 pt: a warning only (never a block).
+ * 'enlarge' carries a size (width, µm) that fits and that the size step accepts; 'reduce' means no such size, so
+ * the advice is to write less.
+ */
+export type TextWarning = { kind: 'enlarge'; sizeUm: number } | { kind: 'reduce' } | null;
+
+/**
+ * The widest size the size step accepts for a sticker with the ratio of `size` (the twin of `maxWidthUm` in useBuilder,
+ * which is taken at the current design's ratio): for the checks where the size is not the design's own, such as the
+ * review box (a rectangle is typed freely there) and a result that is not accepted yet.
+ */
+export function maxWidthAtSize(
+  shape: Shape | null,
+  corners: Corners,
+  size: { widthUm: number; heightUm: number } | null,
+  layout: LayoutSettings,
+): number | null {
+  if (!shape || !size || !(size.widthUm > 0) || !(size.heightUm > 0)) return null;
+  const probe = { shape, ...(shape === 'rect' ? { corners } : {}), widthUm: 50_000, heightUm: 50_000 };
+  const m = safeMaxWidth(shape === 'circle' ? 1 : size.widthUm / size.heightUm, probe, layout);
+  return m && m > 0 ? m : null;
+}
+
+/**
+ * Warning for `lines` (as typed or as printed: cleaned here exactly as for the print) on `size`.
+ * `maxWidthUm` is the widest size the size step accepts (null: unknown): a larger size is never recommended.
+ */
+export function textWarning(
+  lines: string[],
+  shape: Shape | null,
+  size: { widthUm: number; heightUm: number } | null,
+  maxWidthUm: number | null,
+): TextWarning {
+  if (!shape || !size) return null;
+  const capacity = textCapacity(printableLines(lines), shape, size.widthUm, size.heightUm);
+  if (capacity.ok) return null;
+  const min = capacity.minSizeUm;
+  if (min !== null && (maxWidthUm === null || min <= maxWidthUm)) return { kind: 'enlarge', sizeUm: min };
+  return { kind: 'reduce' };
 }

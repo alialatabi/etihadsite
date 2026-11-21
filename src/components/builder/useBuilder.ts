@@ -113,6 +113,8 @@ export function useBuilder(settings: ShopSettings) {
   const [aiUploadId, setAiUploadId] = useState<string | null>(null);
   const [aiFileId, setAiFileId] = useState<string | null>(null);
   const [aiSizeUm, setAiSizeUm] = useState<{ w: number; h: number } | null>(null);
+  // The lines printed on the accepted AI design (saved with the draft: the arrangement step warns about too much text).
+  const [aiLines, setAiLines] = useState<string[] | null>(null);
 
   const lastFile = useRef<File | null>(null);
   // The file currently kept in IndexedDB, so a re-decode of the same file (shape change) does not save it again.
@@ -158,6 +160,7 @@ export function useBuilder(settings: ShopSettings) {
     setAiUploadId(null);
     setAiFileId(null);
     setAiSizeUm(null);
+    setAiLines(null);
   }, []);
 
   /* ── size handling ── */
@@ -222,7 +225,7 @@ export function useBuilder(settings: ShopSettings) {
     async (
       file: File,
       forShape: Shape,
-      opts: { restore?: boolean; keepSize?: boolean; ai?: { uploadId: string; typed: SizeUm } } = {},
+      opts: { restore?: boolean; keepSize?: boolean; ai?: { uploadId: string; typed: SizeUm; lines: string[] } } = {},
     ): Promise<boolean> => {
       const token = ++decodeToken.current;
       const previousFile = lastFile.current;
@@ -279,6 +282,7 @@ export function useBuilder(settings: ShopSettings) {
         setAiUploadId(opts.ai.uploadId);
         setAiFileId(fileIdRef.current);
         setAiSizeUm({ w: size.widthUm, h: forShape === 'circle' ? size.widthUm : size.heightUm });
+        setAiLines(opts.ai.lines);
         return true;
       }
       // A restore keeps the sizes the customer had typed; a fresh pick prefills them.
@@ -315,6 +319,7 @@ export function useBuilder(settings: ShopSettings) {
       if (r.aiUploadId !== undefined) setAiUploadId(r.aiUploadId);
       if (r.aiFileId !== undefined) setAiFileId(r.aiFileId);
       if (r.aiSizeUm !== undefined) setAiSizeUm(r.aiSizeUm);
+      if (r.aiLines !== undefined) setAiLines(r.aiLines);
       setFields(r.fields);
       setPendingStep(r.step ?? 0);
       pendingStepRef.current = r.step ?? 0;
@@ -364,9 +369,10 @@ export function useBuilder(settings: ShopSettings) {
       ...(aiUploadId ? { aiUploadId } : {}),
       ...(aiFileId ? { aiFileId } : {}),
       ...(aiSizeUm ? { aiSizeUm } : {}),
+      ...(aiLines && aiLines.length > 0 ? { aiLines } : {}),
       ...fields,
     });
-  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId, mode, idea, aiUploadId, aiFileId, aiSizeUm]);
+  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId, mode, idea, aiUploadId, aiFileId, aiSizeUm, aiLines]);
 
   const setShape = useCallback(
     (next: Shape) => {
@@ -539,11 +545,11 @@ export function useBuilder(settings: ShopSettings) {
    * arrangement. Refused when the shape changed since the image was made (a circle PNG is no custom die-cut).
    */
   const acceptAi = useCallback(
-    async (file: File, uploadId: string, madeFor: { shape: Shape; widthUm: number; heightUm: number }) => {
+    async (file: File, uploadId: string, madeFor: { shape: Shape; widthUm: number; heightUm: number }, lines: string[]) => {
       if (!shape || shape !== madeFor.shape) return false;
       cancelRestore();
       setMode('ai');
-      const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: madeFor.widthUm, heightUm: madeFor.heightUm } } });
+      const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: madeFor.widthUm, heightUm: madeFor.heightUm }, lines } });
       if (ok) setStep(sizeStep);
       return ok;
     },
@@ -603,6 +609,7 @@ export function useBuilder(settings: ShopSettings) {
     aiUploadId,
     aiFileId,
     aiSizeUm,
+    aiLines,
     freeRect,
     widthText,
     heightText,

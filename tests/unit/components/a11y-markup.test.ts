@@ -89,7 +89,7 @@ describe('copy', () => {
 describe('DesignStep AI result', () => {
   const aiB = { ...baseB, mode: 'ai', shape: 'circle' };
   const result = { previewUrl: 'blob:x', lines: [], madeFor: { shape: 'circle' } };
-  const ai = { phase: 'result', result, remainingToday: 3, error: null, off: false, acceptedLines: null };
+  const ai = { phase: 'result', result, remainingToday: 3, error: null, off: false };
 
   it('gives the design image a meaningful alt', () => {
     const html = render(DesignStep as never, { b: aiB, ai });

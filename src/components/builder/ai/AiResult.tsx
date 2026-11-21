@@ -8,8 +8,10 @@ import { fillLtr } from '@/components/fill-ltr';
 import { count } from '@/lib/plural';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { cn } from '@/lib/utils';
+import { acceptedAiLines } from '../logic';
 import type { BuilderApi } from '../useBuilder';
-import { aiErrorMessage, canRetryAi, resultDpiStatus, resultShown } from './ai-logic';
+import { aiErrorMessage, canRetryAi, maxWidthAtSize, resultAcceptedSpec, resultDpiStatus, resultShown, textWarning } from './ai-logic';
+import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
 
 const CHECKER = 'bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]';
@@ -86,6 +88,7 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   // 'refused' can be an unusable custom result, so another try is offered next to «عدّل الفكرة».
   const canRetry = canRetryAi({ off: ai.off, remainingToday: ai.remainingToday, phase: ai.phase, error: ai.error });
   // Only a failure of the try just made is shown (after «عدّل الفكرة» an old message would sit on a good design).
+  const acceptedLines = acceptedAiLines({ mode: b.mode, aiLines: b.aiLines ?? null, aiFileId: b.aiFileId ?? null, fileId: b.fileId ?? null });
   const errorBox = ai.phase === 'error' && ai.error ? <ErrorBox>{aiErrorMessage(ai.error)}</ErrorBox> : null;
 
   const editIdea = (
@@ -115,11 +118,15 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   // The kept (paid) result: also after a failed retry (the error above it) and after «عدّل الفكرة».
   if (ai.result && resultShown(ai.phase, true)) {
     const dpi = resultDpiStatus(ai.result, b.settings.quality);
+    // The text against the size the design will have once accepted (the size the arrangement step starts from).
+    const accepted = resultAcceptedSpec(ai.result);
+    const textWarn = textWarning(ai.result.lines, accepted?.shape ?? null, accepted, maxWidthAtSize(accepted?.shape ?? null, b.corners, accepted, b.settings.layout));
     return (
       <div className="space-y-4">
         {errorBox}
         <DesignImage src={ai.result.previewUrl} custom={custom} circle={circle} />
         <PrintedText lines={ai.result.lines} />
+        <TextWarningNote warning={textWarn} />
         {dpi === 'warn' && (
           <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
             {builder.size.dpiWarn}
@@ -179,7 +186,8 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
         <ErrorBox>{fillLtr(builder.upload.errors[b.designError], { mb: uploadLimitMb(b.settings.maxUploadBytes) })}</ErrorBox>
       )}
       {b.design && <DesignImage src={b.design.previewUrl} custom={custom} circle={circle} />}
-      {b.design && ai.acceptedLines && <PrintedText lines={ai.acceptedLines} />}
+      {b.design && acceptedLines && <PrintedText lines={acceptedLines} />}
+      {b.design && <TextWarningNote warning={textWarning(acceptedLines ?? [], b.shape, b.spec, b.maxWidthUm)} />}
       <div className="flex flex-wrap items-center gap-3">
         {editIdea}
         {!b.design && readyDesign}

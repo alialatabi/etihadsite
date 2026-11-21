@@ -8,7 +8,7 @@ import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
 import { activeTier, maxStickers, minStickers, sortedTiers, totalBeforeDiscountIqd } from '@/lib/pricing';
 import { deriveLockedSize } from '@/lib/layout';
-import { AI_IDEA_MAX_CHARS, AI_MAX_ASPECT } from '@/lib/ai/config';
+import { AI_IDEA_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_ASPECT, AI_MAX_LINES } from '@/lib/ai/config';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
   BuilderStep,
@@ -65,6 +65,8 @@ export interface PersistedForm extends FormFields {
   aiFileId?: string;
   /** Sticker size (µm) right after the AI design was accepted; a smaller size shows a warning. */
   aiSizeUm?: { w: number; h: number };
+  /** The lines printed on the accepted AI design (for the «الكتابة كثيرة» warning on the arrangement step after a reload). */
+  aiLines?: string[];
 }
 
 export type BuilderMode = 'ai' | 'upload';
@@ -214,6 +216,7 @@ export interface RestoredState {
   aiUploadId?: string;
   aiFileId?: string;
   aiSizeUm?: { w: number; h: number };
+  aiLines?: string[];
   fields: FormFields;
 }
 
@@ -251,6 +254,11 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   const ai = saved.aiSizeUm as unknown;
   if (ai && typeof ai === 'object' && isPositiveInt((ai as { w?: unknown }).w) && isPositiveInt((ai as { h?: unknown }).h)) {
     r.aiSizeUm = { w: (ai as { w: number }).w, h: (ai as { h: number }).h };
+  }
+  // The printed lines: an array of at most AI_MAX_LINES strings (each cut to AI_LINE_MAX_CHARS); anything else is dropped.
+  const lines = saved.aiLines as unknown;
+  if (Array.isArray(lines) && lines.length > 0 && lines.length <= AI_MAX_LINES && lines.every((l) => typeof l === 'string')) {
+    r.aiLines = (lines as string[]).map((l) => l.slice(0, AI_LINE_MAX_CHARS));
   }
   return r;
 }
@@ -324,6 +332,19 @@ export function aiShrinkWarning(ai: { w: number; h: number } | null, size: { wid
 /** The upload id to reuse at submit: the accepted AI design's, only while the current design is that very file. */
 export function seedUploadId(p: { aiUploadId: string | null; aiFileId: string | null; fileId: string | null }): string | undefined {
   return p.aiUploadId && p.aiFileId && p.fileId === p.aiFileId ? p.aiUploadId : undefined;
+}
+
+/**
+ * The lines printed on the design now in the order, only while that design is the accepted AI design
+ * (the AI mode, and the design file is the very one accepted: same test as seedUploadId). null otherwise.
+ */
+export function acceptedAiLines(p: {
+  mode: BuilderMode;
+  aiLines: string[] | null;
+  aiFileId: string | null;
+  fileId: string | null;
+}): string[] | null {
+  return p.mode === 'ai' && p.aiLines && p.aiLines.length > 0 && p.aiFileId && p.fileId === p.aiFileId ? p.aiLines : null;
 }
 
 /** How far the customer may go from step 0: the index of the first step that is not done yet (never past the last step). */

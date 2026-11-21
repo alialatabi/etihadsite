@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  acceptedAiLines,
   aiAcceptedSize,
   aiShrinkWarning,
   aiSizeDrifted,
@@ -16,17 +17,23 @@ import {
   aiErrorMessage,
   canRetryAi,
   isAiOffError,
+  maxWidthAtSize,
   pngFileFromBase64,
   printableLines,
+  resultAcceptedSpec,
   resultDpiStatus,
   resultShown,
   showViewResult,
+  textWarning,
   typedLine,
 } from '@/components/builder/ai/ai-logic';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
 import { attemptContextFor, submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
 import { builder } from '@/content/ar';
+import { safeLayout } from '@/components/builder/safe';
+import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
+import { textCapacity } from '@/lib/ai/text-capacity';
 import type { OrderResponse, UploadResponse } from '@/lib/types';
 
 /* ───────────────────────── first page ───────────────────────── */
@@ -387,5 +394,104 @@ describe('api fetchers', () => {
     await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ nope: 1 }), { status: 200 })));
     await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
+  });
+});
+
+/* ───────────────────────── too much text: a warning, never a block ───────────────────────── */
+
+describe('textWarning', () => {
+  const BIRTHDAY = ['عيد ميلاد سعيد', 'يا حبيبي', 'محمد', 'عمرك سنتين', 'نحبك هواية', 'ماما وبابا'];
+  const HUGE = Array.from({ length: 8 }, () => 'ا'.repeat(60));
+  const circle30 = { widthUm: 30_000, heightUm: 30_000 };
+
+  it('is null with no shape, no size, or text that fits', () => {
+    expect(textWarning(BIRTHDAY, null, circle30, null)).toBeNull();
+    expect(textWarning(BIRTHDAY, 'circle', null, null)).toBeNull();
+    expect(textWarning(['حلويات الريم'], 'circle', circle30, null)).toBeNull();
+    expect(textWarning([], 'circle', circle30, null)).toBeNull();
+    expect(textWarning(['', '   '], 'circle', circle30, null)).toBeNull();
+  });
+
+  it('recommends a bigger size when one fits (the size text-capacity finds)', () => {
+    const w = textWarning(BIRTHDAY, 'circle', circle30, null);
+    expect(w).toEqual({ kind: 'enlarge', sizeUm: textCapacity(BIRTHDAY, 'circle', 30_000, 30_000).minSizeUm });
+    expect(w?.kind === 'enlarge' && w.sizeUm > 30_000).toBe(true);
+  });
+
+  it('cleans the lines like the print does (empty lines do not count)', () => {
+    expect(textWarning([...BIRTHDAY, '  ', ''], 'circle', circle30, null)).toEqual(textWarning(BIRTHDAY, 'circle', circle30, null));
+  });
+
+  it('never recommends a size the size step would reject: the max width turns it into "reduce"', () => {
+    const min = textCapacity(BIRTHDAY, 'circle', 30_000, 30_000).minSizeUm as number;
+    expect(textWarning(BIRTHDAY, 'circle', circle30, min)).toEqual({ kind: 'enlarge', sizeUm: min });
+    expect(textWarning(BIRTHDAY, 'circle', circle30, min - 1)).toEqual({ kind: 'reduce' });
+  });
+
+  it('says reduce when no size up to the shop maximum fits', () => {
+    expect(textCapacity(HUGE, 'circle', 30_000, 30_000).minSizeUm).toBeNull();
+    expect(textWarning(HUGE, 'circle', circle30, null)).toEqual({ kind: 'reduce' });
+  });
+});
+
+describe('resultAcceptedSpec', () => {
+  it('is the size aiAcceptedSize gives at the decoded ratio (a circle stays round)', () => {
+    const madeFor = { shape: 'circle' as const, widthUm: 40_000, heightUm: 40_000 };
+    expect(resultAcceptedSpec({ pxWidth: 1000, pxHeight: 1000, madeFor })).toEqual({ shape: 'circle', widthUm: 40_000, heightUm: 40_000 });
+    const rect = { shape: 'rect' as const, widthUm: 60_000, heightUm: 30_000 };
+    expect(resultAcceptedSpec({ pxWidth: 2000, pxHeight: 1000, madeFor: rect })).toEqual({ shape: 'rect', widthUm: 60_000, heightUm: 30_000 });
+  });
+  it('is null while the pixel size is unknown', () => {
+    expect(resultAcceptedSpec({ pxWidth: 0, pxHeight: 0, madeFor: { shape: 'circle', widthUm: 40_000, heightUm: 40_000 } })).toBeNull();
+  });
+});
+
+describe('restoredState aiLines', () => {
+  it('keeps valid lines', () => {
+    expect(restoredState({ aiLines: ['حلويات الريم', '07801112233'] }).aiLines).toEqual(['حلويات الريم', '07801112233']);
+  });
+  it('keeps exactly AI_MAX_LINES lines, drops more than that', () => {
+    expect(restoredState({ aiLines: Array.from({ length: AI_MAX_LINES }, () => 'س') }).aiLines).toHaveLength(AI_MAX_LINES);
+    expect(restoredState({ aiLines: Array.from({ length: AI_MAX_LINES + 1 }, () => 'س') }).aiLines).toBeUndefined();
+  });
+  it('drops anything that is not an array of strings', () => {
+    for (const junk of ['abc', 7, {}, [], ['ok', 3], [null], [['x']]]) {
+      expect(restoredState({ aiLines: junk } as unknown as Partial<PersistedForm>).aiLines).toBeUndefined();
+    }
+  });
+  it('cuts a too-long line to AI_LINE_MAX_CHARS', () => {
+    const r = restoredState({ aiLines: ['ا'.repeat(AI_LINE_MAX_CHARS + 20), 'قصير'] });
+    expect(r.aiLines?.[0]).toHaveLength(AI_LINE_MAX_CHARS);
+    expect(r.aiLines?.[1]).toBe('قصير');
+  });
+});
+
+describe('acceptedAiLines', () => {
+  const ok = { mode: 'ai' as const, aiLines: ['أ'], aiFileId: 'f1', fileId: 'f1' };
+  it('gives the lines only while the design is the accepted AI file in AI mode', () => {
+    expect(acceptedAiLines(ok)).toEqual(['أ']);
+    expect(acceptedAiLines({ ...ok, mode: 'upload' })).toBeNull();
+    expect(acceptedAiLines({ ...ok, fileId: 'other' })).toBeNull();
+    expect(acceptedAiLines({ ...ok, fileId: null })).toBeNull();
+    expect(acceptedAiLines({ ...ok, aiFileId: null })).toBeNull();
+    expect(acceptedAiLines({ ...ok, aiLines: null })).toBeNull();
+    expect(acceptedAiLines({ ...ok, aiLines: [] })).toBeNull();
+  });
+});
+
+describe('maxWidthAtSize', () => {
+  const layout = DEFAULT_SETTINGS.layout;
+  it('is the widest width that still lays out at the size’s own ratio', () => {
+    for (const size of [{ widthUm: 40_000, heightUm: 120_000 }, { widthUm: 120_000, heightUm: 40_000 }]) {
+      const cap = maxWidthAtSize('rect', 'rounded', size, layout) as number;
+      expect(cap).toBeGreaterThan(0);
+      const at = (w: number) => safeLayout({ shape: 'rect', corners: 'rounded', widthUm: w, heightUm: Math.round((w * size.heightUm) / size.widthUm) }, layout).ok;
+      expect(at(cap)).toBe(true);
+      expect(at(cap + 2_000)).toBe(false);
+    }
+  });
+  it('is null without a shape or size', () => {
+    expect(maxWidthAtSize(null, 'rounded', { widthUm: 1, heightUm: 1 }, layout)).toBeNull();
+    expect(maxWidthAtSize('circle', 'rounded', null, layout)).toBeNull();
   });
 });

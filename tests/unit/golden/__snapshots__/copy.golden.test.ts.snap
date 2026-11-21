@@ -408,7 +408,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "removeLine": "احذف السطر",
     "fixesTitle": "صححنا الإملاء:",
     "confirm": "تمام، ولّد",
-    "tooMuchText": "كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}",
+    "tooMuchText": "تنبيه: الكتابة كثيرة على هذا القياس، ممكن تطلع صغيرة وما تنقرا زين بالطبع. ننصحك تكبّر القياس لـ {size} أو تقلّل الكتابة، وتكدر تكمل هيج إذا تريد.",
+    "tooMuchTextReduce": "تنبيه: الكتابة كثيرة على هذا القياس، ممكن تطلع صغيرة وما تنقرا زين بالطبع. ننصحك تقلّل الكتابة، وتكدر تكمل هيج إذا تريد.",
     "generating": "جاري تصميم ستيكرك… (حوالي 15 ثانية)",
     "printedText": "الكتابة:",
     "resultAlt": "التصميم المقترح",
@@ -579,13 +580,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 4055,
+  "chars": 4260,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "583dac0710a6b2a70b404f4322d3637386afb000e6e5e2f4dc43a0df83e2c2bf",
-  "strings": 184,
+  "sha256OfRawJson": "1cc8ca148a451a3b56c041346b4736d94ee5d6919308f1a37b0427c623733e52",
+  "strings": 185,
 }
 `;
 

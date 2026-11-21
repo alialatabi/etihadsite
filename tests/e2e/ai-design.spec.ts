@@ -132,15 +132,33 @@ test('with a reference image, the accepted design survives a reload and is still
   expect(uploads, 'the restored AI design is not uploaded again').toEqual([]);
 });
 
-test('too much text for the size: the confirm button is disabled', async ({ page }) => {
+test('too much text: a warning, and the confirm button stays enabled', async ({ page }) => {
   await page.goto('/');
   await chooseShape(page, builder.shape.circle);
   await setSize(page, '1');
   await page.locator('#ai-idea').fill('مقهي الورد');
   await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
   await expect(page.locator('#ai-line-0')).toHaveValue(MOCK_BRIEF.printed_text[0]);
-  await expect(page.getByRole('alert').filter({ hasText: builder.ai.tooMuchText.split(' — ')[0] })).toBeVisible();
-  await expect(page.getByRole('button', { name: builder.ai.confirm, exact: true })).toBeDisabled();
+  // Both wordings (with or without a recommended size) start with this sentence.
+  const warning = page.getByRole('status').filter({ hasText: builder.ai.tooMuchTextReduce.split('،')[0] });
+  await expect(warning).toBeVisible();
+  await expect(page.getByRole('button', { name: builder.ai.confirm, exact: true })).toBeEnabled();
+
+  // The customer goes on anyway: the design step shows the same warning beside the result.
+  await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+  const accept = page.getByRole('button', { name: builder.ai.accept, exact: true });
+  await expect(accept).toBeVisible({ timeout: 60_000 });
+  await expect(warning).toBeVisible();
+
+  // Accepted anyway: the arrangement step warns too, also after a reload (the printed lines are kept in the draft).
+  await expect(accept).toBeEnabled();
+  await accept.click();
+  await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+  await expect(warning).toBeVisible();
+  await expect(page.getByText(builder.ai.shrinkWarning)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+  await expect(warning).toBeVisible();
 });
 
 test('AI unavailable: a notice, and «عندي تصميم جاهز» still leads to the upload', async ({ page }) => {

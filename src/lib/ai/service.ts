@@ -48,7 +48,6 @@ import { aiReady, hasAiStorage, secretReady, type AiStorage } from './ready';
 import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
-import { textCapacity } from './text-capacity';
 
 /* ───────────────────────────── API contract (used by the builder) ───────────────────────────── */
 
@@ -337,7 +336,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return genFail('unavailable');
 
   const lines = req.lines.map(cleanLine).filter((l) => l.length > 0);
-  if (!textCapacity(lines, req.shape, req.widthUm, req.heightUm).ok) return genFail('text_too_long');
+  // The amount of text never refuses a try: the page warns the customer, who may go on (the size and line limits are in the schema).
 
   const visualDescription = hardenVisualDescription(req.visualDescription);
   if (!visualDescription) return genFail('invalid_request');
