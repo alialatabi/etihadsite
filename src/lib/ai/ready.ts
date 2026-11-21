@@ -5,7 +5,7 @@ import 'server-only';
  */
 import { getStorage } from '@/lib/storage';
 import type { ShopSettings, StorageAdapter } from '@/lib/types';
-import { openAiConfig } from './openai';
+import { openAiConfig, type OpenAiConfig } from './openai';
 
 /** A storage adapter with the two methods the daily limits need. */
 export type AiStorage = StorageAdapter & Required<Pick<StorageAdapter, 'aiReserve' | 'aiRelease'>>;
@@ -27,5 +27,14 @@ export function secretReady(): boolean {
  * page passes it to the builder, so a missing key shows the notice before the customer types.
  */
 export function aiReady(settings: Pick<ShopSettings, 'ai'>): boolean {
-  return settings.ai.enabled && openAiConfig() !== null && secretReady() && hasAiStorage(getStorage());
+  return aiSetup(settings) !== null;
+}
+
+/** The checks both AI routes make, plus what they need next: null = the site cannot design now. */
+export function aiSetup(settings: Pick<ShopSettings, 'ai'>): { cfg: OpenAiConfig; storage: AiStorage } | null {
+  if (!settings.ai.enabled) return null;
+  const cfg = openAiConfig();
+  if (!cfg || !secretReady()) return null;
+  const storage = getStorage();
+  return hasAiStorage(storage) ? { cfg, storage } : null;
 }

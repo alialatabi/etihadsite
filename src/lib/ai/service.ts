@@ -24,7 +24,6 @@ import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha } from '@/lib/design/pix
 import { clientIp, limiters } from '@/lib/rate-limit';
 import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
-import { getStorage } from '@/lib/storage';
 import { ID_RE, uploadPath } from '@/lib/storage/paths';
 import type { AiKind, AiReserveResult } from '@/lib/types';
 import { extractBrief } from './brief';
@@ -43,8 +42,8 @@ import {
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
-import { generateImage, openAiConfig, type ImageRef } from './openai';
-import { aiReady, hasAiStorage, secretReady, type AiStorage } from './ready';
+import { generateImage, type ImageRef } from './openai';
+import { aiReady, aiSetup, secretReady, type AiStorage } from './ready';
 import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
@@ -110,7 +109,7 @@ export function hardenVisualDescription(s: string): string {
 
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
-// secretReady / aiReady / hasAiStorage live in ready.ts (the home page imports it without the image code).
+// secretReady / aiReady / aiSetup / hasAiStorage live in ready.ts (the home page imports it without the image code).
 export { aiReady, secretReady };
 
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
@@ -221,9 +220,9 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
   if (!parsed.success) return failure('invalid_request');
 
   const settings = await getSettings();
-  const cfg = openAiConfig();
-  const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return failure('unavailable');
+  const setup = aiSetup(settings);
+  if (!setup) return failure('unavailable');
+  const { cfg, storage } = setup;
 
   const { ip, ipKey } = identify(request);
   const rl = limiters().brief.check(ip || 'global');
@@ -330,9 +329,9 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   if (!aiAspectOk(req.shape, req.widthUm, req.heightUm)) return failure('invalid_request');
 
   const settings = await getSettings();
-  const cfg = openAiConfig();
-  const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return failure('unavailable');
+  const setup = aiSetup(settings);
+  if (!setup) return failure('unavailable');
+  const { cfg, storage } = setup;
 
   const lines = req.lines.map(cleanLine).filter((l) => l.length > 0);
   // The amount of text never refuses a try: the page warns the customer, who may go on (the size and line limits are in the schema).
