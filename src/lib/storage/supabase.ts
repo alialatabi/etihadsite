@@ -252,7 +252,7 @@ export class SupabaseStorage implements StorageAdapter {
     await this.req(`/storage/v1/object/${BUCKET}/${safePath(rel)}`, {
       method: 'POST',
       headers: { 'content-type': contentType, 'x-upsert': 'true', 'cache-control': 'no-store' },
-      body: typeof body === 'string' ? body : Buffer.from(body),
+      body: typeof body === 'string' ? body : (body as BodyInit), // fetch copies the bytes itself
       timeoutMs: OBJECT_TIMEOUT_MS,
     });
   }
