@@ -3,7 +3,7 @@
 exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere in the copy 1`] = `
 [
   "{cols} x1",
-  "{count} x2",
+  "{count} x3",
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
@@ -49,6 +49,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "orders": "الطلبات",
     "stats": "الإحصائيات",
     "customers": "الزبائن",
+    "designs": "التصاميم",
     "settings": "الإعدادات",
     "site": "الموقع",
     "logout": "خروج"
@@ -290,6 +291,24 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "aiEnabled": "توليد التصاميم بالموقع شغّال",
     "aiPerIp": "حد كل زبون باليوم",
     "aiSite": "حد الموقع باليوم"
+  },
+  "designs": {
+    "title": "التصاميم",
+    "today": "اليوم",
+    "month": "هذا الشهر",
+    "all": "الكل",
+    "alerts": "زبائن وصلوا الحد",
+    "alertRow": "{count} تصاميم",
+    "view": "شوف",
+    "block": "احظر",
+    "unblock": "إلغاء الحظر",
+    "blocked": "المحظورين",
+    "empty": "ماكو تصاميم بعد",
+    "ordered": "صار طلب",
+    "printed": "الكتابة",
+    "idea": "الفكرة",
+    "prev": "السابق",
+    "next": "التالي"
   }
 }"
 `;
@@ -298,13 +317,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2941,
+  "chars": 3079,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 20,
-  "sha256OfRawJson": "b1f73cc1e26df250de2a44ef03db6a630a74b06e8353470338d49bec515de190",
-  "strings": 214,
+  "objects": 21,
+  "sha256OfRawJson": "e2cbd20dca2011d496abc39045ef122ce0188fd187b949dd56d7aaff3721d33c",
+  "strings": 231,
 }
 `;
 
