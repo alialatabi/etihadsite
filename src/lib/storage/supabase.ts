@@ -656,8 +656,11 @@ export class SupabaseStorage implements StorageAdapter {
 
   /**
    * Retention purge (Vercel Cron → /api/cron/purge), owner decision D10. New-rule PDFs and
-   * uploads are only looked at in the window [cutoff − PURGE_WINDOW_DAYS, cutoff), so the work
-   * stays flat as data grows.
+   * uploads are only deleted in the window [cutoff − PURGE_WINDOW_DAYS, cutoff). What is read is
+   * wider: every order and ai_generations row created since one day before the window start (no
+   * upper bound, to learn which uploads are in use), every old-rule order, and the uploads/ and
+   * orders/ listings back to the window start. So the cost follows the activity of the last
+   * retentionDays + 31 days (plus the shrinking old-rule leftovers), not all history.
    *   - Orders created before min(cutoff, KEEP_DESIGNS_FROM) (old rule): row, PDF and design are
    *     removed, with NO lower bound, so a purge outage or a lower retentionDays can never strand
    *     a promised deletion (the set only holds what is left from before the switch).

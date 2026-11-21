@@ -300,12 +300,13 @@ export function openAiTimeoutMs(elapsedMs: number): number | null {
  */
 async function precheckAi(
   storage: AiStorage,
-  a: { day: string; ipKey: string; perIpLimit: number; siteLimit: number },
+  a: { day: string; ip: string; ipKey: string; perIpLimit: number; siteLimit: number },
 ): Promise<Exclude<AiReserveResult, 'ok'> | null> {
   if (!storage.aiListBlocks || !storage.aiUsage) return null;
   try {
     const [blocks, usage] = await Promise.all([storage.aiListBlocks(), storage.aiUsage(a.day)]);
-    if (blocks.some((b) => b.ipKey === a.ipKey)) return 'blocked';
+    // By key, or by the full IP (a new SESSION_SECRET changes every key; it must not lift blocks). Same as the reservation.
+    if (blocks.some((b) => b.ipKey === a.ipKey || (a.ip !== '' && b.ip === a.ip))) return 'blocked';
     const rows = usage.filter((r) => r.day === a.day && r.kind === 'image');
     if (rows.reduce((n, r) => n + r.count, 0) >= a.siteLimit) return 'site_limit';
     const mine = rows.find((r) => r.ipKey === a.ipKey);
@@ -356,7 +357,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   // read-only look answers a blocked IP or a reached cap without touching a single file, and each
   // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
   if (req.refUploadIds.length > 0) {
-    const early = await precheckAi(storage, { day, ipKey, perIpLimit, siteLimit });
+    const early = await precheckAi(storage, { day, ip, ipKey, perIpLimit, siteLimit });
     if (early) return genFail(early);
   }
   // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
@@ -385,6 +386,13 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   );
   if (prepared.some((r) => r === null)) return genFail('invalid_request');
   const refs = prepared as ImageRef[];
+
+  // Time left in this request: with too little for an image call nothing is reserved (the check right before the
+  // call, below, still guards the time the reservation itself took).
+  if (openAiTimeoutMs(clock() - started) === null) {
+    report('ai.generate', 'no time left before reserving', { refs: refs.length }, 'warning');
+    return genFail('failed');
+  }
 
   const reserved = await storage.aiReserve({
     day,

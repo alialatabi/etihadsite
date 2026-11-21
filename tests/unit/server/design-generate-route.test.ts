@@ -357,7 +357,7 @@ describe("POST /api/design/generate", () => {
     expect(timeouts).toEqual([25_000]);
   });
 
-  it("generate answers failed and leaves no use counted when less than 20 s would be left for OpenAI", async () => {
+  it("generate answers failed BEFORE reserving when less than 20 s would be left for OpenAI", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const t0 = Date.now();
     vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 81_000);
@@ -575,6 +575,16 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     expect(calls).toHaveLength(1); // only the ref-less call reached OpenAI
   });
 
+  it("a block stored under another key but the same full IP also answers before any reference is read", async () => {
+    stubOpenAi(() => imageResponse(png));
+    await saveRef(REF, await opaquePng(32, 32));
+    const storage = getStorage();
+    const read = vi.spyOn(storage, "readUpload");
+    await storage.aiBlock!("key-from-an-older-secret", "10.9.4.4");
+    expect(await readGen(await call(refBody(), "10.9.4.4"))).toEqual({ ok: false, error: "blocked" });
+    expect(read).not.toHaveBeenCalled();
+  });
+
   it("the stored reservation still decides: a ref call under the caps goes through", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     await saveRef(REF, await opaquePng(32, 32));
@@ -627,8 +637,9 @@ describe("generate: time budget", () => {
 
   it("does not call OpenAI and gives the use back when too little time is left", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
-    // started = 0; the second reading (just before the image call) says 90 s have passed: 120 - 90 - 20 = 10 s < 20 s.
-    const times = [0, 90_000];
+    // started = 0; the reading before the reservation still says 0, the one just before the image call says 90 s:
+    // 120 - 90 - 20 = 10 s < 20 s, so the use that was reserved is given back.
+    const times = [0, 0, 90_000];
     const out = await runGenerate(req(), body(), () => times.shift() ?? 90_000);
     expect(out.body).toEqual({ ok: false, error: "failed" });
     expect(calls).toHaveLength(0);
@@ -638,7 +649,7 @@ describe("generate: time budget", () => {
   it("limits the OpenAI call to what is left of the route's time", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    const times = [0, 75_000]; // 120 s - 75 s - 20 s safety = 25 s
+    const times = [0, 0, 75_000]; // 120 s - 75 s - 20 s safety = 25 s
     const out = await runGenerate(req(), body(), () => times.shift() ?? 75_000);
     expect(out.body.ok).toBe(true);
     expect(calls).toHaveLength(1);
