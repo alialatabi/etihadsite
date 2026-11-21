@@ -25,7 +25,14 @@ import { clientIp, limiters } from '@/lib/rate-limit';
 import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { ID_RE, uploadPath } from '@/lib/storage/paths';
-import type { AiKind, AiReserveResult } from '@/lib/types';
+import type {
+  AiKind,
+  AiReserveResult,
+  BriefError,
+  BriefResponse,
+  GenerateError,
+  GenerateResponse,
+} from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
@@ -48,25 +55,9 @@ import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-templat
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
 
-/* ───────────────────────────── API contract (used by the builder) ───────────────────────────── */
+/* ───────────────────────────── API contract (declared in @/lib/types, shared with the builder) ───────────────────────────── */
 
-export type BriefError = 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed';
-export type BriefResponse =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
-  | { ok: false; error: BriefError };
-
-export type GenerateError =
-  | 'unavailable'
-  | 'blocked'
-  | 'ip_limit'
-  | 'site_limit'
-  | 'text_too_long'
-  | 'refused'
-  | 'failed'
-  | 'invalid_request';
-export type GenerateResponse =
-  | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
-  | { ok: false; error: GenerateError };
+export type { BriefError, BriefResponse, GenerateError, GenerateResponse };
 
 export const BRIEF_STATUS: Record<BriefError, number> = {
   invalid_request: 400,

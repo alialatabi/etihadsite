@@ -4,7 +4,16 @@
  * 'failed' means "the try was not counted", which the client cannot know). A JSON error answer is returned
  * as it is, whatever its HTTP status.
  */
-import type { Corners, Shape } from '@/lib/types';
+import type {
+  BriefError,
+  BriefResponse as ServerBriefResponse,
+  Corners,
+  GenerateError,
+  GenerateResponse as ServerGenerateResponse,
+  Shape,
+} from '@/lib/types';
+
+export type { BriefError, GenerateError };
 
 export interface BriefRequest {
   idea: string;
@@ -16,9 +25,8 @@ export interface BriefRequest {
 /** Client-side failure: no usable answer reached the page (the server may still have counted a try). */
 export type ClientError = 'network';
 
-export type BriefError = 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed';
 export type BriefResponse =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
+  | Extract<ServerBriefResponse, { ok: true }>
   | { ok: false; error: BriefError | ClientError };
 
 export interface GenerateRequest {
@@ -35,9 +43,8 @@ export interface GenerateRequest {
   refUploadIds: string[];
 }
 
-export type GenerateError = 'unavailable' | 'blocked' | 'ip_limit' | 'site_limit' | 'text_too_long' | 'refused' | 'failed' | 'invalid_request';
 export type GenerateResponse =
-  | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
+  | Extract<ServerGenerateResponse, { ok: true }>
   | { ok: false; error: GenerateError | ClientError };
 
 async function post<T extends { ok: boolean }>(url: string, body: unknown): Promise<T | { ok: false; error: ClientError }> {

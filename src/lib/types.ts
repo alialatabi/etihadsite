@@ -520,6 +520,26 @@ export type DirectUploadStart =
   | { ok: true; mode: 'server' }
   | { ok: false; error: UploadError; message: string };
 
+/* ───────────────── AI designer API (POST /api/design/brief, /api/design/generate) ───────────────── */
+
+export type BriefError = 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed';
+export type BriefResponse =
+  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
+  | { ok: false; error: BriefError };
+
+export type GenerateError =
+  | 'unavailable'
+  | 'blocked'
+  | 'ip_limit'
+  | 'site_limit'
+  | 'text_too_long'
+  | 'refused'
+  | 'failed'
+  | 'invalid_request';
+export type GenerateResponse =
+  | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
+  | { ok: false; error: GenerateError };
+
 /* ────────────────────────────── Storage adapter ────────────────────────── */
 
 export interface StoredFileMeta {
