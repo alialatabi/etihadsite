@@ -240,6 +240,7 @@ exports[`golden: rate limiter > limiters(): the limits per route in both modes, 
 {
   "global": {
     "brief": 600,
+    "generate": 300,
     "log": 1200,
     "login": 200,
     "mode": 0,
@@ -248,6 +249,7 @@ exports[`golden: rate limiter > limiters(): the limits per route in both modes, 
   },
   "perIp": {
     "brief": 30,
+    "generate": 15,
     "log": 60,
     "login": 10,
     "mode": 1,

@@ -138,7 +138,6 @@ describe("POST /api/design/brief", () => {
   });
 
   it("brief answers failed and releases the use when OpenAI fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     stubOpenAi(() => jsonResponse({ error: { code: "server_error" } }, 500));
     const res = await call(BODY);
     expect(res.status).toBe(502);

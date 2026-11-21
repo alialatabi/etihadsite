@@ -1,10 +1,11 @@
+import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import { POST as generateRoute } from "@/app/api/design/generate/route";
 import { AI_IMAGE_MODEL } from "@/lib/ai/config";
 import { aiIpKey } from "@/lib/ai/ip";
-import { briefToken } from "@/lib/ai/service";
+import { briefToken, fitPngBudget } from "@/lib/ai/service";
 import { shopDayKey } from "@/lib/shop-time";
 import { getStorage } from "@/lib/storage";
 import { setupEnv } from "./helpers";
@@ -64,7 +65,6 @@ beforeEach(async () => {
   setupEnv();
   vi.stubEnv("OPENAI_API_KEY", "sk-test-generate");
   vi.stubEnv("OPENAI_BASE_URL", OPENAI_BASE);
-  vi.spyOn(console, "error").mockImplementation(() => {});
   png = await opaquePng();
 });
 afterEach(() => {
@@ -260,12 +260,104 @@ describe("POST /api/design/generate", () => {
     expect(meta.hasAlpha).toBe(true);
   });
 
-  it("generate custom: an image with no transparency fails (and releases) instead of reaching no_alpha", async () => {
+  it("generate custom: an image with no transparency is refused and the paid use is kept", async () => {
     stubOpenAi(() => opaqueRgbaPng().then(imageResponse));
     const res = await call(body({ shape: "custom", widthUm: 60000, heightUm: 60000 }));
+    expect(res.status).toBe(422);
+    expect(await read(res)).toEqual({ ok: false, error: "refused" });
+    // OpenAI charged for the image: the try counts (ruling, fix round 1).
+    expect(await imageUsage()).toBe(1);
+    expect((await getStorage().aiListGenerations!({ limit: 10, offset: 0 })).total).toBe(0);
+  });
+
+  it("generate answers ip_limit on the 16th attempt in an hour even when earlier ones were released", async () => {
+    const calls = stubOpenAi(() => jsonResponse({ error: { code: "server_error" } }, 500));
+    const ip = "10.6.6.6";
+    for (let i = 0; i < 15; i++) expect(await read(await call(body(), ip))).toEqual({ ok: false, error: "failed" });
+    expect(await imageUsage()).toBe(0); // every stored use was given back
+    await saveRef("ref-limit-0000001", await opaquePng(16, 16));
+    const res = await call(body({ refUploadIds: ["ref-limit-0000001"] }), ip);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toMatch(/^\d+$/);
+    expect(await read(res)).toEqual({ ok: false, error: "ip_limit" });
+    expect(calls).toHaveLength(15); // the 16th reached neither the refs nor OpenAI
+    expect(await imageUsage()).toBe(0);
+  });
+
+  it("generate releases and answers failed when saving the upload throws", async () => {
+    stubOpenAi(() => imageResponse(png));
+    vi.spyOn(getStorage(), "saveUpload").mockRejectedValue(new Error("disk full"));
+    const res = await call(body());
+    expect(res.status).toBe(502);
     expect(await read(res)).toEqual({ ok: false, error: "failed" });
     expect(await imageUsage()).toBe(0);
-    expect((await getStorage().aiListGenerations!({ limit: 10, offset: 0 })).total).toBe(0);
+  });
+
+  it("generate still answers ok (and keeps the use) when recording the generation throws", async () => {
+    stubOpenAi(() => imageResponse(png));
+    vi.spyOn(getStorage(), "aiRecordGeneration").mockRejectedValue(new Error("db down"));
+    const out = await read(await call(body()));
+    if (!out.ok) throw new Error(out.error);
+    expect(await getStorage().readUpload(out.uploadId)).not.toBeNull();
+    expect(await imageUsage()).toBe(1);
+  });
+
+  it("generate releases and answers failed when the PNG stays over the size budget", async () => {
+    const w = 1100;
+    const noise = new Uint8Array(await sharp(randomBytes(w * w * 3), { raw: { width: w, height: w, channels: 3 } }).png().toBuffer());
+    stubOpenAi(() => imageResponse(noise));
+    const res = await call(body());
+    expect(await read(res)).toEqual({ ok: false, error: "failed" });
+    expect(await imageUsage()).toBe(0);
+  }, 60_000);
+
+  it("brief and generate answer unavailable in production without SESSION_SECRET", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "");
+    const calls = stubOpenAi(() => imageResponse(png));
+    // A token signed with the dev salt (what briefToken() makes without a secret) is not enough.
+    const res = await call(body());
+    expect(res.status).toBe(503);
+    expect(await read(res)).toEqual({ ok: false, error: "unavailable" });
+    const { POST: briefRoute } = await import("@/app/api/design/brief/route");
+    const b = await briefRoute(
+      new Request("http://localhost/api/design/brief", {
+        method: "POST",
+        body: JSON.stringify({ idea: "ورد", shape: "circle", widthUm: 50000, heightUm: 50000 }),
+      }),
+    );
+    expect(b.status).toBe(503);
+    expect(await b.json()).toEqual({ ok: false, error: "unavailable" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("brief and generate answer unavailable when the storage adapter has no AI methods", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    // An adapter cached before the AI methods existed (dev hot reload): same key, methods missing.
+    const real = getStorage();
+    const old = Object.create(real) as Record<string, unknown>;
+    old.aiReserve = undefined;
+    old.aiRelease = undefined;
+    old.aiRecordGeneration = undefined;
+    const g = globalThis as unknown as { __epStorage?: { key: string; adapter: unknown } };
+    g.__epStorage = { key: `local:${process.env.DATA_DIR}`, adapter: old };
+    try {
+      const res = await call(body());
+      expect(res.status).toBe(503);
+      expect(await read(res)).toEqual({ ok: false, error: "unavailable" });
+      const { POST: briefRoute } = await import("@/app/api/design/brief/route");
+      const b = await briefRoute(
+        new Request("http://localhost/api/design/brief", {
+          method: "POST",
+          body: JSON.stringify({ idea: "ورد", shape: "circle", widthUm: 50000, heightUm: 50000 }),
+        }),
+      );
+      expect(b.status).toBe(503);
+      expect(await b.json()).toEqual({ ok: false, error: "unavailable" });
+      expect(calls).toHaveLength(0);
+    } finally {
+      g.__epStorage = undefined;
+    }
   });
 
   it("generate with refs calls /images/edits", async () => {
@@ -368,5 +460,23 @@ describe("POST /api/design/generate", () => {
       await call(body({ lines: b.lines, visualDescription: b.visualDescription, briefToken: b.briefToken }), "10.5.5.5"),
     );
     expect(out.ok).toBe(true);
+  });
+});
+
+describe("fitPngBudget", () => {
+  it("keeps a PNG under the budget, re-encodes one that compresses, and gives up on one that does not", async () => {
+    const flat = new Uint8Array(
+      await sharp({ create: { width: 300, height: 300, channels: 3, background: "#3366cc" } }).png({ compressionLevel: 0 }).toBuffer(),
+    );
+    expect(flat.byteLength).toBeGreaterThan(200_000);
+    expect(await fitPngBudget(flat, 10_000_000)).toBe(flat);
+    const smaller = await fitPngBudget(flat, 50_000);
+    expect(smaller).not.toBeNull();
+    expect(smaller!.byteLength).toBeLessThanOrEqual(50_000);
+    const meta = await sharp(smaller!).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual(["png", 300, 300]);
+
+    const noise = new Uint8Array(await sharp(randomBytes(200 * 200 * 3), { raw: { width: 200, height: 200, channels: 3 } }).png().toBuffer());
+    expect(await fitPngBudget(noise, 50_000)).toBeNull();
   });
 });

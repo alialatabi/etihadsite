@@ -16,8 +16,11 @@ export const dynamic = "force-dynamic";
  * as base64 PNG. Logic and the order of checks in src/lib/ai/service.ts.
  */
 export async function POST(request: Request): Promise<Response> {
-  const send = (body: GenerateResponse) =>
-    Response.json(body, { status: body.ok ? 200 : GENERATE_STATUS[body.error] });
+  const send = (body: GenerateResponse, retryAfterSec?: number) =>
+    Response.json(body, {
+      status: body.ok ? 200 : GENERATE_STATUS[body.error],
+      headers: retryAfterSec !== undefined ? { "Retry-After": String(retryAfterSec) } : undefined,
+    });
 
   let json: unknown;
   try {
@@ -27,7 +30,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    return send(await runGenerate(request, json));
+    const out = await runGenerate(request, json);
+    return send(out.body, out.retryAfterSec);
   } catch {
     // Codes only: the caught error could carry the customer's text or IP.
     reportError(new Error("ai generate route failed"), { where: "ai.generate.post", route: "/api/design/generate" });
