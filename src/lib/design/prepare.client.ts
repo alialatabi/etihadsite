@@ -25,9 +25,6 @@ import { ALPHA_STRIP_ROWS, canvasToBlob, makeCanvas, releaseCanvas } from './can
 import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
 import { MAX_CANVAS_PIXELS, fitToPixelCap, scanAlphaStrips, widthPixelsFor } from './pixels';
 
-// Kept importable from here for existing callers and tests; the one source of truth is pixels.ts.
-export { MAX_CANVAS_PIXELS };
-
 export type PrepareError = 'encrypted' | 'corrupt' | 'no_alpha';
 
 export type PrepareOutcome =

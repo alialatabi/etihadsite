@@ -10,7 +10,7 @@ export const statusVariant: Record<OrderStatus, 'default' | 'secondary' | 'outli
 };
 
 export { formatShopDateTime as formatBaghdad } from '@/lib/shop-time';
-export { orderPriceView, type OrderPriceView } from '@/lib/order-price-view';
+export { orderPriceView } from '@/lib/order-price-view';
 
 export const telegramLabel: Record<OrderRecord['notified']['telegram'], string> = {
   sent: admin.orders.telegramSent,

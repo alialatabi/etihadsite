@@ -1,8 +1,6 @@
 import 'server-only';
 import { configuredStaffKey, matchesStaffKey } from './staff-gate';
 
-export { STAFF_KEY_MIN_LENGTH } from './staff-gate';
-
 /** True only for the exact (case-sensitive) staff key. Constant-time comparison of sha256 digests. */
 export function isStaffKey(candidate: string | null | undefined): boolean {
   return matchesStaffKey(candidate, process.env.STAFF_PAGE_KEY);
