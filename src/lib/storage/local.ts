@@ -40,6 +40,7 @@ export { deepMerge } from "./settings-schema";
 const AI_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
 
 export class LocalStorage implements StorageAdapter {
   readonly root: string;
@@ -201,9 +202,7 @@ export class LocalStorage implements StorageAdapter {
     );
     return records
       .filter((r): r is OrderRecord => r !== null)
-      .sort((a, b) =>
-        a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
-      );
+      .sort((a, b) => cmp(b.createdAt, a.createdAt));
   }
 
   async updateOrder(
@@ -275,7 +274,7 @@ export class LocalStorage implements StorageAdapter {
         }
       }
     }
-    return out.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+    return out.sort((a, b) => cmp(a.ts, b.ts));
   }
 
   private async readCustomers(): Promise<CustomerRecord[]> {
@@ -347,7 +346,7 @@ export class LocalStorage implements StorageAdapter {
 
   async listCustomers(): Promise<CustomerRecord[]> {
     const list = await this.readCustomers();
-    return list.sort((a, b) => (a.lastOrderAt < b.lastOrderAt ? 1 : a.lastOrderAt > b.lastOrderAt ? -1 : 0));
+    return list.sort((a, b) => cmp(b.lastOrderAt, a.lastOrderAt));
   }
 
   /* ───────────── AI designer (dev only; same semantics as rpc reserve_ai) ───────────── */
@@ -422,7 +421,6 @@ export class LocalStorage implements StorageAdapter {
   async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
     if (!AI_DAY_RE.test(sinceDay)) throw new Error("Invalid day");
     const rows = await this.readAiList<AiUsageRow>("usage");
-    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
     return rows
       .filter((r) => r.day >= sinceDay && (kind === undefined || r.kind === kind))
       .sort((x, y) => cmp(x.day, y.day) || cmp(x.ipKey, y.ipKey) || cmp(x.kind, y.kind));
@@ -457,11 +455,7 @@ export class LocalStorage implements StorageAdapter {
   }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
     const list = (await this.readAiList<AiGenerationRecord>("generations"))
       .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)
-      .sort((x, y) =>
-        x.createdAt !== y.createdAt
-          ? (x.createdAt < y.createdAt ? 1 : -1)
-          : x.id < y.id ? 1 : x.id > y.id ? -1 : 0,
-      );
+      .sort((x, y) => cmp(y.createdAt, x.createdAt) || cmp(y.id, x.id));
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);
     return { rows: limit >= 1 ? list.slice(from, from + limit) : [], total: list.length };
@@ -489,7 +483,7 @@ export class LocalStorage implements StorageAdapter {
 
   async aiListBlocks(): Promise<AiBlock[]> {
     const list = await this.readAiList<AiBlock>("blocks");
-    return list.sort((x, y) => (x.createdAt < y.createdAt ? 1 : x.createdAt > y.createdAt ? -1 : 0));
+    return list.sort((x, y) => cmp(y.createdAt, x.createdAt));
   }
 
   /** Deletes usage counters of days before `day` (YYYY-MM-DD). Returns `ai_usage:<n>` (empty when none). */
