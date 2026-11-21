@@ -73,7 +73,7 @@ export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
  * Orders from it on are kept forever with their design; only their print PDF is purged.
  * Set it to the real deploy date in the deploy commit.
  */
-export const KEEP_DESIGNS_FROM = '2026-11-22T00:00:00+03:00';
+export const KEEP_DESIGNS_FROM = '2026-11-21T00:00:00+03:00';
 
 /** Each retention purge only looks at items created in [cutoff − this many days, cutoff). */
 export const PURGE_WINDOW_DAYS = 30;
