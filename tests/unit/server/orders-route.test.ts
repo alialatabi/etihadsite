@@ -607,3 +607,47 @@ describe("POST /api/orders layout agrees with the browser", () => {
     expect(stored?.layout.turnedCount).toBe(browser.layout.turnedCount);
   });
 });
+
+describe("POST /api/orders with an AI design", () => {
+  const generation = (uploadId: string) => ({
+    id: `gen-${uploadId}`,
+    createdAt: new Date().toISOString(),
+    day: "2026-11-21",
+    ip: "1.2.3.4",
+    ipKey: "k".repeat(64),
+    shape: "circle" as const,
+    corners: "sharp" as const,
+    widthUm: 30000,
+    heightUm: 30000,
+    idea: "ورد",
+    lines: [],
+    hasRefs: false,
+    model: "m",
+    uploadId,
+    orderId: null,
+  });
+
+  it("order with an AI upload marks the generation ordered", async () => {
+    const storage = getStorage();
+    await storage.aiRecordGeneration!(generation("upload-aaaaaaaaaaaaaaaa"));
+    await storage.aiRecordGeneration!(generation("upload-other-aaaaaaaaa"));
+    const r = await json(await call(body({ orderId: "order-ai-aaaaaaaaaaaaa" })));
+    expect(r.ok).toBe(true);
+    const { rows } = await storage.aiListGenerations!({ limit: 10, offset: 0 });
+    const byUpload = Object.fromEntries(rows.map((g) => [g.uploadId, g.orderId]));
+    expect(byUpload).toEqual({
+      "upload-aaaaaaaaaaaaaaaa": "order-ai-aaaaaaaaaaaaa",
+      "upload-other-aaaaaaaaa": null,
+    });
+  });
+
+  it("a failing mark-ordered never fails the order", async () => {
+    const storage = getStorage();
+    const spy = vi.spyOn(storage, "aiMarkOrdered").mockRejectedValue(new Error("db down"));
+    const r = await json(await call(body({ orderId: "order-ai-bbbbbbbbbbbbb" })));
+    expect(r.ok).toBe(true);
+    expect(spy).toHaveBeenCalledWith("upload-aaaaaaaaaaaaaaaa", "order-ai-bbbbbbbbbbbbb");
+    expect(await storage.getOrder("order-ai-bbbbbbbbbbbbb")).not.toBeNull();
+    spy.mockRestore();
+  });
+});
