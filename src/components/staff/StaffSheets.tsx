@@ -53,7 +53,7 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
     setBusy(true);
     setFailure(null);
     try {
-      const summary = await downloadStaffFiles(targets, layoutSettings, quality, {
+      const summary = await downloadStaffFiles(targets, layoutSettings, {
         save: saveFile,
         onProgress: (n, total) => setProgress({ n, total }),
       });
