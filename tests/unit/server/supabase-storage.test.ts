@@ -339,6 +339,7 @@ describe("SupabaseStorage purge", () => {
         { order_id: OLD, created_at: "2026-09-20T00:00:00+00:00", files: { pdfPath: `orders/${OLD}.pdf`, designPath: `uploads/${OLD}.bin` } },
         { order_id: "newOrder0001", created_at: "2026-11-01T00:00:00+00:00", files: { pdfPath: "orders/newOrder0001.pdf", designPath: `uploads/${KEEP}.bin` } },
       ]),
+      json([]), // an empty page ends the order read
       json([]), // ai_generations
       json([
         { name: "orphanFresh1.bin", created_at: "2026-11-07T11:30:00Z" },
@@ -350,7 +351,9 @@ describe("SupabaseStorage purge", () => {
         { name: `${KEEP}.bin`, created_at: "2026-09-20T00:00:00Z" },
         { name: `${KEEP}.json`, created_at: "2026-09-20T00:00:00Z" },
       ]),
+      json([]), // window start not reached: one more (empty) page
       json([{ name: "newOrder0001.pdf", created_at: "2026-11-01T00:00:00Z" }, { name: `${OLD}.pdf`, created_at: "2026-09-20T00:00:00Z" }]),
+      json([]),
       json([]),
       empty(204),
     );
@@ -364,7 +367,7 @@ describe("SupabaseStorage purge", () => {
     expect(removed).not.toContain("uploads/committedNew.bin");
     const del = calls.find((c) => c.init.method === "DELETE" && c.url.endsWith("/object/etihad"))!;
     expect(JSON.parse(del.init.body as string).prefixes).toHaveLength(4);
-    expect(calls.at(-1)!.url).toContain("/rest/v1/orders?created_at=gte.2026-09-08T12%3A00%3A00.000Z&created_at=lt.2026-10-08T12%3A00%3A00.000Z");
+    expect(calls.at(-1)!.url).toContain(`/rest/v1/orders?order_id=in.(${OLD})&created_at=lt.2026-10-08T12%3A00%3A00.000Z`);
     expect(calls.at(-1)!.init.method).toBe("DELETE");
   });
   it("dry run deletes nothing", async () => {

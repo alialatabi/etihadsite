@@ -321,7 +321,9 @@ export class LocalStorage implements StorageAdapter {
     if (!raw) return [];
     try {
       const parsed = JSON.parse(raw.toString("utf8")) as unknown;
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
+      // Valid JSON that is not a list is as unreadable as broken JSON (the purge must not read it as "no generations").
+      if (!Array.isArray(parsed)) throw new Error("not a list");
+      return parsed as T[];
     } catch {
       // Never overwrite an unreadable file with a fresh list.
       throw new Error(`ai/${name}.json is unreadable`);
@@ -484,8 +486,10 @@ export class LocalStorage implements StorageAdapter {
       removed.push(rel);
       if (!dryRun) await this.deleteFile(rel);
     };
-    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
     const keepFrom = new Date(KEEP_DESIGNS_FROM);
+    // Fail safe: a bad switch date would decide which rule applies, so nothing runs without it.
+    if (Number.isNaN(keepFrom.getTime())) throw new Error("bad KEEP_DESIGNS_FROM");
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
     const inWindow = (d: Date) => d >= windowStart && d < cutoff;
     const orders = await this.listOrders();
     const oldRule = orders.filter((o) => inWindow(new Date(o.createdAt)) && new Date(o.createdAt) < keepFrom);

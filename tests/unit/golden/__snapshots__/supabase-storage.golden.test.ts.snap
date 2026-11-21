@@ -570,9 +570,11 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
   "dry": {
     "requests": [
       "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"7-1006","Range-Unit":"items"} | body=(none)",
       "GET /rest/v1/ai_generations?select=upload_id&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
     ],
     "result": [
       "order:order-old-0001",
@@ -592,9 +594,11 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
   "explicitOrphanCutoff": {
     "requests": [
       "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"7-1006","Range-Unit":"items"} | body=(none)",
       "GET /rest/v1/ai_generations?select=upload_id&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
     ],
     "result": [
       "uploads/upload-uncommitted-1h.bin",
@@ -605,9 +609,13 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
   "keepForever": {
     "requests": [
       "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.<KEEP+9d>&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.<KEEP+9d>&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"3-1002","Range-Unit":"items"} | body=(none)",
       "GET /rest/v1/ai_generations?select=upload_id&created_at=gte.<KEEP+9d>&order=created_at.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/ai_generations?select=upload_id&created_at=gte.<KEEP+9d>&order=created_at.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"2-1001","Range-Unit":"items"} | body=(none)",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":10,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":2,"sortBy":{"column":"created_at","order":"desc"}}",
       "DELETE /storage/v1/object/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefixes":["orders/order-keep-0001.pdf","uploads/upload-unused-01.bin","uploads/upload-unused-01.json"]}",
     ],
     "result": [
@@ -630,11 +638,13 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
   "real": {
     "requests": [
       "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
+      "GET /rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"7-1006","Range-Unit":"items"} | body=(none)",
       "GET /rest/v1/ai_generations?select=upload_id&created_at=gte.2026-09-10T09%3A00%3A00.000Z&order=created_at.asc,id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
+      "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
       "DELETE /storage/v1/object/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefixes":["orders/order-old-0001.pdf","uploads/upload-old-0001.bin","uploads/upload-old-0001.json","orders/order-old-0002.pdf","uploads/upload-uncommitted-4h.bin","uploads/upload-orphan-old.bin","uploads/upload-orphan-old.json"]}",
-      "DELETE /rest/v1/orders?created_at=gte.2026-09-11T09%3A00%3A00.000Z&created_at=lt.2026-10-11T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
+      "DELETE /rest/v1/orders?order_id=in.(order-old-0001,order-old-0002,order-old-0003,order-old-0004)&created_at=lt.2026-10-11T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
     ],
     "result": [
       "order:order-old-0001",

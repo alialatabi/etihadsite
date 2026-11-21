@@ -4,7 +4,7 @@
  * keep the old rule. Every scan is bounded to [cutoff − PURGE_WINDOW_DAYS, cutoff).
  * Dates derive from KEEP_DESIGNS_FROM so the tests survive the owner moving it at deploy.
  */
-import { mkdtempSync, utimesSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -170,6 +170,8 @@ interface FakeDb {
   orders: { order_id: string; created_at: string; files: OrderRecord["files"] }[];
   ai: { upload_id: string; created_at: string }[];
   objects: { name: string; created_at: string }[];
+  /** Server-side cap on rows per select / objects per listing (PostgREST max-rows), like a misconfigured project. */
+  cap?: number;
 }
 let db: FakeDb;
 let calls: { method: string; url: string; body?: unknown }[];
@@ -192,7 +194,17 @@ function paged<T>(rows: T[], init: RequestInit): T[] {
   const range = (init.headers as Record<string, string>).Range;
   if (!range) return rows;
   const [from, to] = range.split("-").map(Number);
-  return rows.slice(from, to + 1);
+  return rows.slice(from, Math.min(to + 1, from + (db.cap ?? Infinity)));
+}
+
+/** `order_id=in.(a,b)` (ids never contain commas or brackets: ID_RE). */
+function byOrderIds<T extends { order_id: string }>(rows: T[], url: URL): T[] {
+  const f = url.searchParams.get("order_id");
+  if (f === null) return rows;
+  const m = /^in\.\((.*)\)$/.exec(f);
+  if (!m) throw new Error(`unsupported order_id filter ${f}`);
+  const ids = new Set(m[1].split(","));
+  return rows.filter((r) => ids.has(r.order_id));
 }
 
 beforeEach(() => {
@@ -208,7 +220,7 @@ beforeEach(() => {
       const p = url.pathname;
       if (p === "/rest/v1/orders" && method === "GET") return ok(paged(byCreatedAt(db.orders, url), init));
       if (p === "/rest/v1/orders" && method === "DELETE") {
-        const gone = new Set(byCreatedAt(db.orders, url));
+        const gone = new Set(byOrderIds(byCreatedAt(db.orders, url), url));
         db.orders = db.orders.filter((o) => !gone.has(o));
         return new Response(null, { status: 204 });
       }
@@ -220,7 +232,7 @@ beforeEach(() => {
           .filter((o) => o.name.startsWith(dir))
           .map((o) => ({ name: o.name.slice(dir.length), created_at: o.created_at }))
           .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : 0) * (b.sortBy.order === "desc" ? -1 : 1));
-        return ok(list.slice(b.offset, b.offset + b.limit));
+        return ok(list.slice(b.offset, b.offset + Math.min(b.limit, db.cap ?? Infinity)));
       }
       if (p === "/storage/v1/object/etihad" && method === "DELETE") {
         const prefixes = new Set((body as { prefixes: string[] }).prefixes);
@@ -284,7 +296,7 @@ describe("SupabaseStorage purge (keep forever)", () => {
     expect(db.orders.map((o) => o.order_id)).toEqual(["order-new-rule-2"]);
     expect(objectNames()).toEqual(["uploads/shared-upload-01.bin", "uploads/shared-upload-01.json"]);
     const del = calls.find((c) => c.method === "DELETE" && c.url.startsWith("/rest/v1/orders"))!;
-    expect(del.url).toContain(`created_at=lt.${encodeURIComponent(new Date(KEEP_DESIGNS_FROM).toISOString())}`);
+    expect(del.url).toBe(`/rest/v1/orders?order_id=in.(order-old-rule-2)&created_at=lt.${encodeURIComponent(new Date(KEEP_DESIGNS_FROM).toISOString())}`);
   });
 
   it("purge only scans the 30-day window", async () => {
@@ -330,6 +342,113 @@ describe("SupabaseStorage purge: orphan metas", () => {
     db.orders.push({ order_id: "order-uses-meta-1", created_at: at(NEW_CUTOFF.getTime() + DAY), files: { designPath: "uploads/meta-only-used1.bin", pdfPath: "orders/order-uses-meta-1.pdf" } });
     expect(await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).toEqual(["uploads/meta-only-0001.json"]);
     expect(objectNames()).toEqual(["orders/order-uses-meta-1.pdf", "uploads/meta-only-used1.json"]);
+  });
+});
+
+/* ───────────────────────── fix round 1: boundaries, short pages, bad reference files ───────────────────────── */
+
+describe("purge boundaries", () => {
+  // Cutoff 10 days after the switch: windowStart = KEEP − 20 d.
+  const cutoff = new Date(KEEP + 10 * DAY);
+  const windowStart = cutoff.getTime() - PURGE_WINDOW_DAYS * DAY;
+
+  it("supabase: exactly at windowStart is in, exactly at cutoff is out, exactly at KEEP_DESIGNS_FROM is new rule", async () => {
+    sbOrder("order-at-window-start", at(windowStart)); // old rule (before KEEP), in the window: removed whole
+    sbOrder("order-at-the-cutoffx", at(cutoff.getTime())); // not older than the cutoff: untouched
+    sbOrder("order-at-keep-from-1", at(KEEP)); // new rule: only the PDF
+    sbObjects("uploads/upload-at-wstart.bin", "uploads/upload-at-wstart.json")(at(windowStart)); // unused, in: removed
+    sbObjects("uploads/upload-at-cutoff.bin", "uploads/upload-at-cutoff.json")(at(cutoff.getTime())); // unused, out: kept
+    sbObjects("uploads/upload-before-ws.bin", "uploads/upload-before-ws.json")(at(windowStart - 1)); // 1 ms before the window: kept
+    const removed = await sb().purgeOlderThan(cutoff, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(
+      [
+        "order:order-at-window-start",
+        "orders/order-at-keep-from-1.pdf",
+        "orders/order-at-window-start.pdf",
+        "uploads/order-at-window-start.bin",
+        "uploads/order-at-window-start.json",
+        "uploads/upload-at-wstart.bin",
+        "uploads/upload-at-wstart.json",
+      ].sort(),
+    );
+    expect(db.orders.map((o) => o.order_id).sort()).toEqual(["order-at-keep-from-1", "order-at-the-cutoffx"]);
+  });
+
+  it("local: the same three boundaries", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "ep-purge-edge-"));
+    const s = new LocalStorage(dir);
+    const meta = { mime: "image/png", originalName: "a.png", bytes: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+    const put = async (id: string, ms: number, withOrder: boolean) => {
+      await s.saveUpload(id, new Uint8Array([1]), meta);
+      for (const ext of ["bin", "json"]) utimesSync(path.join(dir, "uploads", `${id}.${ext}`), new Date(ms), new Date(ms));
+      if (!withOrder) return;
+      await s.savePdf(id, new Uint8Array([2]));
+      await s.saveOrder(record(id, at(ms)));
+    };
+    await put("order-at-window-start", windowStart, true);
+    await put("order-at-the-cutoffx", cutoff.getTime(), true);
+    await put("order-at-keep-from-1", KEEP, true);
+    await put("upload-at-wstart", windowStart, false);
+    await put("upload-at-cutoff", cutoff.getTime(), false);
+    const removed = await s.purgeOlderThan(cutoff, false);
+    expect(removed.sort()).toEqual(
+      [
+        "orders/order-at-keep-from-1.pdf",
+        "orders/order-at-window-start.json",
+        "orders/order-at-window-start.pdf",
+        "uploads/order-at-window-start.bin",
+        "uploads/order-at-window-start.json",
+        "uploads/upload-at-wstart.bin",
+        "uploads/upload-at-wstart.json",
+      ].sort(),
+    );
+    expect((await s.listOrders()).map((o) => o.orderId).sort()).toEqual(["order-at-keep-from-1", "order-at-the-cutoffx"]);
+  });
+});
+
+describe("reference reads do not fail open", () => {
+  it("supabase: a server that caps pages below 1,000 rows still yields every reference", async () => {
+    db.cap = 2; // max-rows = 2: every page is "short"
+    // Five kept orders newer than the cutoff all use designs in the window; the last one is on page 3.
+    for (let i = 1; i <= 5; i++) {
+      sbObjects(`uploads/kept-design-000${i}.bin`, `uploads/kept-design-000${i}.json`)(inWindow(NEW_CUTOFF, 3));
+      sbOrder(`order-kept-0000${i}`, at(NEW_CUTOFF.getTime() + i * DAY), `kept-design-000${i}`, false);
+    }
+    for (let i = 1; i <= 3; i++) db.ai.push({ upload_id: `ai-upload-0000${i}`, created_at: inWindow(NEW_CUTOFF, 2) });
+    for (let i = 1; i <= 3; i++) sbObjects(`uploads/ai-upload-0000${i}.bin`, `uploads/ai-upload-0000${i}.json`)(inWindow(NEW_CUTOFF, 2));
+    sbObjects("uploads/nobody-uses-01.bin", "uploads/nobody-uses-01.json")(inWindow(NEW_CUTOFF, 1));
+    const removed = await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(["uploads/nobody-uses-01.bin", "uploads/nobody-uses-01.json"]);
+    // Pages continue after the rows actually received (Range 2-1001, 4-1003, …) until an empty one.
+    const orderReads = calls.filter((c) => c.url.startsWith("/rest/v1/orders?select="));
+    expect(orderReads.length).toBe(4); // 2 + 2 + 1 rows, then empty
+  });
+
+  it("supabase: a non-list answer to a reference read throws before any delete", async () => {
+    vi.mocked(fetch).mockImplementationOnce(async () => ok({ message: "not a list" }));
+    await expect(sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).rejects.toThrow(/unexpected answer/);
+    expect(calls.every((c) => c.method !== "DELETE")).toBe(true);
+  });
+
+  it("supabase: old-rule rows are deleted by id in chunks of 200", async () => {
+    for (let i = 0; i < 450; i++) db.orders.push({ order_id: `order-old-${String(i).padStart(4, "0")}`, created_at: inWindow(OLD_CUTOFF, 3), files: { designPath: `uploads/x${String(i).padStart(8, "0")}.bin`, pdfPath: `orders/order-old-${String(i).padStart(4, "0")}.pdf` } });
+    await sb().purgeOlderThan(OLD_CUTOFF, false, ORPHAN_FAR);
+    const dels = calls.filter((c) => c.method === "DELETE" && c.url.startsWith("/rest/v1/orders"));
+    expect(dels.map((d) => (/in\.\(([^)]*)\)/.exec(d.url)?.[1] ?? "").split(",").length)).toEqual([200, 200, 50]);
+    for (const d of dels) expect(d.url).toContain(`&created_at=lt.${encodeURIComponent(OLD_CUTOFF.toISOString())}`);
+    expect(db.orders).toEqual([]);
+  });
+
+  it("local: an AI list that is valid JSON but not a list stops the purge", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "ep-purge-ai-"));
+    const s = new LocalStorage(dir);
+    await s.saveUpload("ai-upload-00001", new Uint8Array([1]), { mime: "image/png", originalName: "a.png", bytes: 1, createdAt: "2026-01-01T00:00:00.000Z" });
+    const mtime = new Date(inWindow(NEW_CUTOFF, 4));
+    for (const ext of ["bin", "json"]) utimesSync(path.join(dir, "uploads", `ai-upload-00001.${ext}`), mtime, mtime);
+    mkdirSync(path.join(dir, "ai"), { recursive: true });
+    writeFileSync(path.join(dir, "ai", "generations.json"), JSON.stringify({ uploadId: "ai-upload-00001" }));
+    await expect(s.purgeOlderThan(NEW_CUTOFF, false)).rejects.toThrow(/unreadable/);
+    expect(await s.readFile("uploads/ai-upload-00001.bin")).not.toBeNull();
   });
 });
 

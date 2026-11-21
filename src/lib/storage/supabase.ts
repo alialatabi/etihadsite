@@ -46,6 +46,8 @@ const OBJECT_TIMEOUT_MS = 30_000;
 const PAGE_ROWS = 1000;
 /** Object paths per bulk-delete request. */
 const DELETE_CHUNK = 500;
+/** Order ids per retention row-delete request (keeps the URL short). */
+const ORDER_DELETE_CHUNK = 200;
 /** The `limit=` sent on the dry-run purge select of event ids (it counts what would be deleted); PostgREST's max-rows (default 1000) caps the rows actually read. */
 const DRY_RUN_COUNT_LIMIT = 100_000;
 /** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
@@ -207,17 +209,22 @@ export class SupabaseStorage implements StorageAdapter {
   /**
    * Every row of a PostgREST select. One response is capped (max-rows, default 1000), so the
    * rows are fetched page after page with Range headers until a short page arrives.
+   * `untilEmpty` (retention reads, where a missing row means a wrongly deleted file): the next
+   * page starts after the rows actually received, and only an EMPTY page ends the read, so a
+   * server cap below PAGE_ROWS can never cut the list short.
    */
-  private async selectAllPaged(pathAndQuery: string): Promise<Record<string, unknown>[]> {
+  private async selectAllPaged(pathAndQuery: string, opts: { untilEmpty?: boolean } = {}): Promise<Record<string, unknown>[]> {
     const rows: Record<string, unknown>[] = [];
-    for (let from = 0; ; from += PAGE_ROWS) {
+    for (let from = 0; ; ) {
       const res = await this.req(pathAndQuery, {
         headers: { Range: `${from}-${from + PAGE_ROWS - 1}`, 'Range-Unit': 'items' },
         timeoutMs: OBJECT_TIMEOUT_MS,
       });
       const page = (await res.json()) as Record<string, unknown>[];
+      if (!Array.isArray(page)) throw new Error('[supabase] select: unexpected answer');
       rows.push(...page);
-      if (page.length < PAGE_ROWS) return rows;
+      if (opts.untilEmpty ? page.length === 0 : page.length < PAGE_ROWS) return rows;
+      from += opts.untilEmpty ? page.length : PAGE_ROWS;
     }
   }
 
@@ -531,22 +538,25 @@ export class SupabaseStorage implements StorageAdapter {
 
   /**
    * Objects under `prefix`, NEWEST first, paged until a page reaches objects created before
-   * `from` (everything from `from` on is then listed; a few older ones may come along).
-   * Objects without a date (folder placeholders) never end the listing.
+   * `from` (everything from `from` on is then listed; a few older ones may come along) or an
+   * empty page arrives. A short page does not end the listing (a lower server cap must not hide
+   * objects). Objects without a date (folder placeholders) never end the listing.
    */
   private async listPrefixSince(prefix: 'uploads' | 'orders', from: Date): Promise<ListedObject[]> {
     const out: ListedObject[] = [];
-    for (let offset = 0; ; offset += PAGE_ROWS) {
+    for (let offset = 0; ; ) {
       const res = await this.req(`/storage/v1/object/list/${BUCKET}`, {
         method: 'POST',
         ...this.json({ prefix, limit: PAGE_ROWS, offset, sortBy: { column: 'created_at', order: 'desc' } }),
       });
       const page = (await res.json()) as ListedObject[];
+      if (!Array.isArray(page)) throw new Error('[supabase] list: unexpected answer');
+      if (page.length === 0) return out;
       out.push(...page);
-      if (page.length < PAGE_ROWS) return out;
       const dated = page.filter((o) => o.created_at);
       const oldest = dated[dated.length - 1]?.created_at;
       if (oldest && new Date(oldest) < from) return out;
+      offset += page.length;
     }
   }
 
@@ -562,17 +572,21 @@ export class SupabaseStorage implements StorageAdapter {
    * Returns the paths (and `order:<id>` rows) removed, or that would be when dryRun.
    */
   async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - ORPHAN_UPLOAD_MAX_AGE_MS)): Promise<string[]> {
-    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
     const keepFrom = new Date(KEEP_DESIGNS_FROM);
+    // Fail safe: a bad switch date would decide which rule applies, so nothing runs without it.
+    if (Number.isNaN(keepFrom.getTime())) throw new Error('bad KEEP_DESIGNS_FROM');
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
     const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
     // References are read from a day before the window: an upload is always older than the
     // order or generation that uses it, and the day covers clocks that disagree.
     const refFrom = encodeURIComponent(new Date(windowStart.getTime() - DAY_MS).toISOString());
     const orders = (await this.selectAllPaged(
       `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.${refFrom}&order=created_at.asc,order_id.asc`,
+      { untilEmpty: true },
     )) as { order_id: string; created_at: string; files: OrderRecord['files'] | null }[];
     const ai = (await this.selectAllPaged(
       `/rest/v1/ai_generations?select=upload_id&created_at=gte.${refFrom}&order=created_at.asc,id.asc`,
+      { untilEmpty: true },
     )) as { upload_id: string | null }[];
     const uploads = await this.listPrefixSince('uploads', windowStart);
     const pdfs = new Set((await this.listPrefixSince('orders', windowStart)).map((o) => `orders/${o.name}`));
@@ -583,7 +597,8 @@ export class SupabaseStorage implements StorageAdapter {
     const used = new Set<string>();
     for (const o of orders) {
       const created = new Date(o.created_at);
-      if (inWindow(created) && created < oldRuleEnd) oldRule.push(o);
+      // An id that could not be put in the delete request safely is never classified for deletion.
+      if (inWindow(created) && created < oldRuleEnd && ID_RE.test(o.order_id)) oldRule.push(o);
       else {
         if (inWindow(created)) pdfOnly.push(o);
         if (o.files?.designPath) used.add(o.files.designPath);
@@ -632,10 +647,11 @@ export class SupabaseStorage implements StorageAdapter {
     removed.push(...files);
     if (!dryRun) {
       await this.deleteMany([...files]);
-      if (oldRule.length) {
-        const from = encodeURIComponent(windowStart.toISOString());
-        const to = encodeURIComponent(oldRuleEnd.toISOString());
-        await this.req(`/rest/v1/orders?created_at=gte.${from}&created_at=lt.${to}`, { method: 'DELETE' });
+      // Exactly the rows classified above, by id; `created_at < oldRuleEnd` stays on as a backstop.
+      const before = encodeURIComponent(oldRuleEnd.toISOString());
+      for (let i = 0; i < oldRule.length; i += ORDER_DELETE_CHUNK) {
+        const ids = oldRule.slice(i, i + ORDER_DELETE_CHUNK).map((o) => o.order_id).join(',');
+        await this.req(`/rest/v1/orders?order_id=in.(${ids})&created_at=lt.${before}`, { method: 'DELETE' });
       }
     }
     return removed;
