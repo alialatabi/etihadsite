@@ -119,6 +119,24 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
+  async uploadInfo(uploadId: string) {
+    if (!ID_RE.test(uploadId)) return null;
+    const metaRaw = await this.readOptional(uploadMetaPath(uploadId));
+    if (!metaRaw) return null;
+    let size: number;
+    try {
+      size = (await fs.stat(this.resolveSafe(uploadPath(uploadId)))).size;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
+    }
+    try {
+      return { meta: JSON.parse(metaRaw.toString("utf8")) as StoredFileMeta, size };
+    } catch {
+      return null;
+    }
+  }
+
   async savePdf(orderId: string, bytes: Uint8Array): Promise<string> {
     if (!ID_RE.test(orderId)) throw new Error("Invalid order id");
     await this.writeAtomic(pdfPath(orderId), bytes);
@@ -279,6 +297,15 @@ export class LocalStorage implements StorageAdapter {
           cur.lastOrderAt = record.createdAt;
           cur.lastOrderId = record.orderId;
           cur.lastDisplayNo = record.displayNo;
+          // The latest order's explicit choice wins: an unticked box withdraws a stored yes. A customer who never
+          // opted in keeps no keys at all.
+          if (c.marketingOptIn === true) {
+            cur.marketingOptIn = true;
+            cur.marketingOptInAt = record.createdAt;
+          } else if (cur.marketingOptIn !== undefined) {
+            cur.marketingOptIn = false;
+            cur.marketingOptInAt = null;
+          }
         }
         if (record.createdAt < cur.firstOrderAt) cur.firstOrderAt = record.createdAt;
       } else {
@@ -295,6 +322,10 @@ export class LocalStorage implements StorageAdapter {
           lastDisplayNo: record.displayNo,
         };
         if (c.name) fresh.name = c.name;
+        if (c.marketingOptIn === true) {
+          fresh.marketingOptIn = true;
+          fresh.marketingOptInAt = record.createdAt;
+        }
         list.push(fresh);
       }
       await this.writeAtomic("customers.json", JSON.stringify(list, null, 2));
@@ -494,6 +525,7 @@ export class LocalStorage implements StorageAdapter {
    *   - orders from KEEP_DESIGNS_FROM on: only their print PDF is removed when created in the window
    *     [cutoff − PURGE_WINDOW_DAYS, cutoff); the record and the design are kept forever;
    *   - uploads (by mtime, in the window) that no order and no AI generation (ai/generations.json) uses are removed.
+   * Every order file is read (to learn what is in use), so the cost grows with the number of orders.
    * Interrupted .tmp writes older than `cutoff` are removed too. Returns the relative paths
    * removed (or that would be removed when dryRun).
    */

@@ -8,7 +8,7 @@ import {
   type GenerateResponse,
 } from "@/lib/ai/service";
 
-// runGenerate keeps its own deadline 10 s inside this (service.ts GENERATE_DEADLINE_MS).
+// The image call's time budget is worked out against this (config.ts AI_ROUTE_MAX_DURATION_MS; keep the literal 120).
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,8 @@ export const dynamic = "force-dynamic";
  * as base64 PNG. Logic and the order of checks in src/lib/ai/service.ts.
  */
 export async function POST(request: Request): Promise<Response> {
+  // The time budget of the image call counts from here: the body read uses up the route's maxDuration too.
+  const startedAt = Date.now();
   const send = (body: GenerateResponse, retryAfterSec?: number, status?: number) =>
     Response.json(body, {
       status: status ?? (body.ok ? 200 : GENERATE_STATUS[body.error]),
@@ -36,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const out = await runGenerate(request, json);
+    const out = await runGenerate(request, json, Date.now, startedAt);
     return send(out.body, out.retryAfterSec);
   } catch {
     // Codes only: the caught error could carry the customer's text or IP.

@@ -56,12 +56,20 @@ import { POST as directStart } from '@/app/api/upload/direct/route';
 import { POST as uploadRoute } from '@/app/api/upload/route';
 import { COOKIE_NAME, signToken } from '@/lib/auth/token';
 import { getStorage } from '@/lib/storage';
+import { pngWithDeclaredSize } from '../png-header';
 
 const FROZEN = new Date('2026-11-10T09:00:00.000Z');
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const fx = (name: string) => new Uint8Array(readFileSync(path.join(__dirname, '..', '..', 'fixtures', name)));
 const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0]);
+/**
+ * Raster fixtures the upload routes accept: a 1 x 1 PNG whose header sharp can read (tests/unit/png-header.ts), the same padded with
+ * trailing bytes to an exact size, and a real 1 x 1 JPEG. The 11-byte `PNG_SIG + 1,2,3` buffer is magic bytes only and is refused (UP-2).
+ */
+const PNG_OK = pngWithDeclaredSize(1, 1);
+const paddedPng = (size: number) => new Uint8Array(size).map((_, i) => (i < PNG_OK.length ? PNG_OK[i] : 7));
+const JPEG_OK = new Uint8Array(Buffer.from('/9j/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AKAAD//Z', 'base64'));
 
 let dataDir = '';
 let ipSeq = 0;
@@ -523,7 +531,8 @@ describe('golden: POST /api/upload', () => {
   it('rejections and accepted files (max upload size lowered to 2000 bytes for the size cases)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await getStorage().saveSettings({ ...DEFAULT_SETTINGS, maxUploadBytes: 2_000 });
-    const small = new Uint8Array([...PNG_SIG, 1, 2, 3]);
+    const small = PNG_OK;
+    const notDecodable = new Uint8Array([...PNG_SIG, 1, 2, 3]);
     const ids: string[] = [];
     const rows: string[] = [];
     const run = async (label: string, req: Request) => {
@@ -562,9 +571,9 @@ describe('golden: POST /api/upload', () => {
     await run('file of 2001 bytes (max is 2000)', await uploadReq(fileForm(new Uint8Array(2_001).fill(0x89), 'big.png')));
     await run('GIF labelled image/png', await uploadReq(fileForm(GIF, 'a.png', 'image/png')));
     await run('text file', await uploadReq(fileForm(new TextEncoder().encode('hello'), 'a.txt', 'text/plain')));
-    await run('PNG by magic bytes (11 bytes, not a decodable image)', await uploadReq(fileForm(small, 'a.png', 'image/png')));
-    await run('PNG of exactly 2000 bytes', await uploadReq(fileForm(new Uint8Array(2_000).fill(0).map((_, i) => (i < 8 ? PNG_SIG[i] : 7)), 'max.png')));
-    await run('JPEG labelled application/pdf', await uploadReq(fileForm(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]), 'photo.pdf', 'application/pdf')));
+    await run('PNG by magic bytes (11 bytes, not a decodable image)', await uploadReq(fileForm(notDecodable, 'a.png', 'image/png')));
+    await run('PNG of exactly 2000 bytes', await uploadReq(fileForm(paddedPng(2_000), 'max.png')));
+    await run('JPEG labelled application/pdf', await uploadReq(fileForm(JPEG_OK, 'photo.pdf', 'application/pdf')));
     await run('PDF header', await uploadReq(fileForm(new TextEncoder().encode('%PDF-1.7\n'), 'doc.bin')));
     await run('two "file" parts: the first one is used', await uploadReq(twoFiles));
     await run('name with control characters and 300 chars', await uploadReq(fileForm(small, `a\u0000b\u001fc\n${'x'.repeat(300)}.png`)));
@@ -591,7 +600,7 @@ describe('golden: POST /api/upload', () => {
   it('rate limit (20 per hour per address) and server_error', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const ip = { 'x-forwarded-for': '203.0.113.70' };
-    const small = new Uint8Array([...PNG_SIG, 1]);
+    const small = PNG_OK;
     const statuses: number[] = [];
     // Rejected uploads count too: 10 valid + 10 invalid.
     for (let i = 0; i < 10; i++) statuses.push((await uploadRoute(await uploadReq(fileForm(small, 'a.png'), ip))).status);
@@ -747,16 +756,17 @@ describe('golden: POST /api/upload/direct/commit', () => {
         events: f.events.map((e) => `${e.type} ${JSON.stringify(e.meta)} device=${e.device} visitor=${e.visitor} ts=${e.ts}`),
       };
     };
-    const png = new Uint8Array([...PNG_SIG, 1, 2, 3]);
+    const png = PNG_OK;
     await scenario('PNG committed', png, { uploadId: ID, name: 'logo.png' });
-    await scenario('JPEG committed without a name', new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9]), { uploadId: ID });
+    await scenario('PNG by magic bytes, not a decodable image', new Uint8Array([...PNG_SIG, 1, 2, 3]), { uploadId: ID, name: 'logo.png' });
+    await scenario('JPEG committed without a name', JPEG_OK, { uploadId: ID });
     await scenario('PDF committed, name sanitised and cut to 200', new TextEncoder().encode('%PDF-1.7\n'), { uploadId: ID, name: `a\u0001b\n${'n'.repeat(400)}` });
     await scenario('empty name falls back to "design"', png, { uploadId: ID, name: '' });
     await scenario('no file in the bucket', null, { uploadId: ID });
     await scenario('empty file', new Uint8Array(0), { uploadId: ID });
     await scenario('file above the bucket limit (5000)', new Uint8Array(5_001).fill(1), { uploadId: ID });
     await scenario('file above settings.maxUploadBytes (1024)', new Uint8Array(1_025).fill(1), { uploadId: ID }, { maxUploadBytes: 1_024 });
-    await scenario('file exactly at settings.maxUploadBytes (1024), PNG', new Uint8Array(1_024).fill(0).map((_, i) => (i < 8 ? PNG_SIG[i] : 3)), { uploadId: ID }, { maxUploadBytes: 1_024 });
+    await scenario('file exactly at settings.maxUploadBytes (1024), PNG', paddedPng(1_024), { uploadId: ID }, { maxUploadBytes: 1_024 });
     await scenario('unsupported type (GIF)', GIF, { uploadId: ID, name: 'a.gif' });
     await scenario('already committed: answered from the stored meta, nothing re-tracked', png, { uploadId: ID, name: 'other-name.png' }, {}, (f) =>
       f.metas.set(ID, { mime: 'image/png', originalName: 'first-name.png', bytes: 11, createdAt: '2026-11-10T08:00:00.000Z' }),

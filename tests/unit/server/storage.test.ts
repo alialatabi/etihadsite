@@ -84,6 +84,17 @@ describe("LocalStorage", () => {
     expect(await s.readFile(p)).toBeNull();
   });
 
+  it("uploadInfo answers meta and size without reading the bytes, and null when either file is missing", async () => {
+    const s = new LocalStorage(tmp());
+    const meta = { mime: "image/png", originalName: "a.png", bytes: 3, createdAt: new Date().toISOString() };
+    await s.saveUpload("upload-id-2", new Uint8Array([1, 2, 3]), meta);
+    expect(await s.uploadInfo("upload-id-2")).toEqual({ meta, size: 3 });
+    expect(await s.uploadInfo("missing-id-1")).toBeNull();
+    expect(await s.uploadInfo("../etc/passwd")).toBeNull();
+    await s.deleteFile("uploads/upload-id-2.bin");
+    expect(await s.uploadInfo("upload-id-2")).toBeNull(); // meta without bytes: the same null as readUpload
+  });
+
   it("stores orders and lists newest first, updates status", async () => {
     const s = new LocalStorage(tmp());
     expect(await s.listOrders()).toEqual([]);

@@ -88,6 +88,7 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
               accept={REF_ACCEPT}
               className="sr-only"
               tabIndex={-1}
+              aria-hidden="true"
               aria-describedby="ai-refs-caption"
               onChange={(e) => {
                 ai.addRefFiles(Array.from(e.target.files ?? []));

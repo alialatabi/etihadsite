@@ -55,6 +55,15 @@ describe('generateImage', () => {
     });
   });
 
+  it('uses a smaller caller-given timeout and never a larger one', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    await generateImage(cfg, { ...baseReq, timeoutMs: 12_000 });
+    await generateImage(cfg, { ...baseReq, timeoutMs: AI_OPENAI_TIMEOUT_MS * 3 });
+    await generateImage(cfg, baseReq);
+    expect(spy.mock.calls.map((c) => c[0])).toEqual([12_000, AI_OPENAI_TIMEOUT_MS, AI_OPENAI_TIMEOUT_MS]);
+  });
+
   it('uses /images/edits with image[] when refs are given', async () => {
     fetchMock.mockResolvedValue(jsonResponse(okBody));
     const r = await generateImage(cfg, {
@@ -133,11 +142,11 @@ describe('generateImage', () => {
     });
     fetchMock.mockResolvedValue(jsonResponse(okBody));
     await generateImage(cfg, baseReq);
-    await generateImage(cfg, baseReq, 25_000);
+    await generateImage(cfg, { ...baseReq, timeoutMs: 25_000 });
     expect(timeouts).toEqual([AI_OPENAI_TIMEOUT_MS, 25_000]);
 
     fetchMock.mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
-    expect(await generateImage(cfg, baseReq, 25_000)).toEqual({ ok: false, reason: 'timeout' });
+    expect(await generateImage(cfg, { ...baseReq, timeoutMs: 25_000 })).toEqual({ ok: false, reason: 'timeout' });
     expect(reported.at(-1)?.[1]).toMatchObject({ tags: { timeoutMs: 25_000 } });
   });
 

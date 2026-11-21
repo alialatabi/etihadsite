@@ -37,6 +37,8 @@ export interface AttemptContext {
 /**
  * The context for a submit: the kept one while the design is the same file (a retry after a network failure keeps
  * the order id and the finished upload), else a fresh one, seeded with the accepted AI design's upload when given.
+ * The submit hook now decides through `resolveAttempt` (submitAttempt.ts), whose fingerprint covers the design file too;
+ * this smaller rule is kept (and unit-tested) as the file-identity check it started as.
  */
 export function attemptContextFor(prev: AttemptContext | null, file: File, newId: () => string, seedUploadId?: string): AttemptContext {
   if (prev && prev.file === file) return prev;
@@ -107,6 +109,7 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
     if (!res.ok && res.error === 'upload_missing' && ctx.seeded) {
       // The AI design's upload is gone (purged): send the design file itself, once.
       ctx.seeded = false;
+      ctx.rastered = false;
       ctx.uploadId = undefined;
       const failed = await doUpload(input.design.file);
       if (failed) return failed;

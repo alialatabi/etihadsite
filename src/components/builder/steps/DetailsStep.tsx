@@ -80,6 +80,7 @@ export function DetailsStep({
               autoComplete="tel-national"
               placeholder={builder.details.phonePlaceholder}
               className="h-12 text-lg md:text-lg"
+              aria-required="true"
               aria-invalid={e.phone || undefined}
               aria-describedby={`${IDS.phone}-prefix ${e.phone ? errId('phone') : `${IDS.phone}-hint`}`}
               {...text('phone')}
@@ -91,7 +92,7 @@ export function DetailsStep({
         <div className="space-y-2">
           <Label htmlFor={IDS.governorate}>{builder.details.governorate}</Label>
           <Select value={b.fields.governorate || null} onValueChange={(v) => b.setField('governorate', (v as string | null) ?? '')} disabled={busy}>
-            <SelectTrigger id={IDS.governorate} className="w-full data-[size=default]:h-12" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? errId('governorate') : undefined}>
+            <SelectTrigger id={IDS.governorate} className="w-full data-[size=default]:h-12" aria-required="true" aria-invalid={e.governorate || undefined} aria-describedby={e.governorate ? errId('governorate') : undefined}>
               <SelectValue placeholder={builder.details.governoratePlaceholder} />
             </SelectTrigger>
             <SelectContent dir="rtl" alignItemWithTrigger={false}>
@@ -107,7 +108,7 @@ export function DetailsStep({
 
         <div className="space-y-2">
           <Label htmlFor={IDS.district}>{builder.details.district}</Label>
-          <Input id={IDS.district} autoComplete="address-level2" className="h-12" aria-invalid={e.district || undefined} aria-describedby={e.district ? errId('district') : undefined} {...text('district')} />
+          <Input id={IDS.district} autoComplete="address-level2" className="h-12" aria-required="true" aria-invalid={e.district || undefined} aria-describedby={e.district ? errId('district') : undefined} {...text('district')} />
           {e.district && <FieldError id={errId('district')}>{builder.details.errors.district}</FieldError>}
         </div>
 
@@ -125,18 +126,40 @@ export function DetailsStep({
           <Textarea id="cust-notes" rows={3} {...text('notes')} />
         </div>
 
+        <div className="flex items-start gap-3">
+          <input
+            id="cust-marketing"
+            type="checkbox"
+            checked={b.marketingOptIn}
+            onChange={(ev) => b.setMarketingOptIn(ev.target.checked)}
+            disabled={busy}
+            className="mt-0.5 size-5 shrink-0 accent-brand"
+          />
+          <Label htmlFor="cust-marketing" className="font-normal leading-relaxed">
+            {builder.details.marketingOptIn}
+          </Label>
+        </div>
+
         <p className="text-xs leading-relaxed text-muted-foreground">{builder.details.consent}</p>
 
+        {/* Always mounted and empty when idle, so the first message is announced. It names the phase only (no percent
+            chatter); the visible block below is not a live region, and the bar takes its name from this text. */}
+        <p id="submit-status" role="status" className="sr-only">
+          {busy ? (submit.phase === 'uploading' ? common.status.uploading : common.status.processing) : ''}
+        </p>
+
         {busy && (
-          <div role="status" className="space-y-2 rounded-xl bg-muted p-4 text-sm">
+          <div className="space-y-2 rounded-xl bg-muted p-4 text-sm">
             <p className="flex items-center gap-2 font-medium">
               <LoaderCircle className="size-4 animate-spin" aria-hidden />
-              {submit.phase === 'uploading' ? common.status.uploading : common.status.processing}
+              <span aria-hidden="true">{submit.phase === 'uploading' ? common.status.uploading : common.status.processing}</span>
               {submit.phase === 'uploading' && (
-                <Ltr className="ms-auto">{pct}%</Ltr>
+                <span className="ms-auto" aria-hidden="true">
+                  <Ltr>{pct}%</Ltr>
+                </span>
               )}
             </p>
-            <Progress value={submit.phase === 'uploading' ? pct : 100} />
+            <Progress value={submit.phase === 'uploading' ? pct : 100} aria-labelledby="submit-status" />
           </div>
         )}
 

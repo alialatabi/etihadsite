@@ -69,6 +69,13 @@ describe('postOrder', () => {
     expect(fetchMock.mock.calls).toEqual([['/api/orders', JSON_POST(JSON.stringify(body))]]);
   });
 
+  it('sends the WhatsApp-offers opt-in in the customer block when the body has it', async () => {
+    const withOptIn: OrderRequest = { ...body, customer: { ...body.customer, marketingOptIn: true } };
+    fetchMock.mockResolvedValueOnce(json({ ok: false, error: 'low_dpi', message: 'm' }, 422));
+    await postOrder(withOptIn);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).customer.marketingOptIn).toBe(true);
+  });
+
   it('throws bad_order_response_<status> when the answer is not JSON', async () => {
     fetchMock.mockResolvedValueOnce(notJson(502));
     await expect(postOrder(body)).rejects.toThrow(new Error('bad_order_response_502'));

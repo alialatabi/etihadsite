@@ -16,4 +16,19 @@ import { cache } from 'react';
 import { getStorage } from '@/lib/storage';
 import type { ShopSettings } from '@/lib/types';
 
+/**
+ * The copy of the settings that may be handed to a client component (it is serialised into the
+ * page for every visitor). Same type, same keys: values the browser never needs are blanked
+ * (the Telegram chat id that receives orders, the AI anti-abuse limits). Pages that hand
+ * `settings` to a 'use client' component pass it through here; server components and the
+ * admin may use the full object.
+ */
+export function toPublicSettings(settings: ShopSettings): ShopSettings {
+  return {
+    ...settings,
+    telegramChatId: '',
+    ai: { ...settings.ai, perIpDailyLimit: 0, siteDailyLimit: 0 },
+  };
+}
+
 export const getSettings = cache(async (): Promise<ShopSettings> => getStorage().getSettings());

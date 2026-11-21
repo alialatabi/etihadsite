@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import type {
@@ -7,6 +9,7 @@ import type {
   StoredFileMeta,
   UploadResponse,
 } from "@/lib/types";
+import { pngWithDeclaredSize } from "../png-header";
 import { setupEnv } from "./helpers";
 
 /**
@@ -26,6 +29,8 @@ import { POST as commit } from "@/app/api/upload/direct/commit/route";
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG = [0xff, 0xd8, 0xff, 0xe0];
 const ID = "abcDEF_123-xyz";
+/** Real, decodable files: commit now reads the image header, so magic bytes alone are refused. */
+const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, "..", "..", "fixtures", n)));
 
 type FakeAdapter = StorageAdapter & {
   files: Map<string, Uint8Array>;
@@ -34,6 +39,8 @@ type FakeAdapter = StorageAdapter & {
   saveUploadMeta: ReturnType<typeof vi.fn>;
   saveUpload: ReturnType<typeof vi.fn>;
   deleteFile: ReturnType<typeof vi.fn>;
+  readFile: ReturnType<typeof vi.fn>;
+  readUpload: ReturnType<typeof vi.fn>;
 };
 
 function makeFake(settings: Partial<ShopSettings> = {}): FakeAdapter {
@@ -225,16 +232,16 @@ describe("POST /api/upload/direct/commit", () => {
 
   it("commits a valid PNG: 200 and saveUploadMeta with the sniffed mime (not the name)", async () => {
     const f = makeFake();
-    const bytes = new Uint8Array([...PNG, 1, 2, 3]);
+    const bytes = fx("padded-400x400.png");
     f.files.set(`uploads/${ID}.bin`, bytes);
     fake = f;
     const res = await commit(commitReq({ uploadId: ID, name: "photo\u0001.jpg" }));
     expect(res.status).toBe(200);
-    expect((await res.json()) as UploadResponse).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: 11 });
+    expect((await res.json()) as UploadResponse).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: bytes.byteLength });
     expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
     const [id, meta] = f.saveUploadMeta.mock.calls[0] as [string, StoredFileMeta];
     expect(id).toBe(ID);
-    expect(meta).toMatchObject({ mime: "image/png", originalName: "photo.jpg", bytes: 11 });
+    expect(meta).toMatchObject({ mime: "image/png", originalName: "photo.jpg", bytes: bytes.byteLength });
     expect(Number.isNaN(Date.parse(meta.createdAt))).toBe(false);
     expect(f.deleteFile).not.toHaveBeenCalled();
     expect(f.saveUpload).not.toHaveBeenCalled();
@@ -242,11 +249,66 @@ describe("POST /api/upload/direct/commit", () => {
 
   it("sniffs JPEG and defaults the name to 'design'", async () => {
     const f = makeFake();
-    f.files.set(`uploads/${ID}.bin`, new Uint8Array([...JPEG, 0, 0]));
+    f.files.set(`uploads/${ID}.bin`, fx("exif6-600x400.jpg"));
     fake = f;
     const res = await commit(commitReq({ uploadId: ID }));
     expect(res.status).toBe(200);
     expect(f.saveUploadMeta).toHaveBeenCalledWith(ID, expect.objectContaining({ mime: "image/jpeg", originalName: "design" }));
+  });
+
+  it.each([
+    ["PNG that is only magic bytes", new Uint8Array([...PNG, 1, 2, 3])],
+    ["JPEG that is only magic bytes", new Uint8Array([...JPEG, 0, 0])],
+    ["PNG header over the pixel cap (16000 x 16000)", pngWithDeclaredSize(16_000, 16_000)],
+  ])("rejects a %s with 400 corrupt and deletes it", async (_label, bytes) => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, bytes);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "a.png" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.deleteFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.files.has(`uploads/${ID}.bin`)).toBe(false);
+  });
+
+  it("without saveUploadMeta, a real PNG is committed through saveUpload (bytes + meta)", async () => {
+    const f = makeFake();
+    const png = fx("padded-400x400.png");
+    const saved: { id: string; bytes: number; meta: StoredFileMeta }[] = [];
+    (f as StorageAdapter).saveUploadMeta = undefined;
+    f.saveUpload.mockImplementation(async (id: string, bytes: Uint8Array, meta: StoredFileMeta) => {
+      saved.push({ id, bytes: bytes.byteLength, meta });
+      return `uploads/${id}.bin`;
+    });
+    f.files.set(`uploads/${ID}.bin`, png);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "logo.png" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: png.byteLength });
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ id: ID, bytes: png.byteLength, meta: { mime: "image/png", originalName: "logo.png", bytes: png.byteLength } });
+  });
+
+  it("commits a PNG header at 139.2 MP (full A4 at 1200 DPI)", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, pngWithDeclaredSize(9921, 14031));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("never judges a PDF: a real PDF and a magic-bytes-only PDF are both committed", async () => {
+    for (const bytes of [fx("two-page.pdf"), new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3])]) {
+      const f = makeFake();
+      f.files.set(`uploads/${ID}.bin`, bytes);
+      fake = f;
+      const res = await commit(commitReq({ uploadId: ID, name: "a.pdf" }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, kind: "pdf", bytes: bytes.byteLength });
+      expect(f.deleteFile).not.toHaveBeenCalled();
+    }
   });
 
   it("answers an already-committed id with 200 without re-writing", async () => {
@@ -262,6 +324,105 @@ describe("POST /api/upload/direct/commit", () => {
     expect(f.saveUpload).not.toHaveBeenCalled();
     expect(f.deleteFile).not.toHaveBeenCalled();
     expect(f.readFile).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo, answers an already-committed id from the meta alone: no download of the bytes", async () => {
+    const f = makeFake();
+    const info = vi.fn(async () => ({
+      meta: { mime: "application/pdf", originalName: "a.pdf", bytes: 5000, createdAt: new Date().toISOString() },
+      size: 5000,
+    }));
+    (f as StorageAdapter).uploadInfo = info;
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "pdf", bytes: 5000 });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(f.readUpload).not.toHaveBeenCalled();
+    expect(f.readFile).not.toHaveBeenCalled();
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo, a meta whose mime is not a design type answers 415 unsupported_type", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => ({
+      meta: { mime: "image/gif", originalName: "a.gif", bytes: 9, createdAt: new Date().toISOString() },
+      size: 9,
+    }));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(415);
+    expect(await res.json()).toMatchObject({ ok: false, error: "unsupported_type" });
+  });
+
+  it("with uploadInfo returning null (no meta, or the .bin was purged) readUpload is asked, then the fresh path: a missing .bin is still 400 corrupt", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.readUpload).toHaveBeenCalledWith(ID);
+    expect(f.readFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+  });
+
+  it("with uploadInfo returning null for an already-committed id (the info call was inconclusive), it falls back to readUpload and answers 200, not 500", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, new Uint8Array([...PNG, 9]));
+    f.metas.set(ID, { mime: "image/png", originalName: "a.png", bytes: 9, createdAt: new Date().toISOString() });
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: 9 });
+    expect(f.readUpload).toHaveBeenCalledTimes(1);
+    expect(f.readFile).not.toHaveBeenCalled();
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo throwing (a network error), the answer is 500 server_error as before, and readUpload is not tried", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    fake = f;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, error: "server_error" });
+    expect(f.readUpload).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo returning null and fresh bytes in place, commits them normally", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("rate limits commits per IP with its own limiter (40 per hour): 429 + Retry-After, and the start limiter is not touched", async () => {
+    const f = makeFake();
+    fake = f;
+    const ip = "6.6.6.6";
+    for (let i = 0; i < 40; i++) {
+      const r = await commit(commitReq({ uploadId: ID }, ip));
+      expect(r.status).toBe(400); // nothing uploaded: corrupt, but it was not rate limited
+    }
+    const limited = await commit(commitReq({ uploadId: ID }, ip));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBeTruthy();
+    expect(await limited.json()).toMatchObject({ ok: false, error: "rate_limited" });
+    // Refused before the body is read and before any storage call.
+    const readsBefore = f.readFile.mock.calls.length;
+    await commit(commitReq({ uploadId: ID }, ip));
+    expect(f.readFile.mock.calls.length).toBe(readsBefore);
+    // The same address can still start uploads, and another address can still commit.
+    expect((await start(startReq({ size: 10 }, ip))).status).toBe(200);
+    expect((await commit(commitReq({ uploadId: ID }, "6.6.6.7"))).status).toBe(400);
   });
 
   it.each([

@@ -426,6 +426,31 @@ describe("POST /api/orders analytics + customers", () => {
     expect(record).toHaveBeenCalledTimes(1);
   });
 
+  it("stores the WhatsApp-offers opt-in on the order only when ticked, and hands it to the customer upsert", async () => {
+    const storage = getStorage() as unknown as Record<string, unknown>;
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    storage.upsertCustomerFromOrder = upsert;
+    storage.recordEvent = vi.fn().mockResolvedValue(undefined);
+    const yes = body({ orderId: "order-optin-yesaaaaaa", customer: { ...body().customer, marketingOptIn: true } });
+    expect((await call(yes)).status).toBe(200);
+    const stored = await getStorage().getOrder("order-optin-yesaaaaaa");
+    expect(stored?.customer.marketingOptIn).toBe(true);
+    expect(stored?.customer.marketingOptInAt).toBe(stored?.createdAt);
+    expect(upsert.mock.calls[0][0].customer.marketingOptIn).toBe(true);
+    // Unticked (false) and absent (an older cached page) both leave the stored order without the keys.
+    const no = body({ orderId: "order-optin-noaaaaaaa", customer: { ...body().customer, marketingOptIn: false } });
+    const none = body({ orderId: "order-optin-noneaaaaaa" });
+    expect((await call(no)).status).toBe(200);
+    expect((await call(none)).status).toBe(200);
+    for (const id of ["order-optin-noaaaaaaa", "order-optin-noneaaaaaa"]) {
+      const o = await getStorage().getOrder(id);
+      expect(o?.customer).not.toHaveProperty("marketingOptIn");
+      expect(o?.customer).not.toHaveProperty("marketingOptInAt");
+    }
+    // A non-boolean is refused like any other bad field.
+    expect((await call(body({ orderId: "order-optin-badaaaaaaa", customer: { ...body().customer, marketingOptIn: "yes" } }))).status).toBe(400);
+  });
+
   it("still succeeds when the customer upsert throws", async () => {
     const storage = getStorage() as unknown as Record<string, unknown>;
     storage.upsertCustomerFromOrder = vi.fn().mockRejectedValue(new Error("boom"));
@@ -649,5 +674,124 @@ describe("POST /api/orders with an AI design", () => {
     expect(spy).toHaveBeenCalledWith("upload-aaaaaaaaaaaaaaaa", "order-ai-bbbbbbbbbbbbb");
     expect(await storage.getOrder("order-ai-bbbbbbbbbbbbb")).not.toBeNull();
     spy.mockRestore();
+  });
+});
+
+describe("POST /api/orders: duplicate guard, replay and logs", () => {
+  const WINNER = "EP-000000-WINN";
+  type Rec = NonNullable<Awaited<ReturnType<ReturnType<typeof getStorage>["getOrder"]>>>;
+
+  /** Makes saveOrder store another instance's record (different displayNo) instead of ours. */
+  function loseTheRace(opts: { thenThrow?: boolean } = {}) {
+    const storage = getStorage();
+    const real = storage.saveOrder.bind(storage);
+    const spy = vi.spyOn(storage, "saveOrder").mockImplementation(async (r: Rec) => {
+      await real({ ...r, displayNo: WINNER });
+      if (opts.thenThrow) throw new Error("aborted");
+    });
+    return spy;
+  }
+
+  it("a run that lost the insert race answers with the winner and has no side effects", async () => {
+    const storage = getStorage();
+    loseTheRace();
+    const upsert = vi.spyOn(storage, "upsertCustomerFromOrder");
+    const event = vi.spyOn(storage, "recordEvent");
+    const mark = vi.spyOn(storage, "aiMarkOrdered");
+    const update = vi.spyOn(storage, "updateOrder");
+    const res = await call(body());
+    expect(res.status).toBe(200);
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.displayNo).toBe(WINNER);
+    expect(r.orderId).toBe("order-aaaaaaaaaaaaaaaaaa");
+    expect(notifyShop).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+    expect(event).not.toHaveBeenCalled();
+    expect(mark).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("a winner reads the order back once and runs every side effect", async () => {
+    const storage = getStorage();
+    const get = vi.spyOn(storage, "getOrder");
+    const upsert = vi.spyOn(storage, "upsertCustomerFromOrder");
+    const r = await json(await call(body()));
+    expect(r.ok).toBe(true);
+    // idempotency lookup, the read-back after saveOrder, and the read inside the local updateOrder
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(notifyShop).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed read-back is treated as a win: better a second message than none", async () => {
+    const storage = getStorage();
+    const real = storage.getOrder.bind(storage);
+    vi.spyOn(storage, "getOrder")
+      .mockImplementationOnce(real)
+      .mockRejectedValueOnce(new Error("read-back down"));
+    const r = await json(await call(body()));
+    if (!r.ok) throw new Error("expected ok");
+    expect(notifyShop).toHaveBeenCalledTimes(1);
+    expect(r.notified.telegram).toBe("sent");
+  });
+
+  it("saveOrder that throws after the row committed: the pipeline continues", async () => {
+    const storage = getStorage();
+    const real = storage.saveOrder.bind(storage);
+    // Only the first save aborts (the local updateOrder saves through the same method).
+    vi.spyOn(storage, "saveOrder").mockImplementationOnce(async (r: Rec) => {
+      await real(r);
+      throw new Error("aborted after commit");
+    }).mockImplementation(real);
+    const upsert = vi.spyOn(storage, "upsertCustomerFromOrder");
+    const res = await call(body());
+    expect(res.status).toBe(200);
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(notifyShop).toHaveBeenCalledTimes(1);
+    expect(r.notified.telegram).toBe("sent");
+    expect((await storage.getOrder("order-aaaaaaaaaaaaaaaaaa"))?.notified.telegram).toBe("sent");
+  });
+
+  it("saveOrder that throws and left someone else's row: answers with that order, no side effects", async () => {
+    loseTheRace({ thenThrow: true });
+    const r = await json(await call(body()));
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.displayNo).toBe(WINNER);
+    expect(notifyShop).not.toHaveBeenCalled();
+  });
+
+  it("saveOrder that throws with no row stored is still server_error", async () => {
+    vi.spyOn(getStorage(), "saveOrder").mockRejectedValue(new Error("db down"));
+    const res = await call(body());
+    expect(res.status).toBe(500);
+    expect(await json(res)).toMatchObject({ ok: false, error: "server_error" });
+    expect(notifyShop).not.toHaveBeenCalled();
+  });
+
+  it("a known orderId with another upload is not a replay: invalid_request", async () => {
+    const first = await json(await call(body()));
+    expect(first.ok).toBe(true);
+    const res = await call(body({ uploadId: "upload-bbbbbbbbbbbbbbbb" }));
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ ok: false, error: "invalid_request" });
+    // the identical body still replays
+    const again = await call(body());
+    expect(again.status).toBe(200);
+  });
+
+  it("a failing customer upsert logs a code only, never the error text", async () => {
+    const storage = getStorage();
+    vi.spyOn(storage, "upsertCustomerFromOrder").mockRejectedValue(
+      new Error("[supabase] POST /rest/v1/rpc/upsert_customer -> 500 Key (phone)=(9647701234567) already exists"),
+    );
+    const r = await json(await call(body()));
+    expect(r.ok).toBe(true);
+    const logged = JSON.stringify((console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls);
+    expect(logged).toContain("customer upsert failed (500)");
+    expect(logged).not.toContain("9647701234567");
+    expect(logged).not.toContain("Key (phone)");
   });
 });

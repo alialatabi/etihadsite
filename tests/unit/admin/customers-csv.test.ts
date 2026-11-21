@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CSV_BOM, csvCell, csvDate, customersToCsv, phoneForCsv } from '@/app/api/admin/customers/csv';
-import { matchesQuery, type CustomerRow } from '@/app/admin/customers/filter';
+import { CSV_BOM, csvCell, csvDate, customersCsv, customersToCsv, onlyMarketingOptIn, phoneForCsv } from '@/app/api/admin/customers/csv';
+import { matchesOffers, matchesQuery, type CustomerRow } from '@/app/admin/customers/filter';
+import { admin } from '@/content/ar';
 import type { CustomerRecord } from '@/lib/types';
 
 describe('csvCell', () => {
@@ -56,6 +57,51 @@ describe('customersToCsv', () => {
     expect(lines[1]).toContain('"قرب ""المطعم"""');
     expect(lines[1]).toContain('"25000"');
     expect(lines[2]).toBe('');
+  });
+});
+
+describe('customersCsv: WhatsApp offers columns and filter', () => {
+  const base: CustomerRecord = {
+    phone: '9647701234567',
+    governorate: 'بغداد',
+    district: 'الكرادة',
+    landmark: 'x',
+    firstOrderAt: '2026-11-01T09:00:00Z',
+    lastOrderAt: '2026-11-10T09:00:00Z',
+    ordersCount: 1,
+    totalIqd: 0,
+    lastOrderId: 'abc',
+    lastDisplayNo: 'EP-1',
+  };
+  const yes: CustomerRecord = { ...base, phone: '9647701111111', marketingOptIn: true, marketingOptInAt: '2026-11-10T21:30:00Z' };
+  const withdrawn: CustomerRecord = { ...base, phone: '9647702222222', marketingOptIn: false, marketingOptInAt: null };
+  const never: CustomerRecord = { ...base, phone: '9647703333333' };
+  const rows = (csv: string) => csv.slice(1).split('\r\n').filter(Boolean).map((l) => l.slice(1, -1).split('","'));
+
+  it('appends the opt-in and its date as the LAST two columns, leaving the first ten where they were', () => {
+    const [head, a, b, c] = rows(customersCsv([yes, withdrawn, never]));
+    expect(head).toHaveLength(12);
+    expect(head.slice(10)).toEqual([admin.customers.columns.marketing, admin.customers.columns.marketingAt]);
+    expect(head[9]).toBe(admin.customers.lastNo);
+    expect(a.slice(10)).toEqual([admin.customers.marketingYes, '2026-11-11 00:30']);
+    expect(b.slice(10)).toEqual([admin.customers.marketingNo, '']);
+    expect(c.slice(10)).toEqual([admin.customers.marketingNo, '']);
+  });
+
+  it('marketingOnly exports only customers who opted in', () => {
+    const out = rows(customersCsv([yes, withdrawn, never], { marketingOnly: true }));
+    expect(out).toHaveLength(2);
+    expect(out[1][1]).toBe('964 770 111 1111');
+    expect(rows(customersCsv([withdrawn, never], { marketingOnly: true }))).toHaveLength(1); // header only
+    expect(onlyMarketingOptIn([yes, withdrawn, never])).toEqual([yes]);
+  });
+
+  it('the admin list filter keeps everyone when off and only opted-in rows when on', () => {
+    const row = (marketingOptIn?: boolean): CustomerRow => ({
+      phone: '9647701234567', name: '', governorate: 'بغداد', district: '', landmark: '', ordersCount: 1, totalIqd: 0, lastLabel: '', lastDisplayNo: 'EP-1', lastOrderId: null, marketingOptIn,
+    });
+    expect([row(true), row(false), row()].map((r) => matchesOffers(r, false))).toEqual([true, true, true]);
+    expect([row(true), row(false), row()].map((r) => matchesOffers(r, true))).toEqual([true, false, false]);
   });
 });
 

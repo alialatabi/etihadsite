@@ -108,6 +108,8 @@ export function buildOrderRecord({
       district: req.customer.district,
       landmark: req.customer.landmark,
       notes: req.customer.notes || undefined,
+      // Only an explicit opt-in is stored, so an order without it keeps the exact shape it always had.
+      ...(req.customer.marketingOptIn === true ? { marketingOptIn: true, marketingOptInAt: createdAt } : {}),
     },
     files: { designPath: uploadPath(req.uploadId), pdfPath },
     notified: { telegram: "skipped" },

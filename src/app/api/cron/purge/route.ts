@@ -14,7 +14,14 @@ const AI_USAGE_RETENTION_DAYS = 400;
 
 function authorised(request: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || secret.length < 16) return false;
+  if (!secret || secret.length < 16) {
+    // Fixed text, no secret value: Sentry raises it so a missing secret does not fail silently every day.
+    reportError(new Error("CRON_SECRET is missing or too short: the retention purge cannot run"), {
+      where: "cron.purge.auth",
+      route: "/api/cron/purge",
+    });
+    return false;
+  }
   const got = Buffer.from(request.headers.get("authorization") ?? "");
   const want = Buffer.from(`Bearer ${secret}`);
   return got.length === want.length && timingSafeEqual(got, want);

@@ -25,6 +25,7 @@ import { effectiveDpi, pxForUmAtDpi } from '@/lib/units';
 import type { DesignKind, NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
 import { reportError } from '@/lib/monitoring/report';
 import { sniffKind } from './kind';
+import { MAX_INPUT_PIXELS, pixelsOverCap } from './pixel-cap';
 import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
 import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha, widthPixelsFor } from './pixels';
 
@@ -62,12 +63,15 @@ export async function normaliseArtwork(bytes: Uint8Array, opts: NormaliseOptions
 
 async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promise<NormaliseOutcome> {
   const { spec, targetDpi, blockDpi } = opts;
-  const meta = await sharp(bytes).metadata();
+  // limitInputPixels false: only the header is read here (no decode), so sharp must not throw above its own default (about 268 MP) before our check below.
+  const meta = await sharp(bytes, { limitInputPixels: false }).metadata();
+  // The header is read, nothing is decoded yet: refuse an image that would need a huge raw buffer (about 4 bytes a pixel, up to 3 attempts per order).
+  if (pixelsOverCap(meta.width, meta.height)) return fail('corrupt');
   const channelHasAlpha = meta.hasAlpha === true;
   if (spec.shape === 'custom' && !channelHasAlpha) return fail('no_alpha');
 
   // Stage 1: oriented (EXIF), sRGB, 8-bit raw pixels.
-  let pipe = sharp(bytes).rotate().toColorspace('srgb');
+  let pipe = sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS }).rotate().toColorspace('srgb');
   pipe = channelHasAlpha ? pipe.ensureAlpha() : pipe.removeAlpha();
   const channels = channelHasAlpha ? 4 : 3;
   const { data, info } = await pipe.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });

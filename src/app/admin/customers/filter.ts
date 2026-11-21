@@ -13,6 +13,13 @@ export interface CustomerRow {
   lastDisplayNo: string;
   /** Only set when that order still exists. */
   lastOrderId: string | null;
+  /** Agreed to WhatsApp offers on the latest order. */
+  marketingOptIn?: boolean;
+}
+
+/** The «واتساب عروض» filter: with it on, only customers whose latest order agreed to WhatsApp offers. */
+export function matchesOffers(row: CustomerRow, offersOnly: boolean): boolean {
+  return !offersOnly || row.marketingOptIn === true;
 }
 
 export function matchesQuery(row: CustomerRow, query: string): boolean {

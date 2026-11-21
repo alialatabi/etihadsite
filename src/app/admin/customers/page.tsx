@@ -23,6 +23,7 @@ export default async function CustomersPage() {
     lastLabel: formatBaghdad(c.lastOrderAt),
     lastDisplayNo: c.lastDisplayNo,
     lastOrderId: existing.has(c.lastOrderId) ? c.lastOrderId : null,
+    marketingOptIn: c.marketingOptIn === true,
   }));
   return (
     <section className="flex flex-col gap-4">

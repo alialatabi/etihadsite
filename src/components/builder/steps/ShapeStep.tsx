@@ -1,10 +1,12 @@
 'use client';
 
+import { useRef } from 'react';
 import { Circle, Shapes, Square } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import type { Corners, Shape } from '@/lib/types';
+import { nextRadioIndex, radioTabIndex } from '../radio-nav';
 import type { BuilderApi } from '../useBuilder';
 
 const OPTIONS: { id: Shape; Icon: typeof Circle; label: string; hint: string }[] = [
@@ -16,17 +18,32 @@ const OPTIONS: { id: Shape; Icon: typeof Circle; label: string; hint: string }[]
 export function ShapeStep({ b }: { b: BuilderApi }) {
   // «يحتاج PNG شفاف» is advice for an uploaded file; a design made here needs none.
   const hintFor = (id: Shape, hint: string) => (id === 'custom' && b.mode !== 'upload' ? builder.shape.customHintAi : hint);
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = OPTIONS.findIndex((o) => o.id === b.shape);
+  // Radio-group keyboard pattern: one Tab stop, the arrow keys move the choice (and the focus) between the options.
+  const onKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>) => {
+    const from = buttons.current.findIndex((el) => el === document.activeElement);
+    const to = nextRadioIndex(ev.key, from < 0 ? Math.max(selectedIndex, 0) : from, OPTIONS.length);
+    if (to === null) return;
+    ev.preventDefault();
+    b.setShape(OPTIONS[to].id);
+    buttons.current[to]?.focus();
+  };
   return (
     <div className="space-y-5">
-      <div role="radiogroup" aria-label={builder.shape.title} className="grid gap-3 sm:grid-cols-3">
-        {OPTIONS.map(({ id, Icon, label, hint }) => {
+      <div role="radiogroup" aria-label={builder.shape.title} onKeyDown={onKeyDown} className="grid gap-3 sm:grid-cols-3">
+        {OPTIONS.map(({ id, Icon, label, hint }, i) => {
           const selected = b.shape === id;
           return (
             <button
               key={id}
+              ref={(el) => {
+                buttons.current[i] = el;
+              }}
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={radioTabIndex(i, selectedIndex)}
               onClick={() => b.setShape(id)}
               className={cn(
                 'flex min-h-11 items-center gap-4 rounded-2xl border-2 bg-card p-4 text-start outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 sm:flex-col sm:items-start sm:gap-3',

@@ -15,3 +15,9 @@ export function sniffKind(bytes: Uint8Array): DesignKind | null {
 export const MIME_BY_KIND = { png: 'image/png', jpeg: 'image/jpeg', pdf: 'application/pdf' } as const satisfies Record<DesignKind, string>;
 
 export const EXT_BY_KIND = { png: 'png', jpeg: 'jpg', pdf: 'pdf' } as const satisfies Record<DesignKind, string>;
+
+/** Inverse of MIME_BY_KIND: the kind a stored upload meta's `mime` stands for; null for any other string. */
+export function kindForMime(mime: string): DesignKind | null {
+  for (const k of Object.keys(MIME_BY_KIND) as DesignKind[]) if (MIME_BY_KIND[k] === mime) return k;
+  return null;
+}

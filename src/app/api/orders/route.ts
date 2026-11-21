@@ -23,6 +23,7 @@ import {
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
+import { uploadPath } from "@/lib/storage/paths";
 import { verifyTurnstile } from "@/lib/turnstile";
 import type {
   OrderError,
@@ -30,6 +31,7 @@ import type {
   OrderRequest,
   OrderResponse,
   ShopSettings,
+  StorageAdapter,
 } from "@/lib/types";
 import { PRINT_DPI } from "@/lib/print-dpi";
 import { umToMm } from "@/lib/units";
@@ -85,6 +87,30 @@ function successFor(
     whatsappUrl: settings.whatsapp ? whatsappUrl(settings.whatsapp, text) : "",
     notified: record.notified,
   };
+}
+
+/**
+ * A short, non-personal label for a storage error: its own `code` when it has a plain one, else the
+ * HTTP status the Supabase adapter puts in its message ("... -> 500 <body>"). Never the message or
+ * the body itself: a PostgREST error can echo a row (phone, address).
+ */
+function errorCode(e: unknown): string {
+  const code = (e as { code?: unknown } | null)?.code;
+  if (typeof code === "string" && /^[\w.-]{1,32}$/.test(code)) return code;
+  const status = e instanceof Error ? /-> (\d{3})/.exec(e.message) : null;
+  return status ? status[1] : "unknown";
+}
+
+/** The stored order, or null when it is absent or the read failed (callers then carry on as the winner). */
+async function readBack(
+  storage: StorageAdapter,
+  orderId: string,
+): Promise<OrderRecord | null> {
+  try {
+    return await storage.getOrder(orderId);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -202,7 +228,35 @@ async function processOrder(
   });
 
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
-  await storage.saveOrder(record);
+  // saveOrder is first-write-wins (a duplicate orderId never overwrites) and cannot tell the caller
+  // it lost, so the stored record is read back: another serverless instance that got there first
+  // has a different displayNo, and that run owns every side effect (customer count, event,
+  // Telegram). We answer with its record and do nothing else.
+  let confirmed = false;
+  try {
+    await storage.saveOrder(record);
+  } catch (e) {
+    // The insert can commit and still throw (the 10 s abort fires before the answer arrives):
+    // confirm before answering server_error, as a retry would otherwise find the order and skip
+    // the customer upsert and the notification for good.
+    const stored = await readBack(storage, record.orderId);
+    if (!stored) throw e;
+    if (stored.displayNo !== record.displayNo)
+      return successFor(stored, settings);
+    confirmed = true;
+    reportError(new Error("Order save timed out but the row exists"), {
+      where: "orders.saveOrder",
+      route: "/api/orders",
+      level: "warning",
+      tags: { orderId: record.orderId },
+    });
+  }
+  if (!confirmed) {
+    // A failed read-back means "assume we won": a duplicate message beats a lost one.
+    const stored = await readBack(storage, record.orderId);
+    if (stored && stored.displayNo !== record.displayNo)
+      return successFor(stored, settings);
+  }
 
   // An AI design (src/lib/ai/service.ts) is marked as ordered: best effort, never fails the order.
   try {
@@ -220,7 +274,8 @@ async function processOrder(
   try {
     await storage.upsertCustomerFromOrder(record);
   } catch (e) {
-    console.error("[orders] customer upsert failed", e);
+    // A fixed message and a short code only: the error text can carry a PostgREST row (phone).
+    console.error(`[orders] customer upsert failed (${errorCode(e)})`);
     reportError(e, { where: "orders.customerUpsert", route: "/api/orders", tags: { orderId: record.orderId } });
   }
   await trackServer(request, {
@@ -295,9 +350,16 @@ export async function POST(request: Request): Promise<Response> {
 
     const settings = await getSettings();
 
-    // Idempotency: the same orderId returns the same result without redoing work.
+    // Idempotency: the same orderId returns the same result without redoing work, but only to a
+    // request for the same upload (a retry resends the whole body). Another upload for a known
+    // orderId is not a replay: same answer as any other bad request.
     const existing = await getStorage().getOrder(req.orderId);
-    if (existing) return send(successFor(existing, settings));
+    if (existing)
+      return send(
+        existing.files.designPath === uploadPath(req.uploadId)
+          ? successFor(existing, settings)
+          : fail("invalid_request"),
+      );
     const running = inflight.get(req.orderId);
     if (running) return send(await running);
 

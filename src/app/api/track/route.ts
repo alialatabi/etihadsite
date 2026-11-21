@@ -4,7 +4,7 @@ import { classifySource, isBot } from '@/lib/analytics/classify';
 import { isAdminPath, isStaffPath } from '@/lib/analytics/paths';
 import { trackServer, visitorHash } from '@/lib/analytics/server';
 import { reportError } from '@/lib/monitoring/report';
-import { limiters } from '@/lib/rate-limit';
+import { clientIp, limiters } from '@/lib/rate-limit';
 import { BUILDER_STEPS, INSTALL_EVENTS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,9 @@ export async function POST(request: Request): Promise<Response> {
 
     if (isBot(ua) || isAdminPath(b.path) || isStaffPath(b.path)) return noContent();
 
+    // Per address first: the visitor hash below changes with every User-Agent string, so it alone cannot stop a script
+    // that rotates it. clientIp() is only the limiter key here (ipOf() stays separate: it feeds the stored hash).
+    if (!limiters().trackIp.check(clientIp(request)).ok) return noContent();
     const visitor = visitorHash(request);
     if (!limiters().track.check(visitor).ok) return noContent();
 

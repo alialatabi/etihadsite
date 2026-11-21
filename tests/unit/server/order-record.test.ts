@@ -96,6 +96,16 @@ describe("buildOrderRecord", () => {
     expect(JSON.stringify(buildOrderRecord(input()))).toBe(expected);
   });
 
+  it("appends marketingOptIn + marketingOptInAt (the order time) after notes only for an explicit opt-in", () => {
+    const yes = buildOrderRecord(input({ req: { ...REQ, customer: { ...REQ.customer, marketingOptIn: true } } })).customer;
+    expect(Object.keys(yes)).toEqual(["name", "phone", "governorate", "district", "landmark", "notes", "marketingOptIn", "marketingOptInAt"]);
+    expect(yes).toMatchObject({ marketingOptIn: true, marketingOptInAt: "2026-11-10T09:00:00.000Z" });
+    for (const v of [false, undefined]) {
+      const c = buildOrderRecord(input({ req: { ...REQ, customer: { ...REQ.customer, marketingOptIn: v } } })).customer;
+      expect(Object.keys(c)).toEqual(["name", "phone", "governorate", "district", "landmark", "notes"]);
+    }
+  });
+
   it("stores the normalised phone, not the one the customer typed", () => {
     expect(buildOrderRecord(input()).customer.phone).toBe("9647701234567");
   });

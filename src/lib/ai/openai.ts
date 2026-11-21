@@ -5,7 +5,8 @@ import 'server-only';
  * Never throws. Every failure becomes one of three reasons:
  *  - 'refused'  — the model's safety system rejected the request (error code `moderation_blocked`,
  *                 or a message/type about safety or the content policy);
- *  - 'timeout'  — no complete answer within the timeout (AI_OPENAI_TIMEOUT_MS unless the caller passes less);
+ *  - 'timeout'  — no complete answer within AI_OPENAI_TIMEOUT_MS, or the caller's smaller
+ *                 `timeoutMs` budget (AbortSignal.timeout);
  *  - 'error'    — everything else (network, HTTP status, unreadable body).
  *
  * SECRET HANDLING: the API key and OpenAI's response bodies (which can echo the key or the
@@ -138,8 +139,14 @@ function toBlob(ref: ImageRef): Blob {
  */
 export async function generateImage(
   cfg: OpenAiConfig,
-  req: { prompt: string; size: string; background: 'transparent' | 'opaque'; refs: ImageRef[] },
-  timeoutMs: number = AI_OPENAI_TIMEOUT_MS,
+  req: {
+    prompt: string;
+    size: string;
+    background: 'transparent' | 'opaque';
+    refs: ImageRef[];
+    /** Overrides AI_OPENAI_TIMEOUT_MS (never raises it): the caller's remaining time budget. */
+    timeoutMs?: number;
+  },
 ): Promise<{ ok: true; png: Uint8Array } | { ok: false; reason: AiFailure }> {
   const fields = {
     model: AI_IMAGE_MODEL,
@@ -151,6 +158,7 @@ export async function generateImage(
     output_format: 'png',
   } as const;
 
+  const timeoutMs = Math.max(1, Math.min(AI_OPENAI_TIMEOUT_MS, req.timeoutMs ?? AI_OPENAI_TIMEOUT_MS));
   let result: OpenAiResult;
   if (req.refs.length === 0) {
     result = await postOpenAi(cfg, 'images/generations', fields, timeoutMs);

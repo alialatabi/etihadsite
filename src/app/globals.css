@@ -210,6 +210,8 @@
   }
   html {
     @apply font-sans;
+    /* A focused or anchored element scrolls into view below the sticky header, not under it. */
+    scroll-padding-top: var(--header-h);
   }
   h1, h2, h3, h4 {
     @apply font-heading;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CloudUpload, FileText, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common } from '@/content/ar';
@@ -23,6 +23,9 @@ export function DesignStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
 
 function UploadDesign({ b }: { b: BuilderApi }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLButtonElement>(null);
+  const replaceRef = useRef<HTMLButtonElement>(null);
+  const wasDecoding = useRef(false);
   const [dragging, setDragging] = useState(false);
   const { design, decoding, designError, shape } = b;
 
@@ -30,6 +33,17 @@ function UploadDesign({ b }: { b: BuilderApi }) {
     const f = files?.[0];
     if (f) void b.onFile(f);
   };
+
+  // The control that had focus is disabled (then removed) while the file is read, so focus falls to <body>:
+  // when reading ends and nothing else has focus, put it back on the control that now stands in its place.
+  useEffect(() => {
+    const done = wasDecoding.current && !decoding;
+    wasDecoding.current = decoding;
+    if (!done) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    (design ? replaceRef.current : dropRef.current)?.focus();
+  }, [decoding, design]);
 
   const prefill = design && shape ? pdfPrefillUm(design, shape) : null;
   const acceptedCopy = shape === 'custom' ? builder.upload.acceptedCustom : builder.upload.accepted;
@@ -45,14 +59,21 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         accept={ACCEPTED_EXTENSIONS.join(',')}
         className="sr-only"
         tabIndex={-1}
+        aria-hidden="true"
         onChange={(e) => {
           pick(e.target.files);
           e.target.value = ''; // allow re-picking the same file
         }}
       />
 
+      {/* Always mounted (a region added together with its text is announced unreliably); empty when idle. */}
+      <p role="status" className="sr-only">
+        {decoding ? common.status.loading : ''}
+      </p>
+
       {!design && (
         <button
+          ref={dropRef}
           type="button"
           disabled={decoding}
           onClick={() => inputRef.current?.click()}
@@ -74,7 +95,7 @@ function UploadDesign({ b }: { b: BuilderApi }) {
           {decoding ? (
             <>
               <LoaderCircle className="size-9 animate-spin text-brand" aria-hidden />
-              <span role="status" className="text-sm font-medium">
+              <span className="text-sm font-medium">
                 {common.status.loading}
               </span>
             </>
@@ -106,7 +127,7 @@ function UploadDesign({ b }: { b: BuilderApi }) {
                 </Ltr>{' '}
                 {builder.upload.pixelsUnit}
               </p>
-              <Button type="button" variant="outline" className="h-11 px-4" disabled={decoding} onClick={() => inputRef.current?.click()}>
+              <Button ref={replaceRef} type="button" variant="outline" className="h-11 px-4" disabled={decoding} onClick={() => inputRef.current?.click()}>
                 {decoding ? common.status.loading : builder.upload.replace}
               </Button>
             </div>

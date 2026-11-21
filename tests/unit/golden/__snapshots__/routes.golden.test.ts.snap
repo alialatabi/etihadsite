@@ -3,7 +3,7 @@
 exports[`golden: GET /api/admin/customers (CSV export) > authorised with no customers: header row only 1`] = `
 {
   "bareLfCount": 0,
-  "byteLength": 190,
+  "byteLength": 253,
   "crlfCount": 1,
   "firstThreeBytes": [
     "ef",
@@ -16,10 +16,10 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised with no cust
     "content-disposition=attachment; filename="customers-2026-11-10.csv"",
   ],
   "lines": [
-    "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
+    "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب","يوافق على العروض","تاريخ الموافقة"",
     "",
   ],
-  "sha256": "7899b3304804a07e874a158f9b6d2051edfbefb8dd11de07cf398b20581feccf",
+  "sha256": "4a91bb5067615607bf16de233cd1b998e2e4bfcac13dbb1354386400c9a26b8c",
   "status": 200,
 }
 `;
@@ -29,7 +29,7 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised: exact CSV b
   "almostExpiredStatus": 200,
   "full": {
     "bareLfCount": 1,
-    "byteLength": 664,
+    "byteLength": 757,
     "crlfCount": 4,
     "firstThreeBytes": [
       "ef",
@@ -42,14 +42,14 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised: exact CSV b
       "content-disposition=attachment; filename="customers-2026-11-10.csv"",
     ],
     "lines": [
-      "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
-      ""علي حسين","964 770 123 4567","بغداد","المنصور, شارع 14","قرب ""المطعم""","2","88150","2026-11-01 12:00","2026-11-10 00:30","EP-261110-BBBB"",
+      "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب","يوافق على العروض","تاريخ الموافقة"",
+      ""علي حسين","964 770 123 4567","بغداد","المنصور, شارع 14","قرب ""المطعم""","2","88150","2026-11-01 12:00","2026-11-10 00:30","EP-261110-BBBB","لا",""",
       ""'=HYPERLINK(""http://evil.example"",""x"")","964 780 111 2222","البصرة","","'+964 line
-second line","1","0","2026-11-05 15:00","2026-11-05 15:00","EP-261105-CCCC"",
-      ""","964 750 111 2222","أربيل","'-عنكاوا","'@home	tab","1","0","2026-10-31 23:59","2026-10-31 23:59","EP-261031-DDDD"",
+second line","1","0","2026-11-05 15:00","2026-11-05 15:00","EP-261105-CCCC","لا",""",
+      ""","964 750 111 2222","أربيل","'-عنكاوا","'@home	tab","1","0","2026-10-31 23:59","2026-10-31 23:59","EP-261031-DDDD","لا",""",
       "",
     ],
-    "sha256": "268a83ce2686405e0207680d3898d66da199cde5069c7ff5ce1e025064757e6a",
+    "sha256": "fad86bd4772400e48af31df61bf838e6ec4e7c96803babd4ccf456813e5a5e77",
     "status": 200,
   },
   "newYearsEve": "attachment; filename="customers-2026-12-31.csv"",
@@ -576,20 +576,19 @@ exports[`golden: POST /api/upload > rejections and accepted files (max upload si
   "idsAreUnique": true,
   "metas": [
     "application/pdf bytes=9 createdAt=2026-11-10T09:00:00.000Z name(7)=doc.bin",
-    "image/jpeg bytes=6 createdAt=2026-11-10T09:00:00.000Z name(9)=photo.pdf",
-    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(17)=تصميم نهائي ١.png",
-    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(200)=abcxxxxxxxxx…xxxxxx",
-    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
-    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
-    "image/png bytes=11 createdAt=2026-11-10T09:00:00.000Z name(9)=first.png",
+    "image/jpeg bytes=267 createdAt=2026-11-10T09:00:00.000Z name(9)=photo.pdf",
     "image/png bytes=2000 createdAt=2026-11-10T09:00:00.000Z name(7)=max.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(17)=تصميم نهائي ١.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(200)=abcxxxxxxxxx…xxxxxx",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(9)=first.png",
   ],
   "rows": [
     "no Content-Length header -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "Content-Length is not a number -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "Content-Length negative -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "declared length above max + 64 KiB -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
-    "declared length exactly max + 64 KiB (body is smaller) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "declared length exactly max + 64 KiB (body is smaller) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
     "body larger than the cap although the header says 100 -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
     "JSON body instead of multipart -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "multipart content-type with a broken body -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
@@ -601,17 +600,16 @@ exports[`golden: POST /api/upload > rejections and accepted files (max upload si
     "file of 2001 bytes (max is 2000) -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
     "GIF labelled image/png -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
     "text file -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
-    "PNG by magic bytes (11 bytes, not a decodable image) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "PNG by magic bytes (11 bytes, not a decodable image) -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "PNG of exactly 2000 bytes -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":2000}",
-    "JPEG labelled application/pdf -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"jpeg","bytes":6}",
+    "JPEG labelled application/pdf -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"jpeg","bytes":267}",
     "PDF header -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"pdf","bytes":9}",
-    "two "file" parts: the first one is used -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
-    "name with control characters and 300 chars -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
-    "Arabic file name -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":11}",
+    "two "file" parts: the first one is used -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
+    "name with control characters and 300 chars -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
+    "Arabic file name -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
   ],
-  "storedUploads": 8,
+  "storedUploads": 7,
   "uploadEvents": [
-    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
     "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
     "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
     "upload {"kind":"jpeg"} device=mobile ts=2026-11-10T09:00:00.000Z",
@@ -670,11 +668,11 @@ exports[`golden: POST /api/upload/direct > local storage always answers mode "se
 exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every outcome, what is stored, deleted and tracked 1`] = `
 {
   "broken": "storage down -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
-  "fallback": "no saveUploadMeta -> 200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+  "fallback": "no saveUploadMeta -> 200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
   "logged": [
     [
       "[upload/direct/commit] failed",
-      "GOLDEN storage down (readUpload)",
+      "GOLDEN storage down (uploadInfo)",
     ],
   ],
   "out": {
@@ -685,12 +683,12 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
         "upload {"kind":"jpeg"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
       "metaSaved": {
-        "bytes": 5,
+        "bytes": 267,
         "createdAt": "2026-11-10T09:00:00.000Z",
         "mime": "image/jpeg",
         "originalName": "design",
       },
-      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"jpeg","bytes":5}",
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"jpeg","bytes":267}",
     },
     "PDF committed, name sanitised and cut to 200": {
       "binStillThere": true,
@@ -706,6 +704,15 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       },
       "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"pdf","bytes":9}",
     },
+    "PNG by magic bytes, not a decodable image": {
+      "binStillThere": false,
+      "deleted": [
+        "uploads/abcDEF_123-xyz.bin",
+      ],
+      "events": [],
+      "metaSaved": null,
+      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    },
     "PNG committed": {
       "binStillThere": true,
       "deleted": [],
@@ -713,12 +720,12 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
         "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
       "metaSaved": {
-        "bytes": 11,
+        "bytes": 66,
         "createdAt": "2026-11-10T09:00:00.000Z",
         "mime": "image/png",
         "originalName": "logo.png",
       },
-      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "already committed but the stored bytes are unsupported": {
       "binStillThere": true,
@@ -742,7 +749,7 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
         "mime": "image/png",
         "originalName": "first-name.png",
       },
-      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "empty file": {
       "binStillThere": false,
@@ -760,12 +767,12 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
         "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
       "metaSaved": {
-        "bytes": 11,
+        "bytes": 66,
         "createdAt": "2026-11-10T09:00:00.000Z",
         "mime": "image/png",
         "originalName": "design",
       },
-      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "file above settings.maxUploadBytes (1024)": {
       "binStillThere": false,
@@ -818,10 +825,10 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
   },
   "saved": [
     {
-      "bytes": 11,
+      "bytes": 66,
       "id": "abcDEF_123-xyz",
       "meta": {
-        "bytes": 11,
+        "bytes": 66,
         "createdAt": "2026-11-10T09:00:00.000Z",
         "mime": "image/png",
         "originalName": "logo.png",

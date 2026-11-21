@@ -94,6 +94,9 @@ export function useBuilder(settings: ShopSettings) {
   // null = the customer never typed a count: the box shows the minimum for the current layout.
   const [typedStickers, setTypedStickers] = useState<string | null>(null);
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
+  // WhatsApp-offers opt-in: session-only React state, unticked on every fresh page. Deliberately not in `fields`:
+  // it is never written to the draft or to sessionStorage, so it can never come back pre-ticked.
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   // Restore after a reload: the step to open (null = nothing to restore) and whether the design file is back.
@@ -627,6 +630,8 @@ export function useBuilder(settings: ShopSettings) {
     summary,
     fields,
     setField,
+    marketingOptIn,
+    setMarketingOptIn,
     validation,
     customerErrors,
     setShowErrors,

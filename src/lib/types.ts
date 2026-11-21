@@ -375,6 +375,13 @@ export interface CustomerInfo {
   district: string;
   landmark: string;
   notes?: string;
+  /**
+   * The customer ticked «ابعثولي عروض وخصومات على الواتساب» on this order (optional, unticked by default).
+   * Request: omitted = false. Stored on the order only when true, together with marketingOptInAt.
+   */
+  marketingOptIn?: boolean;
+  /** ISO 8601 UTC: when the box was ticked (the order's createdAt). Only on a stored order that opted in. */
+  marketingOptInAt?: string;
 }
 
 /** Body of POST /api/orders (JSON). The design was uploaded earlier via POST /api/upload. */
@@ -561,11 +568,19 @@ export interface StorageAdapter {
   readonly directUploadMaxBytes?: number;
   /** Optional: write only the meta of a direct upload whose bytes the server has checked. */
   saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
+  /**
+   * Optional: what a committed upload looks like WITHOUT reading its bytes: the stored meta and
+   * the size of the .bin. null when the meta is missing or unreadable, the .bin is gone, or the
+   * storage's answer was not a clean success (unknown): a null is NOT proof that the upload is
+   * missing, so the commit step asks readUpload() before treating it as missing (the AI reference
+   * pre-check treats it as an invalid reference, which costs nothing). Only a thrown network error propagates. Lets the commit step answer a retry cheaply.
+   */
+  uploadInfo?(uploadId: string): Promise<{ meta: StoredFileMeta; size: number } | null>;
   /** Optional: short-lived signed download URL for an admin download. */
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 
   /**
-   * Optional (retention purge, owner decision D10). Looks only at items created in
+   * Optional (retention purge, owner decision D10). Deletes only items created in
    * [cutoff − PURGE_WINDOW_DAYS, cutoff). Orders created from KEEP_DESIGNS_FROM on keep their
    * record and design forever and lose only their print PDF; older orders keep the old rule
    * (record, PDF and design removed). Uploads that no order and no AI generation uses are
@@ -733,6 +748,13 @@ export interface CustomerRecord {
   totalIqd: number;
   lastOrderId: string;
   lastDisplayNo: string;
+  /**
+   * WhatsApp offers consent. The LATEST order's explicit choice wins (an order without the box ticked withdraws it).
+   * Absent = never opted in (rows from before the opt-in existed, or a customer who never ticked).
+   */
+  marketingOptIn?: boolean;
+  /** ISO 8601 UTC of the latest opt-in; null once withdrawn. Absent with `marketingOptIn`. */
+  marketingOptInAt?: string | null;
 }
 
 /* ────────────────────────────── Notification ───────────────────────────── */

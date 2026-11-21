@@ -229,8 +229,16 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
       "landmark": "أقرب نقطة دالة",
       "orders": "الطلبات",
       "spent": "المجموع",
-      "last": "آخر طلب"
+      "last": "آخر طلب",
+      "marketing": "يوافق على العروض",
+      "marketingAt": "تاريخ الموافقة"
     },
+    "marketingYes": "نعم",
+    "marketingNo": "لا",
+    "marketingBadge": "عروض واتساب",
+    "marketingFilter": "واتساب عروض",
+    "marketingDownload": "تنزيل قائمة العروض",
+    "marketingCsvFile": "customers-offers",
     "firstOrder": "أول طلب",
     "lastNo": "رقم آخر طلب",
     "call": "اتصال",
@@ -319,13 +327,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3137,
+  "chars": 3228,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "d2a9497fb3ec4fa6d52a63dd63cc7b5484e7ba56da7bb9256354783ab79914d5",
-  "strings": 232,
+  "sha256OfRawJson": "1c5d24fa3994d9fd1050e069ccabd8bed46ae58ac5dc1c93fe9c70575495efff",
+  "strings": 240,
 }
 `;
 
@@ -396,6 +404,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "tooMuchText": "كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}",
     "generating": "جاري تصميم ستيكرك… (حوالي 15 ثانية)",
     "printedText": "الكتابة:",
+    "resultAlt": "التصميم المقترح",
     "remaining": "باقيلك {n} {attempts} اليوم",
     "attempts": {
       "zero": "محاولات",
@@ -475,6 +484,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "quickPicks": "اختيار سريع",
     "discountTitle": "كل ما زاد العدد، زاد الخصم",
     "discountWord": "خصم",
+    "beforeDiscountSr": "السعر قبل الخصم:",
     "nudgeAdd": "زيد",
     "nudgeGet": "وتاخذ خصم",
     "unitPrice": "سعر الورقة",
@@ -512,6 +522,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "landmarkPlaceholder": "مثلاً: قرب مطعم المنصور، شارع الصناعة",
     "notes": "ملاحظات",
     "notesOptional": "(اختياري)",
+    "marketingOptIn": "ابعثولي عروض وخصومات على الواتساب (اختياري)",
     "consent": "اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.",
     "submit": "أرسل الطلب",
     "errors": {
@@ -561,13 +572,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3981,
+  "chars": 4055,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "9561ad9736c5602a12cbe3e6dc110dfbbf17977f377bb1029f947890eb5da2cf",
-  "strings": 181,
+  "sha256OfRawJson": "583dac0710a6b2a70b404f4322d3637386afb000e6e5e2f4dc43a0df83e2c2bf",
+  "strings": 184,
 }
 `;
 

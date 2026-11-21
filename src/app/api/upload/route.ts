@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { BodyTooLarge, declaredLength, readCapped } from "../_lib/body";
+import { rasterHeaderOk } from "../_lib/image-header";
 import { cleanOriginalName, uploadFail, uploadOk } from "../_lib/upload";
 import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
@@ -46,6 +47,8 @@ export async function POST(request: Request): Promise<Response> {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const kind = sniffKind(bytes);
     if (!kind) return uploadFail("unsupported_type");
+    // Magic bytes alone prove nothing: a PNG/JPEG must have a readable header within the pixel cap (PDFs are never judged).
+    if (!(await rasterHeaderOk(bytes, kind))) return uploadFail("corrupt");
 
     const uploadId = nanoid();
     const originalName = cleanOriginalName(file.name);

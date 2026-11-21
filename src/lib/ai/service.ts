@@ -26,17 +26,20 @@ import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind } from '@/lib/types';
+import type { AiKind, AiReserveResult } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
   AI_BRIEF_SITE,
   AI_IDEA_MAX_CHARS,
+  AI_AFTER_OPENAI_SAFETY_MS,
   AI_IMAGE_MODEL,
   AI_LINE_MAX_CHARS,
   AI_MAX_LINES,
   AI_MAX_REFS,
+  AI_MIN_OPENAI_BUDGET_MS,
   AI_OPENAI_TIMEOUT_MS,
+  AI_ROUTE_MAX_DURATION_MS,
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
@@ -277,15 +280,49 @@ const genFail = (error: GenerateError, retryAfterSec?: number): GenerateOutcome 
   ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
 });
 
-/** runGenerate's own deadline from its start: 10 s inside the route's maxDuration (120 s) for the answer. */
-export const GENERATE_DEADLINE_MS = 110_000;
-/** Time kept back from the deadline for normalising, storing and answering after OpenAI. */
-const AFTER_OPENAI_MS = 10_000;
-/** Less than this left for OpenAI: answer `failed` before reserving (a high-quality image takes longer). */
-const MIN_OPENAI_MS = 20_000;
+/**
+ * How long the OpenAI image call may run, given the time already spent in this request: the route's
+ * `maxDuration` less `elapsedMs` less the time the save needs afterwards, capped at
+ * AI_OPENAI_TIMEOUT_MS. null when less than AI_MIN_OPENAI_BUDGET_MS is left, i.e. the call must not
+ * start (a platform kill after OpenAI charged would keep the use and show the customer nothing).
+ */
+export function openAiTimeoutMs(elapsedMs: number): number | null {
+  const budget = AI_ROUTE_MAX_DURATION_MS - Math.max(0, elapsedMs) - AI_AFTER_OPENAI_SAFETY_MS;
+  if (budget < AI_MIN_OPENAI_BUDGET_MS) return null;
+  return Math.min(AI_OPENAI_TIMEOUT_MS, budget);
+}
 
-export async function runGenerate(request: Request, json: unknown): Promise<GenerateOutcome> {
-  const deadline = Date.now() + GENERATE_DEADLINE_MS;
+/**
+ * Non-atomic, read-only look at the stored counters and blocks, run before the reference images
+ * are downloaded: what `aiReserve` would answer right now when it is already a refusal, else null.
+ * Same order as the reservation (blocked, site cap, per-IP cap). It only saves work: the atomic
+ * reservation still decides, and any read failure here just means "no opinion".
+ */
+async function precheckAi(
+  storage: AiStorage,
+  a: { day: string; ip: string; ipKey: string; perIpLimit: number; siteLimit: number },
+): Promise<Exclude<AiReserveResult, 'ok'> | null> {
+  if (!storage.aiListBlocks || !storage.aiUsage) return null;
+  try {
+    const [blocks, usage] = await Promise.all([storage.aiListBlocks(), storage.aiUsage(a.day)]);
+    // By key, or by the full IP (a new SESSION_SECRET changes every key; it must not lift blocks). Same as the reservation.
+    if (blocks.some((b) => b.ipKey === a.ipKey || (a.ip !== '' && b.ip === a.ip))) return 'blocked';
+    const rows = usage.filter((r) => r.day === a.day && r.kind === 'image');
+    if (rows.reduce((n, r) => n + r.count, 0) >= a.siteLimit) return 'site_limit';
+    const mine = rows.find((r) => r.ipKey === a.ipKey);
+    if (a.ipKey !== '' && (mine?.count ?? 0) >= a.perIpLimit) return 'ip_limit';
+  } catch {
+    // No opinion: the reservation below decides.
+  }
+  return null;
+}
+
+/**
+ * `startedAt`: when the route started (before the body read, which counts against its `maxDuration`);
+ * without it the budget starts here. `clock` is for tests only (the time budget).
+ */
+export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now, startedAt?: number): Promise<GenerateOutcome> {
+  const started = startedAt ?? clock();
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return genFail('invalid_request');
   const req = parsed.data;
@@ -311,8 +348,29 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const rl = limiters().generate.check(ip || 'global');
   if (!rl.ok) return genFail('ip_limit', rl.retryAfterSec);
 
-  // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing. Read in
-  // parallel (each is a storage round trip); any bad one refuses the request.
+  const day = shopDayKey(new Date());
+  const perIpLimit = settings.ai.perIpDailyLimit;
+  const siteLimit = settings.ai.siteDailyLimit;
+
+  // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing.
+  // Downloading and decoding them is the expensive part, so first (only when there are refs) a
+  // read-only look answers a blocked IP or a reached cap without touching a single file, and each
+  // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
+  if (req.refUploadIds.length > 0) {
+    const early = await precheckAi(storage, { day, ip, ipKey, perIpLimit, siteLimit });
+    if (early) return genFail(early);
+  }
+  // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
+  // also in parallel); any bad one refuses the request.
+  const uploadInfo = storage.uploadInfo?.bind(storage);
+  if (uploadInfo) {
+    const infos = await Promise.all(req.refUploadIds.map((id) => uploadInfo(id)));
+    for (const info of infos) {
+      if (!info) return genFail('invalid_request');
+      if (info.meta.mime !== 'image/png' && info.meta.mime !== 'image/jpeg') return genFail('invalid_request');
+      if (info.size > settings.maxUploadBytes) return genFail('invalid_request');
+    }
+  }
   const prepared = await Promise.all(
     req.refUploadIds.map(async (id): Promise<ImageRef | null> => {
       const upload = await storage.readUpload(id);
@@ -329,22 +387,20 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   if (prepared.some((r) => r === null)) return genFail('invalid_request');
   const refs = prepared as ImageRef[];
 
-  // What is left for OpenAI before the deadline; too little for an image: not even reserved.
-  const timeoutMs = Math.min(AI_OPENAI_TIMEOUT_MS, deadline - Date.now() - AFTER_OPENAI_MS);
-  if (timeoutMs < MIN_OPENAI_MS) {
-    report('ai.generate', 'no time left for openai', { refs: refs.length }, 'warning');
+  // Time left in this request: with too little for an image call nothing is reserved (the check right before the
+  // call, below, still guards the time the reservation itself took).
+  if (openAiTimeoutMs(clock() - started) === null) {
+    report('ai.generate', 'no time left before reserving', { refs: refs.length }, 'warning');
     return genFail('failed');
   }
 
-  const day = shopDayKey(new Date());
-  const perIpLimit = settings.ai.perIpDailyLimit;
   const reserved = await storage.aiReserve({
     day,
     ipKey,
     ip,
     kind: 'image',
     perIpLimit,
-    siteLimit: settings.ai.siteDailyLimit,
+    siteLimit,
   });
   if (reserved.status !== 'ok') return genFail(reserved.status);
 
@@ -352,6 +408,14 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const giveBack = () => release(storage, { day, ipKey, kind: 'image' }, 'ai.generate');
   let stored: { uploadId: string; png: Uint8Array; pxWidth: number; pxHeight: number };
   try {
+    // Time left in this request: never start (or run) an image call that a platform kill at
+    // maxDuration could cut off after OpenAI has charged.
+    const timeoutMs = openAiTimeoutMs(clock() - started);
+    if (timeoutMs === null) {
+      report('ai.generate', 'no time left for the image call', {}, 'warning');
+      await giveBack();
+      return genFail('failed');
+    }
     const size = imageRequestSize(req.shape, req.widthUm, req.heightUm);
     const result = await generateImage(cfg, {
       prompt: buildImagePrompt({
@@ -366,7 +430,8 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
       size: size.size,
       background: size.background,
       refs,
-    }, timeoutMs);
+      timeoutMs,
+    });
     if (!result.ok) {
       await giveBack();
       return genFail(result.reason === 'refused' ? 'refused' : 'failed');

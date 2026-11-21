@@ -66,6 +66,7 @@ export const builder = {
     tooMuchText: 'كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}',
     generating: 'جاري تصميم ستيكرك… (حوالي 15 ثانية)',
     printedText: 'الكتابة:',
+    resultAlt: 'التصميم المقترح',
     /** {n} = the number, {attempts} = its plural form (attempts below, via count()). */
     remaining: 'باقيلك {n} {attempts} اليوم',
     attempts: { zero: 'محاولات', one: 'محاولة', two: 'محاولتين', few: 'محاولات', many: 'محاولة', other: 'محاولة' },
@@ -140,6 +141,8 @@ export const builder = {
     quickPicks: 'اختيار سريع',
     discountTitle: 'كل ما زاد العدد، زاد الخصم',
     discountWord: 'خصم',
+    /** Screen-reader-only prefix of the struck-through price per sheet. */
+    beforeDiscountSr: 'السعر قبل الخصم:',
     nudgeAdd: 'زيد',
     nudgeGet: 'وتاخذ خصم',
     unitPrice: 'سعر الورقة',
@@ -177,6 +180,7 @@ export const builder = {
     landmarkPlaceholder: 'مثلاً: قرب مطعم المنصور، شارع الصناعة',
     notes: 'ملاحظات',
     notesOptional: '(اختياري)',
+    marketingOptIn: 'ابعثولي عروض وخصومات على الواتساب (اختياري)',
     consent: 'اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.',
     submit: 'أرسل الطلب',
     errors: {
