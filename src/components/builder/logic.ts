@@ -245,7 +245,7 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   // A form saved by an older page has `sheetsText` (a sheet count): it is ignored on purpose.
   if (typeof saved.stickersText === 'string' && saved.stickersText.trim()) r.stickersText = saved.stickersText;
   if (typeof saved.step === 'number' && Number.isInteger(saved.step) && saved.step >= 0 && saved.step < STEPS.length) r.step = saved.step;
-  if (typeof saved.fileId === 'string' && saved.fileId.length > 0 && saved.fileId.length <= 64) r.fileId = saved.fileId;
+  if (isDraftId(saved.fileId)) r.fileId = saved.fileId;
   // AI designer fields (optional; older drafts have none of them).
   if (typeof saved.mode === 'string' && BUILDER_MODES.includes(saved.mode)) r.mode = saved.mode;
   if (typeof saved.idea === 'string' && saved.idea.length > 0) r.idea = saved.idea.slice(0, AI_IDEA_MAX_CHARS);
