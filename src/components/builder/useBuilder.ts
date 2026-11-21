@@ -42,30 +42,16 @@ const RESTORE_TIMEOUT_MS = 10_000;
 
 /** Object URL hygiene: revokes the previous URL when `url` changes, and the last one on unmount. */
 function useRevokeObjectUrl(url: string | null): void {
-  const urlRef = useRef<string | null>(null);
   useEffect(() => {
-    const prev = urlRef.current;
-    if (prev && prev !== url) {
+    if (!url) return;
+    return () => {
       try {
-        URL.revokeObjectURL(prev);
+        URL.revokeObjectURL(url);
       } catch {
         /* ignore */
       }
-    }
-    urlRef.current = url;
+    };
   }, [url]);
-  useEffect(
-    () => () => {
-      if (urlRef.current) {
-        try {
-          URL.revokeObjectURL(urlRef.current);
-        } catch {
-          /* ignore */
-        }
-      }
-    },
-    [],
-  );
 }
 
 /** Analytics: one 'step' event per step per session (still sent when sessionStorage throws). */
