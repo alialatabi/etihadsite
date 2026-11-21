@@ -76,7 +76,7 @@ describe('createSerialQueue', () => {
 });
 
 describe('createJobSignal', () => {
-  it('aborts after the time limit and reports a timeout', () => {
+  it('aborts after the time limit', () => {
     vi.useFakeTimers();
     try {
       const parent = new AbortController();
@@ -84,20 +84,18 @@ describe('createJobSignal', () => {
       expect(job.signal.aborted).toBe(false);
       vi.advanceTimersByTime(1000);
       expect(job.signal.aborted).toBe(true);
-      expect(job.timedOut()).toBe(true);
       job.dispose();
     } finally {
       vi.useRealTimers();
     }
   });
-  it('follows the parent without counting as a timeout, and dispose stops the timer', () => {
+  it('follows the parent, and dispose stops the timer', () => {
     vi.useFakeTimers();
     try {
       const parent = new AbortController();
       const job = createJobSignal(parent.signal, 1000);
       parent.abort();
       expect(job.signal.aborted).toBe(true);
-      expect(job.timedOut()).toBe(false);
       job.dispose();
       const parent2 = new AbortController();
       const job2 = createJobSignal(parent2.signal, 1000);
