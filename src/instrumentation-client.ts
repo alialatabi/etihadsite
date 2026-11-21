@@ -1,12 +1,21 @@
 /**
- * Browser error monitoring (Sentry). Runs before the app becomes interactive. Errors only: no
+ * Browser startup code: the BotID bot check (startBotId, below) and error monitoring (Sentry). Runs
+ * before the app becomes interactive. Sentry: errors only: no
  * tracing, no session replay, no profiling, no logs. A no-op while NEXT_PUBLIC_SENTRY_DSN is unset.
  * Everything sent passes through the scrubber (src/lib/monitoring/scrub.ts).
  * The tracing hook `onRouterTransitionStart` is deliberately not exported.
  */
 import * as Sentry from '@sentry/nextjs';
 import { SENTRY_DATA_COLLECTION, SENTRY_TUNNEL_PATH, sentryDsn } from '@/lib/monitoring/config';
+import { startBotId } from '@/lib/botid-client';
 import { makeScrubbers } from '@/lib/monitoring/scrub';
+
+// Bot check for the public POST routes (see docs/ARCHITECTURE.md section 4, BOTID_ENFORCE). Never throws.
+try {
+  startBotId();
+} catch {
+  // BotID is optional: the site works without it.
+}
 
 const dsn = sentryDsn();
 

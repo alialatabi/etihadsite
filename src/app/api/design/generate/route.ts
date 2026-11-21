@@ -1,4 +1,5 @@
 import { readJsonCapped } from "../../_lib/body";
+import { botBlocked } from "@/lib/botid";
 import { reportError } from "@/lib/monitoring/report";
 import {
   AI_BODY_MAX_BYTES,
@@ -21,6 +22,9 @@ export async function POST(request: Request): Promise<Response> {
       status: body.ok ? 200 : GENERATE_STATUS[body.error],
       headers: retryAfterSec !== undefined ? { "Retry-After": String(retryAfterSec) } : undefined,
     });
+
+  // Bot check (log-only unless BOTID_ENFORCE=1): the 403 answer of this route.
+  if (await botBlocked("/api/design/generate")) return send({ ok: false, error: "blocked" });
 
   let json: unknown;
   try {

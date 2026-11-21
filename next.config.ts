@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 /**
@@ -6,6 +7,8 @@ import { withSentryConfig } from "@sentry/nextjs/config";
  *   see docs/STACK_NOTES.md. Dynamic pages opt in with `export const dynamic = 'force-dynamic'`.
  * - sharp and pdf-lib stay external to the server bundle.
  * - pdfjs-dist optionally requires `canvas`; alias it to an empty module.
+ * - Bot check (Vercel BotID): `withBotId` adds two rewrites and one header rule, all under its own
+ *   fixed random path prefix (botid/next/config), never under /staff. See docs/ARCHITECTURE.md section 4.
  * - Security headers: one site-wide rule (see `securityHeaders`), and no `X-Powered-By`.
  */
 export const securityHeaders = [
@@ -46,7 +49,7 @@ const nextConfig: NextConfig = {
  * The browser tunnel is configured in src/instrumentation-client.ts (tunnel) and
  * src/sentry.server.config.ts (serveTunnelIntegration), not here (the `tunnelRoute` option is deprecated).
  */
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(withBotId(nextConfig), {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,

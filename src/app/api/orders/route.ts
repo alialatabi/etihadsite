@@ -1,5 +1,6 @@
 import { BodyTooLarge, readJsonCapped } from "../_lib/body";
 import { trackServer } from "@/lib/analytics/server";
+import { botBlocked } from "@/lib/botid";
 import { builder, order } from "@/content/ar";
 import { getOrderEnv } from "@/lib/env";
 import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
@@ -335,6 +336,8 @@ export async function POST(request: Request): Promise<Response> {
       return send(fail("rate_limited"), {
         "Retry-After": String(rl.retryAfterSec),
       });
+    // Bot check (log-only unless BOTID_ENFORCE=1), still before the body is read.
+    if (await botBlocked("/api/orders")) return send(fail("captcha_failed"));
 
     let json: unknown;
     try {

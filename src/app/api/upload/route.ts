@@ -4,6 +4,7 @@ import { rasterHeaderOk } from "../_lib/image-header";
 import { cleanOriginalName, uploadFail, uploadOk } from "../_lib/upload";
 import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
+import { botBlocked } from "@/lib/botid";
 import { clientIp, limiters } from "@/lib/rate-limit";
 import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
@@ -20,6 +21,8 @@ export async function POST(request: Request): Promise<Response> {
     const rl = limiters().upload.check(clientIp(request));
     if (!rl.ok)
       return uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
+    // Bot check (log-only unless BOTID_ENFORCE=1). The upload errors have no 403, so the nearest one is used.
+    if (await botBlocked("/api/upload")) return uploadFail("rate_limited");
 
     const settings = await getSettings();
     const max = settings.maxUploadBytes;
