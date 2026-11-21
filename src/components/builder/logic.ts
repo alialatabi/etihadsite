@@ -78,8 +78,8 @@ export const FORM_KEY = 'ub:form:v1';
 export const SUCCESS_KEY = 'ub:order-success:v1';
 /** localStorage key of the draft envelope `{ v, savedAt, form }` (the plain form stays in sessionStorage under FORM_KEY). */
 export const DRAFT_KEY = 'ub:draft:v1';
-/** A saved draft (form and design file) is dropped after this long. */
-export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** A saved draft (form, arrangement and design file) is dropped after this long: 2 hours (owner decision 2026-11-21). */
+export const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
 
 export type DpiStatus = 'ok' | 'warn' | 'block';
 

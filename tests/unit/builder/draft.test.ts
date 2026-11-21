@@ -98,6 +98,12 @@ describe('restoredState with a step', () => {
 });
 
 describe('draft expiry', () => {
+  it('keeps a draft for 2 hours (owner decision 2026-11-21)', () => {
+    expect(DRAFT_TTL_MS).toBe(2 * 60 * 60 * 1000);
+    expect(isDraftExpired(NOW - (2 * 60 - 1) * 60 * 1000, NOW)).toBe(false);
+    expect(isDraftExpired(NOW - (2 * 60 + 1) * 60 * 1000, NOW)).toBe(true);
+  });
+
   it('fresh, exactly at the limit, and past it', () => {
     expect(isDraftExpired(NOW - 1000, NOW)).toBe(false);
     expect(isDraftExpired(NOW - DRAFT_TTL_MS, NOW)).toBe(false);
