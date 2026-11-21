@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Sparkles, type Lu
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
 import { fillLtr } from '@/components/fill-ltr';
-import { getSettings } from '@/lib/settings';
+import { getSettings, toPublicSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -101,7 +101,7 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
-      <Builder settings={settings} />
+      <Builder settings={toPublicSettings(settings)} />
     </>
   );
 }
