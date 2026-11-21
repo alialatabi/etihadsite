@@ -18,13 +18,15 @@ import type { ImageRef } from './openai';
 
 const OPAQUE_FROM = 250;
 const CLEAR_UPTO = 8;
+/** Decompression-bomb guard on every input: a refused image throws before it is decoded. */
+const INPUT = { limitInputPixels: 40_000_000 } as const;
 
 export async function normaliseGenerated(
   png: Uint8Array,
   shape: Shape,
 ): Promise<{ png: Uint8Array; pxWidth: number; pxHeight: number }> {
   if (shape !== 'custom') {
-    const { data, info } = await sharp(png)
+    const { data, info } = await sharp(png, INPUT)
       .flatten({ background: '#ffffff' })
       .removeAlpha()
       .png()
@@ -32,7 +34,7 @@ export async function normaliseGenerated(
     return { png: new Uint8Array(data), pxWidth: info.width, pxHeight: info.height };
   }
 
-  const { data, info } = await sharp(png)
+  const { data, info } = await sharp(png, INPUT)
     .toColourspace('srgb')
     .ensureAlpha()
     .raw({ depth: 'uchar' })
@@ -49,15 +51,15 @@ export async function normaliseGenerated(
       data[i + 3] = 0;
     }
   }
-  const out = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+  const out = await sharp(data, { ...INPUT, raw: { width: info.width, height: info.height, channels: 4 } })
     .png()
     .toBuffer();
   return { png: new Uint8Array(out), pxWidth: info.width, pxHeight: info.height };
 }
 
 export async function prepareRef(bytes: Uint8Array): Promise<ImageRef> {
-  const { hasAlpha } = await sharp(bytes).metadata();
-  const pipeline = sharp(bytes)
+  const { hasAlpha } = await sharp(bytes, INPUT).metadata();
+  const pipeline = sharp(bytes, INPUT)
     .rotate()
     .resize({ width: AI_REF_LONG_SIDE, height: AI_REF_LONG_SIDE, fit: 'inside', withoutEnlargement: true });
   if (hasAlpha) {

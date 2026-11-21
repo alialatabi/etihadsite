@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
+import { crc32 } from 'node:zlib';
 import { normaliseGenerated, prepareRef } from '@/lib/ai/normalise';
 
 /**
@@ -59,6 +60,26 @@ describe('normaliseGenerated', () => {
     expect(meta.format).toBe('png');
     expect(meta.hasAlpha).toBe(false);
     expect(meta.channels).toBe(3);
+  });
+});
+
+/** A tiny valid PNG whose IHDR claims 8000×8000 (64 MP > the 40 MP limit); CRC recomputed. */
+async function oversizedPng(): Promise<Uint8Array> {
+  const png = Buffer.from(await sharp({ create: { width: 2, height: 2, channels: 4, background: '#ff0000' } }).png().toBuffer());
+  // Signature (8) + length (4) + "IHDR" (4) → width at 16, height at 20; CRC over type+data at 29.
+  png.writeUInt32BE(8000, 16);
+  png.writeUInt32BE(8000, 20);
+  png.writeUInt32BE(crc32(png.subarray(12, 29)), 29);
+  return new Uint8Array(png);
+}
+
+describe('pixel limit', () => {
+  it('an oversized-dimension image is rejected (throws)', async () => {
+    const bomb = await oversizedPng();
+    expect((await sharp(bomb, { limitInputPixels: false }).metadata()).width).toBe(8000);
+    await expect(prepareRef(bomb)).rejects.toThrow(/pixel limit/i);
+    await expect(normaliseGenerated(bomb, 'custom')).rejects.toThrow(/pixel limit/i);
+    await expect(normaliseGenerated(bomb, 'circle')).rejects.toThrow(/pixel limit/i);
   });
 });
 
