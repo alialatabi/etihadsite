@@ -298,7 +298,6 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { name: 'order-old-0001.pdf', created_at: '2026-09-20T00:00:00.000Z' },
     ]),
     json([]), // not past the window start yet: one more (empty) page
-    json([]), // no kept order uses upload-old-0001.bin (the "still used?" check by path)
   ];
 
   // New rule (orders from KEEP_DESIGNS_FROM on): dates derive from the constant so the owner can move it.

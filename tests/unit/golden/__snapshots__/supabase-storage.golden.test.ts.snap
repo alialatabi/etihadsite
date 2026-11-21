@@ -577,7 +577,6 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
-      "GET /rest/v1/orders?select=files:record->files&created_at=gte.2026-10-11T09%3A00%3A00.000Z&record->files->>designPath=in.(%22uploads%2Fupload-old-0001.bin%22)&order=order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
     ],
     "result": [
       "order:order-old-0001",
@@ -604,7 +603,6 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
-      "GET /rest/v1/orders?select=files:record->files&created_at=gte.2026-10-11T09%3A00%3A00.000Z&record->files->>designPath=in.(%22uploads%2Fupload-old-0001.bin%22)&order=order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
     ],
     "result": [
       "uploads/upload-uncommitted-1h.bin",
@@ -653,7 +651,6 @@ exports[`golden: SupabaseStorage — retention purge and failures > purgeOlderTh
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"uploads","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":0,"sortBy":{"column":"created_at","order":"desc"}}",
       "POST /storage/v1/object/list/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefix":"orders","limit":1000,"offset":5,"sortBy":{"column":"created_at","order":"desc"}}",
-      "GET /rest/v1/orders?select=files:record->files&created_at=gte.2026-10-11T09%3A00%3A00.000Z&record->files->>designPath=in.(%22uploads%2Fupload-old-0001.bin%22)&order=order_id.asc | auth=ok cache=no-store timeout=30000ms headers={"Range":"0-999","Range-Unit":"items"} | body=(none)",
       "DELETE /storage/v1/object/etihad | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"prefixes":["orders/order-old-0001.pdf","uploads/upload-old-0001.bin","uploads/upload-old-0001.json","orders/order-old-0002.pdf","uploads/upload-uncommitted-4h.bin","uploads/upload-orphan-old.bin","uploads/upload-orphan-old.json"]}",
       "DELETE /rest/v1/orders?order_id=in.(order-old-0001,order-old-0002,order-old-0003,order-old-0004)&created_at=lt.2026-10-11T09%3A00%3A00.000Z | auth=ok cache=no-store timeout=10000ms headers={} | body=(none)",
     ],

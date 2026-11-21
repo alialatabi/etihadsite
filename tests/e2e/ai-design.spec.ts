@@ -253,7 +253,20 @@ test.describe('a failed retry keeps the paid result', () => {
     await expect(page.getByText(builder.ai.errors.failed)).toHaveCount(0);
     await accept.click();
 
-    await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+    const sizeHeading = page.getByRole('heading', { level: 2, name: builder.size.title });
+    await expect(sizeHeading).toBeVisible();
+    // Page 1 does not bring the failed retry's message back for the design that was accepted.
+    const back = page.getByRole('button', { name: common.actions.back, exact: true });
+    await back.click();
+    await expect(page.getByRole('heading', { level: 2, name: builder.steps.design })).toBeVisible();
+    await back.click();
+    await expect(page.locator('#ai-idea')).toBeVisible();
+    await expect(page.getByText(builder.ai.errors.failed)).toHaveCount(0);
+    await next(page).click();
+    await expect(page.getByRole('heading', { level: 2, name: builder.steps.design })).toBeVisible();
+    await next(page).click();
+
+    await expect(sizeHeading).toBeVisible();
     await expect(perSheetBadge(page, 54)).toBeVisible();
     await next(page).click();
     await chooseQuantity(page, 'plastic', 1050);

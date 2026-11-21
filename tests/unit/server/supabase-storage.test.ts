@@ -357,7 +357,6 @@ describe("SupabaseStorage purge", () => {
       json([]), // window start not reached: one more (empty) page
       json([{ name: "newOrder0001.pdf", created_at: "2026-11-01T00:00:00Z" }, { name: `${OLD}.pdf`, created_at: "2026-09-20T00:00:00Z" }]),
       json([]),
-      json([]), // no kept order uses the old design
       json([]),
       empty(204),
     );
@@ -373,11 +372,11 @@ describe("SupabaseStorage purge", () => {
     expect(JSON.parse(del.init.body as string).prefixes).toHaveLength(4);
     expect(calls.at(-1)!.url).toContain(`/rest/v1/orders?order_id=in.(${OLD})&created_at=lt.2026-10-08T12%3A00%3A00.000Z`);
     expect(calls.at(-1)!.init.method).toBe("DELETE");
-    // The old-rule read has no lower bound; the "still used?" check asks only for the old design.
+    // The old-rule read has no lower bound.
     expect(calls[2].url).toContain("/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=lt.2026-10-08T12%3A00%3A00.000Z&");
     expect(calls[2].url).not.toContain("gte.");
-    const check = calls.find((c) => c.url.includes("record->files->>designPath=in."))!;
-    expect(check.url).toContain(`created_at=gte.2026-10-08T12%3A00%3A00.000Z&record->files->>designPath=in.(%22uploads%2F${OLD}.bin%22)`);
+    // The cutoff is before the switch: every kept order is in the windowed read, so no "still used?" query.
+    expect(calls.some((c) => c.url.includes("designPath=in."))).toBe(false);
   });
   it("dry run deletes nothing", async () => {
     respond(json([]), json([]), json([]), json([]), json([]));

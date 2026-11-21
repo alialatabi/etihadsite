@@ -620,7 +620,8 @@ export class SupabaseStorage implements StorageAdapter {
     const oldRuleEndQ = encodeURIComponent(oldRuleEnd.toISOString());
     // References are read from a day before the window: an upload is always older than the
     // order or generation that uses it, and the day covers clocks that disagree.
-    const refFrom = encodeURIComponent(new Date(windowStart.getTime() - DAY_MS).toISOString());
+    const refFromDate = new Date(windowStart.getTime() - DAY_MS);
+    const refFrom = encodeURIComponent(refFromDate.toISOString());
     type Row = { order_id: string; created_at: string; files: OrderRecord['files'] | null };
     const windowed = (await this.selectAllPaged(
       `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.${refFrom}&order=created_at.asc,order_id.asc`,
@@ -654,11 +655,14 @@ export class SupabaseStorage implements StorageAdapter {
       }
     }
     for (const g of ai) if (g.upload_id && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
-    // An old-rule design a kept order older than the reference window still uses (the read above
-    // only covers kept orders from `refFrom` on) stays: asked for by path, only when there are any.
-    const unsure = [
-      ...new Set(oldRule.map((o) => o.files?.designPath).filter((d): d is string => !!d && PATH_RE.test(d) && !used.has(d))),
-    ];
+    // Kept orders are those from `oldRuleEnd` on. When that is before `refFrom` (the switch lies
+    // further back than the reference window), the read above misses the older kept ones, so an
+    // old-rule design that one of them still uses is asked for by path before it is deleted.
+    // Otherwise every kept order is already in `used` and nothing is asked.
+    const unsure =
+      oldRuleEnd < refFromDate
+        ? [...new Set(oldRule.map((o) => o.files?.designPath).filter((d): d is string => !!d && PATH_RE.test(d) && !used.has(d)))]
+        : [];
     for (let i = 0; i < unsure.length; i += DESIGN_CHECK_CHUNK) {
       const list = unsure.slice(i, i + DESIGN_CHECK_CHUNK).map((d) => encodeURIComponent(`"${d}"`)).join(',');
       const keptUses = (await this.selectAllPaged(

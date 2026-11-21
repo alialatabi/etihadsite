@@ -248,6 +248,8 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     }
     setAcceptedLines(result.lines);
     replaceResult(undefined);
+    // Accepted after a failed retry: that try's message must not come back on page 1.
+    setError(undefined);
     setPhase('idle');
   }, [b, result, replaceResult, fail]);
 
