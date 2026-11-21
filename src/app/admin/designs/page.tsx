@@ -13,13 +13,12 @@ import { formatBaghdad } from '../_lib';
 import { blockIpAction, unblockIpAction } from './actions';
 import { listAiBlocks } from './blocks';
 import { DesignGrid } from './DesignGrid';
-import { designsSummary, pageFromParam, usageSince } from './summary';
+import { designsSummary, IP_KEY_RE, pageFromParam, usageSince } from './summary';
 
 export const dynamic = 'force-dynamic';
 
 const d = admin.designs;
 const PAGE_SIZE = 48;
-const IP_KEY_RE = /^[0-9a-f]{64}$/;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
