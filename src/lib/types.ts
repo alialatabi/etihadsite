@@ -578,7 +578,7 @@ export interface StorageAdapter {
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 
   /**
-   * Optional (retention purge, owner decision D10). Looks only at items created in
+   * Optional (retention purge, owner decision D10). Deletes only items created in
    * [cutoff − PURGE_WINDOW_DAYS, cutoff). Orders created from KEEP_DESIGNS_FROM on keep their
    * record and design forever and lose only their print PDF; older orders keep the old rule
    * (record, PDF and design removed). Uploads that no order and no AI generation uses are

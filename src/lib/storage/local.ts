@@ -519,7 +519,8 @@ export class LocalStorage implements StorageAdapter {
   /**
    * Retention purge (used by scripts/purge-orders.ts), same rules as the Supabase adapter
    * (owner decision D10). Only orders and uploads created in the window
-   * [cutoff − PURGE_WINDOW_DAYS, cutoff) are looked at:
+   * [cutoff − PURGE_WINDOW_DAYS, cutoff) are deleted (every order file is still read, to learn
+   * what is in use, so the cost grows with the number of orders):
    *   - orders created before KEEP_DESIGNS_FROM (old rule): record, PDF and design removed;
    *   - orders from KEEP_DESIGNS_FROM on: only their print PDF is removed, the record and the
    *     design are kept forever;
