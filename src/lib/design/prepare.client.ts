@@ -21,6 +21,7 @@
  */
 import { effectiveDpi as dpiOf, pxForUmAtDpi } from '@/lib/units';
 import type { DesignSource, NormalisedArtwork, PixelBox, StickerSpec } from '@/lib/types';
+import { ALPHA_STRIP_ROWS, canvasToBlob, makeCanvas, releaseCanvas } from './canvas.client';
 import { isEncryptedPdfError, pdfArtworkBox } from './pdf-box';
 import { MAX_CANVAS_PIXELS, fitToPixelCap, scanAlphaStrips, widthPixelsFor } from './pixels';
 
@@ -34,7 +35,6 @@ export type PrepareOutcome =
   | { ok: false; error: PrepareError };
 
 const JPEG_QUALITY = 0.92;
-const STRIP_ROWS = 256;
 
 const fail = (error: PrepareError): PrepareOutcome => ({ ok: false, error });
 
@@ -50,25 +50,6 @@ export async function prepareArtwork(source: DesignSource, spec: StickerSpec, ta
 
 /* ───────────────────────────────── raster ───────────────────────────────── */
 
-function makeCanvas(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
-/** Frees a canvas' pixel memory now instead of at garbage collection (matters on phones). */
-function release(c: HTMLCanvasElement): void {
-  c.width = 0;
-  c.height = 0;
-}
-
-function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), type, quality);
-  });
-}
-
 function context(canvas: HTMLCanvasElement, readBack = false): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d', readBack ? { willReadFrequently: true } : undefined);
   if (!ctx) throw new Error('no 2d context');
@@ -81,13 +62,13 @@ function context(canvas: HTMLCanvasElement, readBack = false): CanvasRenderingCo
 function scanAlpha(bitmap: ImageBitmap): { hasAlpha: boolean; box: PixelBox | null } {
   const W = bitmap.width;
   const H = bitmap.height;
-  const strip = makeCanvas(W, Math.min(STRIP_ROWS, H));
+  const strip = makeCanvas(W, Math.min(ALPHA_STRIP_ROWS, H));
   const ctx = context(strip, true);
   try {
     return scanAlphaStrips(
       W,
       H,
-      STRIP_ROWS,
+      ALPHA_STRIP_ROWS,
       (y0, rows) => {
         ctx.clearRect(0, 0, W, strip.height);
         ctx.drawImage(bitmap, 0, y0, W, rows, 0, 0, W, rows);
@@ -96,7 +77,7 @@ function scanAlpha(bitmap: ImageBitmap): { hasAlpha: boolean; box: PixelBox | nu
       true,
     );
   } finally {
-    release(strip);
+    releaseCanvas(strip);
   }
 }
 
@@ -146,7 +127,7 @@ async function renderRaster(bitmap: ImageBitmap, region: PixelBox, outW: number,
     for (const [nw, nh] of downscaleSteps(sw, sh, outW, outH)) {
       const next = makeCanvas(nw, nh);
       context(next).drawImage(src, sx, sy, sw, sh, 0, 0, nw, nh);
-      if (step) release(step);
+      if (step) releaseCanvas(step);
       step = next;
       src = next;
       [sx, sy, sw, sh] = [0, 0, nw, nh];
@@ -159,12 +140,12 @@ async function renderRaster(bitmap: ImageBitmap, region: PixelBox, outW: number,
       ctx.fillRect(0, 0, outW, outH);
     }
     ctx.drawImage(src, sx, sy, sw, sh, 0, 0, outW, outH);
-    if (step) release(step);
+    if (step) releaseCanvas(step);
     step = null;
-    return hasAlpha ? await toBlob(out, 'image/png') : await toBlob(out, 'image/jpeg', JPEG_QUALITY);
+    return hasAlpha ? await canvasToBlob(out, 'image/png') : await canvasToBlob(out, 'image/jpeg', JPEG_QUALITY);
   } finally {
-    if (step) release(step);
-    if (out) release(out);
+    if (step) releaseCanvas(step);
+    if (out) releaseCanvas(out);
   }
 }
 
