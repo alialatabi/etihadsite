@@ -1,6 +1,9 @@
 /** Pure helpers of the AI designer UI (no React), unit-tested in Node. */
 import { builder } from '@/content/ar';
 import { AI_MAX_REFS } from '@/lib/ai/config';
+import { cleanLine, stripUnprintable } from '@/lib/ai/sanitize';
+import type { QualitySettings, Shape } from '@/lib/types';
+import { aiAcceptedSize, dpiFor, dpiStatus, type DpiStatus } from '../logic';
 import type { BriefError, ClientError, GenerateError } from './api';
 
 export type AiPhase = 'idle' | 'reviewing' | 'generating' | 'result' | 'error';
@@ -54,12 +57,51 @@ export function aiBusy(phase: AiPhase, briefing: boolean): boolean {
   return briefing || phase === 'generating';
 }
 
-/** Page 1 offers «شوف التصميم» while a try runs or a result waits to be accepted. */
-export function showViewResult(phase: AiPhase): boolean {
-  return phase === 'generating' || phase === 'result';
+/**
+ * Page 1 offers «شوف التصميم» while a try runs or a result waits to be accepted (also after «عدّل الفكرة»
+ * or a failed retry: the paid result is kept until a new one arrives). The design step hides the generic
+ * Next on the same condition.
+ */
+export function showViewResult(phase: AiPhase, hasResult: boolean): boolean {
+  return hasResult || phase === 'generating';
 }
 
-/** The lines that are sent and printed: trimmed, without empty ones. */
+/** The design step shows the kept result whenever there is one, except while a new try runs. */
+export function resultShown(phase: AiPhase, hasResult: boolean): boolean {
+  return hasResult && phase !== 'generating';
+}
+
+/** Errors after which the same request cannot succeed (or may not run again today): no retry button. */
+const NO_RETRY: readonly AiErrorCode[] = ['ip_limit', 'text_too_long', 'invalid_request'];
+
+/** «جرّب مرة لخ» is offered: the feature is on, tries are left, and the error on screen (if any) allows it. */
+export function canRetryAi(s: { off: boolean; remainingToday: number | null; phase: AiPhase; error: AiErrorCode | undefined }): boolean {
+  if (s.off || s.remainingToday === 0) return false;
+  return !(s.phase === 'error' && s.error !== undefined && NO_RETRY.includes(s.error));
+}
+
+/**
+ * The DPI state the arrangement step would show for a result accepted at the size it was made for (spec 5.7):
+ * the size is the one `aiAcceptedSize` gives at accept. For a custom shape the pixels are the full canvas (the
+ * trim happens at accept), so this can only read better than the arrangement step, never worse.
+ */
+export function resultDpiStatus(
+  r: { pxWidth: number; pxHeight: number; madeFor: { shape: Shape; widthUm: number; heightUm: number } },
+  quality: QualitySettings,
+): DpiStatus {
+  if (!(r.pxWidth > 0) || !(r.pxHeight > 0)) return 'ok';
+  const { shape } = r.madeFor;
+  const size = aiAcceptedSize(shape, r.madeFor, r.pxWidth / r.pxHeight);
+  const spec = { shape, widthUm: size.widthUm, heightUm: shape === 'circle' ? size.widthUm : size.heightUm };
+  return dpiStatus(dpiFor({ kind: 'png', pxWidth: r.pxWidth, pxHeight: r.pxHeight }, spec), quality);
+}
+
+/** A line as typed in the review box: the characters that are never printed go at once; spaces stay as typed. */
+export function typedLine(line: string): string {
+  return stripUnprintable(line);
+}
+
+/** The lines that are sent and printed: cleaned exactly as the server cleans them, without empty ones. */
 export function printableLines(lines: string[]): string[] {
-  return lines.map((l) => l.trim()).filter((l) => l.length > 0);
+  return lines.map(cleanLine).filter((l) => l.length > 0);
 }

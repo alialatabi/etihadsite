@@ -10,7 +10,7 @@ import { clearDraftFile } from './draft-store';
 import { clearDraft, saveSuccess } from './logic';
 import { logClient } from './logClient';
 import { postOrder, uploadWithProgress } from './orderApi';
-import { submitOrderFlow, type AttemptContext, type SubmitInput } from './submitFlow';
+import { attemptContextFor, submitOrderFlow, type AttemptContext, type SubmitInput } from './submitFlow';
 
 type SubmitPhase = 'idle' | 'uploading' | 'processing' | 'failed' | 'degraded';
 
@@ -32,8 +32,9 @@ export function useSubmitOrder(maxUploadBytes: number) {
     async (input: SubmitInput, seedUploadId?: string) => {
       if (busy.current) return;
       busy.current = true;
-      // One id per attempt; retries after a network failure keep it (server idempotency).
-      ctxRef.current ??= { orderId: nanoid(), rastered: false, ...(seedUploadId ? { uploadId: seedUploadId, seeded: true } : {}) };
+      // One id per attempt; retries after a network failure keep it (server idempotency) while the design is the
+      // same file. Another file starts a new attempt, so the old design's upload is never reused.
+      ctxRef.current = attemptContextFor(ctxRef.current, input.design.file, nanoid, seedUploadId);
       setState({ phase: 'uploading', progress: 0, message: null });
       const result = await submitOrderFlow(input, ctxRef.current, {
         upload: uploadWithProgress,

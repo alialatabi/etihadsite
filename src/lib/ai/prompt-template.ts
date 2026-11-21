@@ -1,6 +1,10 @@
 import 'server-only';
 import type { Corners, Shape } from '../types';
-import { AI_LINE_MAX_CHARS, AI_MAX_ASPECT, AI_MIN_PIXELS, AI_IMAGE_LONG_SIDE } from './config';
+import { AI_MAX_ASPECT, AI_MIN_PIXELS, AI_IMAGE_LONG_SIDE } from './config';
+import { sanitizeLine } from './sanitize';
+
+// The line clean-up lives in the browser-safe sanitize.ts (the review box uses it too).
+export { sanitizeLine };
 
 export interface TemplateInput {
   shape: Shape;
@@ -10,16 +14,6 @@ export interface TemplateInput {
   visualDescription: string;
   lines: string[];
   hasRefs: boolean;
-}
-
-/** Removes « » " ' ` < >, control characters and newlines, collapses spaces, trims, cuts to the line limit. */
-export function sanitizeLine(line: string): string {
-  const cleaned = line
-    .replace(/[\p{Cc}\u{2028}\u{2029}]/gu, ' ')
-    .replace(/[«»"'`<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return Array.from(cleaned).slice(0, AI_LINE_MAX_CHARS).join('').trim();
 }
 
 const cm = (um: number): string => (um / 10_000).toFixed(1);

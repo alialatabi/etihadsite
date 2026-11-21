@@ -30,7 +30,8 @@ pnpm dev
 
 ### شلون أغيّر السعر أو رقم الواتساب؟
 من لوحة الإدارة: **الإعدادات**.
-- **أرقام الواتساب والهاتف، أوقات العمل، المنطقة:** تتغير مباشرة وتظهر بالهيدر والفوتر.
+- **رقم الواتساب:** يتغير مباشرة، ويستخدمه زر «راسلنا على واتساب» العايم ورسائل الطلبات (ما يظهر بالهيدر والفوتر بعد).
+- **رقم الهاتف، أوقات العمل، المنطقة:** تتغير مباشرة وتظهر بالفوتر.
 - **الأسعار:** سعر الورقة لكل خامة (ورقي، بلاستك) وتقدر تطفّي خامة، أقل وأكثر عدد أوراق، شرائح الخصم حسب العدد، وأزرار الاختيار السريع. الافتراضي: ورقي 800 د.ع وبلاستك 1,500 د.ع للورقة، أقل طلب 10 أوراق، خصم 10% من 20 ورقة و15% من 50 و20% من 100.
 - **«إظهار الأسعار للزبائن»:** مفعّل افتراضياً. إذا طفّيته الموقع يعرض «السعر يُحدد عند التأكيد» ولا يعرض أي رقم.
 - **التوصيل:** 5,000 د.ع افتراضياً، تتغير من نفس الصفحة.
@@ -138,7 +139,7 @@ Prices are shown while «إظهار الأسعار للزبائن» is on (the d
 ### Data and retention
 Local: orders, uploads, generated PDFs, settings, the customer list and analytics events live under `./data` (gitignored). Purge with `pnpm purge:orders` (`--dry-run` only lists); schedule it daily. It runs `scripts/purge-orders.ts`, which removes print PDFs and unused uploads older than the retention period (default 30 days). Orders and their design files, generated AI designs, customers and analytics events are kept (orders created before `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` keep the old rule: removed whole).
 
-Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers`, `ai_usage`, `ai_generations`, `ai_blocks` and the private bucket `etihad` (schema in `supabase/migrations/`, RLS on with no policies, so only the secret key can touch them). Vercel Cron calls `GET /api/cron/purge` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`; it removes print PDFs older than `retentionDays`, uploads that no order or AI generation uses, direct uploads that were never committed (older than 3 h), and analytics events older than 400 days. Orders and their designs, AI generations and customers are never deleted (except orders created before `KEEP_DESIGNS_FROM`, which keep the old rule). `?dry=1` only reports.
+Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers`, `ai_usage`, `ai_generations`, `ai_blocks` and the private bucket `etihad` (schema in `supabase/migrations/`, RLS on with no policies, so only the secret key can touch them). Vercel Cron calls `GET /api/cron/purge` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`; it removes print PDFs older than `retentionDays`, uploads that no order or AI generation uses, direct uploads that were never committed (older than 3 h), analytics events older than 400 days, and AI usage counters (`ai_usage`) older than 400 days (the local `pnpm purge:orders` does not remove AI counters). Orders and their designs, AI generations and customers are never deleted (except orders created before `KEEP_DESIGNS_FROM`, which keep the old rule). `?dry=1` only reports.
 
 Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /api/upload/direct`, then `/api/upload/direct/commit`, where the server re-checks size and magic bytes), because Vercel caps request and response bodies at 4.5 MB. Admin downloads redirect to 60-second signed links for the same reason.
 
@@ -157,11 +158,11 @@ The icons (`src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.pn
 ### Deployment
 Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`, and (after the AI designer ships) `OPENAI_API_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
 
-**Production checklist for the AI designer** (do these before or with the deploy that contains it):
-1. Apply `supabase/migrations/20261121000000_ai_designer.sql` on the production Supabase project (the code needs the new tables and RPCs).
+**Production checklist for the AI designer** (also in `docs/ARCHITECTURE.md` section 9):
+1. Apply `supabase/migrations/20261121000000_ai_designer.sql` on the live Supabase project **before** deploying the code (the code needs the new tables and RPCs). After the deploy, on the live site, run `GET /api/cron/purge?dry=1` with `Authorization: Bearer $CRON_SECRET` and open `/admin/designs`: both must answer 200 (this confirms PostgREST reads the `count` column). Then make one test generation.
 2. Set `OPENAI_API_KEY` in Vercel (use a fresh key, not one pasted in chat; set a monthly budget on the OpenAI account).
-3. Set `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` to the deploy date (orders before it keep the old 30-day delete rule), commit it with the deploy.
-4. Deploy, then open `/admin/designs` and make one test generation.
+3. Set `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` to the deploy instant or slightly **earlier**, never later (orders before it keep the old delete rule), and commit it with the deploy.
+4. Rollback warning: before rolling back to a deployment older than the AI designer, set `retentionDays` to 3650 in `/admin/settings` first (the old purge deletes orders and designs, which are now kept forever).
 
 Still open: Vercel **Pro** (Hobby forbids commercial use), `ORDER_TRANSPORT=telegram`, a Turnstile client widget (until one exists keep `TURNSTILE_SECRET_KEY` unset, see the table above), and a cross-instance rate limiter (the in-memory one is per serverless instance; a Vercel Firewall rate-limit rule on `/api/upload/direct` and `/api/orders` covers it).
 

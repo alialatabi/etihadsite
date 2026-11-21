@@ -92,6 +92,8 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
 
   if (!layout || !spec) return null;
   const previewUrl = design?.previewUrl ?? null;
+  // Same empty-sheet text as the desktop panel.
+  const emptyText = b.mode === 'ai' ? builder.preview.emptyAi : undefined;
   const turnHint = rotationHint(layout);
   const marginHint = marginHintNodes(b);
   return (
@@ -108,7 +110,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">
-          <SheetPreview layout={layout} previewUrl={previewUrl} />
+          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} />
         </div>
         <p className="mt-3 text-center text-sm text-muted-foreground">
           <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
@@ -129,7 +131,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         )}
       >
         <div className="h-[108px] w-[77px] shrink-0">
-          <SheetPreview layout={layout} previewUrl={previewUrl} hideBadge className="h-full" />
+          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} hideBadge className="h-full" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="inline-block rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
@@ -146,7 +148,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           <DialogTitle>{builder.preview.title}</DialogTitle>
           <DialogDescription>{marginHint}</DialogDescription>
           <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">
-            <SheetPreview layout={layout} previewUrl={previewUrl} />
+            <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} />
           </div>
           {turnHint && <p className="text-center text-xs text-muted-foreground">{turnHint}</p>}
           {layout.marks && <p className="text-center text-xs text-muted-foreground">{common.marksHint}</p>}

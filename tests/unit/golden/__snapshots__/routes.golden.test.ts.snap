@@ -170,7 +170,7 @@ exports[`golden: GET /api/cron/purge > retentionDays comes from settings; unsupp
     ],
   ],
   "noEvents": "storage without purgeEventsOlderThan -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":3,"removedEvents":0}",
-  "oneDay": "retentionDays = 1, dry -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-11-09T09:00:00.000Z","removed":18,"removedEvents":2}",
+  "oneDay": "retentionDays = 1, dry -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-11-09T09:00:00.000Z","removed":22,"removedEvents":2}",
   "unsupported": "storage without purgeOlderThan -> 501 [content-type=application/json] {"ok":false,"error":"unsupported"}",
 }
 `;

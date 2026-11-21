@@ -7,7 +7,7 @@ import { generateBlock, type GenerateBlock } from '../logic';
 import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
-import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, printableLines, type AiErrorCode, type AiPhase } from './ai-logic';
+import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, printableLines, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
 import { postBrief, postGenerate } from './api';
 
 export type { AiPhase };
@@ -22,6 +22,9 @@ export interface AiResultData {
   file: File;
   uploadId: string;
   previewUrl: string;
+  /** Pixel size of the generated PNG (for the DPI warning on the result screen). */
+  pxWidth: number;
+  pxHeight: number;
   /** The shape and size the image was made for (the first page may change while the result waits). */
   madeFor: { shape: Shape; widthUm: number; heightUm: number };
   /** The lines this image was asked to print. */
@@ -44,14 +47,15 @@ function revoke(url: string | undefined): void {
  * result, accept / retry). Lives in Builder so it survives the step change. Every request starts from a click
  * (never from an effect) and is guarded against running twice; a late answer of an abandoned try is dropped.
  */
-export function useAiDesign(b: BuilderApi) {
+export function useAiDesign(b: BuilderApi, ready = true) {
   const [phase, setPhase] = useState<AiPhase>('idle');
   const [lines, setLinesState] = useState<string[]>([]);
   const [fixes, setFixes] = useState<{ from: string; to: string }[]>([]);
   const [error, setError] = useState<AiErrorCode | undefined>(undefined);
   const [result, setResult] = useState<AiResultData | undefined>(undefined);
   const [remainingToday, setRemainingToday] = useState<number | null>(null);
-  const [off, setOff] = useState(b.settings.ai?.enabled === false);
+  // `ready` (from the server: switch, key, secret) only sets the start; a route's answer can still turn it off.
+  const [off, setOff] = useState(!ready || b.settings.ai?.enabled === false);
   const [briefing, setBriefing] = useState(false);
   const [refs, setRefs] = useState<AiRef[]>([]);
   // The last reference pick left files out (wrong type, too big, over 5).
@@ -125,7 +129,11 @@ export function useAiDesign(b: BuilderApi) {
     setPhase('reviewing');
   }, [shape, spec, sizeOk, idea, off, fail]);
 
-  const setLines = useCallback((l: string[]) => setLinesState(l.slice(0, AI_MAX_LINES).map((x) => x.slice(0, AI_LINE_MAX_CHARS))), []);
+  // What is typed loses the never-printed characters at once; the full clean (spaces, length) is `printable`.
+  const setLines = useCallback(
+    (l: string[]) => setLinesState(l.slice(0, AI_MAX_LINES).map((x) => typedLine(x).slice(0, AI_LINE_MAX_CHARS))),
+    [],
+  );
 
   /** The idea changed: an open review box belongs to the old idea. */
   const onIdeaChange = useCallback(
@@ -157,7 +165,10 @@ export function useAiDesign(b: BuilderApi) {
     return ids;
   }, []);
 
-  /** Confirm in the review box, «جرّب مرة لخ»: one image from the confirmed lines. Opens the design step. */
+  /**
+   * Confirm in the review box, «جرّب مرة لخ»: one image from the confirmed lines. Opens the design step.
+   * The current (paid) result stays until a new one arrives: a failed try keeps it, with the error above it.
+   */
   const generate = useCallback(async () => {
     if (busy.current || !shape || !spec || !brief.current || off) return;
     const sent = printable;
@@ -165,7 +176,6 @@ export function useAiDesign(b: BuilderApi) {
     busy.current = true;
     const my = ++token.current;
     setError(undefined);
-    replaceResult(undefined);
     setPhase('generating');
     b.startAi();
     b.showDesignStep();
@@ -208,7 +218,15 @@ export function useAiDesign(b: BuilderApi) {
       setPhase('error');
       return;
     }
-    replaceResult({ file, uploadId: res.uploadId, previewUrl: URL.createObjectURL(file), lines: sent, madeFor });
+    replaceResult({
+      file,
+      uploadId: res.uploadId,
+      previewUrl: URL.createObjectURL(file),
+      pxWidth: res.pxWidth,
+      pxHeight: res.pxHeight,
+      lines: sent,
+      madeFor,
+    });
     setRemainingToday(res.remainingToday);
     setPhase('result');
   }, [b, shape, spec, corners, idea, off, printable, uploadRefs, fail, replaceResult]);
@@ -230,6 +248,8 @@ export function useAiDesign(b: BuilderApi) {
     }
     setAcceptedLines(result.lines);
     replaceResult(undefined);
+    // Accepted after a failed retry: that try's message must not come back on page 1.
+    setError(undefined);
     setPhase('idle');
   }, [b, result, replaceResult, fail]);
 

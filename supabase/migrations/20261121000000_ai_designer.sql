@@ -68,7 +68,8 @@ begin
    where u.day = p_day and u.ip_key = p_ip_key and u.kind = p_kind;
   v_used := coalesce(v_used, 0);
 
-  if exists (select 1 from public.ai_blocks b where b.ip_key = p_ip_key) then
+  -- Blocked by key, or by the full IP: a new SESSION_SECRET changes every ip_key, and must not lift blocks.
+  if exists (select 1 from public.ai_blocks b where b.ip_key = p_ip_key or (p_ip <> '' and b.ip = p_ip)) then
     return jsonb_build_object('status', 'blocked', 'used', v_used);
   end if;
 

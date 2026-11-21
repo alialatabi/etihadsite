@@ -11,6 +11,7 @@ import {
   EMPTY_FIELDS,
   STEPS,
   aiAcceptedSize,
+  aiSizeDrifted,
   buildSummary,
   clampStep,
   dpiFor,
@@ -143,8 +144,11 @@ export function useBuilder(settings: ShopSettings) {
   }, [changeFileId]);
 
   const aspect = design ? design.pxWidth / design.pxHeight : 1;
-  // Before any design a rectangle's width and height are typed freely (the AI design is made in that ratio).
-  const freeRect = shape === 'rect' && !design;
+  // Before any design a rectangle's width and height are typed freely (the AI design is made in that ratio). On page 1
+  // of the AI path they stay free after an accept too: a new idea may need another ratio. Leaving page 1 without a new
+  // accept locks the size to the design again (goTo); an accept derives it from the new design (acceptAi).
+  const freeRectFor = useCallback((s: Shape | null) => s === 'rect' && (!design || (mode === 'ai' && step === 0)), [design, mode, step]);
+  const freeRect = freeRectFor(shape);
 
   /** The accepted AI design no longer is the design (a new file, a shape change, «عندي تصميم جاهز»). */
   const clearAi = useCallback(() => {
@@ -370,7 +374,7 @@ export function useBuilder(settings: ShopSettings) {
       clearAi(); // the accepted AI design was made for the other shape
       const w = safeParseCm(widthText);
       const h = safeParseCm(heightText);
-      if (next === 'rect' && !design && w && h) {
+      if (freeRectFor(next) && w && h) {
         setSizeUm({ widthUm: w, heightUm: h }); // free rectangle: keep both typed sides
       } else if (w) applySizeFromWidth(w, next, next === 'circle' ? 1 : aspect);
       // Only 'custom' changes how a file is decoded (alpha trim / alpha required).
@@ -378,7 +382,7 @@ export function useBuilder(settings: ShopSettings) {
         void loadDesign(lastFile.current, next);
       }
     },
-    [shape, widthText, heightText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore, clearAi],
+    [shape, widthText, heightText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore, clearAi, freeRectFor],
   );
 
   const onFile = useCallback(
@@ -474,10 +478,15 @@ export function useBuilder(settings: ShopSettings) {
     (i: number) => {
       if (!canGoTo(i)) return false;
       cancelRestore();
-      setStep(Math.max(0, Math.min(STEPS.length - 1, i)));
+      const target = Math.max(0, Math.min(STEPS.length - 1, i));
+      // Moving on without a new accept: a rectangle typed freely on page 1 gets the design's ratio back (the width stays).
+      if (target > 0 && mode === 'ai' && shape === 'rect' && design && sizeUm && aiSizeDrifted(sizeUm, aspect)) {
+        applySizeFromWidth(sizeUm.widthUm, 'rect', aspect);
+      }
+      setStep(target);
       return true;
     },
-    [canGoTo, cancelRestore],
+    [canGoTo, cancelRestore, mode, shape, design, sizeUm, aspect, applySizeFromWidth],
   );
 
   // Finish a restore: once the design is back and the layout has settled, open the saved step (never past what canGoTo allows).
@@ -541,9 +550,10 @@ export function useBuilder(settings: ShopSettings) {
     if (!shape) return;
     cancelRestore();
     setMode('upload');
-    clearAi();
+    // The accepted AI design stays the design until a file replaces it (onFile clears it); its upload is reused
+    // at submit only while the design is that very file (seedUploadId compares fileId with aiFileId).
     setStep(designStep);
-  }, [shape, cancelRestore, clearAi, designStep]);
+  }, [shape, cancelRestore, designStep]);
   const startAi = useCallback(() => setMode('ai'), []);
 
   /* ── customer ── */
