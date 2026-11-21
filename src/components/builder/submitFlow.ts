@@ -28,6 +28,8 @@ export interface AttemptContext {
   orderId: string;
   uploadId?: string;
   rastered: boolean;
+  /** `uploadId` came from an accepted AI design (not this attempt's upload): if the server no longer has it, upload the file once. */
+  seeded?: boolean;
 }
 
 export type FlowResult =
@@ -90,6 +92,16 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
 
     deps.onPhase('processing');
     let res = await deps.postOrder(body());
+
+    if (!res.ok && res.error === 'upload_missing' && ctx.seeded) {
+      // The AI design's upload is gone (purged): send the design file itself, once.
+      ctx.seeded = false;
+      ctx.uploadId = undefined;
+      const failed = await doUpload(input.design.file);
+      if (failed) return failed;
+      deps.onPhase('processing');
+      res = await deps.postOrder(body());
+    }
 
     if (!res.ok && res.error === 'needs_raster' && !ctx.rastered && input.design.kind === 'pdf') {
       ctx.rastered = true;
