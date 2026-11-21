@@ -17,6 +17,8 @@ export const dynamic = "force-dynamic";
  * as base64 PNG. Logic and the order of checks in src/lib/ai/service.ts.
  */
 export async function POST(request: Request): Promise<Response> {
+  // The time budget of the image call counts from here: the bot check (up to 3 s) and the body read use up the route's maxDuration too.
+  const startedAt = Date.now();
   const send = (body: GenerateResponse, retryAfterSec?: number) =>
     Response.json(body, {
       status: body.ok ? 200 : GENERATE_STATUS[body.error],
@@ -34,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const out = await runGenerate(request, json);
+    const out = await runGenerate(request, json, Date.now, startedAt);
     return send(out.body, out.retryAfterSec);
   } catch {
     // Codes only: the caught error could carry the customer's text or IP.

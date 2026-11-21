@@ -4,6 +4,8 @@ const checkBotId = vi.hoisted(() => vi.fn());
 const reportError = vi.hoisted(() => vi.fn());
 vi.mock("botid/server", () => ({ checkBotId }));
 vi.mock("@/lib/monitoring/report", () => ({ reportError }));
+const headersGet = vi.hoisted(() => vi.fn());
+vi.mock("next/headers", () => ({ headers: async () => ({ get: headersGet }) }));
 
 import { BOTID_TIMEOUT_MS, botBlocked } from "@/lib/botid";
 
@@ -26,6 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   checkBotId.mockReset();
   reportError.mockReset();
+  headersGet.mockReset();
 });
 
 describe("botBlocked", () => {
@@ -50,6 +53,18 @@ describe("botBlocked", () => {
     expect(await botBlocked("/api/upload")).toBe(false);
     expect(console.warn).toHaveBeenCalledTimes(1);
     expect(console.warn).toHaveBeenCalledWith("[botid] would block /api/upload");
+  });
+
+  it("log-only: a bot without the challenge header gets a second fixed line; one with the header does not", async () => {
+    checkBotId.mockResolvedValue(verdict(true));
+    headersGet.mockReturnValue(null);
+    await botBlocked("/api/orders");
+    expect(console.warn).toHaveBeenCalledWith("[botid] would block /api/orders");
+    expect(console.warn).toHaveBeenCalledWith("[botid] no challenge header /api/orders");
+    vi.mocked(console.warn).mockClear();
+    headersGet.mockReturnValue("0");
+    await botBlocked("/api/orders");
+    expect(console.warn).toHaveBeenCalledTimes(1);
   });
 
   it("only BOTID_ENFORCE=1 enforces (0, true and empty do not)", async () => {

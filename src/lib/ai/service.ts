@@ -335,9 +335,12 @@ async function precheckAi(
   return null;
 }
 
-/** `clock` is for tests only (the time budget). */
-export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now): Promise<GenerateOutcome> {
-  const started = clock();
+/**
+ * `startedAt`: when the route started (before the bot check and the body read, which count against its `maxDuration`);
+ * without it the budget starts here. `clock` is for tests only (the time budget).
+ */
+export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now, startedAt?: number): Promise<GenerateOutcome> {
+  const started = startedAt ?? clock();
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return genFail('invalid_request');
   const req = parsed.data;
