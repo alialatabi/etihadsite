@@ -1,6 +1,10 @@
 import type { AttemptContext, SubmitInput } from './submitFlow';
 
-/** sessionStorage key of the in-flight order attempt `{ v, orderId, fingerprint, savedAt }` (this tab only). */
+/**
+ * sessionStorage key of the in-flight order attempt `{ v, orderId, fingerprint, savedAt, uploadId?, rastered? }` (this tab only).
+ * `uploadId` / `rastered` are optional (older records have none): the server replays a saved order only for the upload it
+ * was saved with, so a retry after a reload must send that same upload id and not upload the file again.
+ */
 export const ATTEMPT_KEY = 'ub:order-attempt:v1';
 /** A stored attempt older than this is ignored (a new order id is made). */
 export const ATTEMPT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -36,6 +40,10 @@ export interface StoredAttempt {
   orderId: string;
   /** `AttemptFingerprint.order` of the attempt. */
   fingerprint: string;
+  /** The upload this attempt's order was sent with (the file, the AI seed or the rasterised JPG), once there was one. */
+  uploadId?: string;
+  /** `uploadId` is the rasterised JPG of a PDF. */
+  rastered?: boolean;
 }
 
 /** Parse what sessionStorage holds; anything unreadable, malformed or expired gives null. */
@@ -46,14 +54,25 @@ export function parseStoredAttempt(raw: unknown, now: number): StoredAttempt | n
     if (!o || typeof o !== 'object' || o.v !== 1) return null;
     if (typeof o.orderId !== 'string' || !o.orderId || typeof o.fingerprint !== 'string' || !o.fingerprint) return null;
     if (typeof o.savedAt !== 'number' || !Number.isFinite(o.savedAt) || Math.abs(now - o.savedAt) > ATTEMPT_TTL_MS) return null;
-    return { orderId: o.orderId, fingerprint: o.fingerprint };
+    const stored: StoredAttempt = { orderId: o.orderId, fingerprint: o.fingerprint };
+    if (typeof o.uploadId === 'string' && o.uploadId) {
+      stored.uploadId = o.uploadId;
+      if (o.rastered === true) stored.rastered = true;
+    }
+    return stored;
   } catch {
     return null;
   }
 }
 
-export function serialiseAttempt(orderId: string, fingerprint: string, now: number): string {
-  return JSON.stringify({ v: 1, orderId, fingerprint, savedAt: now });
+export function serialiseAttempt(orderId: string, fingerprint: string, now: number, upload?: { uploadId?: string; rastered?: boolean }): string {
+  return JSON.stringify({
+    v: 1,
+    orderId,
+    fingerprint,
+    savedAt: now,
+    ...(upload?.uploadId ? { uploadId: upload.uploadId, ...(upload.rastered ? { rastered: true } : {}) } : {}),
+  });
 }
 
 /** A fresh context for a new order id; `seedUploadId` is the accepted AI design's upload, when it is the design. */
@@ -87,7 +106,12 @@ export function resolveAttempt(args: {
     }
     return next;
   }
-  if (stored && stored.fingerprint === fp.order) return freshContext(stored.orderId, seedUploadId);
+  if (stored && stored.fingerprint === fp.order) {
+    // The server may already have saved this order with the stored upload, and it replays only for that same upload id.
+    // `seeded` also marks it as "upload the file once if the server no longer has it" (the flow then starts over, not rastered).
+    if (stored.uploadId) return { orderId: stored.orderId, uploadId: stored.uploadId, rastered: stored.rastered === true, seeded: true };
+    return freshContext(stored.orderId, seedUploadId);
+  }
   return freshContext(newId(), seedUploadId);
 }
 
@@ -115,12 +139,35 @@ export function loadStoredAttempt(now: number = Date.now(), store: Store | null 
   }
 }
 
-export function saveStoredAttempt(orderId: string, fingerprint: string, now: number = Date.now(), store: Store | null = defaultStore()): void {
+export function saveStoredAttempt(
+  orderId: string,
+  fingerprint: string,
+  now: number = Date.now(),
+  store: Store | null = defaultStore(),
+  upload?: { uploadId?: string; rastered?: boolean },
+): void {
   try {
-    store?.setItem(ATTEMPT_KEY, serialiseAttempt(orderId, fingerprint, now));
+    store?.setItem(ATTEMPT_KEY, serialiseAttempt(orderId, fingerprint, now, upload));
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Wraps the upload step so a finished upload is written to the stored attempt right away: a reload after this point
+ * (an answer lost, the tab closed) then resends the SAME upload id, which is the only one the server replays a saved order for.
+ */
+export function rememberUpload<A extends unknown[], R extends { ok: boolean; uploadId?: string }>(
+  upload: (...args: A) => Promise<R>,
+  ctx: AttemptContext,
+  fingerprint: string,
+  store: Store | null = defaultStore(),
+): (...args: A) => Promise<R> {
+  return async (...args: A) => {
+    const up = await upload(...args);
+    if (up.ok && up.uploadId) saveStoredAttempt(ctx.orderId, fingerprint, Date.now(), store, { uploadId: up.uploadId, rastered: ctx.rastered });
+    return up;
+  };
 }
 
 export function clearStoredAttempt(store: Store | null = defaultStore()): void {

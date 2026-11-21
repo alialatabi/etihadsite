@@ -96,6 +96,7 @@ export async function submitOrderFlow(input: SubmitInput, ctx: AttemptContext, d
     if (!res.ok && res.error === 'upload_missing' && ctx.seeded) {
       // The AI design's upload is gone (purged): send the design file itself, once.
       ctx.seeded = false;
+      ctx.rastered = false;
       ctx.uploadId = undefined;
       const failed = await doUpload(input.design.file);
       if (failed) return failed;

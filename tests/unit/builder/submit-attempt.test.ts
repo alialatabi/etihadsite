@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ATTEMPT_KEY,
@@ -8,12 +8,14 @@ import {
   keepAttemptAfterError,
   loadStoredAttempt,
   parseStoredAttempt,
+  rememberUpload,
   resolveAttempt,
   saveStoredAttempt,
   serialiseAttempt,
   type KeptAttempt,
 } from '@/components/builder/submitAttempt';
-import type { AttemptContext, SubmitInput } from '@/components/builder/submitFlow';
+import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
+import type { OrderResponse, UploadResponse } from '@/lib/types';
 
 const input = (over: Partial<SubmitInput> = {}, file = new File(['x'], 'a.png', { type: 'image/png', lastModified: 1000 })): SubmitInput => ({
   design: { kind: 'png', file } as never,
@@ -200,5 +202,78 @@ describe('stored attempt', () => {
     expect(loadStoredAttempt(1, boom)).toBeNull();
     expect(() => clearStoredAttempt(boom)).not.toThrow();
     expect(loadStoredAttempt(1, null)).toBeNull();
+  });
+});
+
+describe('reload after the order was saved (ORDER-REPLAY-1 with IDEM-4)', () => {
+  const okOrder: OrderResponse = { ok: true, orderId: 'o1', displayNo: 'EP-251107-AB3C', summary: {} as never, whatsappUrl: '', notified: { telegram: 'sent' } };
+  let uploads = 0;
+  /** The server side in miniature: a saved order is replayed only for the upload it was saved with. */
+  function server() {
+    const saved = new Map<string, string>();
+    const upload = vi.fn(async (): Promise<UploadResponse> => ({ ok: true, uploadId: `up${++uploads}`, kind: 'png', bytes: 1 }));
+    const postOrder = vi.fn(async (b: { orderId: string; uploadId: string }): Promise<OrderResponse> => {
+      const had = saved.get(b.orderId);
+      if (had === undefined) {
+        saved.set(b.orderId, b.uploadId);
+        return okOrder;
+      }
+      return had === b.uploadId ? okOrder : ({ ok: false, error: 'invalid_request' } as OrderResponse);
+    });
+    return { upload, postOrder };
+  }
+  const flowDeps = (srv: ReturnType<typeof server>, store: ReturnType<typeof fakeStore>, ctx: AttemptContext, fp: string, lostAnswer: boolean): FlowDeps => ({
+    upload: rememberUpload(srv.upload, ctx, fp, store),
+    postOrder: lostAnswer
+      ? async (b) => {
+          await srv.postOrder(b as never);
+          throw new Error('network lost the answer');
+        }
+      : (b) => srv.postOrder(b as never),
+    rasterise: vi.fn(async () => new Blob(['jpg'])),
+    onPhase: vi.fn(),
+    onProgress: vi.fn(),
+    targetDpi: 300,
+    maxUploadMb: 15,
+  });
+
+  it('a retry after a reload sends the same upload id and gets the saved order', async () => {
+    const srv = server();
+    const store = fakeStore();
+    const i = input();
+    const fp = attemptFingerprint(i);
+    // First try: the order is saved, the answer is lost.
+    const ctx1 = resolveAttempt({ kept: null, stored: loadStoredAttempt(Date.now(), store), fp, newId });
+    saveStoredAttempt(ctx1.orderId, fp.order, Date.now(), store, ctx1);
+    const r1 = await submitOrderFlow(i, ctx1, flowDeps(srv, store, ctx1, fp.order, true));
+    expect(r1.kind).toBe('degraded');
+    // Reload: nothing in memory, only sessionStorage.
+    const ctx2 = resolveAttempt({ kept: null, stored: loadStoredAttempt(Date.now(), store), fp, newId });
+    expect(ctx2.orderId).toBe(ctx1.orderId);
+    saveStoredAttempt(ctx2.orderId, fp.order, Date.now(), store, ctx2);
+    const uploadsBefore = srv.upload.mock.calls.length;
+    const r2 = await submitOrderFlow(i, ctx2, flowDeps(srv, store, ctx2, fp.order, false));
+    expect(r2.kind).toBe('ok');
+    expect(srv.upload.mock.calls.length).toBe(uploadsBefore);
+  });
+
+  it('the rasterised JPG of a PDF is remembered the same way', async () => {
+    const store = fakeStore();
+    const i = input();
+    const fp = attemptFingerprint(i);
+    const ctx: AttemptContext = { orderId: 'o9', rastered: true };
+    await rememberUpload(async () => ({ ok: true as const, uploadId: 'jpg1' }), ctx, fp.order, store)();
+    const stored = loadStoredAttempt(Date.now(), store);
+    expect(stored).toEqual({ orderId: 'o9', fingerprint: fp.order, uploadId: 'jpg1', rastered: true });
+    expect(resolveAttempt({ kept: null, stored, fp, newId })).toMatchObject({ orderId: 'o9', uploadId: 'jpg1', rastered: true });
+  });
+
+  it('a failed upload is not remembered; an old record without an upload still loads', () => {
+    const store = fakeStore();
+    const ctx: AttemptContext = { orderId: 'o9', rastered: false };
+    void rememberUpload(async () => ({ ok: false as const }), ctx, 'fp', store)();
+    expect(store.m.size).toBe(0);
+    expect(parseStoredAttempt('{"v":1,"orderId":"a","fingerprint":"b","savedAt":1}', 1)).toEqual({ orderId: 'a', fingerprint: 'b' });
+    expect(parseStoredAttempt('{"v":1,"orderId":"a","fingerprint":"b","savedAt":1,"uploadId":7}', 1)).toEqual({ orderId: 'a', fingerprint: 'b' });
   });
 });
