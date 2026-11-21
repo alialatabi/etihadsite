@@ -11,7 +11,7 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM, PURGE_WINDOW_DAYS } from "../../config/defaults";
+import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
   AiBlock,
   AiGenerationRecord,
@@ -33,6 +33,7 @@ import {
   uploadMetaPath,
   uploadPath,
 } from "./paths";
+import { purgeBounds } from "./purge-rules";
 import { parseStoredSettings } from "./settings-schema";
 
 export { deepMerge } from "./settings-schema";
@@ -540,14 +541,9 @@ export class LocalStorage implements StorageAdapter {
       removed.push(rel);
       if (!dryRun) await this.deleteFile(rel);
     };
-    const keepFrom = new Date(KEEP_DESIGNS_FROM);
-    // Fail safe: a bad switch date would decide which rule applies, so nothing runs without it.
-    if (Number.isNaN(keepFrom.getTime())) throw new Error("bad KEEP_DESIGNS_FROM");
-    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
-    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
     // Old rule: created before min(cutoff, KEEP_DESIGNS_FROM), with NO lower bound (a purge outage or a
     // lower retentionDays must never strand a promised deletion).
-    const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
+    const { oldRuleEnd, inWindow } = purgeBounds(cutoff);
     const orders = await this.listOrders();
     const oldRule = orders.filter((o) => new Date(o.createdAt) < oldRuleEnd);
     const deleting = new Set(oldRule.map((o) => o.orderId));

@@ -18,7 +18,7 @@ import 'server-only';
  * Paths match the local adapter (relative, `uploads/…` / `orders/…`) and are validated
  * against a strict pattern before any request, so a stored path can never escape the bucket.
  */
-import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM, PURGE_WINDOW_DAYS } from '@/config/defaults';
+import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
 import type {
   AiBlock,
@@ -34,6 +34,7 @@ import type {
   StoredFileMeta,
 } from '@/lib/types';
 import { ID_RE, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
+import { purgeBounds } from './purge-rules';
 import { parseStoredSettings } from './settings-schema';
 
 const BUCKET = 'etihad';
@@ -664,11 +665,7 @@ export class SupabaseStorage implements StorageAdapter {
    * Returns the paths (and `order:<id>` rows) removed, or that would be when dryRun.
    */
   async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - ORPHAN_UPLOAD_MAX_AGE_MS)): Promise<string[]> {
-    const keepFrom = new Date(KEEP_DESIGNS_FROM);
-    // Fail safe: a bad switch date would decide which rule applies, so nothing runs without it.
-    if (Number.isNaN(keepFrom.getTime())) throw new Error('bad KEEP_DESIGNS_FROM');
-    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
-    const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
+    const { windowStart, oldRuleEnd, inWindow } = purgeBounds(cutoff);
     const oldRuleEndQ = encodeURIComponent(oldRuleEnd.toISOString());
     // References are read from a day before the window: an upload is always older than the
     // order or generation that uses it, and the day covers clocks that disagree.
@@ -693,7 +690,6 @@ export class SupabaseStorage implements StorageAdapter {
     const uploads = await this.listPrefixSince('uploads', windowStart);
     const pdfs = new Set((await this.listPrefixSince('orders', windowStart)).map((o) => `orders/${o.name}`));
 
-    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
     const oldRule: typeof orders = [];
     const pdfOnly: typeof orders = [];
     const used = new Set<string>();
