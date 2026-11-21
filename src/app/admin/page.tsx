@@ -30,6 +30,8 @@ import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from "./_li
 import { TelegramCell, TelegramSentMark } from "./orders/TelegramCell";
 
 export const dynamic = "force-dynamic";
+/** The "send to Telegram" button runs resendTelegramAction under this page's limit (sendTelegram aborts after 25 s). */
+export const maxDuration = 60;
 
 /** listOrders() answers at most this many orders (the newest) from Supabase. */
 const ORDERS_LIST_CAP = 1000;
