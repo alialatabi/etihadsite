@@ -11,3 +11,11 @@ test-results
 tests/output
 tsconfig.tsbuildinfo
 .claude
+
+# local-only folders (never upload)
+Claude outputs
+graphify-out
+docs/superpowers
+.superpowers
+.codex
+.mcp.json
