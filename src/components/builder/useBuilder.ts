@@ -474,19 +474,25 @@ export function useBuilder(settings: ShopSettings) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [step, stepOk.shape, stepOk.design, stepOk.size, stepOk.quantity],
   );
+  /**
+   * Leaving page 1 without a new accept, in any mode: a rectangle typed freely there (AI page 1 frees it even with a
+   * design) gets the current design's ratio back, the width kept. A drifted size with a design can only come from
+   * there, so the mode is not checked (it may already be 'upload' after «عندي تصميم جاهز»).
+   */
+  const relockToDesign = useCallback(() => {
+    if (shape === 'rect' && design && sizeUm && aiSizeDrifted(sizeUm, aspect)) applySizeFromWidth(sizeUm.widthUm, 'rect', aspect);
+  }, [shape, design, sizeUm, aspect, applySizeFromWidth]);
+
   const goTo = useCallback(
     (i: number) => {
       if (!canGoTo(i)) return false;
       cancelRestore();
       const target = Math.max(0, Math.min(STEPS.length - 1, i));
-      // Moving on without a new accept: a rectangle typed freely on page 1 gets the design's ratio back (the width stays).
-      if (target > 0 && mode === 'ai' && shape === 'rect' && design && sizeUm && aiSizeDrifted(sizeUm, aspect)) {
-        applySizeFromWidth(sizeUm.widthUm, 'rect', aspect);
-      }
+      if (target > 0) relockToDesign();
       setStep(target);
       return true;
     },
-    [canGoTo, cancelRestore, mode, shape, design, sizeUm, aspect, applySizeFromWidth],
+    [canGoTo, cancelRestore, relockToDesign],
   );
 
   // Finish a restore: once the design is back and the layout has settled, open the saved step (never past what canGoTo allows).
@@ -552,8 +558,10 @@ export function useBuilder(settings: ShopSettings) {
     setMode('upload');
     // The accepted AI design stays the design until a file replaces it (onFile clears it); its upload is reused
     // at submit only while the design is that very file (seedUploadId compares fileId with aiFileId).
+    // Leaving page 1 (or the design step) this way must not carry a freely typed rectangle to the order either.
+    relockToDesign();
     setStep(designStep);
-  }, [shape, cancelRestore, designStep]);
+  }, [shape, cancelRestore, designStep, relockToDesign]);
   const startAi = useCallback(() => setMode('ai'), []);
 
   /* ── customer ── */

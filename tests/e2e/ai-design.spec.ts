@@ -312,4 +312,33 @@ test.describe('page 1 rectangle after an accept', () => {
     await expect(page.locator('#size-width')).toHaveValue('5');
     await expect(page.locator('#size-height')).toHaveValue('5');
   });
+
+  test('«عندي تصميم جاهز» after a free height on page 1 also brings the design ratio back', async ({ page }) => {
+    await page.goto('/');
+    await chooseShape(page, builder.shape.rect);
+    await setSize(page, '5');
+    await page.locator('#size-height').fill('5');
+    await page.locator('#ai-idea').fill('مقهي الورد');
+    await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.accept, exact: true }).click({ timeout: 60_000 });
+    const sizeHeading = page.getByRole('heading', { level: 2, name: builder.size.title });
+    await expect(sizeHeading).toBeVisible();
+
+    const back = page.getByRole('button', { name: common.actions.back, exact: true });
+    await back.click();
+    await back.click();
+    await page.locator('#size-height').fill('3');
+    await expect(page.locator('#size-width')).toHaveValue('5');
+
+    // The upload step keeps the accepted design; the size it carries on must be the design's (5 × 5), not 5 × 3.
+    await readyDesign(page);
+    await expect(page.getByRole('heading', { level: 2, name: builder.upload.title })).toBeVisible();
+    await expect(async () => {
+      await next(page).click();
+      await expect(sizeHeading).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+    await expect(page.locator('#size-width')).toHaveValue('5');
+    await expect(page.locator('#size-height')).toHaveValue('5');
+  });
 });

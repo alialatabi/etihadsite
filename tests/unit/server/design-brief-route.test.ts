@@ -217,8 +217,23 @@ describe("POST /api/design/brief", () => {
     expect((await req({})).status).toBe(200);
   });
 
+  it("the home page gets aiReady from ready.ts, which pulls in no image code", async () => {
+    const { readFileSync } = await import("node:fs");
+    const page = readFileSync("src/app/page.tsx", "utf8");
+    const ready = readFileSync("src/lib/ai/ready.ts", "utf8");
+    expect(page).toContain("from '@/lib/ai/ready'");
+    expect(page).not.toMatch(/ai\/service/);
+    expect(ready).toMatch(/^import 'server-only';/);
+    const imports = ready.split("\n").filter((l) => /^import /.test(l)).join("\n");
+    expect(imports).not.toMatch(/sharp|normalise|\/service/);
+    const service = await import("@/lib/ai/service");
+    const r = await import("@/lib/ai/ready");
+    expect(service.aiReady).toBe(r.aiReady);
+    expect(service.secretReady).toBe(r.secretReady);
+  });
+
   it("aiReady: the home page knows up front when the site cannot design", async () => {
-    const { aiReady } = await import("@/lib/ai/service");
+    const { aiReady } = await import("@/lib/ai/ready");
     expect(aiReady(DEFAULT_SETTINGS)).toBe(true);
     expect(aiReady({ ai: { ...DEFAULT_SETTINGS.ai, enabled: false } })).toBe(false);
     vi.stubEnv("OPENAI_API_KEY", " ");

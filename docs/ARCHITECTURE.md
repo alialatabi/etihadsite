@@ -238,6 +238,7 @@ Added 2026-11-21 (spec `docs/superpowers/specs/2026-11-21-ai-sticker-designer-de
 | `text-capacity.ts` | `textCapacity()`: does the text fit at 12 pt on this shape and size. Pure and browser-safe; the review box and the server use the same function. |
 | `normalise.ts` | `normaliseGenerated()` (sharp pixel clean-up) and `prepareRef()` (reference image: auto-orient, fit inside 1024, strip metadata). |
 | `ip.ts` | `aiIpKey()`. |
+| `ready.ts` | `aiReady()`, `secretReady()`, `hasAiStorage()`: the checks both routes make first. The home page imports it to start the builder with the notice when the site cannot design; it imports no image code (no sharp). |
 | `service.ts` | `runBrief()` and `runGenerate()`: all the logic, schemas, limits and release rules. The two route files (`app/api/design/*/route.ts`) only read the capped body and turn the outcome into a Response. |
 
 **Models.** Images: `gpt-image-2.6-flare`, quality `high`, 1024 px on the long side (`AI_IMAGE_LONG_SIDE`). Brief: `gpt-5.4-mini`. Sizes sent: circle and custom 1024x1024 with `background: transparent`; a rectangle has its long side 1024 and the other side from the aspect ratio rounded to a multiple of 16 (grown until at least 655,360 pixels), `background: opaque`; a rectangle longer than 3:1 is refused (`invalid_request`). OpenAI quirks are in `docs/STACK_NOTES.md`.
