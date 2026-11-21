@@ -24,9 +24,15 @@ import { ALPHA_THRESHOLD, alphaBoundingBox, hasAnyAlpha } from '@/lib/design/pix
 import { clientIp, limiters } from '@/lib/rate-limit';
 import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
-import { getStorage } from '@/lib/storage';
-import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind, AiReserveResult } from '@/lib/types';
+import { ID_RE, uploadPath } from '@/lib/storage/paths';
+import type {
+  AiKind,
+  AiReserveResult,
+  BriefError,
+  BriefResponse,
+  GenerateError,
+  GenerateResponse,
+} from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
@@ -43,31 +49,15 @@ import {
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
-import { generateImage, openAiConfig, type ImageRef } from './openai';
-import { aiReady, hasAiStorage, secretReady, type AiStorage } from './ready';
+import { generateImage, type ImageRef } from './openai';
+import { aiReady, aiSetup, secretReady, type AiStorage } from './ready';
 import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
 
-/* ───────────────────────────── API contract (used by the builder) ───────────────────────────── */
+/* ───────────────────────────── API contract (declared in @/lib/types, shared with the builder) ───────────────────────────── */
 
-export type BriefError = 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed';
-export type BriefResponse =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
-  | { ok: false; error: BriefError };
-
-export type GenerateError =
-  | 'unavailable'
-  | 'blocked'
-  | 'ip_limit'
-  | 'site_limit'
-  | 'text_too_long'
-  | 'refused'
-  | 'failed'
-  | 'invalid_request';
-export type GenerateResponse =
-  | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
-  | { ok: false; error: GenerateError };
+export type { BriefError, BriefResponse, GenerateError, GenerateResponse };
 
 export const BRIEF_STATUS: Record<BriefError, number> = {
   invalid_request: 400,
@@ -110,7 +100,7 @@ export function hardenVisualDescription(s: string): string {
 
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
-// secretReady / aiReady / hasAiStorage live in ready.ts (the home page imports it without the image code).
+// secretReady / aiReady / aiSetup / hasAiStorage live in ready.ts (the home page imports it without the image code).
 export { aiReady, secretReady };
 
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
@@ -203,28 +193,31 @@ async function release(storage: AiStorage, a: { day: string; ipKey: string; kind
 
 /* ───────────────────────────── POST /api/design/brief ───────────────────────────── */
 
+const failure = <E extends string>(
+  error: E,
+  retryAfterSec?: number,
+): { body: { ok: false; error: E }; retryAfterSec?: number } => ({
+  body: { ok: false, error },
+  ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
+});
+
 export interface BriefOutcome {
   body: BriefResponse;
   retryAfterSec?: number;
 }
 
-const briefFail = (error: BriefError, retryAfterSec?: number): BriefOutcome => ({
-  body: { ok: false, error },
-  ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
-});
-
 export async function runBrief(request: Request, json: unknown): Promise<BriefOutcome> {
   const parsed = briefRequestSchema.safeParse(json);
-  if (!parsed.success) return briefFail('invalid_request');
+  if (!parsed.success) return failure('invalid_request');
 
   const settings = await getSettings();
-  const cfg = openAiConfig();
-  const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return briefFail('unavailable');
+  const setup = aiSetup(settings);
+  if (!setup) return failure('unavailable');
+  const { cfg, storage } = setup;
 
   const { ip, ipKey } = identify(request);
   const rl = limiters().brief.check(ip || 'global');
-  if (!rl.ok) return briefFail('rate_limited', rl.retryAfterSec);
+  if (!rl.ok) return failure('rate_limited', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
   const reserved = await storage.aiReserve({
@@ -236,21 +229,22 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
     siteLimit: AI_BRIEF_SITE,
   });
   // The brief has one limit answer for the customer: blocked, per-IP and site caps all read «wait».
-  if (reserved.status !== 'ok') return briefFail('rate_limited');
+  if (reserved.status !== 'ok') return failure('rate_limited');
+  const giveBack = () => release(storage, { day, ipKey, kind: 'brief' }, 'ai.brief');
 
   try {
     const result = await extractBrief(cfg, parsed.data.idea);
     if (!result.ok) {
-      await release(storage, { day, ipKey, kind: 'brief' }, 'ai.brief');
-      return briefFail('failed');
+      await giveBack();
+      return failure('failed');
     }
 
     const lines = result.brief.lines.map(cleanLine).filter((l) => l.length > 0);
     const visualDescription = hardenVisualDescription(result.brief.visualDescription);
     if (!visualDescription) {
       report('ai.brief', 'empty description', {}, 'warning');
-      await release(storage, { day, ipKey, kind: 'brief' }, 'ai.brief');
-      return briefFail('failed');
+      await giveBack();
+      return failure('failed');
     }
     // Only changes the customer can see in a printed line are shown in the review box.
     const fixes = result.brief.fixes
@@ -262,8 +256,8 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
     };
   } catch {
     report('ai.brief', 'unexpected failure');
-    await release(storage, { day, ipKey, kind: 'brief' }, 'ai.brief');
-    return briefFail('failed');
+    await giveBack();
+    return failure('failed');
   }
 }
 
@@ -273,11 +267,6 @@ export interface GenerateOutcome {
   body: GenerateResponse;
   retryAfterSec?: number;
 }
-
-const genFail = (error: GenerateError, retryAfterSec?: number): GenerateOutcome => ({
-  body: { ok: false, error },
-  ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
-});
 
 /**
  * How long the OpenAI image call may run, given the time already spent in this request: the route's
@@ -323,29 +312,29 @@ async function precheckAi(
 export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now, startedAt?: number): Promise<GenerateOutcome> {
   const started = startedAt ?? clock();
   const parsed = generateRequestSchema.safeParse(json);
-  if (!parsed.success) return genFail('invalid_request');
+  if (!parsed.success) return failure('invalid_request');
   const req = parsed.data;
 
   // Checked on the exact string received, before any clean-up.
-  if (!briefTokenOk(req.visualDescription, req.briefToken)) return genFail('invalid_request');
-  if (!aiAspectOk(req.shape, req.widthUm, req.heightUm)) return genFail('invalid_request');
+  if (!briefTokenOk(req.visualDescription, req.briefToken)) return failure('invalid_request');
+  if (!aiAspectOk(req.shape, req.widthUm, req.heightUm)) return failure('invalid_request');
 
   const settings = await getSettings();
-  const cfg = openAiConfig();
-  const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return genFail('unavailable');
+  const setup = aiSetup(settings);
+  if (!setup) return failure('unavailable');
+  const { cfg, storage } = setup;
 
   const lines = req.lines.map(cleanLine).filter((l) => l.length > 0);
   // The amount of text never refuses a try: the page warns the customer, who may go on (the size and line limits are in the schema).
 
   const visualDescription = hardenVisualDescription(req.visualDescription);
-  if (!visualDescription) return genFail('invalid_request');
+  if (!visualDescription) return failure('invalid_request');
 
   // In-memory guard BEFORE any ref work and the stored reservation: every attempt counts, even one
   // whose stored use is later given back, so failing calls cannot be repeated without limit.
   const { ip, ipKey } = identify(request);
   const rl = limiters().generate.check(ip || 'global');
-  if (!rl.ok) return genFail('ip_limit', rl.retryAfterSec);
+  if (!rl.ok) return failure('ip_limit', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
   const perIpLimit = settings.ai.perIpDailyLimit;
@@ -357,40 +346,41 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
   if (req.refUploadIds.length > 0) {
     const early = await precheckAi(storage, { day, ip, ipKey, perIpLimit, siteLimit });
-    if (early) return genFail(early);
+    if (early) return failure(early);
   }
   // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
-  // also in parallel); any bad one refuses the request.
+  // also in parallel); any bad one refuses the request. With uploadInfo the meta is already checked, so the bytes
+  // are read with readFile instead of fetching the meta again through readUpload.
   const uploadInfo = storage.uploadInfo?.bind(storage);
   if (uploadInfo) {
     const infos = await Promise.all(req.refUploadIds.map((id) => uploadInfo(id)));
     for (const info of infos) {
-      if (!info) return genFail('invalid_request');
-      if (info.meta.mime !== 'image/png' && info.meta.mime !== 'image/jpeg') return genFail('invalid_request');
-      if (info.size > settings.maxUploadBytes) return genFail('invalid_request');
+      if (!info) return failure('invalid_request');
+      if (info.meta.mime !== 'image/png' && info.meta.mime !== 'image/jpeg') return failure('invalid_request');
+      if (info.size > settings.maxUploadBytes) return failure('invalid_request');
     }
   }
   const prepared = await Promise.all(
     req.refUploadIds.map(async (id): Promise<ImageRef | null> => {
-      const upload = await storage.readUpload(id);
-      if (!upload) return null;
-      const kind = sniffKind(upload.bytes);
+      const bytes = uploadInfo ? await storage.readFile(uploadPath(id)) : ((await storage.readUpload(id))?.bytes ?? null);
+      if (!bytes) return null;
+      const kind = sniffKind(bytes);
       if (kind !== 'png' && kind !== 'jpeg') return null;
       try {
-        return await prepareRef(upload.bytes);
+        return await prepareRef(bytes);
       } catch {
         return null;
       }
     }),
   );
-  if (prepared.some((r) => r === null)) return genFail('invalid_request');
+  if (prepared.some((r) => r === null)) return failure('invalid_request');
   const refs = prepared as ImageRef[];
 
   // Time left in this request: with too little for an image call nothing is reserved (the check right before the
   // call, below, still guards the time the reservation itself took).
   if (openAiTimeoutMs(clock() - started) === null) {
     report('ai.generate', 'no time left before reserving', { refs: refs.length }, 'warning');
-    return genFail('failed');
+    return failure('failed');
   }
 
   const reserved = await storage.aiReserve({
@@ -401,7 +391,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     perIpLimit,
     siteLimit,
   });
-  if (reserved.status !== 'ok') return genFail(reserved.status);
+  if (reserved.status !== 'ok') return failure(reserved.status);
 
   // From here on every failure gives the use back: a failed try does not count.
   const giveBack = () => release(storage, { day, ipKey, kind: 'image' }, 'ai.generate');
@@ -413,7 +403,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     if (timeoutMs === null) {
       report('ai.generate', 'no time left for the image call', {}, 'warning');
       await giveBack();
-      return genFail('failed');
+      return failure('failed');
     }
     const size = imageRequestSize(req.shape, req.widthUm, req.heightUm);
     const result = await generateImage(cfg, {
@@ -433,7 +423,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     });
     if (!result.ok) {
       await giveBack();
-      return genFail(result.reason === 'refused' ? 'refused' : 'failed');
+      return failure(result.reason === 'refused' ? 'refused' : 'failed');
     }
 
     let norm: Awaited<ReturnType<typeof normaliseGenerated>>;
@@ -442,21 +432,21 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     } catch {
       report('ai.generate', 'normalise failed', { shape: req.shape });
       await giveBack();
-      return genFail('failed');
+      return failure('failed');
     }
     if (req.shape === 'custom' && !(await customArtworkUsable(norm.png))) {
       // The model ignored the transparent background (or drew nothing): the builder would answer
       // no_alpha. OpenAI already charged for this image, so the use is KEPT (ruling, fix round 1)
       // and the answer is `refused`, whose copy does not claim the try was free.
       report('ai.generate', 'custom output not usable', { code: 'custom_no_alpha' }, 'warning');
-      return genFail('refused');
+      return failure('refused');
     }
 
     const png = await fitPngBudget(norm.png);
     if (!png) {
       report('ai.generate', 'png too large', { shape: req.shape, bytes: norm.png.byteLength });
       await giveBack();
-      return genFail('failed');
+      return failure('failed');
     }
 
     const uploadId = nanoid();
@@ -470,7 +460,7 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   } catch {
     report('ai.generate', 'unexpected failure', { shape: req.shape });
     await giveBack();
-    return genFail('failed');
+    return failure('failed');
   }
 
   // The image is saved and delivered; a failed record only costs the admin gallery entry (and the purge's
