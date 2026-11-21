@@ -59,6 +59,9 @@ function formFor(settings: ShopSettings, over: Record<string, string> = {}): For
   set('deliveryFeeIqd', String(settings.deliveryFeeIqd));
   if (settings.pricesPublished) set('pricesPublished', 'on');
   set('retentionDays', String(settings.retentionDays));
+  if (settings.ai.enabled) set('aiEnabled', 'on');
+  set('aiPerIp', String(settings.ai.perIpDailyLimit));
+  set('aiSite', String(settings.ai.siteDailyLimit));
   if (settings.layout.allowRotate) set('allowRotate', 'on');
   for (const [k, v] of Object.entries({ ...prefill(settings), ...over })) set(k, v);
   return f;

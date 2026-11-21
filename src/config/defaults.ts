@@ -52,6 +52,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   },
   maxUploadBytes: 15 * 1024 * 1024,
   retentionDays: 30,
+  ai: { enabled: true, perIpDailyLimit: 5, siteDailyLimit: 300 },
 };
 
 /** Accepted upload MIME types → DesignKind. */

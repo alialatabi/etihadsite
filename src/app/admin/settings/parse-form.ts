@@ -86,6 +86,11 @@ export function parseSettingsForm(formData: FormData, current: ShopSettings): Se
     deliveryFeeIqd: intOf(formData, 'deliveryFeeIqd'),
     pricesPublished: formData.get('pricesPublished') === 'on',
     retentionDays: intOf(formData, 'retentionDays'),
+    ai: {
+      enabled: formData.get('aiEnabled') === 'on',
+      perIpDailyLimit: intOf(formData, 'aiPerIp'),
+      siteDailyLimit: intOf(formData, 'aiSite'),
+    },
     layout,
   };
 

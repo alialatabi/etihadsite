@@ -273,6 +273,9 @@ function settingsForm(over: Record<string, string | null> = {}): FormData {
     customGapY: '2',
     roundedRadius: '3',
     retentionDays: '30',
+    aiEnabled: 'on',
+    aiPerIp: '5',
+    aiSite: '300',
     allowRotate: null,
   };
   const f = new FormData();

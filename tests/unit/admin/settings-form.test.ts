@@ -56,6 +56,7 @@ const CURRENT: ShopSettings = {
   quality: { warnDpi: 120, blockDpi: 60, targetDpi: 360 },
   maxUploadBytes: 5_000_000,
   retentionDays: 30,
+  ai: { enabled: true, perIpDailyLimit: 5, siteDailyLimit: 300 },
 };
 
 type Overrides = Record<string, string | null>;
@@ -103,6 +104,9 @@ function formOf(overrides: Overrides = {}): FormData {
     customGapY: mm(c.layout.customGapYUm!),
     roundedRadius: mm(c.layout.roundedRadiusUm),
     retentionDays: String(c.retentionDays),
+    aiEnabled: on(c.ai.enabled),
+    aiPerIp: String(c.ai.perIpDailyLimit),
+    aiSite: String(c.ai.siteDailyLimit),
     allowRotate: on(c.layout.allowRotate),
     ...overrides,
   };
@@ -253,6 +257,32 @@ describe('parseSettingsForm: each check', () => {
     expect(errorOf({ whatsapp: '1234567890123456' })).toBe(INVALID);
     expect(errorOf({ paperPrice: '-800' })).toBe(INVALID);
     expect(errorOf({ tiers: tiersJson([['0', '5']]) })).toBe(INVALID);
+  });
+
+  it('parses ai settings', () => {
+    expect(settingsOf({ aiEnabled: 'on', aiPerIp: '7', aiSite: '250' }).ai).toEqual({
+      enabled: true,
+      perIpDailyLimit: 7,
+      siteDailyLimit: 250,
+    });
+  });
+
+  it('rejects ai per-IP 0', () => {
+    expect(errorOf({ aiPerIp: '0' })).toBe(INVALID);
+  });
+
+  it('rejects ai limits that are blank, fractional or above the maximum', () => {
+    expect(errorOf({ aiPerIp: '' })).toBe(INVALID);
+    expect(errorOf({ aiSite: '' })).toBe(INVALID);
+    expect(errorOf({ aiSite: '0' })).toBe(INVALID);
+    expect(errorOf({ aiPerIp: '2.5' })).toBe(INVALID);
+    expect(errorOf({ aiPerIp: '101' })).toBe(INVALID);
+    expect(errorOf({ aiSite: '10001' })).toBe(INVALID);
+    expect(errorOf({ aiPerIp: '100', aiSite: '10000' })).toBeNull();
+  });
+
+  it('missing aiEnabled means disabled', () => {
+    expect(settingsOf({ aiEnabled: null }).ai.enabled).toBe(false);
   });
 
   it('layout millimetres: blank, not a number, negative or too large is invalid', () => {

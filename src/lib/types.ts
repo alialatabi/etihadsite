@@ -294,6 +294,15 @@ export interface QualitySettings {
   targetDpi: number;
 }
 
+/** In-site AI sticker designer: on/off switch and daily generation limits. */
+export interface AiSettings {
+  enabled: boolean;
+  /** Generations one visitor (by IP) may start per day. */
+  perIpDailyLimit: number;
+  /** Generations the whole site may start per day. */
+  siteDailyLimit: number;
+}
+
 /** Everything the owner can edit in the admin dashboard. Stored via StorageAdapter. */
 export interface ShopSettings {
   shopName: string;
@@ -315,6 +324,7 @@ export interface ShopSettings {
   quality: QualitySettings;
   maxUploadBytes: number;
   retentionDays: number;
+  ai: AiSettings;
 }
 
 /* ────────────────────────────── Pricing ────────────────────────────────── */

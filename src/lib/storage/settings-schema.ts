@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { DEFAULT_SETTINGS } from '../../config/defaults';
 import type { ShopSettings } from '../types';
-import { MAX_DISCOUNT_TIERS, MAX_QUICK_PICKS, MAX_TIER_PERCENT } from './settings-limits';
+import {
+  AI_PER_IP_MAX,
+  AI_SITE_MAX,
+  MAX_DISCOUNT_TIERS,
+  MAX_QUICK_PICKS,
+  MAX_TIER_PERCENT,
+} from './settings-limits';
 
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
 
@@ -63,6 +69,11 @@ export const shopSettingsSchema = z.object({
   }),
   maxUploadBytes: int(1024, 100 * 1024 * 1024),
   retentionDays: int(1, 3650),
+  ai: z.object({
+    enabled: z.boolean(),
+    perIpDailyLimit: int(1, AI_PER_IP_MAX),
+    siteDailyLimit: int(1, AI_SITE_MAX),
+  }),
 });
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

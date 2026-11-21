@@ -162,6 +162,19 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>{s.aiTitle}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Check name="aiEnabled" label={s.aiEnabled} defaultChecked={settings.ai.enabled} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field name="aiPerIp" label={s.aiPerIp} defaultValue={String(settings.ai.perIpDailyLimit)} step="1" type="number" dir="ltr" />
+            <Field name="aiSite" label={s.aiSite} defaultValue={String(settings.ai.siteDailyLimit)} step="1" type="number" dir="ltr" />
+          </div>
+        </CardContent>
+      </Card>
+
       <div>
         <Button type="submit" disabled={pending} className="h-12">
           {s.save}

@@ -233,6 +233,10 @@ export const admin = {
     gapY: 'فراغ عمودي (ملم)',
     roundedRadius: 'نصف قطر الزوايا (ملم)',
     allowRotate: 'السماح بالتدوير لزيادة العدد',
-    retentionDays: 'الاحتفاظ بالملفات (يوم)',
+    retentionDays: 'الاحتفاظ بملف الطباعة PDF (يوم)',
+    aiTitle: 'تصميم الستيكر بالذكاء الاصطناعي',
+    aiEnabled: 'توليد التصاميم بالموقع شغّال',
+    aiPerIp: 'حد كل زبون باليوم',
+    aiSite: 'حد الموقع باليوم',
   },
 } as const;

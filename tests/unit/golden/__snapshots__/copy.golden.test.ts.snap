@@ -285,7 +285,11 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "gapY": "فراغ عمودي (ملم)",
     "roundedRadius": "نصف قطر الزوايا (ملم)",
     "allowRotate": "السماح بالتدوير لزيادة العدد",
-    "retentionDays": "الاحتفاظ بالملفات (يوم)"
+    "retentionDays": "الاحتفاظ بملف الطباعة PDF (يوم)",
+    "aiTitle": "تصميم الستيكر بالذكاء الاصطناعي",
+    "aiEnabled": "توليد التصاميم بالموقع شغّال",
+    "aiPerIp": "حد كل زبون باليوم",
+    "aiSite": "حد الموقع باليوم"
   }
 }"
 `;
@@ -294,13 +298,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2841,
+  "chars": 2941,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 20,
-  "sha256OfRawJson": "548915f45af144032369aa0eb61c646114b2eb9a032e6033b83f6c1d848330e9",
-  "strings": 210,
+  "sha256OfRawJson": "b1f73cc1e26df250de2a44ef03db6a630a74b06e8353470338d49bec515de190",
+  "strings": 214,
 }
 `;
 
