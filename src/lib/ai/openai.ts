@@ -134,7 +134,8 @@ function toBlob(ref: ImageRef): Blob {
 
 /**
  * One image. No refs → /images/generations (JSON); refs → /images/edits (multipart, `image[]` per ref).
- * Only refs prepared with `prepareRef` (normalise.ts) should be passed.
+ * Only refs prepared with `prepareRef` (normalise.ts) should be passed. `timeoutMs`: the time the caller
+ * can still wait (its own deadline), default AI_OPENAI_TIMEOUT_MS.
  */
 export async function generateImage(
   cfg: OpenAiConfig,

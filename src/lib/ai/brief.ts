@@ -106,6 +106,9 @@ function buildInstructions(): string {
   return `${RULES}\n\nWorked examples:\n\n${examples}`;
 }
 
+/** Output cap of the brief call (8 short lines, a one-sentence description, the fixes, and low-effort reasoning). */
+const BRIEF_MAX_OUTPUT_TOKENS = 1500;
+
 /** Built once: the instructions never contain customer data. */
 const INSTRUCTIONS = buildInstructions();
 
@@ -168,9 +171,15 @@ export async function extractBrief(
     input: idea,
     // The customer's text can contain names and phone numbers: OpenAI must not keep the response.
     store: false,
+    // A short extraction: little reasoning, and a cap on the whole output (reasoning tokens count against it).
+    reasoning: { effort: 'low' },
+    max_output_tokens: BRIEF_MAX_OUTPUT_TOKENS,
     text: { format: { type: 'json_schema', name: 'brief', strict: true, schema: BRIEF_SCHEMA } },
   });
   if (!result.ok) return result;
+
+  // Cut off by the cap (or another limit): the JSON may be partial, so it is never used.
+  if ((result.json as { status?: unknown } | null)?.status === 'incomplete') return fail('incomplete');
 
   const out = readOutput(result.json);
   if (out.kind === 'refusal') return { ok: false, reason: 'refused' };

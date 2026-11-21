@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { designsSummary } from '@/app/admin/designs/summary';
+import { alertBadgeCount, designsSummary, pageFromParam, usageSince } from '@/app/admin/designs/summary';
 import type { AiUsageRow } from '@/lib/types';
 
 const KEY_A = 'a'.repeat(64);
@@ -24,10 +24,11 @@ describe('designsSummary', () => {
     );
     expect(s.today).toBe(5);
     expect(s.month).toBe(5);
-    expect(s.allTime).toBe(5);
+    // The all-time count comes from the stored generations, not from usage rows.
+    expect('allTime' in s).toBe(false);
   });
 
-  it('month uses Baghdad YYYY-MM (shop day) and allTime sums everything', () => {
+  it('month uses Baghdad YYYY-MM (shop day)', () => {
     const s = designsSummary(
       [
         row({ day: '2026-11-01', count: 2 }),
@@ -40,7 +41,41 @@ describe('designsSummary', () => {
     );
     expect(s.today).toBe(1);
     expect(s.month).toBe(3);
-    expect(s.allTime).toBe(14);
+  });
+
+  it('usage is read from the first day of the month, or yesterday when that is earlier', () => {
+    expect(usageSince('2026-11-21')).toBe('2026-11-01');
+    expect(usageSince('2026-11-02')).toBe('2026-11-01');
+    expect(usageSince('2026-11-01')).toBe('2026-10-31');
+    expect(usageSince('2027-01-01')).toBe('2026-12-31');
+  });
+
+  it('?page is a whole number from 1, capped at 100,000; anything else is page 1', () => {
+    expect(pageFromParam(undefined)).toBe(1);
+    expect(pageFromParam('3')).toBe(3);
+    expect(pageFromParam('0')).toBe(1);
+    expect(pageFromParam('-2')).toBe(1);
+    expect(pageFromParam('2.5')).toBe(1);
+    expect(pageFromParam('abc')).toBe(1);
+    expect(pageFromParam('1e400')).toBe(1);
+    expect(pageFromParam('99999999999999999999')).toBe(1);
+    expect(pageFromParam('100001')).toBe(100_000);
+    expect(pageFromParam('100000')).toBe(100_000);
+  });
+
+  it('the nav badge counts customers (distinct IP keys), not alert rows', () => {
+    const s = designsSummary(
+      [
+        row({ day: '2026-11-20', ipKey: KEY_A, count: 5 }),
+        row({ day: '2026-11-21', ipKey: KEY_A, count: 5 }),
+        row({ day: '2026-11-21', ipKey: KEY_B, count: 7 }),
+      ],
+      '2026-11-21',
+      5,
+    );
+    expect(s.alerts).toHaveLength(3);
+    expect(alertBadgeCount(s.alerts)).toBe(2);
+    expect(alertBadgeCount([])).toBe(0);
   });
 
   it('alerts include today and yesterday at the limit, newest first', () => {

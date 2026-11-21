@@ -82,7 +82,7 @@ export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export type DpiStatus = 'ok' | 'warn' | 'block';
 
 /** Unrounded effective DPI over the ordered width (what the server gates on). null for vector PDFs. */
-export function dpiExact(design: DesignSource, spec: StickerSpec): number | null {
+export function dpiExact(design: Pick<DesignSource, 'kind' | 'pxWidth' | 'pxHeight'>, spec: StickerSpec): number | null {
   if (design.kind === 'pdf') return null;
   // A circle is centre-cropped to the shorter side of the artwork.
   const px = widthPixelsFor(spec.shape, design.pxWidth, design.pxHeight);
@@ -95,7 +95,7 @@ export function dpiExact(design: DesignSource, spec: StickerSpec): number | null
  * thresholds, `dpiStatus(dpiFor())` equals the server's unrounded comparison
  * (floor(x) < T  <=>  x < T). Use dpiExact for the raw value.
  */
-export function dpiFor(design: DesignSource, spec: StickerSpec): number | null {
+export function dpiFor(design: Pick<DesignSource, 'kind' | 'pxWidth' | 'pxHeight'>, spec: StickerSpec): number | null {
   const d = dpiExact(design, spec);
   return d === null ? null : Math.floor(d + 1e-9);
 }
@@ -301,6 +301,18 @@ export function aiAcceptedSize(shape: Shape, typed: { widthUm: number; heightUm:
   }
   const side = shape === 'custom' ? Math.max(typed.widthUm, typed.heightUm) : typed.widthUm;
   return deriveLockedSize(shape, aspect, { widthUm: side });
+}
+
+/** How far a size may stray from the design's width / height (rounding of a derived side) before it counts as another ratio. */
+const AI_RATIO_TOLERANCE = 0.02;
+
+/**
+ * True when `size` no longer has the design's ratio `aspect` (width / height): on page 1 an AI rectangle's sides are
+ * typed freely for a new idea, so leaving that page without a new accept must lock the size to the design again.
+ */
+export function aiSizeDrifted(size: { widthUm: number; heightUm: number } | null, aspect: number): boolean {
+  if (!size || !(size.widthUm > 0) || !(size.heightUm > 0) || !Number.isFinite(aspect) || !(aspect > 0)) return false;
+  return Math.abs(size.widthUm / size.heightUm / aspect - 1) > AI_RATIO_TOLERANCE;
 }
 
 /** True when the ordered size is smaller (in either direction) than the size the AI design was accepted at. */

@@ -9,21 +9,27 @@ import { getSettings } from '@/lib/settings';
 import { DAY_MS, shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { logoutAction } from './actions';
-import { designsSummary } from './designs/summary';
+import { alertBadgeCount, designsSummary } from './designs/summary';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: admin.title, robots: { index: false, follow: false } };
 
-/** Customers at today's/yesterday's per-IP limit and not yet blocked, for the nav badge. Never breaks the layout. */
+/**
+ * Customers (distinct IP keys) at today's/yesterday's per-IP limit and not yet blocked, for the nav badge.
+ * Never breaks the layout.
+ */
 async function designAlertCount(): Promise<number> {
   try {
     const storage = getStorage();
     if (!storage.aiUsage) return 0;
     const now = Date.now();
-    const settings = await getSettings();
-    const usage = await storage.aiUsage(shopDayKey(new Date(now - DAY_MS)));
-    const blockedKeys = new Set((await storage.aiListBlocks?.())?.map((b) => b.ipKey) ?? []);
-    return designsSummary(usage, shopDayKey(new Date(now)), settings.ai.perIpDailyLimit, blockedKeys).alerts.length;
+    const [settings, usage, blocks] = await Promise.all([
+      getSettings(),
+      storage.aiUsage(shopDayKey(new Date(now - DAY_MS)), 'image'),
+      storage.aiListBlocks?.() ?? [],
+    ]);
+    const blockedKeys = new Set(blocks.map((b) => b.ipKey));
+    return alertBadgeCount(designsSummary(usage, shopDayKey(new Date(now)), settings.ai.perIpDailyLimit, blockedKeys).alerts);
   } catch {
     return 0;
   }

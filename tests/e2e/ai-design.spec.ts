@@ -217,3 +217,128 @@ test('after accepting an AI design, an own upload replaces it and is uploaded at
   await page.waitForURL('**/order/success', { timeout: 60_000 });
   expect(uploads.length, 'the own file is uploaded').toBeGreaterThan(0);
 });
+
+// Own IP per describe: each block makes one more counted generation (5 per IP per day).
+test.describe('a failed retry keeps the paid result', () => {
+  test.use({ extraHTTPHeaders: fakeIpHeaders() });
+
+  test('generate → the retry fails → the first design is still accepted and ordered', async ({ page }) => {
+    const uploads: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && /\/api\/upload/.test(r.url())) uploads.push(r.url());
+    });
+
+    await page.goto('/');
+    await chooseShape(page, builder.shape.circle);
+    await setSize(page, '3');
+    await page.locator('#ai-idea').fill('مقهي الورد');
+    await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+    const accept = page.getByRole('button', { name: builder.ai.accept, exact: true });
+    await expect(accept).toBeVisible({ timeout: 60_000 });
+
+    // The next try fails on the server (not counted): the paid design stays, with the error above it.
+    await page.route('**/api/design/generate', (route) => route.fulfill({ status: 500, json: { ok: false, error: 'failed' } }));
+    await page.getByRole('button', { name: builder.ai.retry, exact: true }).click();
+    await expect(page.getByText(builder.ai.errors.failed)).toBeVisible();
+    await expect(accept).toBeEnabled();
+    await expect(page.getByText(builder.ai.printedText)).toBeVisible();
+    // No generic Next while the result waits for «أكمل بهذا».
+    await expect(page.getByRole('button', { name: common.actions.next, exact: true })).toHaveCount(0);
+
+    // «عدّل الفكرة» and back: the design is still reachable, without the old message.
+    await page.getByRole('button', { name: builder.ai.editIdea, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.viewResult, exact: true }).click();
+    await expect(accept).toBeEnabled();
+    await expect(page.getByText(builder.ai.errors.failed)).toHaveCount(0);
+    await accept.click();
+
+    const sizeHeading = page.getByRole('heading', { level: 2, name: builder.size.title });
+    await expect(sizeHeading).toBeVisible();
+    // Page 1 does not bring the failed retry's message back for the design that was accepted.
+    const back = page.getByRole('button', { name: common.actions.back, exact: true });
+    await back.click();
+    await expect(page.getByRole('heading', { level: 2, name: builder.steps.design })).toBeVisible();
+    await back.click();
+    await expect(page.locator('#ai-idea')).toBeVisible();
+    await expect(page.getByText(builder.ai.errors.failed)).toHaveCount(0);
+    await next(page).click();
+    await expect(page.getByRole('heading', { level: 2, name: builder.steps.design })).toBeVisible();
+    await next(page).click();
+
+    await expect(sizeHeading).toBeVisible();
+    await expect(perSheetBadge(page, 54)).toBeVisible();
+    await next(page).click();
+    await chooseQuantity(page, 'plastic', 1050);
+    await next(page).click();
+    await fillDetails(page);
+    await page.getByRole('button', { name: builder.details.submit, exact: true }).click();
+    await page.waitForURL('**/order/success', { timeout: 60_000 });
+    expect(uploads, 'the kept design is not uploaded again').toEqual([]);
+  });
+});
+
+test.describe('page 1 rectangle after an accept', () => {
+  test.use({ extraHTTPHeaders: fakeIpHeaders() });
+
+  test('its sides are typed freely, and moving on without a new design locks the ratio again', async ({ page }) => {
+    await page.goto('/');
+    await chooseShape(page, builder.shape.rect);
+    await setSize(page, '5');
+    await page.locator('#size-height').fill('5');
+    await page.locator('#ai-idea').fill('مقهي الورد');
+    await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.accept, exact: true }).click({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { level: 2, name: builder.size.title })).toBeVisible();
+    await expect(page.locator('#size-height')).toHaveValue('5');
+
+    // Back to page 1: a new idea may need another ratio, so the height is free (the width stays).
+    const back = page.getByRole('button', { name: common.actions.back, exact: true });
+    await back.click();
+    await back.click();
+    await page.locator('#size-height').fill('3');
+    await expect(page.locator('#size-width')).toHaveValue('5');
+
+    // No new design: moving on brings the square design's ratio back.
+    await next(page).click();
+    await expect(page.getByRole('heading', { level: 2, name: builder.steps.design })).toBeVisible();
+    // The layout follows the size after a short debounce; Next waits for it (a click inside it does nothing).
+    const sizeHeading = page.getByRole('heading', { level: 2, name: builder.size.title });
+    await expect(async () => {
+      await next(page).click();
+      await expect(sizeHeading).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+    await expect(page.locator('#size-width')).toHaveValue('5');
+    await expect(page.locator('#size-height')).toHaveValue('5');
+  });
+
+  test('«عندي تصميم جاهز» after a free height on page 1 also brings the design ratio back', async ({ page }) => {
+    await page.goto('/');
+    await chooseShape(page, builder.shape.rect);
+    await setSize(page, '5');
+    await page.locator('#size-height').fill('5');
+    await page.locator('#ai-idea').fill('مقهي الورد');
+    await page.getByRole('button', { name: builder.ai.generate, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.confirm, exact: true }).click();
+    await page.getByRole('button', { name: builder.ai.accept, exact: true }).click({ timeout: 60_000 });
+    const sizeHeading = page.getByRole('heading', { level: 2, name: builder.size.title });
+    await expect(sizeHeading).toBeVisible();
+
+    const back = page.getByRole('button', { name: common.actions.back, exact: true });
+    await back.click();
+    await back.click();
+    await page.locator('#size-height').fill('3');
+    await expect(page.locator('#size-width')).toHaveValue('5');
+
+    // The upload step keeps the accepted design; the size it carries on must be the design's (5 × 5), not 5 × 3.
+    await readyDesign(page);
+    await expect(page.getByRole('heading', { level: 2, name: builder.upload.title })).toBeVisible();
+    await expect(async () => {
+      await next(page).click();
+      await expect(sizeHeading).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+    await expect(page.locator('#size-width')).toHaveValue('5');
+    await expect(page.locator('#size-height')).toHaveValue('5');
+  });
+});

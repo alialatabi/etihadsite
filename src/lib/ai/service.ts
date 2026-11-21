@@ -26,7 +26,7 @@ import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind, AiReserveResult, StorageAdapter } from '@/lib/types';
+import type { AiKind, AiReserveResult } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
@@ -44,7 +44,10 @@ import {
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, openAiConfig, type ImageRef } from './openai';
-import { aiAspectOk, buildImagePrompt, imageRequestSize, sanitizeLine } from './prompt-template';
+import { aiReady, hasAiStorage, secretReady, type AiStorage } from './ready';
+import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
+// The review box cleans the lines with the same function (browser-safe module).
+import { capUnits, cleanLine } from './sanitize';
 import { textCapacity } from './text-capacity';
 
 /* ───────────────────────────── API contract (used by the builder) ───────────────────────────── */
@@ -92,12 +95,6 @@ export const AI_BODY_MAX_BYTES = 16 * 1024;
 
 /* ───────────────────────────── Pure helpers ───────────────────────────── */
 
-/** Cuts to at most `max` UTF-16 units without leaving half a surrogate pair. */
-function capUnits(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max).replace(/[\uD800-\uDBFF]$/, '');
-}
-
 /**
  * Defence in depth for the model's English artwork description before it is signed and before it
  * enters the image prompt: control characters and newlines become spaces, « » go (they quote the
@@ -112,20 +109,10 @@ export function hardenVisualDescription(s: string): string {
   return capUnits(cleaned, AI_VISUAL_MAX_CHARS).trim();
 }
 
-/** A printed line as both routes see it: sanitised, and within the zod limit of generate. */
-function cleanLine(line: string): string {
-  return capUnits(sanitizeLine(line), AI_LINE_MAX_CHARS).trim();
-}
-
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
-/**
- * The token key must be a real secret in production: with SESSION_SECRET blank there, both routes
- * answer `unavailable` instead of signing with the public dev salt (anyone could forge a token).
- */
-export function secretReady(): boolean {
-  return process.env.NODE_ENV !== 'production' || (process.env.SESSION_SECRET ?? '').trim() !== '';
-}
+// secretReady / aiReady / hasAiStorage live in ready.ts (the home page imports it without the image code).
+export { aiReady, secretReady };
 
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
 export function briefToken(visualDescription: string): string {
@@ -198,12 +185,6 @@ export const generateRequestSchema = z
 
 function report(where: string, what: string, tags: Record<string, string | number> = {}, level: 'warning' | 'error' = 'error'): void {
   reportError(new Error(`ai ${what}`), { where, tags, level });
-}
-
-type AiStorage = StorageAdapter & Required<Pick<StorageAdapter, 'aiReserve' | 'aiRelease'>>;
-
-function hasAiStorage(s: StorageAdapter): s is AiStorage {
-  return typeof s.aiReserve === 'function' && typeof s.aiRelease === 'function';
 }
 
 /** The limit key: '' (site-only) when there is no trusted proxy and clientIp() is 'global'. */
@@ -374,28 +355,36 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   // Downloading and decoding them is the expensive part, so first (only when there are refs) a
   // read-only look answers a blocked IP or a reached cap without touching a single file, and each
   // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
-  const refs: ImageRef[] = [];
   if (req.refUploadIds.length > 0) {
     const early = await precheckAi(storage, { day, ipKey, perIpLimit, siteLimit });
     if (early) return genFail(early);
   }
-  for (const id of req.refUploadIds) {
-    if (storage.uploadInfo) {
-      const info = await storage.uploadInfo(id);
+  // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
+  // also in parallel); any bad one refuses the request.
+  const uploadInfo = storage.uploadInfo?.bind(storage);
+  if (uploadInfo) {
+    const infos = await Promise.all(req.refUploadIds.map((id) => uploadInfo(id)));
+    for (const info of infos) {
       if (!info) return genFail('invalid_request');
       if (info.meta.mime !== 'image/png' && info.meta.mime !== 'image/jpeg') return genFail('invalid_request');
       if (info.size > settings.maxUploadBytes) return genFail('invalid_request');
     }
-    const upload = await storage.readUpload(id);
-    if (!upload) return genFail('invalid_request');
-    const kind = sniffKind(upload.bytes);
-    if (kind !== 'png' && kind !== 'jpeg') return genFail('invalid_request');
-    try {
-      refs.push(await prepareRef(upload.bytes));
-    } catch {
-      return genFail('invalid_request');
-    }
   }
+  const prepared = await Promise.all(
+    req.refUploadIds.map(async (id): Promise<ImageRef | null> => {
+      const upload = await storage.readUpload(id);
+      if (!upload) return null;
+      const kind = sniffKind(upload.bytes);
+      if (kind !== 'png' && kind !== 'jpeg') return null;
+      try {
+        return await prepareRef(upload.bytes);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  if (prepared.some((r) => r === null)) return genFail('invalid_request');
+  const refs = prepared as ImageRef[];
 
   const reserved = await storage.aiReserve({
     day,
@@ -477,27 +466,32 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     return genFail('failed');
   }
 
-  // The image is saved and delivered; a failed record only costs the admin gallery entry.
-  try {
-    await storage.aiRecordGeneration?.({
-      id: nanoid(),
-      createdAt: new Date().toISOString(),
-      day,
-      ip,
-      ipKey,
-      shape: req.shape,
-      corners: req.corners,
-      widthUm: req.widthUm,
-      heightUm: req.heightUm,
-      idea: req.idea,
-      lines,
-      hasRefs: refs.length > 0,
-      model: AI_IMAGE_MODEL,
-      uploadId: stored.uploadId,
-      orderId: null,
-    });
-  } catch {
-    report('ai.generate', 'record failed', { uploadId: stored.uploadId });
+  // The image is saved and delivered; a failed record only costs the admin gallery entry (and the purge's
+  // protection of the upload), so it is tried twice before giving up. The answer stays ok either way.
+  const record = {
+    id: nanoid(),
+    createdAt: new Date().toISOString(),
+    day,
+    ip,
+    ipKey,
+    shape: req.shape,
+    corners: req.corners,
+    widthUm: req.widthUm,
+    heightUm: req.heightUm,
+    idea: req.idea,
+    lines,
+    hasRefs: refs.length > 0,
+    model: AI_IMAGE_MODEL,
+    uploadId: stored.uploadId,
+    orderId: null,
+  };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await storage.aiRecordGeneration?.(record);
+      break;
+    } catch {
+      if (attempt === 2) report('ai.generate', 'record failed', { uploadId: stored.uploadId });
+    }
   }
 
   return {

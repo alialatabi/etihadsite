@@ -25,6 +25,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/** listOrders() answers at most this many orders (the newest) from Supabase. */
+const ORDERS_LIST_CAP = 1000;
+
 export default async function OrdersPage() {
   await requireAdmin();
   const orders = await getStorage().listOrders();
@@ -33,6 +36,12 @@ export default async function OrdersPage() {
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">{admin.orders.title}</h1>
+      {/* Older orders exist but are not listed (paging is a later task). */}
+      {orders.length === ORDERS_LIST_CAP ? (
+        <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm">
+          {admin.orders.capped}
+        </p>
+      ) : null}
       {orders.length === 0 ? (
         <p className="rounded-2xl border bg-card p-8 text-center text-muted-foreground shadow-sm">
           {admin.orders.empty}

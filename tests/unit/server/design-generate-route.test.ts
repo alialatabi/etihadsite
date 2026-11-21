@@ -3,9 +3,8 @@ import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import { POST as generateRoute } from "@/app/api/design/generate/route";
-import { AI_IMAGE_MODEL } from "@/lib/ai/config";
+import { AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from "@/lib/ai/config";
 import { aiIpKey } from "@/lib/ai/ip";
-import { AI_OPENAI_TIMEOUT_MS } from "@/lib/ai/config";
 import { briefToken, fitPngBudget, runGenerate } from "@/lib/ai/service";
 import { shopDayKey } from "@/lib/shop-time";
 import { getStorage } from "@/lib/storage";
@@ -304,6 +303,71 @@ describe("POST /api/design/generate", () => {
     expect(await imageUsage()).toBe(1);
   });
 
+  it("generate retries a failed record once and still answers ok", async () => {
+    stubOpenAi(() => imageResponse(png));
+    const storage = getStorage();
+    const real = storage.aiRecordGeneration!.bind(storage);
+    const spy = vi.spyOn(storage, "aiRecordGeneration").mockRejectedValueOnce(new Error("blip")).mockImplementation(real);
+    const out = await read(await call(body()));
+    if (!out.ok) throw new Error(out.error);
+    expect(spy).toHaveBeenCalledTimes(2);
+    const { rows } = await storage.aiListGenerations!({ limit: 50, offset: 0 });
+    expect(rows.some((g) => g.uploadId === out.uploadId)).toBe(true);
+  });
+
+  it("generate refuses a non-JSON body (415) and another site's request (403) before any work", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    const send = (headers: Record<string, string>) =>
+      generateRoute(
+        new Request("http://localhost/api/design/generate", {
+          method: "POST",
+          headers: { "x-forwarded-for": nextIp(), ...headers },
+          body: JSON.stringify(body()),
+        }),
+      );
+    const plain = await send({ "content-type": "text/plain;charset=UTF-8" });
+    expect(plain.status).toBe(415);
+    expect(await read(plain)).toEqual({ ok: false, error: "invalid_request" });
+    expect((await send({})).status).toBe(415);
+    const cross = await send({ "content-type": "application/json", origin: "https://evil.example", host: "localhost" });
+    expect(cross.status).toBe(403);
+    expect(await read(cross)).toEqual({ ok: false, error: "invalid_request" });
+    expect(calls).toHaveLength(0);
+    expect(await imageUsage()).toBe(0);
+    // Its own origin goes through.
+    expect((await send({ "content-type": "application/json", origin: "http://localhost" })).status).toBe(200);
+  });
+
+  it("generate passes the time left before its deadline to OpenAI (at most AI_OPENAI_TIMEOUT_MS)", async () => {
+    stubOpenAi(() => imageResponse(png));
+    const timeouts: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      timeouts.push(ms);
+      return real(ms);
+    });
+    expect((await read(await call(body()))).ok).toBe(true);
+    expect(timeouts).toEqual([AI_OPENAI_TIMEOUT_MS]);
+
+    // 75 s already gone (slow references): 110 − 75 − 10 = 25 s are left for OpenAI.
+    timeouts.length = 0;
+    const t0 = Date.now();
+    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 75_000);
+    expect((await read(await call(body()))).ok).toBe(true);
+    expect(timeouts).toEqual([25_000]);
+  });
+
+  it("generate answers failed and leaves no use counted when less than 20 s would be left for OpenAI", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    const t0 = Date.now();
+    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 81_000);
+    const res = await call(body());
+    expect(res.status).toBe(502);
+    expect(await read(res)).toEqual({ ok: false, error: "failed" });
+    expect(calls).toHaveLength(0);
+    expect(await imageUsage()).toBe(0);
+  });
+
   it("generate releases and answers failed when the PNG stays over the size budget", async () => {
     const w = 1100;
     const noise = new Uint8Array(await sharp(randomBytes(w * w * 3), { raw: { width: w, height: w, channels: 3 } }).png().toBuffer());
@@ -325,6 +389,7 @@ describe("POST /api/design/generate", () => {
     const b = await briefRoute(
       new Request("http://localhost/api/design/brief", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ idea: "ورد", shape: "circle", widthUm: 50000, heightUm: 50000 }),
       }),
     );
@@ -351,6 +416,7 @@ describe("POST /api/design/generate", () => {
       const b = await briefRoute(
         new Request("http://localhost/api/design/brief", {
           method: "POST",
+          headers: { "content-type": "application/json" },
           body: JSON.stringify({ idea: "ورد", shape: "circle", widthUm: 50000, heightUm: 50000 }),
         }),
       );
@@ -452,7 +518,7 @@ describe("POST /api/design/generate", () => {
       await briefRoute(
         new Request("http://localhost/api/design/brief", {
           method: "POST",
-          headers: { "x-forwarded-for": "10.5.5.5" },
+          headers: { "content-type": "application/json", "x-forwarded-for": "10.5.5.5" },
           body: JSON.stringify({ idea: "ورد", shape: "circle", widthUm: 50000, heightUm: 50000 }),
         }),
       )
@@ -561,9 +627,9 @@ describe("generate: time budget", () => {
 
   it("does not call OpenAI and gives the use back when too little time is left", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
-    // started = 0; the second reading (just before the image call) says 50 s have passed.
-    const times = [0, 50_000];
-    const out = await runGenerate(req(), body(), () => times.shift() ?? 50_000);
+    // started = 0; the second reading (just before the image call) says 90 s have passed: 120 - 90 - 20 = 10 s < 20 s.
+    const times = [0, 90_000];
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 90_000);
     expect(out.body).toEqual({ ok: false, error: "failed" });
     expect(calls).toHaveLength(0);
     expect(await imageUsage()).toBe(0);
@@ -572,8 +638,8 @@ describe("generate: time budget", () => {
   it("limits the OpenAI call to what is left of the route's time", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    const times = [0, 30_000]; // 60 s - 30 s - 5 s safety = 25 s
-    const out = await runGenerate(req(), body(), () => times.shift() ?? 30_000);
+    const times = [0, 75_000]; // 120 s - 75 s - 20 s safety = 25 s
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 75_000);
     expect(out.body.ok).toBe(true);
     expect(calls).toHaveLength(1);
     expect(spy).toHaveBeenCalledWith(25_000);
@@ -582,9 +648,9 @@ describe("generate: time budget", () => {
   it("counts the time spent before runGenerate (the body read) from the route's start", async () => {
     stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    // The route started at 0; the body read took 10 s, so runGenerate begins at 10 s: 60 - 10 - 5 = 45 s.
-    expect((await runGenerate(req(), body(), () => 10_000, 0)).body.ok).toBe(true);
-    expect(spy).toHaveBeenCalledWith(45_000);
+    // The route started at 0; the body read took 70 s, so runGenerate begins at 70 s: 120 - 70 - 20 = 30 s.
+    expect((await runGenerate(req(), body(), () => 70_000, 0)).body.ok).toBe(true);
+    expect(spy).toHaveBeenCalledWith(30_000);
   });
 
   it("keeps the full OpenAI timeout when the request is young", async () => {

@@ -379,7 +379,8 @@ export class LocalStorage implements StorageAdapter {
       const row = rows.find((r) => r.day === a.day && r.ipKey === a.ipKey && r.kind === a.kind);
       const used = row?.count ?? 0;
       const blocks = await this.readAiList<AiBlock>("blocks");
-      if (blocks.some((b) => b.ipKey === a.ipKey)) return { status: "blocked" as const, used };
+      // By key, or by the full IP (a new SESSION_SECRET changes every key; it must not lift blocks). Same as reserve_ai.
+      if (blocks.some((b) => b.ipKey === a.ipKey || (a.ip !== "" && b.ip === a.ip))) return { status: "blocked" as const, used };
       const site = rows
         .filter((r) => r.day === a.day && r.kind === a.kind)
         .reduce((n, r) => n + r.count, 0);
@@ -408,12 +409,12 @@ export class LocalStorage implements StorageAdapter {
     });
   }
 
-  async aiUsage(sinceDay: string): Promise<AiUsageRow[]> {
+  async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
     if (!AI_DAY_RE.test(sinceDay)) throw new Error("Invalid day");
     const rows = await this.readAiList<AiUsageRow>("usage");
     const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
     return rows
-      .filter((r) => r.day >= sinceDay)
+      .filter((r) => r.day >= sinceDay && (kind === undefined || r.kind === kind))
       .sort((x, y) => cmp(x.day, y.day) || cmp(x.ipKey, y.ipKey) || cmp(x.kind, y.kind));
   }
 
@@ -518,13 +519,13 @@ export class LocalStorage implements StorageAdapter {
 
   /**
    * Retention purge (used by scripts/purge-orders.ts), same rules as the Supabase adapter
-   * (owner decision D10). Only orders and uploads created in the window
-   * [cutoff − PURGE_WINDOW_DAYS, cutoff) are deleted (every order file is still read, to learn
-   * what is in use, so the cost grows with the number of orders):
-   *   - orders created before KEEP_DESIGNS_FROM (old rule): record, PDF and design removed;
-   *   - orders from KEEP_DESIGNS_FROM on: only their print PDF is removed, the record and the
-   *     design are kept forever;
-   *   - uploads (by mtime) that no order and no AI generation (ai/generations.json) uses are removed.
+   * (owner decision D10):
+   *   - orders created before min(cutoff, KEEP_DESIGNS_FROM) (old rule): record, PDF and design
+   *     removed, with no lower bound (nothing promised is stranded by an outage);
+   *   - orders from KEEP_DESIGNS_FROM on: only their print PDF is removed when created in the window
+   *     [cutoff − PURGE_WINDOW_DAYS, cutoff); the record and the design are kept forever;
+   *   - uploads (by mtime, in the window) that no order and no AI generation (ai/generations.json) uses are removed.
+   * Every order file is read (to learn what is in use), so the cost grows with the number of orders.
    * Interrupted .tmp writes older than `cutoff` are removed too. Returns the relative paths
    * removed (or that would be removed when dryRun).
    */
@@ -540,17 +541,22 @@ export class LocalStorage implements StorageAdapter {
     if (Number.isNaN(keepFrom.getTime())) throw new Error("bad KEEP_DESIGNS_FROM");
     const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
     const inWindow = (d: Date) => d >= windowStart && d < cutoff;
+    // Old rule: created before min(cutoff, KEEP_DESIGNS_FROM), with NO lower bound (a purge outage or a
+    // lower retentionDays must never strand a promised deletion).
+    const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
     const orders = await this.listOrders();
-    const oldRule = orders.filter((o) => inWindow(new Date(o.createdAt)) && new Date(o.createdAt) < keepFrom);
+    const oldRule = orders.filter((o) => new Date(o.createdAt) < oldRuleEnd);
     const deleting = new Set(oldRule.map((o) => o.orderId));
     // Designs used by any order we keep, and uploads behind an AI generation, survive whatever their age.
     const used = new Set(orders.filter((o) => !deleting.has(o.orderId)).map((o) => o.files.designPath));
     for (const g of await this.readAiList<AiGenerationRecord>("generations")) used.add(uploadPath(g.uploadId));
     for (const order of orders) {
       const created = new Date(order.createdAt);
-      if (!inWindow(created)) continue;
+      const old = deleting.has(order.orderId);
+      // New-rule PDFs only in the window.
+      if (!old && !inWindow(created)) continue;
       await drop(order.files.pdfPath);
-      if (!deleting.has(order.orderId)) continue;
+      if (!old) continue;
       if (!used.has(order.files.designPath)) {
         await drop(order.files.designPath);
         await drop(metaPathForDesign(order.files.designPath));

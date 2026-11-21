@@ -15,7 +15,7 @@ import { QuantityStep } from './steps/QuantityStep';
 import { SizeStep } from './steps/SizeStep';
 import { StartStep } from './steps/StartStep';
 import { useAiDesign } from './ai/useAiDesign';
-import { aiBusy } from './ai/ai-logic';
+import { aiBusy, showViewResult } from './ai/ai-logic';
 import { CUSTOMER_FIELD_IDS, STEPS, seedUploadId, toCustomerInfo } from './logic';
 import { useBuilder } from './useBuilder';
 import { useSubmitOrder } from './useSubmitOrder';
@@ -34,9 +34,10 @@ const FLOAT_STRIP_PX = 88;
 /** The validated customer fields in form order (the key order of CUSTOMER_FIELD_IDS). */
 const CUSTOMER_FIELD_KEYS = Object.keys(CUSTOMER_FIELD_IDS) as (keyof typeof CUSTOMER_FIELD_IDS)[];
 
-export function Builder({ settings }: { settings: ShopSettings }) {
+/** `aiReady`: the server can design now (switch on, OpenAI key, secret); false shows the notice from the start. */
+export function Builder({ settings, aiReady = true }: { settings: ShopSettings; aiReady?: boolean }) {
   const b = useBuilder(settings);
-  const ai = useAiDesign(b);
+  const ai = useAiDesign(b, aiReady);
   const sub = useSubmitOrder(settings.maxUploadBytes);
   const { consumeRestoredStep } = b;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -111,10 +112,11 @@ export function Builder({ settings }: { settings: ShopSettings }) {
   };
 
   const isLast = b.step === STEPS.length - 1;
-  // The AI path moves on through its own buttons («ولّد التصميم», «أكمل بهذا»): no generic Next while nothing is accepted.
+  // The AI path moves on through its own buttons («ولّد التصميم», «أكمل بهذا»): no generic Next while nothing is
+  // accepted, nor while a try runs or a result (kept after a failed retry too) waits for «أكمل بهذا».
   const aiPending =
     b.mode === 'ai' &&
-    ((b.stepId === 'shape' && !b.design) || (b.stepId === 'design' && (ai.phase === 'generating' || ai.phase === 'result')));
+    ((b.stepId === 'shape' && !b.design) || (b.stepId === 'design' && showViewResult(ai.phase, ai.result !== undefined)));
   const title = b.stepId === 'design' && b.mode === 'ai' ? builder.steps.design : TITLES[b.stepId];
   const showStrip = b.stepId === 'size' || b.stepId === 'quantity';
   const inquiry = whatsappLink(settings.whatsapp);

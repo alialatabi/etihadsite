@@ -20,6 +20,8 @@ export const admin = {
   orders: {
     title: 'الطلبات',
     empty: 'ماكو طلبات بعد.',
+    /** Shown when the list hit its 1000-order cap (older orders are not listed). */
+    capped: 'يظهر آخر 1000 طلب فقط.',
     columns: {
       no: 'رقم الطلب',
       date: 'التاريخ',

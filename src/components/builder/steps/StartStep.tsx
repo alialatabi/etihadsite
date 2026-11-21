@@ -156,14 +156,23 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
           )}
 
           {ai.phase === 'reviewing' && <TextReview ai={ai} />}
-
-          {showViewResult(ai.phase) && (
-            <Button type="button" variant="outline" onClick={b.showDesignStep} className="h-12 w-full px-5 text-base sm:w-auto">
-              <Eye className="size-5" aria-hidden />
-              {builder.ai.viewResult}
-            </Button>
-          )}
         </section>
+      )}
+
+      {/* The kept (paid) result stays reachable, also when the site cannot design any more today. */}
+      {showViewResult(ai.phase, ai.result !== undefined) && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            b.startAi(); // after «عندي تصميم جاهز» the design step would show the upload instead
+            b.showDesignStep();
+          }}
+          className="h-12 w-full px-5 text-base sm:w-auto"
+        >
+          <Eye className="size-5" aria-hidden />
+          {builder.ai.viewResult}
+        </Button>
       )}
 
       <Button type="button" variant="outline" disabled={!b.shape} onClick={b.chooseUpload} className="mt-2 h-12 w-full px-5 text-base sm:w-auto">

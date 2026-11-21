@@ -616,8 +616,8 @@ export interface StorageAdapter {
   aiMarkOrdered?(uploadId: string, orderId: string): Promise<void>;
   /** Newest first; `total` counts every row matching the filter. */
   aiListGenerations?(q: { limit: number; offset: number; ipKey?: string }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
-  /** Usage rows with day ≥ sinceDay (YYYY-MM-DD). */
-  aiUsage?(sinceDay: string): Promise<AiUsageRow[]>;
+  /** Usage rows with day ≥ sinceDay (YYYY-MM-DD); only rows of `kind` when given. */
+  aiUsage?(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]>;
   /** Throws on an empty ipKey ('' is the site-only row and must never be blocked). */
   aiBlock?(ipKey: string, ip: string): Promise<void>;
   aiUnblock?(ipKey: string): Promise<void>;

@@ -48,6 +48,8 @@ const PAGE_ROWS = 1000;
 const DELETE_CHUNK = 500;
 /** Order ids per retention row-delete request (keeps the URL short even with long ids). */
 const ORDER_DELETE_CHUNK = 100;
+/** Design paths per "still used by a kept order?" query of the retention purge (keeps the URL short). */
+const DESIGN_CHECK_CHUNK = 50;
 /** Hard ceiling on pages of an until-empty read: a server that never answers an empty page must end in an error, never a loop (before any delete). */
 const MAX_PURGE_PAGES = 10_000;
 /** The `limit=` sent on the dry-run purge select of event ids (it counts what would be deleted); PostgREST's max-rows (default 1000) caps the rows actually read. */
@@ -573,10 +575,12 @@ export class SupabaseStorage implements StorageAdapter {
     return { rows: rows.map(rowToGeneration), total };
   }
 
-  async aiUsage(sinceDay: string): Promise<AiUsageRow[]> {
+  async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
     if (!DAY_RE.test(sinceDay)) throw new Error('Invalid day');
+    if (kind !== undefined && kind !== 'image' && kind !== 'brief') throw new Error('Invalid kind');
+    const byKind = kind ? `&kind=eq.${kind}` : '';
     const rows = await this.selectAllPaged(
-      `/rest/v1/ai_usage?select=day,ip_key,ip,kind,count,last_at&day=gte.${sinceDay}&order=day.asc,ip_key.asc,kind.asc`,
+      `/rest/v1/ai_usage?select=day,ip_key,ip,kind,count,last_at&day=gte.${sinceDay}${byKind}&order=day.asc,ip_key.asc,kind.asc`,
     );
     return rows.map((r) => ({
       day: String(r.day),
@@ -651,16 +655,16 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   /**
-   * Retention purge (Vercel Cron → /api/cron/purge), owner decision D10. Only items created in
-   * the window [cutoff − PURGE_WINDOW_DAYS, cutoff) are deleted. What is read is wider: every
-   * order and ai_generations row created since one day before the window start (no upper bound,
-   * to learn which uploads are in use), and the uploads/ and orders/ listings back to the window
-   * start. So the cost follows the activity of the last retentionDays + 31 days, not all history.
-   *   - Orders created before KEEP_DESIGNS_FROM (old rule): row, PDF and design are removed.
-   *   - Orders from KEEP_DESIGNS_FROM on: only their print PDF is removed (when still there);
-   *     the row and the design are kept forever.
-   *   - Uploads no order and no ai_generations row uses are removed; so are never-committed
-   *     uploads (.bin without .json) older than `orphanCutoff`.
+   * Retention purge (Vercel Cron → /api/cron/purge), owner decision D10. New-rule PDFs and
+   * uploads are only looked at in the window [cutoff − PURGE_WINDOW_DAYS, cutoff), so the work
+   * stays flat as data grows.
+   *   - Orders created before min(cutoff, KEEP_DESIGNS_FROM) (old rule): row, PDF and design are
+   *     removed, with NO lower bound, so a purge outage or a lower retentionDays can never strand
+   *     a promised deletion (the set only holds what is left from before the switch).
+   *   - Orders from KEEP_DESIGNS_FROM on: only their print PDF is removed (when still there, in
+   *     the window); the row and the design are kept forever.
+   *   - Uploads no order and no ai_generations row uses are removed (in the window); so are
+   *     never-committed uploads (.bin without .json) older than `orphanCutoff`.
    * Returns the paths (and `order:<id>` rows) removed, or that would be when dryRun.
    */
   async purgeOlderThan(cutoff: Date, dryRun: boolean, orphanCutoff = new Date(Date.now() - ORPHAN_UPLOAD_MAX_AGE_MS)): Promise<string[]> {
@@ -669,13 +673,23 @@ export class SupabaseStorage implements StorageAdapter {
     if (Number.isNaN(keepFrom.getTime())) throw new Error('bad KEEP_DESIGNS_FROM');
     const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
     const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
+    const oldRuleEndQ = encodeURIComponent(oldRuleEnd.toISOString());
     // References are read from a day before the window: an upload is always older than the
     // order or generation that uses it, and the day covers clocks that disagree.
-    const refFrom = encodeURIComponent(new Date(windowStart.getTime() - DAY_MS).toISOString());
-    const orders = (await this.selectAllPaged(
+    const refFromDate = new Date(windowStart.getTime() - DAY_MS);
+    const refFrom = encodeURIComponent(refFromDate.toISOString());
+    type Row = { order_id: string; created_at: string; files: OrderRecord['files'] | null };
+    const windowed = (await this.selectAllPaged(
       `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.${refFrom}&order=created_at.asc,order_id.asc`,
       { untilEmpty: true },
-    )) as { order_id: string; created_at: string; files: OrderRecord['files'] | null }[];
+    )) as Row[];
+    // Every old-rule row still there, however old.
+    const older = (await this.selectAllPaged(
+      `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=lt.${oldRuleEndQ}&order=created_at.asc,order_id.asc`,
+      { untilEmpty: true },
+    )) as Row[];
+    const seen = new Set(windowed.map((o) => o.order_id));
+    const orders = [...windowed, ...older.filter((o) => !seen.has(o.order_id))];
     const ai = (await this.selectAllPaged(
       `/rest/v1/ai_generations?select=upload_id&created_at=gte.${refFrom}&order=created_at.asc,id.asc`,
       { untilEmpty: true },
@@ -690,13 +704,29 @@ export class SupabaseStorage implements StorageAdapter {
     for (const o of orders) {
       const created = new Date(o.created_at);
       // An id that could not be put in the delete request safely is never classified for deletion.
-      if (inWindow(created) && created < oldRuleEnd && ID_RE.test(o.order_id)) oldRule.push(o);
+      if (created < oldRuleEnd && ID_RE.test(o.order_id)) oldRule.push(o);
       else {
         if (inWindow(created)) pdfOnly.push(o);
         if (o.files?.designPath) used.add(o.files.designPath);
       }
     }
     for (const g of ai) if (g.upload_id && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
+    // Kept orders are those from `oldRuleEnd` on. When that is before `refFrom` (the switch lies
+    // further back than the reference window), the read above misses the older kept ones, so an
+    // old-rule design that one of them still uses is asked for by path before it is deleted.
+    // Otherwise every kept order is already in `used` and nothing is asked.
+    const unsure =
+      oldRuleEnd < refFromDate
+        ? [...new Set(oldRule.map((o) => o.files?.designPath).filter((d): d is string => !!d && PATH_RE.test(d) && !used.has(d)))]
+        : [];
+    for (let i = 0; i < unsure.length; i += DESIGN_CHECK_CHUNK) {
+      const list = unsure.slice(i, i + DESIGN_CHECK_CHUNK).map((d) => encodeURIComponent(`"${d}"`)).join(',');
+      const keptUses = (await this.selectAllPaged(
+        `/rest/v1/orders?select=files:record->files&created_at=gte.${oldRuleEndQ}&record->files->>designPath=in.(${list})&order=order_id.asc`,
+        { untilEmpty: true },
+      )) as { files: OrderRecord['files'] | null }[];
+      for (const k of keptUses) if (k.files?.designPath) used.add(k.files.designPath);
+    }
 
     const removed: string[] = [];
     const files = new Set<string>();

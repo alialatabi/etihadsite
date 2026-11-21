@@ -1,4 +1,5 @@
 import { readJsonCapped } from "../../_lib/body";
+import { aiRequestRejection } from "../../_lib/same-origin";
 import { reportError } from "@/lib/monitoring/report";
 import {
   AI_BODY_MAX_BYTES,
@@ -7,7 +8,8 @@ import {
   type GenerateResponse,
 } from "@/lib/ai/service";
 
-export const maxDuration = 60;
+// The image call's time budget is worked out against this (config.ts AI_ROUTE_MAX_DURATION_MS; keep the literal 120).
+export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
 /**
@@ -18,11 +20,15 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request): Promise<Response> {
   // The time budget of the image call counts from here: the body read uses up the route's maxDuration too.
   const startedAt = Date.now();
-  const send = (body: GenerateResponse, retryAfterSec?: number) =>
+  const send = (body: GenerateResponse, retryAfterSec?: number, status?: number) =>
     Response.json(body, {
-      status: body.ok ? 200 : GENERATE_STATUS[body.error],
+      status: status ?? (body.ok ? 200 : GENERATE_STATUS[body.error]),
       headers: retryAfterSec !== undefined ? { "Retry-After": String(retryAfterSec) } : undefined,
     });
+
+  // Not JSON (415) or from another site (403): refused before the body is read.
+  const rejected = aiRequestRejection(request);
+  if (rejected !== null) return send({ ok: false, error: "invalid_request" }, undefined, rejected);
 
   let json: unknown;
   try {

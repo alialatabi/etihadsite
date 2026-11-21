@@ -9,12 +9,15 @@ export const AI_MAX_REFS = 5;
 export const AI_BRIEF_PER_IP = 20;
 export const AI_BRIEF_SITE = 1500;
 export const AI_OPENAI_TIMEOUT_MS = 50_000;
-/** `maxDuration` of POST /api/design/generate in ms (the route file must keep a literal 60). */
-export const AI_ROUTE_MAX_DURATION_MS = 60_000;
-/** Time kept after the OpenAI call for the pixel clean-up and the save of the result. */
-export const AI_AFTER_OPENAI_SAFETY_MS = 5_000;
+/** `maxDuration` of POST /api/design/generate in ms (the route file must keep a literal 120). */
+export const AI_ROUTE_MAX_DURATION_MS = 120_000;
+/**
+ * Time kept back from `maxDuration` for the rest of the request: 10 s for the pixel clean-up and the save after the
+ * OpenAI call, and 10 s so the route answers before the platform kills it (the call is cut off 110 s in at the latest).
+ */
+export const AI_AFTER_OPENAI_SAFETY_MS = 20_000;
 /** Below this much usable budget the image call is not started (the use is given back). */
-export const AI_MIN_OPENAI_BUDGET_MS = 10_000;
+export const AI_MIN_OPENAI_BUDGET_MS = 20_000;
 export const AI_MIN_PIXELS = 655_360;
 export const AI_MAX_ASPECT = 3;
 export const AI_REF_LONG_SIDE = 1024;

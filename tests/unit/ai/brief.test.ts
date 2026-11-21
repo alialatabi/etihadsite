@@ -72,6 +72,20 @@ describe('extractBrief', () => {
     const fixItem = schema.properties.spelling_fixes.items;
     expect(fixItem.additionalProperties).toBe(false);
     expect([...fixItem.required].sort()).toEqual(['from', 'to']);
+    // A bounded, quick answer: low reasoning effort (the cap counts reasoning tokens too) and an output cap.
+    expect(body.reasoning).toEqual({ effort: 'low' });
+    expect(body.max_output_tokens).toBe(1500);
+  });
+
+  it("status 'incomplete' (the output cap was hit) → error, even with a readable start of JSON", async () => {
+    fetchMock.mockResolvedValue(
+      ok({
+        ...responsesBody({ printed_text: ['x'], visual_description: 'y', spelling_fixes: [] }),
+        status: 'incomplete',
+        incomplete_details: { reason: 'max_output_tokens' },
+      }),
+    );
+    expect(await extractBrief(cfg, 'idea')).toEqual({ ok: false, reason: 'error' });
   });
 
   it('caps lines at 8', async () => {

@@ -133,6 +133,23 @@ describe('generateImage', () => {
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'timeout' });
   });
 
+  it('uses the given timeout (else AI_OPENAI_TIMEOUT_MS) and reports the one used', async () => {
+    const timeouts: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+      timeouts.push(ms);
+      return real(ms);
+    });
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    await generateImage(cfg, baseReq);
+    await generateImage(cfg, { ...baseReq, timeoutMs: 25_000 });
+    expect(timeouts).toEqual([AI_OPENAI_TIMEOUT_MS, 25_000]);
+
+    fetchMock.mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
+    expect(await generateImage(cfg, { ...baseReq, timeoutMs: 25_000 })).toEqual({ ok: false, reason: 'timeout' });
+    expect(reported.at(-1)?.[1]).toMatchObject({ tags: { timeoutMs: 25_000 } });
+  });
+
   it('500 → error', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: { code: 'server_error', type: 'server_error', message: 'oops' } }, 500));
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'error' });
