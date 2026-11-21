@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CloudUpload, FileDown, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common, staff } from '@/content/ar';
@@ -75,10 +75,15 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
   const download = () => {
     if (s.ready) void run(s.cards);
   };
-  const downloadOne = (id: string) => {
-    const card = s.cards.find((c) => c.id === id);
-    if (card) void run([card]);
-  };
+  // The card buttons get a stable handler so the memoised StaffCards skip re-renders while typing or decoding.
+  const latest = useRef({ run, cards: s.cards });
+  useEffect(() => {
+    latest.current = { run, cards: s.cards };
+  });
+  const downloadOne = useCallback((id: string) => {
+    const card = latest.current.cards.find((c) => c.id === id);
+    if (card) void latest.current.run([card]);
+  }, []);
 
   const n = s.cards.length;
   const accepted = fillLtr(staff.accepted, { max: MAX_STAFF_FILES, mb: uploadLimitMb(MAX_STAFF_FILE_BYTES) });
