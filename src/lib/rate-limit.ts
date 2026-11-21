@@ -87,6 +87,8 @@ type Limiters = {
   log: RateLimiter;
   login: RateLimiter;
   track: RateLimiter;
+  /** POST /api/track, keyed by clientIp(): a second guard, because the visitor hash changes with every User-Agent string. */
+  trackIp: RateLimiter;
   /** POST /api/design/brief: a cheap first guard before the stored daily AI counter. */
   brief: RateLimiter;
   /** POST /api/design/generate: every attempt counts (never refunded), before refs and the stored reservation. */
@@ -109,6 +111,7 @@ export function limiters(): Limiters {
       mode,
       upload: createRateLimiter({ limit: 20 * k, windowMs: HOUR }),
       commit: createRateLimiter({ limit: 40 * k, windowMs: HOUR }),
+      trackIp: createRateLimiter({ limit: 600 * k, windowMs: HOUR }),
       order: createRateLimiter({ limit: 5 * k, windowMs: HOUR }),
       log: createRateLimiter({ limit: 60 * k, windowMs: HOUR }),
       login: createRateLimiter({ limit: 10 * k, windowMs: 15 * 60 * 1000 }),
@@ -125,5 +128,7 @@ export function limiters(): Limiters {
   g.__epLimiters.generate ??= createRateLimiter({ limit: 15 * (mode ? 1 : 20), windowMs: HOUR });
   // And for `commit` (added 2026-11-21).
   g.__epLimiters.commit ??= createRateLimiter({ limit: 40 * (mode ? 1 : 20), windowMs: HOUR });
+  // And for `trackIp` (added 2026-11-21).
+  g.__epLimiters.trackIp ??= createRateLimiter({ limit: 600 * (mode ? 1 : 20), windowMs: HOUR });
   return g.__epLimiters;
 }

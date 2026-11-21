@@ -83,6 +83,34 @@ describe("rate limiter", () => {
     }
   });
 
+  it("has a trackIp limiter: 600 per hour per address (x20 without a trusted proxy); a set that predates it gets one", () => {
+    const slot = globalThis as { __epLimiters?: unknown };
+    const prev = process.env.TRUST_PROXY;
+    try {
+      slot.__epLimiters = undefined;
+      process.env.TRUST_PROXY = "1";
+      const l1 = limiters();
+      expect(l1.trackIp).not.toBe(l1.track);
+      for (let i = 0; i < 600; i++) expect(l1.trackIp.check("ip").ok).toBe(true);
+      expect(l1.trackIp.check("ip").ok).toBe(false);
+      process.env.TRUST_PROXY = "0";
+      const l0 = limiters();
+      for (let i = 0; i < 12_000; i++) expect(l0.trackIp.check("global").ok).toBe(true);
+      expect(l0.trackIp.check("global").ok).toBe(false);
+      const stale: Record<string, unknown> = { mode: l0.mode, upload: l0.upload };
+      slot.__epLimiters = stale;
+      const patched = limiters();
+      expect(patched).toBe(stale);
+      expect(patched.upload).toBe(l0.upload);
+      expect(patched.trackIp.check("x").ok).toBe(true);
+      expect(limiters().trackIp).toBe(patched.trackIp);
+    } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+      slot.__epLimiters = undefined;
+    }
+  });
+
   it("adds the commit limiter to a set that predates it without resetting the others", () => {
     const slot = globalThis as { __epLimiters?: unknown };
     const prev = process.env.TRUST_PROXY;

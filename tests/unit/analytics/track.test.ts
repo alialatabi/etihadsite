@@ -75,4 +75,19 @@ describe("POST /api/track", () => {
     }
     expect(recordEvent).toHaveBeenCalledTimes(300);
   });
+  it("a script that rotates the User-Agent is still stopped per address: 600 of 650 are recorded, all answer 204", async () => {
+    for (let i = 0; i < 650; i++) {
+      const res = await POST(req({ type: "step", path: "/", step: "shape" }, { "user-agent": `Mozilla/5.0 (X11; Linux) Chrome/${i}.0 Safari/537.36` }));
+      expect(res.status).toBe(204);
+    }
+    expect(recordEvent).toHaveBeenCalledTimes(600);
+    // Another address is not affected.
+    await POST(req({ type: "step", path: "/", step: "shape" }, { "x-forwarded-for": "9.9.9.9" }));
+    expect(recordEvent).toHaveBeenCalledTimes(601);
+  });
+  it("an invalid body is still 400 and does not spend the address's allowance", async () => {
+    for (let i = 0; i < 700; i++) expect((await POST(req("{bad"))).status).toBe(400);
+    expect((await POST(req({ type: "step", path: "/", step: "shape" }))).status).toBe(204);
+    expect(recordEvent).toHaveBeenCalledTimes(1);
+  });
 });
