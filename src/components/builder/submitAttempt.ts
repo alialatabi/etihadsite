@@ -18,7 +18,11 @@ export interface AttemptFingerprint {
 export function attemptFingerprint(input: SubmitInput, seedUploadId?: string): AttemptFingerprint {
   const f = input.design.file;
   const design = JSON.stringify([f.name, f.size, f.lastModified, seedUploadId ?? null]);
-  const order = JSON.stringify([input.spec, input.material, input.stickers, input.sheets, input.customer, design]);
+  // The WhatsApp-offers box is session-only (never restored after a reload), so it must not decide the order id: a
+  // reload that finds it unticked would otherwise get a NEW id and could duplicate an order that already landed.
+  // A replayed order keeps the choice it was first saved with.
+  const customer = { ...input.customer, marketingOptIn: undefined };
+  const order = JSON.stringify([input.spec, input.material, input.stickers, input.sheets, customer, design]);
   return { order, design };
 }
 

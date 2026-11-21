@@ -1,4 +1,4 @@
--- Optional WhatsApp-offers opt-in (owner request 2026-11-22). The customer ticks an unticked-by-default box on the
+-- Optional WhatsApp-offers opt-in (owner request 2026-11-21). The customer ticks an unticked-by-default box on the
 -- delivery step. The LATEST order's explicit choice wins: an order without the box ticked withdraws a stored yes.
 -- marketing_opt_in_at is the time of the latest opt-in order (null once withdrawn / never opted in).
 -- Server (secret key) only: RLS stays on with NO policies (set in 20261110000000_analytics_customers.sql).

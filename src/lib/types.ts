@@ -748,7 +748,7 @@ export interface CustomerRecord {
   lastDisplayNo: string;
   /**
    * WhatsApp offers consent. The LATEST order's explicit choice wins (an order without the box ticked withdraws it).
-   * Absent = never opted in (rows from before 2026-11-22, or a customer who never ticked).
+   * Absent = never opted in (rows from before the opt-in existed, or a customer who never ticked).
    */
   marketingOptIn?: boolean;
   /** ISO 8601 UTC of the latest opt-in; null once withdrawn. Absent with `marketingOptIn`. */

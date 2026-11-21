@@ -50,6 +50,13 @@ describe('attemptFingerprint', () => {
     expect(attemptFingerprint(input({ customer: { ...a.customer, district: 'z' } })).order).not.toBe(attemptFingerprint(a).order);
   });
 
+  it('ignores the WhatsApp-offers box: ticking it must not change the order id across a reload', () => {
+    const a = input();
+    const ticked = input({ customer: { ...a.customer, marketingOptIn: true } });
+    expect(attemptFingerprint(ticked).order).toBe(attemptFingerprint(a).order);
+    expect(attemptFingerprint(ticked).order).toBe(attemptFingerprint(input({ customer: { ...a.customer, marketingOptIn: false } })).order);
+  });
+
   it('design part reacts to file name, size, lastModified and seed only', () => {
     const base = attemptFingerprint(input());
     const f = (name: string, body: string, lm: number) => new File([body], name, { lastModified: lm });
