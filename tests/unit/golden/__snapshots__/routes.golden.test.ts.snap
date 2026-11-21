@@ -565,8 +565,8 @@ exports[`golden: POST /api/upload > rate limit (20 per hour per address) and ser
       "GOLDEN storage down (getSettings)",
     ],
   ],
-  "otherAddressStatus": 400,
-  "statuses": "400,400,400,400,400,400,400,400,400,400,415,415,415,415,415,415,415,415,415,415",
+  "otherAddressStatus": 200,
+  "statuses": "200,200,200,200,200,200,200,200,200,200,415,415,415,415,415,415,415,415,415,415",
 }
 `;
 
@@ -576,13 +576,19 @@ exports[`golden: POST /api/upload > rejections and accepted files (max upload si
   "idsAreUnique": true,
   "metas": [
     "application/pdf bytes=9 createdAt=2026-11-10T09:00:00.000Z name(7)=doc.bin",
+    "image/jpeg bytes=267 createdAt=2026-11-10T09:00:00.000Z name(9)=photo.pdf",
+    "image/png bytes=2000 createdAt=2026-11-10T09:00:00.000Z name(7)=max.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(17)=تصميم نهائي ١.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(200)=abcxxxxxxxxx…xxxxxx",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(5)=a.png",
+    "image/png bytes=66 createdAt=2026-11-10T09:00:00.000Z name(9)=first.png",
   ],
   "rows": [
     "no Content-Length header -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "Content-Length is not a number -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "Content-Length negative -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "declared length above max + 64 KiB -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
-    "declared length exactly max + 64 KiB (body is smaller) -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "declared length exactly max + 64 KiB (body is smaller) -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
     "body larger than the cap although the header says 100 -> 413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
     "JSON body instead of multipart -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     "multipart content-type with a broken body -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
@@ -595,16 +601,22 @@ exports[`golden: POST /api/upload > rejections and accepted files (max upload si
     "GIF labelled image/png -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
     "text file -> 415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
     "PNG by magic bytes (11 bytes, not a decodable image) -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
-    "PNG of exactly 2000 bytes -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
-    "JPEG labelled application/pdf -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "PNG of exactly 2000 bytes -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":2000}",
+    "JPEG labelled application/pdf -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"jpeg","bytes":267}",
     "PDF header -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"pdf","bytes":9}",
-    "two "file" parts: the first one is used -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
-    "name with control characters and 300 chars -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
-    "Arabic file name -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    "two "file" parts: the first one is used -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
+    "name with control characters and 300 chars -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
+    "Arabic file name -> 200 [content-type=application/json] {"ok":true,"uploadId":"<UPLOAD_ID>","kind":"png","bytes":66}",
   ],
-  "storedUploads": 1,
+  "storedUploads": 7,
   "uploadEvents": [
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"jpeg"} device=mobile ts=2026-11-10T09:00:00.000Z",
     "upload {"kind":"pdf"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
+    "upload {"kind":"png"} device=mobile ts=2026-11-10T09:00:00.000Z",
   ],
 }
 `;
@@ -656,7 +668,7 @@ exports[`golden: POST /api/upload/direct > local storage always answers mode "se
 exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every outcome, what is stored, deleted and tracked 1`] = `
 {
   "broken": "storage down -> 500 [content-type=application/json] {"ok":false,"error":"server_error","message":"صار خطأ. جرّب مرة ثانية أو راسلنا واتساب."}",
-  "fallback": "no saveUploadMeta -> 400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+  "fallback": "no saveUploadMeta -> 200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
   "logged": [
     [
       "[upload/direct/commit] failed",
@@ -665,13 +677,18 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
   ],
   "out": {
     "JPEG committed without a name": {
-      "binStillThere": false,
-      "deleted": [
-        "uploads/abcDEF_123-xyz.bin",
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"jpeg"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
-      "events": [],
-      "metaSaved": null,
-      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+      "metaSaved": {
+        "bytes": 267,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/jpeg",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"jpeg","bytes":267}",
     },
     "PDF committed, name sanitised and cut to 200": {
       "binStillThere": true,
@@ -687,7 +704,7 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       },
       "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"pdf","bytes":9}",
     },
-    "PNG committed": {
+    "PNG by magic bytes, not a decodable image": {
       "binStillThere": false,
       "deleted": [
         "uploads/abcDEF_123-xyz.bin",
@@ -695,6 +712,20 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       "events": [],
       "metaSaved": null,
       "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+    },
+    "PNG committed": {
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
+      ],
+      "metaSaved": {
+        "bytes": 66,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "logo.png",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "already committed but the stored bytes are unsupported": {
       "binStillThere": true,
@@ -718,7 +749,7 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
         "mime": "image/png",
         "originalName": "first-name.png",
       },
-      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":11}",
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "empty file": {
       "binStillThere": false,
@@ -730,13 +761,18 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
     },
     "empty name falls back to "design"": {
-      "binStillThere": false,
-      "deleted": [
-        "uploads/abcDEF_123-xyz.bin",
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
-      "events": [],
-      "metaSaved": null,
-      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+      "metaSaved": {
+        "bytes": 66,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":66}",
     },
     "file above settings.maxUploadBytes (1024)": {
       "binStillThere": false,
@@ -757,13 +793,18 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       "response": "413 [content-type=application/json] {"ok":false,"error":"too_large","message":"حجم الملف أكبر من المسموح."}",
     },
     "file exactly at settings.maxUploadBytes (1024), PNG": {
-      "binStillThere": false,
-      "deleted": [
-        "uploads/abcDEF_123-xyz.bin",
+      "binStillThere": true,
+      "deleted": [],
+      "events": [
+        "upload {"kind":"png"} device=mobile visitor=6f7694c35401ad36 ts=2026-11-10T09:00:00.000Z",
       ],
-      "events": [],
-      "metaSaved": null,
-      "response": "400 [content-type=application/json] {"ok":false,"error":"corrupt","message":"ما قدرنا نقرأ الملف."}",
+      "metaSaved": {
+        "bytes": 1024,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "design",
+      },
+      "response": "200 [content-type=application/json] {"ok":true,"uploadId":"abcDEF_123-xyz","kind":"png","bytes":1024}",
     },
     "no file in the bucket": {
       "binStillThere": false,
@@ -782,7 +823,18 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
       "response": "415 [content-type=application/json] {"ok":false,"error":"unsupported_type","message":"نوع الملف غير مدعوم."}",
     },
   },
-  "saved": [],
+  "saved": [
+    {
+      "bytes": 66,
+      "id": "abcDEF_123-xyz",
+      "meta": {
+        "bytes": 66,
+        "createdAt": "2026-11-10T09:00:00.000Z",
+        "mime": "image/png",
+        "originalName": "logo.png",
+      },
+    },
+  ],
 }
 `;
 
