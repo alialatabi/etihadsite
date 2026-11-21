@@ -32,7 +32,9 @@ API (`src/app/api`):
 | `POST /api/upload/direct` | Step 1 of an upload. Returns a one-time signed PUT URL, or `mode: 'server'` when the storage is the local disk. |
 | `POST /api/upload/direct/commit` | Step 2. The server reads the stored bytes back, checks size and magic bytes, then writes the meta file. |
 | `POST /api/upload` | Multipart upload for local storage. Same checks. |
-| `POST /api/orders` | Creates the order (section 2). |
+| `POST /api/orders` | Creates the order (section 2). When the order's `uploadId` is an AI design, the generation is marked as ordered (`aiMarkOrdered`, best effort). |
+| `POST /api/design/brief` | AI designer, step 1: the customer's idea → the lines to print (spelling fixed), the fixes, and an English artwork description signed with `briefToken` (HMAC of `SESSION_SECRET`). Limits: in-memory 30/h per IP, then the stored daily counter (`AI_BRIEF_PER_IP`, `AI_BRIEF_SITE`). Logic in `src/lib/ai/service.ts`. |
+| `POST /api/design/generate` | AI designer, step 2: one image from the fixed prompt template, the signed description and the confirmed lines (the raw idea is stored, never sent to OpenAI). Checks in order: body, `briefToken`, 3:1 aspect, `settings.ai.enabled` + key, text capacity, reference images (PNG/JPEG uploads), then the atomic daily reservation (`aiReserve`; blocked, site cap, per-IP cap). Any failure after the reservation gives it back. The PNG is stored as an ordinary upload and returned as base64. |
 | `POST /api/track` | Analytics beacon (section 5). |
 | `POST /api/log` | Client error log to `console.warn`. Answers 204 even when it ignores the body (413 only for a body over 8 KiB). |
 | `GET /api/cron/purge` | Daily retention purge. Needs `Authorization: Bearer $CRON_SECRET`. `?dry=1` only reports. |
@@ -123,6 +125,7 @@ Settings are stored as the owner saved them. On read they are deep-merged over `
 | `STORAGE`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DATA_DIR` | `storage/index.ts`; `DATA_DIR` also in `scripts/purge-orders.ts` | `process.env` directly |
 | `ORDER_TRANSPORT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `notify/index.ts` | `getOrderEnv()` |
 | `TURNSTILE_SECRET_KEY` | `api/orders/route.ts` | `getOrderEnv()` |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL` | `lib/ai/openai.ts` (`openAiConfig()`), used by the two `/api/design/*` routes | `process.env` directly, at call time. Secret, server only. Empty key = the AI designer answers `unavailable`. Deliberately **not** in `orderEnvSchema`: a bad key must never break orders. `OPENAI_BASE_URL` (default `https://api.openai.com/v1`) is for tests |
 | `TRUST_PROXY` | `rate-limit.ts` | `process.env` directly |
 | `STAFF_PAGE_KEY` | `src/proxy.ts` (through `staff-gate.ts`), `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
 | `CRON_SECRET` | `api/cron/purge/route.ts` | `process.env` directly |
@@ -183,7 +186,7 @@ Retention:
 
 **What the scrubber does** (`beforeSend` and `beforeBreadcrumb`, on both browser and server; there is no `beforeSendTransaction` because nothing is traced; every string anywhere in an event or breadcrumb is walked, not a list of fields):
 
-- `/staff/<anything>` becomes `/staff/[redacted]` in any letter case, also percent-encoded (URLs, transaction names, breadcrumbs, exception texts, contexts). On the server the literal values of `STAFF_PAGE_KEY`, `SESSION_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `SUPABASE_SECRET_KEY`, `TELEGRAM_BOT_TOKEN` and `TURNSTILE_SECRET_KEY` are blanked wherever they appear as text.
+- `/staff/<anything>` becomes `/staff/[redacted]` in any letter case, also percent-encoded (URLs, transaction names, breadcrumbs, exception texts, contexts). On the server the literal values of `STAFF_PAGE_KEY`, `SESSION_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `SUPABASE_SECRET_KEY`, `TELEGRAM_BOT_TOKEN`, `TURNSTILE_SECRET_KEY` and `OPENAI_API_KEY` are blanked wherever they appear as text.
 - Query strings and fragments are cut from every URL (a Supabase signed upload or download link carries its token in the query). The Telegram bot token (it sits in the URL path), JWT-looking tokens and `token=` values are blanked.
 - Iraqi phone numbers and PostgreSQL `Key (phone)=(...)` and `Failing row contains (...)` details in error texts are blanked.
 - The `user` block (IP address included), the server host name, cookies, request headers (the staff key travels in `x-staff-key`) and request bodies are dropped. Console breadcrumbs are dropped (the order summary with the customer's name, phone and address is logged by `notifyShop`).
@@ -195,6 +198,7 @@ The tunnel does not forward cookies or custom headers, but it passes on the visi
 
 - `POST /api/orders`: the outer catch (`orders.post`), the customer upsert (`orders.customerUpsert`), and a failed shop notification (`orders.notify`, both the `notifyShop` result and a throw). Expected 4xx answers (validation, rate limit, captcha, unsupported file) are not reported.
 - `POST /api/upload`, `/api/upload/direct`, `/api/upload/direct/commit`, `GET /api/cron/purge`, `POST /api/track`: the outer catch of each.
+- AI designer (`src/lib/ai/*`, `/api/design/*`): OpenAI HTTP errors, timeouts and unreadable answers (`ai.openai`, `ai.brief`), an image that cannot be normalised or a custom image with no transparency (`ai.generate`), a failed release or generation record, the outer catch of each route, and a failed mark-ordered in `POST /api/orders` (`orders.aiMarkOrdered`). These report a fresh `Error` with a fixed message and code tags only, never the caught error and no `console.error` (a caught error or an OpenAI answer can echo the idea, the IP or the key).
 - `trackServer` (`analytics.record`), `verifyTurnstile` (Cloudflare unreachable), and two places in `storage/supabase.ts`: a corrupt upload meta file, and stored settings that fail validation (a warning: prices fall back to the defaults).
 - Browser: `logClient({ ... }, { report: { error } })` in `components/builder/logClient.ts` reports a thrown decode error and the degraded (WhatsApp fallback) order screen, not expected user errors; the staff page reports a failed PDF build, a failed save and a thrown decode (`staff.*`).
 - Admin server actions and admin route handlers have no catch: their errors reach `onRequestError`.

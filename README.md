@@ -111,6 +111,7 @@ Checks: `pnpm check` (runs `pnpm typecheck && pnpm test && pnpm lint && pnpm lin
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Supabase project URL and **secret** key (server only), for `STORAGE=supabase` |
 | `CRON_SECRET` | Bearer secret Vercel Cron sends to `/api/cron/purge` (16+ chars) |
 | `TRUST_PROXY` | `1` on Vercel (per-customer rate limits from `x-forwarded-for`) |
+| `OPENAI_API_KEY` | **Secret.** OpenAI key of the AI sticker designer (`/api/design/brief`, `/api/design/generate`). Empty = the designer is off; orders are never affected. `OPENAI_BASE_URL` is optional (tests only) |
 | `STAFF_PAGE_KEY` | Secret key of the hidden staff page `/staff/<key>` (24+ chars; missing or shorter = the page is a 404). Generate with `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
 | `TURNSTILE_SECRET_KEY` | **Leave unset.** The check exists on the server only: no page renders a Turnstile widget or sends a token, so setting the secret makes every order fail with `captcha_failed`. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is not read by any code yet |
 
