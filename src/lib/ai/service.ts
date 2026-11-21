@@ -57,8 +57,6 @@ import { capUnits, cleanLine } from './sanitize';
 
 /* ───────────────────────────── API contract (declared in @/lib/types, shared with the builder) ───────────────────────────── */
 
-export type { BriefError, BriefResponse, GenerateError, GenerateResponse };
-
 export const BRIEF_STATUS: Record<BriefError, number> = {
   invalid_request: 400,
   rate_limited: 429,
@@ -191,8 +189,7 @@ async function release(storage: AiStorage, a: { day: string; ipKey: string; kind
   }
 }
 
-/* ───────────────────────────── POST /api/design/brief ───────────────────────────── */
-
+/** An error outcome for either route: the body the browser sees plus an optional Retry-After. */
 const failure = <E extends string>(
   error: E,
   retryAfterSec?: number,
@@ -200,6 +197,8 @@ const failure = <E extends string>(
   body: { ok: false, error },
   ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
 });
+
+/* ───────────────────────────── POST /api/design/brief ───────────────────────────── */
 
 export interface BriefOutcome {
   body: BriefResponse;

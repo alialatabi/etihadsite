@@ -31,7 +31,7 @@ import {
   type FormFields,
   type StepId,
 } from './logic';
-import { safeDerive, safeFormatCm, safeLayout, maxWidthAtAspect, safeParseCm, safePriceForStickers } from './safe';
+import { maxWidthAtAspect, safeDerive, safeFormatCm, safeLayout, safeParseCm, safePriceForStickers } from './safe';
 import { useDebounced } from './useDebounced';
 import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 

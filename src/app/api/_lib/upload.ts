@@ -1,4 +1,9 @@
-/** Shared by the three upload routes: status table, JSON answers, name clean-up, and the size cap of the two direct-upload steps. */
+/**
+ * Shared by the three upload routes: the status table and JSON answers (`uploadFail`, `uploadOk`), the
+ * stored name and meta (`cleanOriginalName`, `uploadMetaFor`), the small-JSON body parse of the two
+ * direct-upload steps (`parseSmallJson`) and their size cap (`directUploadCap`). The byte rules
+ * (`checkUploadBytes`) live in ./image-header.
+ */
 import type { z } from "zod";
 import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "./body";
 import { order } from "@/content/ar";

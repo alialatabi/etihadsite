@@ -214,7 +214,6 @@ describe('submit with an accepted AI design', () => {
 
     // The customer picked another design: a new context, the old upload is not reused.
     const second: AttemptContext = { orderId: 'o2', rastered: false };
-    expect(second.uploadId).toBeUndefined();
     const d = deps({ upload: vi.fn(async () => okUpload('for-b')) });
     await submitOrderFlow({ ...input, design: { ...input.design, file: b } }, second, d);
     expect(d.postOrder).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'for-b', orderId: 'o2' }));

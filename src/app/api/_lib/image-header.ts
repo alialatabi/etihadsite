@@ -1,5 +1,8 @@
 import 'server-only';
-/** Header check of a stored raster upload: used by both upload routes after the magic-byte sniff. */
+/**
+ * Byte rules of an upload, shared by POST /api/upload and the direct-upload commit: `rasterHeaderOk`
+ * (header check of a PNG/JPEG) and `checkUploadBytes` (magic-byte sniff, then that header check).
+ */
 import sharp from 'sharp';
 import { MAX_INPUT_PIXELS, pixelsWithinCap } from '@/lib/design/pixel-cap';
 import { sniffKind } from '@/lib/design/kind';

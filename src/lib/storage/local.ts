@@ -95,8 +95,7 @@ export class LocalStorage implements StorageAdapter {
 
   private async exists(rel: string): Promise<boolean> {
     try {
-      await fs.stat(this.resolveSafe(rel));
-      return true;
+      return (await fs.stat(this.resolveSafe(rel))).isFile();
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
       throw e;

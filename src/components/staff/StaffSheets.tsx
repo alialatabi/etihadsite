@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { CloudUpload, FileDown, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common, staff } from '@/content/ar';
@@ -77,7 +77,8 @@ export function StaffSheets({ layoutSettings, quality }: { layoutSettings: Layou
   };
   // The card buttons get a stable handler so the memoised StaffCards skip re-renders while typing or decoding.
   const latest = useRef({ run, cards: s.cards });
-  useEffect(() => {
+  // Layout effect: the ref is current before the browser can deliver a click on a card button.
+  useLayoutEffect(() => {
     latest.current = { run, cards: s.cards };
   });
   const downloadOne = useCallback((id: string) => {
