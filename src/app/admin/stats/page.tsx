@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import { buttonVariants } from '@/components/ui/button';
+import { AdminPageHeader, EmptyState, segment } from '@/components/admin/kit';
 import { Ltr } from '@/components/Ltr';
 import { admin, common } from '@/content/ar';
 import { requireAdmin } from '@/lib/auth/guard';
 import { formatIqd } from '@/lib/pricing';
 import { getStorage } from '@/lib/storage';
-import { cn } from '@/lib/utils';
 import { RANGE_OPTIONS, aggregate, parseRange, sinceFor } from './aggregate';
 import { BarList, DayColumns, Kpi, Section } from './parts';
 import { buildStatsRows } from './rows';
@@ -32,27 +31,26 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
     buildStatsRows(st);
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{S.title}</h1>
-        <div className="flex flex-wrap gap-2">
-          {RANGE_OPTIONS.map((d) => (
-            <Link
-              key={d}
-              href={`/admin/stats?days=${d}`}
-              aria-current={d === days ? 'page' : undefined}
-              className={cn(buttonVariants({ variant: d === days ? 'default' : 'outline' }))}
-            >
-              {S.ranges[String(d) as keyof typeof S.ranges]}
-            </Link>
-          ))}
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground">{S.note}</p>
+    <section className="flex flex-col gap-6">
+      <AdminPageHeader
+        className="mb-0"
+        title={S.title}
+        description={S.note}
+        actions={RANGE_OPTIONS.map((d) => (
+          <Link
+            key={d}
+            href={`/admin/stats?days=${d}`}
+            aria-current={d === days ? 'page' : undefined}
+            className={segment(d === days)}
+          >
+            {S.ranges[String(d) as keyof typeof S.ranges]}
+          </Link>
+        ))}
+      />
 
-      {!st.hasData ? <p className="rounded-lg border p-8 text-center text-muted-foreground">{S.empty}</p> : null}
+      {!st.hasData ? <EmptyState title={S.empty} /> : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Kpi label={S.kpi.visits} hint={S.kpi.visitsHint}>
           <Ltr>{st.visits}</Ltr>
         </Kpi>
@@ -71,15 +69,15 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         <Kpi label={S.kpi.visitToOrder}>
           <Pct v={st.visitToOrderPct} />
         </Kpi>
-        <Kpi label={S.kpi.revenue}>
-          <Ltr>{formatIqd(st.revenueIqd)}</Ltr> <span className="text-sm font-normal">{common.units.iqd}</span>
+        <Kpi label={S.kpi.revenue} tone="ink">
+          <Ltr>{formatIqd(st.revenueIqd)}</Ltr> <span className="text-[14px] font-medium">{common.units.iqd}</span>
         </Kpi>
         <Kpi label={S.kpi.avgOrder}>
           {st.avgOrderIqd === null ? (
             admin.orders.missing
           ) : (
             <>
-              <Ltr>{formatIqd(st.avgOrderIqd)}</Ltr> <span className="text-sm font-normal">{common.units.iqd}</span>
+              <Ltr>{formatIqd(st.avgOrderIqd)}</Ltr> <span className="text-[14px] font-medium">{common.units.iqd}</span>
             </>
           )}
         </Kpi>
@@ -90,12 +88,12 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
       </div>
 
       <Section title={funnelLabels.title} hint={funnelLabels.hint}>
-        <ol className="flex flex-col gap-3">
+        <ol className="flex flex-col gap-4">
           {st.funnel.map((f) => (
-            <li key={f.id} className="flex flex-col gap-1">
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span>{funnelLabels[f.id]}</span>
-                <span className="text-muted-foreground">
+            <li key={f.id} className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-[#121f34]">
+                <span className="min-w-0">{funnelLabels[f.id]}</span>
+                <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#5a6475]">
                   <Ltr>{f.count}</Ltr>
                   {f.ofPreviousPct !== null ? (
                     <>
@@ -105,8 +103,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                   ) : null}
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${f.ofFirstPct}%` }} />
+              <div className="h-3 overflow-hidden rounded-full bg-[#f7f0ef]" aria-hidden="true">
+                <div className="h-full rounded-full bg-[#121f34]" style={{ width: `${f.ofFirstPct}%` }} />
               </div>
             </li>
           ))}
@@ -120,8 +118,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </div>
       </Section>
 
-      <h2 className="mt-2 text-xl font-bold">{A.title}</h2>
-      <div className="grid gap-4 md:grid-cols-2">
+      <h2 className="mt-2 text-[24px] font-bold leading-[1.3] text-[#121f34]">{A.title}</h2>
+      <div className="grid gap-6 md:grid-cols-2">
         <Section title={A.sources}>
           <BarList rows={sourceRows} />
         </Section>

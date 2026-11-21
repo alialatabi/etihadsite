@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, ArrowRight, ImageOff } from 'lucide-react';
 import { Ltr } from '@/components/Ltr';
+import { AdminPageHeader, EmptyState, Panel, Pill, StatTile, btn } from '@/components/admin/kit';
 import { admin, common } from '@/content/ar';
 import { count } from '@/lib/plural';
 import { requireAdmin } from '@/lib/auth/guard';
@@ -23,17 +23,6 @@ const IP_KEY_RE = /^[0-9a-f]{64}$/;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const first = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
-
-function Counter({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent className="text-3xl font-bold">{children}</CardContent>
-    </Card>
-  );
-}
 
 export default async function DesignsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
@@ -74,93 +63,87 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
   return (
     <section className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">{d.title}</h1>
+      <AdminPageHeader
+        className="!mb-0"
+        title={d.title}
+        actions={
+          ipKey ? (
+            <Link href="/admin/designs" className={btn.outline}>
+              <ArrowRight aria-hidden className="size-5" />
+              {d.all}
+            </Link>
+          ) : null
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Counter label={d.today}>
-          <Ltr>
-            {summary.today} / {settings.ai.siteDailyLimit}
-          </Ltr>
-        </Counter>
-        <Counter label={d.month}>
-          <Ltr>{summary.month}</Ltr>
-        </Counter>
-        <Counter label={d.all}>
-          <Ltr>{allTime}</Ltr>
-        </Counter>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatTile
+          tone="ink"
+          label={d.today}
+          value={
+            <Ltr>
+              {summary.today} / {settings.ai.siteDailyLimit}
+            </Ltr>
+          }
+        />
+        <StatTile label={d.month} value={<Ltr>{summary.month}</Ltr>} />
+        <StatTile label={d.all} value={<Ltr>{allTime}</Ltr>} />
       </div>
 
       {summary.alerts.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-bold">{d.alerts}</h2>
-          <ul className="flex flex-col gap-2">
+        <Panel title={d.alerts} bodyClassName="!p-0 pt-3">
+          <ul className="divide-y divide-[#e7dfdf]">
             {summary.alerts.map((a) => (
-              <li
-                key={`${a.ipKey}-${a.day}`}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border bg-card p-3 shadow-sm"
-              >
-                <Ltr className="font-medium">{a.ip}</Ltr>
-                <span>
+              <li key={`${a.ipKey}-${a.day}`} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+                <Ltr className="text-[16px] font-bold text-[#121f34]">{a.ip}</Ltr>
+                <Pill tone="warn">
                   <Ltr>{a.count}</Ltr> {count(a.count, common.plural.design)}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {formatBaghdad(a.lastAt)}
-                </span>
-                <div className="ms-auto flex items-center gap-2">
-                  <Link href={`/admin/designs?ip=${a.ipKey}`} className={buttonVariants({ variant: 'outline' })}>
+                </Pill>
+                <span className="text-[14px] font-medium text-[#5a6475]">{formatBaghdad(a.lastAt)}</span>
+                <div className="ms-auto flex flex-wrap items-center gap-2">
+                  <Link href={`/admin/designs?ip=${a.ipKey}`} className={btn.outline}>
                     {d.view}
                   </Link>
                   <form action={blockIpAction}>
                     <input type="hidden" name="ipKey" value={a.ipKey} />
                     <input type="hidden" name="ip" value={a.ip} />
-                    <Button type="submit" variant="destructive">
+                    <button type="submit" className={btn.danger}>
                       {d.block}
-                    </Button>
+                    </button>
                   </form>
                 </div>
               </li>
             ))}
           </ul>
-        </div>
+        </Panel>
       ) : null}
 
       {blocks.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-bold">{d.blocked}</h2>
-          <ul className="flex flex-col gap-2">
+        <Panel title={d.blocked} bodyClassName="!p-0 pt-3">
+          <ul className="divide-y divide-[#e7dfdf]">
             {blocks.map((b) => (
-              <li key={b.ipKey} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border bg-card p-3 shadow-sm">
-                <Ltr className="font-medium">{b.ip}</Ltr>
-                <span className="text-sm text-muted-foreground">
-                  {formatBaghdad(b.createdAt)}
-                </span>
-                <div className="ms-auto flex items-center gap-2">
-                  <Link href={`/admin/designs?ip=${b.ipKey}`} className={buttonVariants({ variant: 'outline' })}>
+              <li key={b.ipKey} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+                <Ltr className="text-[16px] font-bold text-[#121f34]">{b.ip}</Ltr>
+                <span className="text-[14px] font-medium text-[#5a6475]">{formatBaghdad(b.createdAt)}</span>
+                <div className="ms-auto flex flex-wrap items-center gap-2">
+                  <Link href={`/admin/designs?ip=${b.ipKey}`} className={btn.outline}>
                     {d.view}
                   </Link>
                   <form action={unblockIpAction}>
                     <input type="hidden" name="ipKey" value={b.ipKey} />
-                    <Button type="submit" variant="outline">
+                    <button type="submit" className={btn.outline}>
                       {d.unblock}
-                    </Button>
+                    </button>
                   </form>
                 </div>
               </li>
             ))}
           </ul>
-        </div>
-      ) : null}
-
-      {ipKey ? (
-        <div>
-          <Link href="/admin/designs" className={buttonVariants({ variant: 'ghost' })}>
-            {d.all}
-          </Link>
-        </div>
+        </Panel>
       ) : null}
 
       {generations.rows.length === 0 ? (
-        <p className="rounded-2xl border bg-card p-6 text-center text-muted-foreground">{d.empty}</p>
+        <EmptyState icon={ImageOff} title={d.empty} />
       ) : (
         <DesignGrid rows={generations.rows} />
       )}
@@ -168,18 +151,20 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
       {pages > 1 ? (
         <nav className="flex items-center justify-between gap-4">
           {pageNo > 1 ? (
-            <Link href={href(pageNo - 1)} className={buttonVariants({ variant: 'outline' })}>
+            <Link href={href(pageNo - 1)} className={btn.outline}>
+              <ArrowRight aria-hidden className="size-5" />
               {d.prev}
             </Link>
           ) : (
             <span />
           )}
-          <Ltr>
+          <Ltr className="text-[15px] font-medium tabular-nums text-[#5a6475]">
             {pageNo} / {pages}
           </Ltr>
           {pageNo < pages ? (
-            <Link href={href(pageNo + 1)} className={buttonVariants({ variant: 'outline' })}>
+            <Link href={href(pageNo + 1)} className={btn.outline}>
               {d.next}
+              <ArrowLeft aria-hidden className="size-5" />
             </Link>
           ) : (
             <span />

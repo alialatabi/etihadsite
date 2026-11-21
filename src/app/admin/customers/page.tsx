@@ -1,6 +1,8 @@
+import { Download } from 'lucide-react';
 import { requireAdmin } from '@/lib/auth/guard';
 import { getStorage } from '@/lib/storage';
 import { admin } from '@/content/ar';
+import { AdminPageHeader, btn } from '@/components/admin/kit';
 import { formatBaghdad } from '../_lib';
 import { CustomersTable } from './CustomersTable';
 import type { CustomerRow } from './filter';
@@ -26,8 +28,22 @@ export default async function CustomersPage() {
     marketingOptIn: c.marketingOptIn === true,
   }));
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{admin.customers.title}</h1>
+    <section>
+      <AdminPageHeader
+        title={admin.customers.title}
+        actions={
+          <>
+            <a href="/api/admin/customers" download className={btn.outline}>
+              <Download aria-hidden className="size-[18px]" />
+              {admin.customers.download}
+            </a>
+            <a href="/api/admin/customers?marketing=1" download className={btn.ink}>
+              <Download aria-hidden className="size-[18px]" />
+              {admin.customers.marketingDownload}
+            </a>
+          </>
+        }
+      />
       <CustomersTable rows={rows} />
     </section>
   );
