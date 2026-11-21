@@ -6,6 +6,7 @@ import type { OrderRecord } from '@/lib/types';
 let orders: OrderRecord[] = [];
 vi.mock('@/lib/auth/guard', () => ({ requireAdmin: async () => undefined }));
 vi.mock('@/lib/storage', () => ({ getStorage: () => ({ listOrders: async () => orders }) }));
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ retentionDays: 30 }) }));
 vi.mock('@/components/admin/SheetPdfPreview', () => ({ SheetPdfPreview: () => null }));
 
 import OrdersPage from '@/app/admin/page';

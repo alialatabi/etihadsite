@@ -47,6 +47,13 @@ export const admin = {
     telegramSent: 'وصل تيليغرام',
     telegramFailed: 'فشل تيليغرام',
     telegramSkipped: 'تيليغرام غير مفعّل',
+    telegramDownload: 'تحميل الملف',
+    telegramResend: 'إرسال للتيليغرام',
+    telegramSending: 'جاري الإرسال…',
+    telegramResendFailed: 'ما انرسل، جرّب مرة ثانية',
+    telegramNotConfigured: 'التيليغرام مو مفعّل بالإعدادات',
+    telegramFileMissing: 'ملف الطباعة انحذف، ما يمديني أرسله',
+    telegramNotFound: 'الطلب مو موجود',
   },
   /** Preview of the stored A4 sheet PDF (orders list thumbnail + order page). */
   preview: {

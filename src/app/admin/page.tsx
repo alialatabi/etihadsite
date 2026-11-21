@@ -13,11 +13,9 @@ import {
   AdminPageHeader,
   EmptyState,
   InfoStrip,
-  Pill,
   StatusPill,
   TableFrame,
   tableCls,
-  type PillTone,
 } from "@/components/admin/kit";
 import { Ltr } from "@/components/Ltr";
 import { Money } from "@/components/Money";
@@ -25,26 +23,21 @@ import { admin, common } from "@/content/ar";
 import { requireAdmin } from "@/lib/auth/guard";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
 import { whatsappUrl } from "@/lib/parse/phone";
+import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
-import type { OrderRecord } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { formatBaghdad, orderPriceView, telegramLabel } from "./_lib";
+import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from "./_lib";
+import { TelegramCell, TelegramSentMark } from "./orders/TelegramCell";
 
 export const dynamic = "force-dynamic";
 
 /** listOrders() answers at most this many orders (the newest) from Supabase. */
 const ORDERS_LIST_CAP = 1000;
 
-/** Telegram delivery state -> pill tone (sent is ok, failed warns, skipped is neutral). */
-const telegramTone: Record<OrderRecord["notified"]["telegram"], PillTone> = {
-  sent: "ok",
-  failed: "warn",
-  skipped: "neutral",
-};
-
 export default async function OrdersPage() {
   await requireAdmin();
-  const orders = await getStorage().listOrders();
+  const [orders, settings] = await Promise.all([getStorage().listOrders(), getSettings()]);
+  const retentionDays = settings.retentionDays;
   const c = admin.orders.columns;
 
   return (
@@ -156,9 +149,15 @@ export default async function OrdersPage() {
                       <StatusPill status={o.status} />
                     </TableCell>
                     <TableCell className={cn(tableCls.cell, "px-3")}>
-                      <Pill tone={telegramTone[o.notified.telegram]}>
-                        {telegramLabel[o.notified.telegram]}
-                      </Pill>
+                      {o.notified.telegram === "sent" ? (
+                        <TelegramSentMark />
+                      ) : (
+                        <TelegramCell
+                          orderId={o.orderId}
+                          reason={telegramLabel[o.notified.telegram]}
+                          pdfPurged={isPdfPurged(o.createdAt, retentionDays)}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
