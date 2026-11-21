@@ -139,6 +139,37 @@ describe('restoredState', () => {
     expect(Object.keys(restoredState(saved)).sort()).toEqual(['corners', 'fields', 'heightText', 'material', 'shape', 'sizeUm', 'step', 'stickersText', 'widthText']);
     expect(JSON.stringify(saved)).toBe(before);
   });
+
+  it('restores the optional AI designer fields only when they are present and valid', () => {
+    const saved: Partial<PersistedForm> = {
+      ...FULL,
+      fileId: 'f1',
+      mode: 'ai',
+      idea: 'ستيكر لمقهى',
+      aiUploadId: 'u1',
+      aiFileId: 'f1',
+      aiSizeUm: { w: 30_000, h: 45_000 },
+    };
+    expect(Object.keys(restoredState(saved)).sort()).toEqual([
+      'aiFileId',
+      'aiSizeUm',
+      'aiUploadId',
+      'corners',
+      'fields',
+      'fileId',
+      'heightText',
+      'idea',
+      'material',
+      'mode',
+      'shape',
+      'sizeUm',
+      'stickersText',
+      'widthText',
+    ]);
+    // A draft saved before the AI designer gains none of them.
+    expect(Object.keys(restoredState(FULL)).some((k) => k.startsWith('ai') || k === 'mode' || k === 'idea')).toBe(false);
+    expect(restoredState({ mode: 'upload' }).mode).toBe('upload');
+  });
 });
 
 /* ───────────────────────── customer ───────────────────────── */

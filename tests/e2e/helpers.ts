@@ -36,6 +36,11 @@ export async function chooseShape(page: Page, label: string) {
   await page.getByRole('radio', { name: new RegExp(label) }).first().click();
 }
 
+/** First page, upload path: «عندي تصميم جاهز» opens the existing upload step (a shape must be chosen first). */
+export async function readyDesign(page: Page) {
+  await page.getByRole('button', { name: builder.ai.readyDesign, exact: true }).click();
+}
+
 export async function upload(page: Page, file: string) {
   await page.locator('#design-file').setInputFiles(file);
 }

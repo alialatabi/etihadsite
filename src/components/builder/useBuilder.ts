@@ -10,6 +10,7 @@ import { logClient } from './logClient';
 import {
   EMPTY_FIELDS,
   STEPS,
+  aiAcceptedSize,
   buildSummary,
   clampStep,
   dpiFor,
@@ -20,9 +21,11 @@ import {
   pdfPrefillUm,
   restoredState,
   saveDraft,
+  shapeStepOk,
   stepStickers,
   stickersTextFor,
   validateCustomer,
+  type BuilderMode,
   type CustomerErrors,
   type FormFields,
   type StepId,
@@ -99,6 +102,13 @@ export function useBuilder(settings: ShopSettings) {
   const [gaveUp, setGaveUp] = useState(false);
   // Id of the design file stored for this form (saved with it; a stored file with another id belongs to another tab's order).
   const [fileId, setFileId] = useState<string | null>(null);
+  // AI designer: how the design is made (a reload of an older draft, which has no mode, is an upload), the idea,
+  // and the accepted AI design (its server upload, the draft fileId it got, the size it was accepted at).
+  const [mode, setMode] = useState<BuilderMode>('ai');
+  const [idea, setIdea] = useState('');
+  const [aiUploadId, setAiUploadId] = useState<string | null>(null);
+  const [aiFileId, setAiFileId] = useState<string | null>(null);
+  const [aiSizeUm, setAiSizeUm] = useState<{ w: number; h: number } | null>(null);
 
   const lastFile = useRef<File | null>(null);
   // The file currently kept in IndexedDB, so a re-decode of the same file (shape change) does not save it again.
@@ -133,6 +143,15 @@ export function useBuilder(settings: ShopSettings) {
   }, [changeFileId]);
 
   const aspect = design ? design.pxWidth / design.pxHeight : 1;
+  // Before any design a rectangle's width and height are typed freely (the AI design is made in that ratio).
+  const freeRect = shape === 'rect' && !design;
+
+  /** The accepted AI design no longer is the design (a new file, a shape change, «عندي تصميم جاهز»). */
+  const clearAi = useCallback(() => {
+    setAiUploadId(null);
+    setAiFileId(null);
+    setAiSizeUm(null);
+  }, []);
 
   /* ── size handling ── */
   /** Show a size in both inputs (a circle has no height field). */
@@ -150,6 +169,12 @@ export function useBuilder(settings: ShopSettings) {
   const onWidthChange = useCallback(
     (text: string) => {
       setWidthText(text);
+      if (freeRect) {
+        const w = safeParseCm(text);
+        const h = safeParseCm(heightText);
+        setSizeUm(w && h ? { widthUm: w, heightUm: h } : null);
+        return;
+      }
       const um = safeParseCm(text);
       if (!shape || !um) {
         setSizeUm(null);
@@ -160,12 +185,18 @@ export function useBuilder(settings: ShopSettings) {
       setSizeUm(d);
       if (shape !== 'circle') setHeightText(safeFormatCm(d.heightUm));
     },
-    [shape, aspect],
+    [shape, aspect, freeRect, heightText],
   );
 
   const onHeightChange = useCallback(
     (text: string) => {
       setHeightText(text);
+      if (freeRect) {
+        const w = safeParseCm(widthText);
+        const h = safeParseCm(text);
+        setSizeUm(w && h ? { widthUm: w, heightUm: h } : null);
+        return;
+      }
       const um = safeParseCm(text);
       if (!shape || !um) {
         setSizeUm(null);
@@ -176,12 +207,16 @@ export function useBuilder(settings: ShopSettings) {
       setSizeUm(d);
       setWidthText(safeFormatCm(d.widthUm));
     },
-    [shape, aspect],
+    [shape, aspect, freeRect, widthText],
   );
 
   /* ── design decoding (the one path for a fresh pick and for the restore after a reload) ── */
   const loadDesign = useCallback(
-    async (file: File, forShape: Shape, opts: { restore?: boolean; keepSize?: boolean } = {}) => {
+    async (
+      file: File,
+      forShape: Shape,
+      opts: { restore?: boolean; keepSize?: boolean; ai?: { uploadId: string; typed: SizeUm } } = {},
+    ): Promise<boolean> => {
       const token = ++decodeToken.current;
       lastFile.current = file;
       setDecoding(true);
@@ -202,7 +237,7 @@ export function useBuilder(settings: ShopSettings) {
       if (token !== decodeToken.current) {
         // A newer decode superseded this one: drop its object URL.
         if (source) URL.revokeObjectURL(source.previewUrl);
-        return;
+        return false;
       }
       setDecoding(false);
       if (!source) {
@@ -213,7 +248,7 @@ export function useBuilder(settings: ShopSettings) {
         persistedFile.current = null;
         if (fileIdRef.current) void clearDraftFile(fileIdRef.current);
         changeFileId(null);
-        return;
+        return false;
       }
       setDesign(source);
       if (opts.restore) persistedFile.current = file;
@@ -223,8 +258,17 @@ export function useBuilder(settings: ShopSettings) {
         changeFileId(id);
         void saveDraftFile(file, id);
       }
+      if (opts.ai) {
+        // An accepted AI design: its upload is reused at submit while the design is this very file (fileId).
+        const size = aiAcceptedSize(forShape, opts.ai.typed, source.pxWidth / source.pxHeight);
+        showSize(size, forShape);
+        setAiUploadId(opts.ai.uploadId);
+        setAiFileId(fileIdRef.current);
+        setAiSizeUm({ w: size.widthUm, h: forShape === 'circle' ? size.widthUm : size.heightUm });
+        return true;
+      }
       // A restore keeps the sizes the customer had typed; a fresh pick prefills them.
-      if (opts.keepSize) return;
+      if (opts.keepSize) return true;
       const prefill = pdfPrefillUm(source, forShape);
       if (prefill) {
         showSize(prefill, forShape);
@@ -232,6 +276,7 @@ export function useBuilder(settings: ShopSettings) {
         const w = safeParseCm(widthText);
         if (w) applySizeFromWidth(w, forShape, source.pxWidth / source.pxHeight);
       }
+      return true;
     },
     [settings.maxUploadBytes, widthText, applySizeFromWidth, showSize, changeFileId],
   );
@@ -250,6 +295,12 @@ export function useBuilder(settings: ShopSettings) {
       if (r.sizeUm !== undefined) setSizeUm(r.sizeUm);
       if (r.material !== undefined) setMaterialChoice(r.material);
       if (r.stickersText !== undefined) setTypedStickers(r.stickersText);
+      // A draft saved before the AI designer existed has no mode: it was an upload.
+      setMode(r.mode ?? 'upload');
+      if (r.idea !== undefined) setIdea(r.idea);
+      if (r.aiUploadId !== undefined) setAiUploadId(r.aiUploadId);
+      if (r.aiFileId !== undefined) setAiFileId(r.aiFileId);
+      if (r.aiSizeUm !== undefined) setAiSizeUm(r.aiSizeUm);
       setFields(r.fields);
       setPendingStep(r.step ?? 0);
       pendingStepRef.current = r.step ?? 0;
@@ -284,8 +335,24 @@ export function useBuilder(settings: ShopSettings) {
   // While a restore is pending the saved values are already in state: do not overwrite the saved step with 0.
   useEffect(() => {
     if (!hydrated || !shape || pendingStep !== null) return;
-    saveDraft({ shape, corners, widthText, heightText, sizeUm, material: materialChoice, stickersText: typedStickers ?? '', step, ...(fileId ? { fileId } : {}), ...fields });
-  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId]);
+    saveDraft({
+      shape,
+      corners,
+      widthText,
+      heightText,
+      sizeUm,
+      material: materialChoice,
+      stickersText: typedStickers ?? '',
+      step,
+      ...(fileId ? { fileId } : {}),
+      mode,
+      ...(idea ? { idea } : {}),
+      ...(aiUploadId ? { aiUploadId } : {}),
+      ...(aiFileId ? { aiFileId } : {}),
+      ...(aiSizeUm ? { aiSizeUm } : {}),
+      ...fields,
+    });
+  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId, mode, idea, aiUploadId, aiFileId, aiSizeUm]);
 
   const setShape = useCallback(
     (next: Shape) => {
@@ -293,23 +360,28 @@ export function useBuilder(settings: ShopSettings) {
       cancelRestore();
       const prev = shape;
       setShapeState(next);
+      clearAi(); // the accepted AI design was made for the other shape
       const w = safeParseCm(widthText);
-      if (w) applySizeFromWidth(w, next, next === 'circle' ? 1 : aspect);
+      const h = safeParseCm(heightText);
+      if (next === 'rect' && !design && w && h) {
+        setSizeUm({ widthUm: w, heightUm: h }); // free rectangle: keep both typed sides
+      } else if (w) applySizeFromWidth(w, next, next === 'circle' ? 1 : aspect);
       // Only 'custom' changes how a file is decoded (alpha trim / alpha required).
       if ((next === 'custom' || prev === 'custom') && lastFile.current && (design || designError)) {
         void loadDesign(lastFile.current, next);
       }
     },
-    [shape, widthText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore],
+    [shape, widthText, heightText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore, clearAi],
   );
 
   const onFile = useCallback(
     (file: File) => {
       if (!shape) return;
       cancelRestore();
+      clearAi(); // a new design: the AI upload is not this file
       return loadDesign(file, shape);
     },
-    [shape, loadDesign, cancelRestore],
+    [shape, loadDesign, cancelRestore, clearAi],
   );
 
   /* ── derived: spec, layout, quality ── */
@@ -373,8 +445,9 @@ export function useBuilder(settings: ShopSettings) {
     material && stickers !== null && !quantityError && layout ? safePriceForStickers(material, stickers, layout.countPerSheet, settings) : null;
   const summary = spec && layout && price ? buildSummary(spec, layout, price) : null;
 
+  const sizeOk = !!layout && settled;
   const stepOk: Record<StepId, boolean> = {
-    shape: shape !== null,
+    shape: shapeStepOk({ shape, mode, sizeOk }),
     design: design !== null && !decoding,
     size: !!layout && settled && dpiState !== 'block',
     quantity: !quantityError && !!layout,
@@ -433,6 +506,39 @@ export function useBuilder(settings: ShopSettings) {
     setStep((s) => Math.max(0, s - 1));
   }, [cancelRestore]);
 
+  /* ── AI designer ── */
+  const sizeStep = STEPS.indexOf('size');
+  const designStep = STEPS.indexOf('design');
+  /**
+   * Wrap a generated PNG as the design (decode, preview, draft) at the size it was made for (`typed`), then open the
+   * arrangement. Refused when the shape changed since the image was made (a circle PNG is no custom die-cut).
+   */
+  const acceptAi = useCallback(
+    async (file: File, uploadId: string, madeFor: { shape: Shape; widthUm: number; heightUm: number }) => {
+      if (!shape || shape !== madeFor.shape) return false;
+      cancelRestore();
+      setMode('ai');
+      const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: madeFor.widthUm, heightUm: madeFor.heightUm } } });
+      if (ok) setStep(sizeStep);
+      return ok;
+    },
+    [shape, loadDesign, cancelRestore, sizeStep],
+  );
+  /** Open the design step directly (a generation started from a valid first page; no debounce wait). */
+  const showDesignStep = useCallback(() => {
+    cancelRestore();
+    setStep(designStep);
+  }, [cancelRestore, designStep]);
+  /** «عندي تصميم جاهز»: the customer's own file, the existing upload step. */
+  const chooseUpload = useCallback(() => {
+    if (!shape) return;
+    cancelRestore();
+    setMode('upload');
+    clearAi();
+    setStep(designStep);
+  }, [shape, cancelRestore, clearAi, designStep]);
+  const startAi = useCallback(() => setMode('ai'), []);
+
   /* ── customer ── */
   const setField = useCallback((key: keyof FormFields, value: string) => setFields((f) => ({ ...f, [key]: value })), []);
   const validation = useMemo(() => validateCustomer(fields), [fields]);
@@ -458,6 +564,18 @@ export function useBuilder(settings: ShopSettings) {
     decoding,
     designError,
     onFile,
+    fileId,
+    mode,
+    startAi,
+    chooseUpload,
+    acceptAi,
+    showDesignStep,
+    idea,
+    setIdea,
+    aiUploadId,
+    aiFileId,
+    aiSizeUm,
+    freeRect,
     widthText,
     heightText,
     onWidthChange,
@@ -465,6 +583,7 @@ export function useBuilder(settings: ShopSettings) {
     spec,
     outcome: settled ? outcome : null,
     layout,
+    sizeOk,
     maxWidthUm,
     dpi,
     dpiState,

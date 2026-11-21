@@ -12,14 +12,15 @@ import { Stepper } from './Stepper';
 import { DesignStep } from './steps/DesignStep';
 import { DetailsStep } from './steps/DetailsStep';
 import { QuantityStep } from './steps/QuantityStep';
-import { ShapeStep } from './steps/ShapeStep';
 import { SizeStep } from './steps/SizeStep';
-import { CUSTOMER_FIELD_IDS, STEPS, toCustomerInfo } from './logic';
+import { StartStep } from './steps/StartStep';
+import { useAiDesign } from './ai/useAiDesign';
+import { CUSTOMER_FIELD_IDS, STEPS, seedUploadId, toCustomerInfo } from './logic';
 import { useBuilder } from './useBuilder';
 import { useSubmitOrder } from './useSubmitOrder';
 
 const TITLES = {
-  shape: builder.shape.title,
+  shape: builder.ai.title,
   design: builder.upload.title,
   size: builder.size.title,
   quantity: builder.quantity.title,
@@ -34,6 +35,7 @@ const CUSTOMER_FIELD_KEYS = Object.keys(CUSTOMER_FIELD_IDS) as (keyof typeof CUS
 
 export function Builder({ settings }: { settings: ShopSettings }) {
   const b = useBuilder(settings);
+  const ai = useAiDesign(b);
   const sub = useSubmitOrder(settings.maxUploadBytes);
   const { consumeRestoredStep } = b;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -93,17 +95,26 @@ export function Builder({ settings }: { settings: ShopSettings }) {
       return;
     }
     if (!b.design || !b.spec || !b.material || b.stickers === null || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
-    void sub.submit({
-      design: b.design,
-      spec: b.spec,
-      material: b.material,
-      stickers: b.stickers,
-      sheets: b.sheets,
-      customer: toCustomerInfo(b.fields, phoneE164),
-    });
+    void sub.submit(
+      {
+        design: b.design,
+        spec: b.spec,
+        material: b.material,
+        stickers: b.stickers,
+        sheets: b.sheets,
+        customer: toCustomerInfo(b.fields, phoneE164),
+      },
+      // The accepted AI design is already on the server: reuse its upload while it is still the design.
+      seedUploadId({ aiUploadId: b.aiUploadId, aiFileId: b.aiFileId, fileId: b.fileId }),
+    );
   };
 
   const isLast = b.step === STEPS.length - 1;
+  // The AI path moves on through its own buttons («ولّد التصميم», «أكمل بهذا»): no generic Next while nothing is accepted.
+  const aiPending =
+    b.mode === 'ai' &&
+    ((b.stepId === 'shape' && !b.design) || (b.stepId === 'design' && (ai.phase === 'generating' || ai.phase === 'result')));
+  const title = b.stepId === 'design' && b.mode === 'ai' ? builder.steps.design : TITLES[b.stepId];
   const showStrip = b.stepId === 'size' || b.stepId === 'quantity';
   const inquiry = whatsappLink(settings.whatsapp);
 
@@ -117,11 +128,11 @@ export function Builder({ settings }: { settings: ShopSettings }) {
 
           <div className="rounded-3xl border bg-background p-4 shadow-sm sm:p-6">
             <h2 ref={headingRef} tabIndex={-1} className="font-heading mb-5 text-2xl font-bold outline-none">
-              {TITLES[b.stepId]}
+              {title}
             </h2>
 
-            {b.stepId === 'shape' && <ShapeStep b={b} />}
-            {b.stepId === 'design' && <DesignStep b={b} />}
+            {b.stepId === 'shape' && <StartStep b={b} ai={ai} />}
+            {b.stepId === 'design' && <DesignStep b={b} ai={ai} />}
             {b.stepId === 'size' && <SizeStep b={b} />}
             {b.stepId === 'quantity' && <QuantityStep b={b} />}
             {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} />}
@@ -136,7 +147,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
               ) : (
                 <span />
               )}
-              {!isLast && (
+              {!isLast && !aiPending && (
                 <Button
                   type="button"
                   disabled={!b.stepOk[b.stepId]}

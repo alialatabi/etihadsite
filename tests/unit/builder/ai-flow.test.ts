@@ -1,0 +1,249 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  aiAcceptedSize,
+  aiShrinkWarning,
+  generateBlock,
+  restoredState,
+  seedUploadId,
+  shapeStepOk,
+  type PersistedForm,
+} from '@/components/builder/logic';
+import { addRefs, aiErrorMessage, isAiOffError, pngFileFromBase64, printableLines } from '@/components/builder/ai/ai-logic';
+import { postBrief, postGenerate } from '@/components/builder/ai/api';
+import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
+import { builder } from '@/content/ar';
+import type { OrderResponse, UploadResponse } from '@/lib/types';
+
+/* ───────────────────────── first page ───────────────────────── */
+
+describe('stepOk.shape', () => {
+  it('stepOk.shape requires size in ai mode only', () => {
+    expect(shapeStepOk({ shape: null, mode: 'upload', sizeOk: true })).toBe(false);
+    expect(shapeStepOk({ shape: null, mode: 'ai', sizeOk: true })).toBe(false);
+    expect(shapeStepOk({ shape: 'circle', mode: 'upload', sizeOk: false })).toBe(true);
+    expect(shapeStepOk({ shape: 'circle', mode: 'ai', sizeOk: false })).toBe(false);
+    expect(shapeStepOk({ shape: 'circle', mode: 'ai', sizeOk: true })).toBe(true);
+  });
+});
+
+describe('generateBlock', () => {
+  const base = { shape: 'rect' as const, size: { widthUm: 50_000, heightUm: 30_000 }, sizeOk: true, idea: 'ستيكر قهوة', unavailable: false, busy: false };
+
+  it('lets a complete first page generate', () => {
+    expect(generateBlock(base)).toBeNull();
+  });
+
+  it('rect wider than 3:1 shows builder.ai.aspect and disables generate', () => {
+    expect(generateBlock({ ...base, size: { widthUm: 91_000, heightUm: 30_000 } })).toBe('aspect');
+    expect(generateBlock({ ...base, size: { widthUm: 30_000, heightUm: 91_000 } })).toBe('aspect');
+    expect(generateBlock({ ...base, size: { widthUm: 90_000, heightUm: 30_000 } })).toBeNull();
+    // Circles and custom shapes have no ratio limit.
+    expect(generateBlock({ ...base, shape: 'custom', size: { widthUm: 91_000, heightUm: 30_000 } })).toBeNull();
+    expect(builder.ai.aspect).toBe('للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.');
+  });
+
+  it('needs a shape, a valid size, an idea, and the feature on', () => {
+    expect(generateBlock({ ...base, shape: null })).toBe('shape');
+    expect(generateBlock({ ...base, sizeOk: false })).toBe('size');
+    expect(generateBlock({ ...base, size: null })).toBe('size');
+    expect(generateBlock({ ...base, idea: '   ' })).toBe('idea');
+    expect(generateBlock({ ...base, unavailable: true })).toBe('unavailable');
+    expect(generateBlock({ ...base, busy: true })).toBe('busy');
+  });
+});
+
+/* ───────────────────────── accept ───────────────────────── */
+
+describe('aiAcceptedSize', () => {
+  it('custom accept keeps the longer side at the typed size', () => {
+    const box = { widthUm: 50_000, heightUm: 50_000 };
+    // Wide subject: width keeps 5 cm, height follows.
+    expect(aiAcceptedSize('custom', box, 1000 / 500)).toEqual({ widthUm: 50_000, heightUm: 25_000 });
+    // Tall subject: height keeps 5 cm, width follows.
+    expect(aiAcceptedSize('custom', box, 400 / 1000)).toEqual({ widthUm: 20_000, heightUm: 50_000 });
+    // Square subject.
+    expect(aiAcceptedSize('custom', box, 1)).toEqual({ widthUm: 50_000, heightUm: 50_000 });
+  });
+
+  it('circle keeps the diameter, rect keeps the width and follows the image ratio', () => {
+    expect(aiAcceptedSize('circle', { widthUm: 30_000, heightUm: 30_000 }, 1)).toEqual({ widthUm: 30_000, heightUm: 30_000 });
+    expect(aiAcceptedSize('rect', { widthUm: 50_000, heightUm: 30_000 }, 1024 / 608)).toEqual({ widthUm: 50_000, heightUm: 29_688 });
+  });
+});
+
+describe('aiShrinkWarning', () => {
+  const ai = { w: 50_000, h: 30_000 };
+  it('shrink warning only below the generated size', () => {
+    expect(aiShrinkWarning(null, { widthUm: 10_000, heightUm: 10_000 })).toBe(false);
+    expect(aiShrinkWarning(ai, null)).toBe(false);
+    expect(aiShrinkWarning(ai, { widthUm: 50_000, heightUm: 30_000 })).toBe(false);
+    expect(aiShrinkWarning(ai, { widthUm: 60_000, heightUm: 36_000 })).toBe(false);
+    expect(aiShrinkWarning(ai, { widthUm: 49_999, heightUm: 30_000 })).toBe(true);
+    expect(aiShrinkWarning(ai, { widthUm: 50_000, heightUm: 29_000 })).toBe(true);
+  });
+});
+
+/* ───────────────────────── draft ───────────────────────── */
+
+describe('restoredState (AI fields)', () => {
+  it('restoredState keeps mode, idea, aiUploadId, aiSizeUm', () => {
+    const r = restoredState({
+      shape: 'circle',
+      mode: 'ai',
+      idea: 'ستيكر لمقهى',
+      aiUploadId: 'up_123',
+      aiFileId: 'file_1',
+      aiSizeUm: { w: 30_000, h: 30_000 },
+      fileId: 'file_1',
+    });
+    expect(r.mode).toBe('ai');
+    expect(r.idea).toBe('ستيكر لمقهى');
+    expect(r.aiUploadId).toBe('up_123');
+    expect(r.aiFileId).toBe('file_1');
+    expect(r.aiSizeUm).toEqual({ w: 30_000, h: 30_000 });
+  });
+
+  it('drops junk AI fields', () => {
+    const junk = { mode: 'robot', idea: 7, aiUploadId: '', aiFileId: 'x'.repeat(65), aiSizeUm: { w: -1, h: 'a' } } as unknown as Partial<PersistedForm>;
+    const r = restoredState(junk);
+    expect(r).toStrictEqual({ fields: r.fields });
+  });
+
+  it('caps an over-long idea at 1000 characters', () => {
+    expect(restoredState({ idea: 'ا'.repeat(1200) }).idea).toHaveLength(1000);
+  });
+});
+
+/* ───────────────────────── submit ───────────────────────── */
+
+const okOrder: OrderResponse = { ok: true, orderId: 'o1', displayNo: 'EP-251107-AB3C', summary: {} as never, whatsappUrl: '', notified: { telegram: 'sent' } };
+const okUpload = (id: string): UploadResponse => ({ ok: true, uploadId: id, kind: 'png', bytes: 1 });
+const input: SubmitInput = {
+  design: { kind: 'png', file: new File(['x'], 'ai-design.png', { type: 'image/png' }) } as never,
+  spec: { shape: 'circle', widthUm: 30_000, heightUm: 30_000 },
+  material: 'paper',
+  stickers: 54,
+  sheets: 1,
+  customer: { phone: '9647701234567', governorate: 'بغداد', district: 'x', landmark: '' },
+};
+function deps(over: Partial<FlowDeps> = {}): FlowDeps {
+  return {
+    upload: vi.fn(async () => okUpload('fresh')),
+    postOrder: vi.fn(async () => okOrder),
+    rasterise: vi.fn(async () => new Blob(['png'])),
+    onPhase: vi.fn(),
+    onProgress: vi.fn(),
+    targetDpi: 300,
+    maxUploadMb: 15,
+    ...over,
+  };
+}
+
+describe('submit with an accepted AI design', () => {
+  it('accepted AI design survives reload and submit reuses uploadId', async () => {
+    // What a reload brings back: the form names the stored file and the AI upload made from it.
+    const r = restoredState({ shape: 'circle', mode: 'ai', fileId: 'f1', aiFileId: 'f1', aiUploadId: 'ai-up' });
+    const seed = seedUploadId({ aiUploadId: r.aiUploadId ?? null, aiFileId: r.aiFileId ?? null, fileId: r.fileId ?? null });
+    expect(seed).toBe('ai-up');
+
+    const d = deps();
+    const ctx: AttemptContext = { orderId: 'o', rastered: false, uploadId: seed, seeded: true };
+    const res = await submitOrderFlow(input, ctx, d);
+    expect(res.kind).toBe('ok');
+    expect(d.upload).not.toHaveBeenCalled();
+    expect(d.postOrder).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'ai-up' }));
+  });
+
+  it('uploading a file after accepting an AI design clears aiUploadId', async () => {
+    // A new file gets a new draft fileId: the AI upload no longer belongs to the design.
+    expect(seedUploadId({ aiUploadId: 'ai-up', aiFileId: 'f1', fileId: 'f2' })).toBeUndefined();
+    expect(seedUploadId({ aiUploadId: null, aiFileId: null, fileId: 'f2' })).toBeUndefined();
+    expect(seedUploadId({ aiUploadId: 'ai-up', aiFileId: 'f1', fileId: null })).toBeUndefined();
+
+    const d = deps();
+    const ctx: AttemptContext = { orderId: 'o', rastered: false };
+    await submitOrderFlow(input, ctx, d);
+    expect(d.upload).toHaveBeenCalledTimes(1);
+    expect(d.postOrder).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'fresh' }));
+  });
+
+  it('a seeded upload the server no longer has is uploaded again once', async () => {
+    const postOrder = vi
+      .fn<FlowDeps['postOrder']>()
+      .mockResolvedValueOnce({ ok: false, error: 'upload_missing', message: '' })
+      .mockResolvedValueOnce(okOrder);
+    const d = deps({ postOrder });
+    const ctx: AttemptContext = { orderId: 'o', rastered: false, uploadId: 'gone', seeded: true };
+    const res = await submitOrderFlow(input, ctx, d);
+    expect(res.kind).toBe('ok');
+    expect(d.upload).toHaveBeenCalledTimes(1);
+    expect(postOrder.mock.calls[1][0].uploadId).toBe('fresh');
+  });
+
+  it('upload_missing without a seed is still an error', async () => {
+    const d = deps({ postOrder: vi.fn(async () => ({ ok: false as const, error: 'upload_missing' as const, message: '' })) });
+    const res = await submitOrderFlow(input, { orderId: 'o', rastered: false }, d);
+    expect(res.kind).toBe('error');
+    expect(d.upload).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ───────────────────────── AI helpers ───────────────────────── */
+
+describe('ai helpers', () => {
+  const png = (name: string, size = 10, type = 'image/png') => new File([new Uint8Array(size)], name, { type });
+
+  it('addRefs keeps PNG/JPEG only, at most 5, within the size limit', () => {
+    const a = png('a.png');
+    const got = addRefs([a], [png('b.jpg', 10, 'image/jpeg'), png('c.pdf', 10, 'application/pdf'), png('d.webp', 10, 'image/webp'), png('e.JPEG', 10, '')], 100);
+    expect(got.map((f) => f.name)).toEqual(['a.png', 'b.jpg', 'e.JPEG']);
+    const many = addRefs([], Array.from({ length: 7 }, (_, i) => png(`${i}.png`)), 100);
+    expect(many).toHaveLength(5);
+    expect(addRefs([], [png('big.png', 101)], 100)).toEqual([]);
+  });
+
+  it('pngFileFromBase64 wraps the bytes as ai-design.png', async () => {
+    const f = pngFileFromBase64(Buffer.from([137, 80, 78, 71]).toString('base64'));
+    expect(f.name).toBe('ai-design.png');
+    expect(f.type).toBe('image/png');
+    expect([...new Uint8Array(await f.arrayBuffer())]).toEqual([137, 80, 78, 71]);
+  });
+
+  it('maps error codes to copy, and knows which ones turn the feature off', () => {
+    expect(aiErrorMessage('ip_limit')).toBe(builder.ai.errors.ip_limit);
+    expect(aiErrorMessage('rate_limited')).toBe(builder.ai.unavailable);
+    expect(aiErrorMessage('nonsense' as never)).toBe(builder.ai.errors.failed);
+    expect(['unavailable', 'site_limit', 'blocked'].every((c) => isAiOffError(c as never))).toBe(true);
+    expect(['ip_limit', 'failed', 'refused', 'text_too_long'].some((c) => isAiOffError(c as never))).toBe(false);
+  });
+
+  it('printableLines trims and drops empty lines', () => {
+    expect(printableLines([' قهوة ', '', '   ', 'بغداد'])).toEqual(['قهوة', 'بغداد']);
+  });
+});
+
+describe('api fetchers', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('posts the brief body and returns the JSON answer', async () => {
+    const answer = { ok: true, lines: ['قهوة'], fixes: [], visualDescription: 'cup', briefToken: 'a'.repeat(64) };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(answer), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const body = { idea: 'قهوة', shape: 'circle' as const, widthUm: 30_000, heightUm: 30_000 };
+    await expect(postBrief(body)).resolves.toEqual(answer);
+    expect(fetchMock).toHaveBeenCalledWith('/api/design/brief', expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }));
+  });
+
+  it('a JSON error answer with a non-2xx status is passed through', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: false, error: 'ip_limit' }), { status: 429 })));
+    await expect(postGenerate({} as never)).resolves.toEqual({ ok: false, error: 'ip_limit' });
+  });
+
+  it('a network failure or a non-JSON answer becomes failed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    await expect(postGenerate({} as never)).resolves.toEqual({ ok: false, error: 'failed' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>', { status: 504 })));
+    await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'failed' });
+  });
+});

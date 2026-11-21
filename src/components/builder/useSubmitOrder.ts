@@ -27,12 +27,13 @@ export function useSubmitOrder(maxUploadBytes: number) {
   const ctxRef = useRef<AttemptContext | null>(null);
   const busy = useRef(false);
 
+  /** `seedUploadId`: the accepted AI design's upload, when the design being ordered is that file (logic.ts seedUploadId). */
   const submit = useCallback(
-    async (input: SubmitInput) => {
+    async (input: SubmitInput, seedUploadId?: string) => {
       if (busy.current) return;
       busy.current = true;
       // One id per attempt; retries after a network failure keep it (server idempotency).
-      ctxRef.current ??= { orderId: nanoid(), rastered: false };
+      ctxRef.current ??= { orderId: nanoid(), rastered: false, ...(seedUploadId ? { uploadId: seedUploadId, seeded: true } : {}) };
       setState({ phase: 'uploading', progress: 0, message: null });
       const result = await submitOrderFlow(input, ctxRef.current, {
         upload: uploadWithProgress,

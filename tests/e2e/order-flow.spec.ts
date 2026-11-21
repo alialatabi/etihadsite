@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, ORDERS_DIR, fakeIpHeaders, withLock } from './helpers';
+import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, readyDesign, upload, setSize, perSheetBadge, fillDetails, ORDERS_DIR, fakeIpHeaders, withLock } from './helpers';
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
@@ -17,7 +17,7 @@ async function flow(page: import('@playwright/test').Page, info: import('@playwr
 
   await chooseShape(page, builder.shape.circle);
   await snap(page, info, '02-shape-circle');
-  await next(page).click();
+  await readyDesign(page);
 
   await upload(page, png);
   await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();

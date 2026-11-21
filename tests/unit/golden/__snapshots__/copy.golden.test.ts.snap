@@ -2,6 +2,7 @@
 
 exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere in the copy 1`] = `
 [
+  "{attempts} x1",
   "{cols} x1",
   "{count} x2",
   "{designs} x1",
@@ -17,7 +18,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{max} x5",
   "{mb} x4",
   "{min} x1",
-  "{n} x3",
+  "{n} x4",
   "{name} x4",
   "{no} x1",
   "{pages} x1",
@@ -26,7 +27,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{rotated} x1",
   "{rows} x1",
   "{shop} x1",
-  "{size} x4",
+  "{size} x5",
   "{step} x1",
   "{to} x1",
   "{total} x1",
@@ -332,7 +333,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
   "hero": {
     "badge": "A4 جاهز للطباعة",
     "flow": [
-      "ارفع تصميمك",
+      "صمّم ستيكرك",
       "شوفه شلون يتصفّط",
       "اختار الكمية",
       "استلم الطلب"
@@ -343,9 +344,9 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "label": "خطوات الطلب"
   },
   "steps": {
-    "shape": "الشكل",
+    "shape": "صمّم",
     "design": "التصميم",
-    "size": "القياس",
+    "size": "الترتيب",
     "quantity": "الكمية",
     "details": "معلومات التوصيل"
   },
@@ -373,6 +374,49 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "roundedHint": "فراغ 2 ملم بين الستيكرات",
     "sharp": "زوايا حادة (90°)",
     "sharpHint": "بدون فراغ بينها"
+  },
+  "ai": {
+    "title": "صمّم ستيكرك",
+    "ideaLabel": "اكتب فكرتك وكل التفاصيل",
+    "ideaHint": "شنو تريد بالرسمة، والكتابة اللي تريدها على الستيكر بالضبط",
+    "refs": "صور مرجعية (اختياري، لحد 5)",
+    "addRef": "أضف صورة",
+    "removeRef": "احذف الصورة",
+    "generate": "ولّد التصميم",
+    "readyDesign": "عندي تصميم جاهز",
+    "reviewTitle": "الكتابة اللي راح تنطبع على الستيكر",
+    "addLine": "أضف سطر",
+    "removeLine": "احذف السطر",
+    "fixesTitle": "صححنا الإملاء:",
+    "confirm": "تمام، ولّد",
+    "tooMuchText": "كتابتك كثيرة على هذا القياس — قلّلها أو كبّر القياس لـ {size}",
+    "generating": "جاري تصميم ستيكرك… (حوالي 15 ثانية)",
+    "printedText": "الكتابة:",
+    "remaining": "باقيلك {n} {attempts} اليوم",
+    "attempts": {
+      "zero": "محاولات",
+      "one": "محاولة",
+      "two": "محاولتين",
+      "few": "محاولات",
+      "many": "محاولة",
+      "other": "محاولة"
+    },
+    "accept": "أكمل بهذا",
+    "retry": "جرّب مرة لخ",
+    "editIdea": "عدّل الفكرة",
+    "shrinkWarning": "صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع",
+    "unavailable": "التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.",
+    "aspect": "للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.",
+    "errors": {
+      "ip_limit": "خلصت محاولاتك لليوم. ارجع باچر أو ارفع تصميم جاهز.",
+      "site_limit": "التصميم بالموقع وصل حده اليوم. ارجع باچر أو ارفع تصميم جاهز.",
+      "blocked": "التصميم بالموقع مو متوفر إلك. تكدر ترفع تصميم جاهز.",
+      "text_too_long": "الكتابة كثيرة على هذا القياس.",
+      "refused": "ما نكدر نصمم هذي الفكرة. جرّب فكرة ثانية.",
+      "failed": "صار خلل بالتصميم، ما انحسبت المحاولة. جرّب مرة لخ.",
+      "invalid_request": "تأكد من الفكرة والصور وجرّب مرة لخ.",
+      "unavailable": "التصميم بالموقع مو متوفر هسه."
+    }
   },
   "upload": {
     "title": "ارفع تصميمك",
@@ -511,13 +555,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2887,
+  "chars": 3841,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 18,
-  "sha256OfRawJson": "8fa90505648a6fa067ace0b93bbe05e1653a31d148b5976a3f38c4812be92da4",
-  "strings": 139,
+  "objects": 21,
+  "sha256OfRawJson": "2db74f51aefdf775b579fc3563f56bb63e25accee45d680656d745ce56abbb7e",
+  "strings": 176,
 }
 `;
 
@@ -773,7 +817,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
     "steps": [
       {
         "title": "اختار الشكل وارفع تصميمك",
-        "body": "دائري، مستطيل، أو مخصص. PNG أو JPG أو PDF."
+        "body": "اختار الشكل والقياس واكتب فكرتك — نصمم لك الستيكر بثواني، أو ارفع تصميمك الجاهز."
       },
       {
         "title": "حدد القياس",
@@ -892,12 +936,12 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1898,
+  "chars": 1936,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "cb1df6b5ab2be1ed33a738942b752d28775f8b0c69f62c69b0134b2c41b97dfd",
+  "sha256OfRawJson": "863155a456d9adff0ac5f4eab3057118326ce55adfbe059784a834995f8272f7",
   "strings": 84,
 }
 `;

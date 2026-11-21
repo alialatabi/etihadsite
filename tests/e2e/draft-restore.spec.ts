@@ -1,4 +1,4 @@
-import { builder, common, chooseQuantity, chooseShape, expect, makeFixtures, next, perSheetBadge, setSize, test, upload } from './helpers';
+import { builder, common, chooseQuantity, chooseShape, expect, makeFixtures, next, perSheetBadge, readyDesign, setSize, test, upload } from './helpers';
 
 /** A reload keeps the customer on the same step with the design and the typed values. */
 test('reload keeps the step, the design and the typed values', async ({ page }) => {
@@ -6,7 +6,7 @@ test('reload keeps the step, the design and the typed values', async ({ page }) 
 
   await page.goto('/');
   await chooseShape(page, builder.shape.circle);
-  await next(page).click();
+  await readyDesign(page);
 
   await upload(page, png);
   await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();

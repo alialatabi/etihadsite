@@ -7,6 +7,8 @@ import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
 import { activeTier, maxStickers, minStickers, sortedTiers, totalBeforeDiscountIqd } from '@/lib/pricing';
+import { deriveLockedSize } from '@/lib/layout';
+import { AI_IDEA_MAX_CHARS, AI_MAX_ASPECT } from '@/lib/ai/config';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
   BuilderStep,
@@ -53,7 +55,20 @@ export interface PersistedForm extends FormFields {
   step?: number;
   /** Id of the design file kept in IndexedDB for this form (draft-store). A stored file with another id is not this order's. */
   fileId?: string;
+  /** How the design is made: designed on the site ('ai') or the customer's own file ('upload'). Absent in older drafts. */
+  mode?: BuilderMode;
+  /** The idea the customer typed for the AI design. */
+  idea?: string;
+  /** Upload id of the accepted AI design on the server (reused at submit while the design is still that file). */
+  aiUploadId?: string;
+  /** The draft fileId the accepted AI design got; aiUploadId only applies while `fileId === aiFileId`. */
+  aiFileId?: string;
+  /** Sticker size (µm) right after the AI design was accepted; a smaller size shows a warning. */
+  aiSizeUm?: { w: number; h: number };
 }
+
+export type BuilderMode = 'ai' | 'upload';
+export const BUILDER_MODES: readonly BuilderMode[] = ['ai', 'upload'];
 
 export const EMPTY_FIELDS: FormFields = { name: '', phone: '', governorate: '', district: '', landmark: '', notes: '' };
 
@@ -189,8 +204,17 @@ export interface RestoredState {
   step?: number;
   /** The id of the stored design file this form belongs to. */
   fileId?: string;
+  mode?: BuilderMode;
+  idea?: string;
+  aiUploadId?: string;
+  aiFileId?: string;
+  aiSizeUm?: { w: number; h: number };
   fields: FormFields;
 }
+
+/** An id kept in the draft: a non-empty string of at most 64 characters. */
+const isDraftId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
+const isPositiveInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
 
 /** Pure half of the post-hydration restore: which saved values are accepted (`saved` comes from loadForm()). */
 export function restoredState(saved: Partial<PersistedForm>): RestoredState {
@@ -214,7 +238,75 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   if (typeof saved.stickersText === 'string' && saved.stickersText.trim()) r.stickersText = saved.stickersText;
   if (typeof saved.step === 'number' && Number.isInteger(saved.step) && saved.step >= 0 && saved.step < STEPS.length) r.step = saved.step;
   if (typeof saved.fileId === 'string' && saved.fileId.length > 0 && saved.fileId.length <= 64) r.fileId = saved.fileId;
+  // AI designer fields (optional; older drafts have none of them).
+  if (typeof saved.mode === 'string' && BUILDER_MODES.includes(saved.mode)) r.mode = saved.mode;
+  if (typeof saved.idea === 'string' && saved.idea.length > 0) r.idea = saved.idea.slice(0, AI_IDEA_MAX_CHARS);
+  if (isDraftId(saved.aiUploadId)) r.aiUploadId = saved.aiUploadId;
+  if (isDraftId(saved.aiFileId)) r.aiFileId = saved.aiFileId;
+  const ai = saved.aiSizeUm as unknown;
+  if (ai && typeof ai === 'object' && isPositiveInt((ai as { w?: unknown }).w) && isPositiveInt((ai as { h?: unknown }).h)) {
+    r.aiSizeUm = { w: (ai as { w: number }).w, h: (ai as { h: number }).h };
+  }
   return r;
+}
+
+/* ───────────────────────── AI designer (first page, accept, size warning, submit) ───────────────────────── */
+
+/** The first page is done once a shape is chosen and, when the site designs the sticker, the size is valid. */
+export function shapeStepOk(p: { shape: Shape | null; mode: BuilderMode; sizeOk: boolean }): boolean {
+  return p.shape !== null && (p.mode === 'upload' || p.sizeOk);
+}
+
+/** Browser twin of the server's aiAspectOk (prompt-template.ts is server-only): rectangles up to AI_MAX_ASPECT : 1. */
+export function aiRatioOk(shape: Shape, widthUm: number, heightUm: number): boolean {
+  if (shape !== 'rect') return true;
+  const long = Math.max(widthUm, heightUm);
+  const short = Math.min(widthUm, heightUm);
+  return short > 0 && long / short <= AI_MAX_ASPECT;
+}
+
+export type GenerateBlock = 'shape' | 'size' | 'aspect' | 'idea' | 'unavailable' | 'busy';
+
+/** Why «ولّد التصميم» is disabled, or null when it may run. 'aspect' shows builder.ai.aspect. */
+export function generateBlock(p: {
+  shape: Shape | null;
+  size: { widthUm: number; heightUm: number } | null;
+  sizeOk: boolean;
+  idea: string;
+  unavailable: boolean;
+  busy: boolean;
+}): GenerateBlock | null {
+  if (p.unavailable) return 'unavailable';
+  if (!p.shape) return 'shape';
+  if (!p.size || !p.sizeOk) return 'size';
+  if (!aiRatioOk(p.shape, p.size.widthUm, p.size.heightUm)) return 'aspect';
+  if (!p.idea.trim()) return 'idea';
+  if (p.busy) return 'busy';
+  return null;
+}
+
+/**
+ * Sticker size after an AI design is accepted. `typed` is the size the design was made for, `aspect` the decoded
+ * design's width / height. Custom: the typed size is a square box and the LONGER side of the trimmed design keeps it.
+ * Circle and rect: the width is kept and the height follows the image (the aspect lock, as for an upload).
+ */
+export function aiAcceptedSize(shape: Shape, typed: { widthUm: number; heightUm: number }, aspect: number): { widthUm: number; heightUm: number } {
+  if (shape === 'custom' && Number.isFinite(aspect) && aspect > 0 && aspect < 1) {
+    return deriveLockedSize(shape, aspect, { heightUm: Math.max(typed.widthUm, typed.heightUm) });
+  }
+  const side = shape === 'custom' ? Math.max(typed.widthUm, typed.heightUm) : typed.widthUm;
+  return deriveLockedSize(shape, aspect, { widthUm: side });
+}
+
+/** True when the ordered size is smaller (in either direction) than the size the AI design was accepted at. */
+export function aiShrinkWarning(ai: { w: number; h: number } | null, size: { widthUm: number; heightUm: number } | null): boolean {
+  if (!ai || !size) return false;
+  return size.widthUm < ai.w || size.heightUm < ai.h;
+}
+
+/** The upload id to reuse at submit: the accepted AI design's, only while the current design is that very file. */
+export function seedUploadId(p: { aiUploadId: string | null; aiFileId: string | null; fileId: string | null }): string | undefined {
+  return p.aiUploadId && p.aiFileId && p.fileId === p.aiFileId ? p.aiUploadId : undefined;
 }
 
 /** How far the customer may go from step 0: the index of the first step that is not done yet (never past the last step). */
