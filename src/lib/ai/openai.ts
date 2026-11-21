@@ -5,7 +5,8 @@ import 'server-only';
  * Never throws. Every failure becomes one of three reasons:
  *  - 'refused'  — the model's safety system rejected the request (error code `moderation_blocked`,
  *                 or a message/type about safety or the content policy);
- *  - 'timeout'  — no complete answer within AI_OPENAI_TIMEOUT_MS (AbortSignal.timeout);
+ *  - 'timeout'  — no complete answer within AI_OPENAI_TIMEOUT_MS, or the caller's smaller
+ *                 `timeoutMs` budget (AbortSignal.timeout);
  *  - 'error'    — everything else (network, HTTP status, unreadable body).
  *
  * SECRET HANDLING: the API key and OpenAI's response bodies (which can echo the key or the
@@ -78,7 +79,12 @@ function report(endpoint: string, what: string, tags: Record<string, string | nu
  * POSTs to `{baseUrl}{path}` with the timeout and returns the parsed JSON, or a failure reason.
  * `body` is a JSON-able object (sent as JSON) or FormData (multipart; fetch sets the boundary).
  */
-export async function postOpenAi(cfg: OpenAiConfig, path: string, body: object | FormData): Promise<OpenAiResult> {
+export async function postOpenAi(
+  cfg: OpenAiConfig,
+  path: string,
+  body: object | FormData,
+  timeoutMs: number = AI_OPENAI_TIMEOUT_MS,
+): Promise<OpenAiResult> {
   const endpoint = path.replace(/^\//, '');
   const isForm = body instanceof FormData;
   const headers: Record<string, string> = { Authorization: `Bearer ${cfg.apiKey}` };
@@ -89,7 +95,7 @@ export async function postOpenAi(cfg: OpenAiConfig, path: string, body: object |
       method: 'POST',
       headers,
       body: isForm ? body : JSON.stringify(body),
-      signal: AbortSignal.timeout(AI_OPENAI_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     // The body is read inside the same try: a timeout while streaming it is still a timeout.
     const text = await res.text();
@@ -113,7 +119,7 @@ export async function postOpenAi(cfg: OpenAiConfig, path: string, body: object |
     return { ok: true, json };
   } catch (e) {
     if (isAbort(e)) {
-      report(endpoint, 'timeout', { timeoutMs: AI_OPENAI_TIMEOUT_MS }, 'warning');
+      report(endpoint, 'timeout', { timeoutMs }, 'warning');
       return { ok: false, reason: 'timeout' };
     }
     report(endpoint, 'network error');
@@ -132,7 +138,14 @@ function toBlob(ref: ImageRef): Blob {
  */
 export async function generateImage(
   cfg: OpenAiConfig,
-  req: { prompt: string; size: string; background: 'transparent' | 'opaque'; refs: ImageRef[] },
+  req: {
+    prompt: string;
+    size: string;
+    background: 'transparent' | 'opaque';
+    refs: ImageRef[];
+    /** Overrides AI_OPENAI_TIMEOUT_MS (never raises it): the caller's remaining time budget. */
+    timeoutMs?: number;
+  },
 ): Promise<{ ok: true; png: Uint8Array } | { ok: false; reason: AiFailure }> {
   const fields = {
     model: AI_IMAGE_MODEL,
@@ -144,16 +157,17 @@ export async function generateImage(
     output_format: 'png',
   } as const;
 
+  const timeoutMs = Math.max(1, Math.min(AI_OPENAI_TIMEOUT_MS, req.timeoutMs ?? AI_OPENAI_TIMEOUT_MS));
   let result: OpenAiResult;
   if (req.refs.length === 0) {
-    result = await postOpenAi(cfg, 'images/generations', fields);
+    result = await postOpenAi(cfg, 'images/generations', fields, timeoutMs);
   } else {
     const form = new FormData();
     req.refs.forEach((ref, i) => {
       form.append('image[]', toBlob(ref), `ref-${i + 1}.${ref.mime === 'image/png' ? 'png' : 'jpg'}`);
     });
     for (const [k, v] of Object.entries(fields)) form.append(k, String(v));
-    result = await postOpenAi(cfg, 'images/edits', form);
+    result = await postOpenAi(cfg, 'images/edits', form, timeoutMs);
   }
   if (!result.ok) return result;
 

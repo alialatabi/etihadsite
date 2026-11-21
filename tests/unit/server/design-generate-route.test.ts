@@ -5,7 +5,8 @@ import { DEFAULT_SETTINGS } from "@/config/defaults";
 import { POST as generateRoute } from "@/app/api/design/generate/route";
 import { AI_IMAGE_MODEL } from "@/lib/ai/config";
 import { aiIpKey } from "@/lib/ai/ip";
-import { briefToken, fitPngBudget } from "@/lib/ai/service";
+import { AI_OPENAI_TIMEOUT_MS } from "@/lib/ai/config";
+import { briefToken, fitPngBudget, runGenerate } from "@/lib/ai/service";
 import { shopDayKey } from "@/lib/shop-time";
 import { getStorage } from "@/lib/storage";
 import { setupEnv } from "./helpers";
@@ -36,6 +37,7 @@ function call(body: unknown, ip = nextIp()) {
   );
 }
 const read = async (res: Response) => (await res.json()) as Gen;
+const readGen = read;
 
 const VD = "A round sticker with red roses and a small cake.";
 function body(over: Record<string, unknown> = {}) {
@@ -478,5 +480,109 @@ describe("fitPngBudget", () => {
 
     const noise = new Uint8Array(await sharp(randomBytes(200 * 200 * 3), { raw: { width: 200, height: 200, channels: 3 } }).png().toBuffer());
     expect(await fitPngBudget(noise, 50_000)).toBeNull();
+  });
+});
+
+describe("generate: cheap checks before the reference images are downloaded", () => {
+  const REF = "ref-pre-000000001";
+  const refBody = (over: Record<string, unknown> = {}) => body({ refUploadIds: [REF], ...over });
+
+  it("answers blocked / ip_limit / site_limit without reading any reference", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    await saveRef(REF, await opaquePng(32, 32));
+    const storage = getStorage();
+    const read = vi.spyOn(storage, "readUpload");
+    const info = vi.spyOn(storage, "uploadInfo");
+
+    await storage.aiBlock!(aiIpKey("10.9.1.1"), "10.9.1.1");
+    expect(await readGen(await call(refBody(), "10.9.1.1"))).toEqual({ ok: false, error: "blocked" });
+
+    await storage.saveSettings({ ...DEFAULT_SETTINGS, ai: { enabled: true, perIpDailyLimit: 1, siteDailyLimit: 300 } });
+    expect((await readGen(await call(body(), "10.9.2.2"))).ok).toBe(true); // uses the one try, no refs
+    expect(await readGen(await call(refBody(), "10.9.2.2"))).toEqual({ ok: false, error: "ip_limit" });
+
+    await storage.saveSettings({ ...DEFAULT_SETTINGS, ai: { enabled: true, perIpDailyLimit: 5, siteDailyLimit: 1 } });
+    expect(await readGen(await call(refBody(), "10.9.3.3"))).toEqual({ ok: false, error: "site_limit" });
+
+    expect(read).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1); // only the ref-less call reached OpenAI
+  });
+
+  it("the stored reservation still decides: a ref call under the caps goes through", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    await saveRef(REF, await opaquePng(32, 32));
+    expect((await readGen(await call(refBody()))).ok).toBe(true);
+    expect(calls.map((c) => c.path)).toEqual(["/images/edits"]);
+    expect(await imageUsage()).toBe(1);
+  });
+
+  it("skips the read-only check when there are no references and when a read fails", async () => {
+    stubOpenAi(() => imageResponse(png));
+    const storage = getStorage();
+    const blocks = vi.spyOn(storage, "aiListBlocks");
+    expect((await readGen(await call(body()))).ok).toBe(true);
+    expect(blocks).not.toHaveBeenCalled();
+
+    await saveRef(REF, await opaquePng(32, 32));
+    blocks.mockRejectedValueOnce(new Error("outage"));
+    expect((await readGen(await call(refBody()))).ok).toBe(true); // no opinion: the reservation decided
+    expect(blocks).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an oversize or non-image reference from its meta, without downloading it", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    const storage = getStorage();
+    // Noise does not compress: well over the 1 KiB the settings schema allows as the smallest limit.
+    const bytes = new Uint8Array(
+      await sharp({ create: { width: 64, height: 64, channels: 3, background: "#000", noise: { type: "gaussian", mean: 128, sigma: 60 } } })
+        .png()
+        .toBuffer(),
+    );
+    expect(bytes.length).toBeGreaterThan(1024);
+    await saveRef(REF, bytes);
+    await saveRef("ref-pdf-000000002", new TextEncoder().encode("%PDF-1.4 hello"), "application/pdf");
+    const read = vi.spyOn(storage, "readUpload");
+
+    expect(await readGen(await call(body({ refUploadIds: ["ref-pdf-000000002"] })))).toEqual({ ok: false, error: "invalid_request" });
+    await storage.saveSettings({ ...DEFAULT_SETTINGS, maxUploadBytes: 1024 });
+    expect(await readGen(await call(refBody()))).toEqual({ ok: false, error: "invalid_request" });
+    expect(await readGen(await call(body({ refUploadIds: ["ref-missing-00002"] })))).toEqual({ ok: false, error: "invalid_request" });
+
+    expect(read).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+    expect(await imageUsage()).toBe(0);
+  });
+});
+
+describe("generate: time budget", () => {
+  const req = (ip = nextIp()) =>
+    new Request("http://localhost/api/design/generate", { method: "POST", headers: { "x-forwarded-for": ip } });
+
+  it("does not call OpenAI and gives the use back when too little time is left", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    // started = 0; the second reading (just before the image call) says 50 s have passed.
+    const times = [0, 50_000];
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 50_000);
+    expect(out.body).toEqual({ ok: false, error: "failed" });
+    expect(calls).toHaveLength(0);
+    expect(await imageUsage()).toBe(0);
+  });
+
+  it("limits the OpenAI call to what is left of the route's time", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
+    const spy = vi.spyOn(AbortSignal, "timeout");
+    const times = [0, 30_000]; // 60 s - 30 s - 5 s safety = 25 s
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 30_000);
+    expect(out.body.ok).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(spy).toHaveBeenCalledWith(25_000);
+  });
+
+  it("keeps the full OpenAI timeout when the request is young", async () => {
+    stubOpenAi(() => imageResponse(png));
+    const spy = vi.spyOn(AbortSignal, "timeout");
+    expect((await runGenerate(req(), body())).body.ok).toBe(true);
+    expect(spy).toHaveBeenCalledWith(AI_OPENAI_TIMEOUT_MS);
   });
 });

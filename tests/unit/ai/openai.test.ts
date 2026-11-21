@@ -8,7 +8,7 @@ vi.mock('@/lib/monitoring/report', () => ({
 }));
 
 import { generateImage, openAiConfig, type OpenAiConfig } from '@/lib/ai/openai';
-import { AI_IMAGE_MODEL } from '@/lib/ai/config';
+import { AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from '@/lib/ai/config';
 
 const KEY = 'sk-test-SECRET';
 const cfg: OpenAiConfig = { apiKey: KEY, baseUrl: 'https://api.test/v1' };
@@ -53,6 +53,15 @@ describe('generateImage', () => {
       background: 'transparent',
       output_format: 'png',
     });
+  });
+
+  it('uses a smaller caller-given timeout and never a larger one', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    await generateImage(cfg, { ...baseReq, timeoutMs: 12_000 });
+    await generateImage(cfg, { ...baseReq, timeoutMs: AI_OPENAI_TIMEOUT_MS * 3 });
+    await generateImage(cfg, baseReq);
+    expect(spy.mock.calls.map((c) => c[0])).toEqual([12_000, AI_OPENAI_TIMEOUT_MS, AI_OPENAI_TIMEOUT_MS]);
   });
 
   it('uses /images/edits with image[] when refs are given', async () => {

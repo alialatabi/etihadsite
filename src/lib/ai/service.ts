@@ -26,16 +26,20 @@ import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind, StorageAdapter } from '@/lib/types';
+import type { AiKind, AiReserveResult, StorageAdapter } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
   AI_BRIEF_SITE,
   AI_IDEA_MAX_CHARS,
+  AI_AFTER_OPENAI_SAFETY_MS,
   AI_IMAGE_MODEL,
   AI_LINE_MAX_CHARS,
   AI_MAX_LINES,
   AI_MAX_REFS,
+  AI_MIN_OPENAI_BUDGET_MS,
+  AI_OPENAI_TIMEOUT_MS,
+  AI_ROUTE_MAX_DURATION_MS,
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
@@ -295,7 +299,45 @@ const genFail = (error: GenerateError, retryAfterSec?: number): GenerateOutcome 
   ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
 });
 
-export async function runGenerate(request: Request, json: unknown): Promise<GenerateOutcome> {
+/**
+ * How long the OpenAI image call may run, given the time already spent in this request: the route's
+ * `maxDuration` less `elapsedMs` less the time the save needs afterwards, capped at
+ * AI_OPENAI_TIMEOUT_MS. null when less than AI_MIN_OPENAI_BUDGET_MS is left, i.e. the call must not
+ * start (a platform kill after OpenAI charged would keep the use and show the customer nothing).
+ */
+export function openAiTimeoutMs(elapsedMs: number): number | null {
+  const budget = AI_ROUTE_MAX_DURATION_MS - Math.max(0, elapsedMs) - AI_AFTER_OPENAI_SAFETY_MS;
+  if (budget < AI_MIN_OPENAI_BUDGET_MS) return null;
+  return Math.min(AI_OPENAI_TIMEOUT_MS, budget);
+}
+
+/**
+ * Non-atomic, read-only look at the stored counters and blocks, run before the reference images
+ * are downloaded: what `aiReserve` would answer right now when it is already a refusal, else null.
+ * Same order as the reservation (blocked, site cap, per-IP cap). It only saves work: the atomic
+ * reservation still decides, and any read failure here just means "no opinion".
+ */
+async function precheckAi(
+  storage: AiStorage,
+  a: { day: string; ipKey: string; perIpLimit: number; siteLimit: number },
+): Promise<Exclude<AiReserveResult, 'ok'> | null> {
+  if (!storage.aiListBlocks || !storage.aiUsage) return null;
+  try {
+    const [blocks, usage] = await Promise.all([storage.aiListBlocks(), storage.aiUsage(a.day)]);
+    if (blocks.some((b) => b.ipKey === a.ipKey)) return 'blocked';
+    const rows = usage.filter((r) => r.day === a.day && r.kind === 'image');
+    if (rows.reduce((n, r) => n + r.count, 0) >= a.siteLimit) return 'site_limit';
+    const mine = rows.find((r) => r.ipKey === a.ipKey);
+    if (a.ipKey !== '' && (mine?.count ?? 0) >= a.perIpLimit) return 'ip_limit';
+  } catch {
+    // No opinion: the reservation below decides.
+  }
+  return null;
+}
+
+/** `clock` is for tests only (the time budget). */
+export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now): Promise<GenerateOutcome> {
+  const started = clock();
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return genFail('invalid_request');
   const req = parsed.data;
@@ -321,9 +363,26 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const rl = limiters().generate.check(ip || 'global');
   if (!rl.ok) return genFail('ip_limit', rl.retryAfterSec);
 
+  const day = shopDayKey(new Date());
+  const perIpLimit = settings.ai.perIpDailyLimit;
+  const siteLimit = settings.ai.siteDailyLimit;
+
   // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing.
+  // Downloading and decoding them is the expensive part, so first (only when there are refs) a
+  // read-only look answers a blocked IP or a reached cap without touching a single file, and each
+  // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
   const refs: ImageRef[] = [];
+  if (req.refUploadIds.length > 0) {
+    const early = await precheckAi(storage, { day, ipKey, perIpLimit, siteLimit });
+    if (early) return genFail(early);
+  }
   for (const id of req.refUploadIds) {
+    if (storage.uploadInfo) {
+      const info = await storage.uploadInfo(id);
+      if (!info) return genFail('invalid_request');
+      if (info.meta.mime !== 'image/png' && info.meta.mime !== 'image/jpeg') return genFail('invalid_request');
+      if (info.size > settings.maxUploadBytes) return genFail('invalid_request');
+    }
     const upload = await storage.readUpload(id);
     if (!upload) return genFail('invalid_request');
     const kind = sniffKind(upload.bytes);
@@ -335,15 +394,13 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
     }
   }
 
-  const day = shopDayKey(new Date());
-  const perIpLimit = settings.ai.perIpDailyLimit;
   const reserved = await storage.aiReserve({
     day,
     ipKey,
     ip,
     kind: 'image',
     perIpLimit,
-    siteLimit: settings.ai.siteDailyLimit,
+    siteLimit,
   });
   if (reserved.status !== 'ok') return genFail(reserved.status);
 
@@ -351,6 +408,14 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const giveBack = () => release(storage, { day, ipKey, kind: 'image' }, 'ai.generate');
   let stored: { uploadId: string; png: Uint8Array; pxWidth: number; pxHeight: number };
   try {
+    // Time left in this request: never start (or run) an image call that a platform kill at
+    // maxDuration could cut off after OpenAI has charged.
+    const timeoutMs = openAiTimeoutMs(clock() - started);
+    if (timeoutMs === null) {
+      report('ai.generate', 'no time left for the image call', {}, 'warning');
+      await giveBack();
+      return genFail('failed');
+    }
     const size = imageRequestSize(req.shape, req.widthUm, req.heightUm);
     const result = await generateImage(cfg, {
       prompt: buildImagePrompt({
@@ -365,6 +430,7 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
       size: size.size,
       background: size.background,
       refs,
+      timeoutMs,
     });
     if (!result.ok) {
       await giveBack();
