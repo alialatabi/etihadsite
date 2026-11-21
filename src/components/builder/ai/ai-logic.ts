@@ -1,5 +1,5 @@
 /** Pure helpers of the AI designer UI (no React), unit-tested in Node. */
-import { builder, common } from '@/content/ar';
+import { builder } from '@/content/ar';
 import { AI_MAX_REFS } from '@/lib/ai/config';
 import type { BriefError, GenerateError } from './api';
 
@@ -33,9 +33,12 @@ export function isAiOffError(code: AiErrorCode): boolean {
   return code === 'unavailable' || code === 'site_limit' || code === 'blocked';
 }
 
-/** Arabic copy for an error code ('rate_limited' comes from the brief route only). Unknown codes read as 'failed'. */
+/**
+ * Arabic copy for an error code. 'rate_limited' comes from the brief route (also its answer to a blocked IP),
+ * so it reads as "not available now, upload your own design". Unknown codes read as 'failed'.
+ */
 export function aiErrorMessage(code: AiErrorCode): string {
-  if (code === 'rate_limited') return common.errors.rateLimited;
+  if (code === 'rate_limited') return builder.ai.unavailable;
   const errors: Record<string, string> = builder.ai.errors;
   return errors[code] ?? builder.ai.errors.failed;
 }

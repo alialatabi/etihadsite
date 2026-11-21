@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Upload, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Sparkles, type LucideIcon } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
 import { fillLtr } from '@/components/fill-ltr';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * start (navy) → preview (logo purple) → quantity (lime, the money/discount colour) → receive (brand gradient, the goal).
  */
 const FLOW_STYLE: { icon: LucideIcon; className: string }[] = [
-  { icon: Upload, className: 'bg-primary text-primary-foreground' },
+  { icon: Sparkles, className: 'bg-primary text-primary-foreground' },
   { icon: Grid3x3, className: 'bg-[#8a2b8f] text-white' },
   { icon: Layers, className: 'bg-discount text-discount-foreground' },
   { icon: PackageCheck, className: 'bg-brand-gradient-cta text-white shadow-md ring-2 ring-brand/25' },

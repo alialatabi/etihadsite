@@ -9,11 +9,19 @@ import { Button } from '@/components/ui/button';
 import { fillLtr } from '@/components/fill-ltr';
 import { cn } from '@/lib/utils';
 import { uploadLimitMb } from '@/lib/upload-limit';
+import { AiResult } from '../ai/AiResult';
+import type { AiDesignApi } from '../ai/useAiDesign';
 import { needsCropNotice, pdfPrefillUm } from '../logic';
 import { safeFormatCm } from '../safe';
 import type { BuilderApi } from '../useBuilder';
 
-export function DesignStep({ b }: { b: BuilderApi }) {
+/** The design step: the AI result when the site designs the sticker, else the upload (unchanged). */
+export function DesignStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
+  if (b.mode === 'ai') return <AiResult b={b} ai={ai} />;
+  return <UploadDesign b={b} />;
+}
+
+function UploadDesign({ b }: { b: BuilderApi }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { design, decoding, designError, shape } = b;

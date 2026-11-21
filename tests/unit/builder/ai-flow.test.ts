@@ -12,7 +12,7 @@ import {
 import { addRefs, aiErrorMessage, isAiOffError, pngFileFromBase64, printableLines } from '@/components/builder/ai/ai-logic';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
 import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
-import { builder, common } from '@/content/ar';
+import { builder } from '@/content/ar';
 import type { OrderResponse, UploadResponse } from '@/lib/types';
 
 /* ───────────────────────── first page ───────────────────────── */
@@ -212,7 +212,7 @@ describe('ai helpers', () => {
 
   it('maps error codes to copy, and knows which ones turn the feature off', () => {
     expect(aiErrorMessage('ip_limit')).toBe(builder.ai.errors.ip_limit);
-    expect(aiErrorMessage('rate_limited')).toBe(common.errors.rateLimited);
+    expect(aiErrorMessage('rate_limited')).toBe(builder.ai.unavailable);
     expect(aiErrorMessage('nonsense' as never)).toBe(builder.ai.errors.failed);
     expect(['unavailable', 'site_limit', 'blocked'].every((c) => isAiOffError(c as never))).toBe(true);
     expect(['ip_limit', 'failed', 'refused', 'text_too_long'].some((c) => isAiOffError(c as never))).toBe(false);
