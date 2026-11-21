@@ -259,6 +259,14 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { order_id: 'order-kept-0003', created_at: '2026-11-09T00:00:00+00:00', files: { designPath: 'uploads/upload-new-0001.bin', pdfPath: 'orders/order-kept-0003.pdf' } },
     ]),
     json([]), // only an empty page ends a retention read
+    // every old-rule order (before min(cutoff, KEEP_DESIGNS_FROM)), with no lower bound: the same four
+    json([
+      { order_id: 'order-old-0001', created_at: '2026-09-20T00:00:00+00:00', files: { designPath: 'uploads/upload-old-0001.bin', pdfPath: 'orders/order-old-0001.pdf' } },
+      { order_id: 'order-old-0002', created_at: '2026-09-20T00:00:00+00:00', files: { designPath: 'uploads/upload-shared-01.bin', pdfPath: 'orders/order-old-0002.pdf' } },
+      { order_id: 'order-old-0003', created_at: '2026-09-21T00:00:00+00:00', files: null },
+      { order_id: 'order-old-0004', created_at: '2026-09-22T00:00:00+00:00', files: { designPath: '../evil.bin', pdfPath: 'orders/../../evil.pdf' } },
+    ]),
+    json([]),
     // ai_generations upload ids
     json([]),
     // bucket listing of uploads/, newest first
@@ -290,6 +298,7 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { name: 'order-old-0001.pdf', created_at: '2026-09-20T00:00:00.000Z' },
     ]),
     json([]), // not past the window start yet: one more (empty) page
+    json([]), // no kept order uses upload-old-0001.bin (the "still used?" check by path)
   ];
 
   // New rule (orders from KEEP_DESIGNS_FROM on): dates derive from the constant so the owner can move it.
@@ -304,6 +313,7 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
       { order_id: 'order-keep-0003', created_at: at(45).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0003.bin', pdfPath: 'orders/order-keep-0003.pdf' } }, // newer than the cutoff
     ]),
     json([]),
+    json([]), // no old-rule order left
     json([{ upload_id: 'upload-ai-00001' }, { upload_id: null }]),
     json([]),
     json([
@@ -330,7 +340,7 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
     const dry = await run(responses(), (s) => s.purgeOlderThan(cutoff, true));
     const real = await run([...responses(), json([]), empty(204)], (s) => s.purgeOlderThan(cutoff, false));
     const explicitOrphanCutoff = await run(responses(), (s) => s.purgeOlderThan(cutoff, true, new Date('2026-11-10T08:30:00.000Z')), (r) => r.filter((p) => p.includes('uncommitted')));
-    const nothingOld = await run([json([]), json([]), json([]), json([])], (s) => s.purgeOlderThan(cutoff, false));
+    const nothingOld = await run([json([]), json([]), json([]), json([]), json([])], (s) => s.purgeOlderThan(cutoff, false));
     // Request dates derive from KEEP_DESIGNS_FROM: shown relative to it, so moving the constant keeps the snapshot.
     const relToKeep = (line: string) =>
       line.replace(/\d{4}-\d{2}-\d{2}T\d{2}%3A\d{2}%3A\d{2}\.\d{3}Z/g, (enc) => {

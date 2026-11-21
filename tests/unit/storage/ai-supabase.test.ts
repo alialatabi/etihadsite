@@ -115,6 +115,14 @@ describe("SupabaseStorage AI usage", () => {
     await expect(store().aiUsage("bad")).rejects.toThrow();
     expect(calls).toHaveLength(1);
   });
+
+  it("aiUsage can ask for one kind only", async () => {
+    queue.push(json([]));
+    await store().aiUsage("2026-10-31", "image");
+    expect(calls[0].url).toBe(`${BASE}/rest/v1/ai_usage?select=day,ip_key,ip,kind,count,last_at&day=gte.2026-10-31&kind=eq.image&order=day.asc,ip_key.asc,kind.asc`);
+    await expect(store().aiUsage("2026-10-31", "x" as never)).rejects.toThrow();
+    expect(calls).toHaveLength(1);
+  });
 });
 
 describe("SupabaseStorage AI generations and blocks", () => {

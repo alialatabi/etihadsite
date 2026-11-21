@@ -134,16 +134,42 @@ describe("LocalStorage purge (keep forever)", () => {
     expect(await s.getOrder("order-new-rule-2")).not.toBeNull();
   });
 
-  it("purge only scans the 30-day window", async () => {
+  it("new-rule PDFs and loose uploads are only scanned in the 30-day window", async () => {
     const beyond = PURGE_WINDOW_DAYS + 2;
-    await order("order-old-beyond", inWindow(OLD_CUTOFF, beyond));
     await upload("upload-beyond-01", inWindow(OLD_CUTOFF, beyond));
     await order("order-new-beyond", inWindow(NEW_CUTOFF, beyond));
     expect(await s.purgeOlderThan(OLD_CUTOFF, false)).toEqual([]);
     expect(await s.purgeOlderThan(NEW_CUTOFF, false)).toEqual([]);
-    expect(await s.getOrder("order-old-beyond")).not.toBeNull();
     expect(await s.readFile("uploads/upload-beyond-01.bin")).not.toBeNull();
     expect(await s.readFile("orders/order-new-beyond.pdf")).not.toBeNull();
+  });
+
+  it("an old-rule order older than the window is still purged (an outage or a lower retentionDays strands nothing)", async () => {
+    const beyond = PURGE_WINDOW_DAYS + 40;
+    await order("order-old-beyond", inWindow(OLD_CUTOFF, beyond));
+    const removed = await s.purgeOlderThan(OLD_CUTOFF, false);
+    expect(removed.sort()).toEqual(
+      ["orders/order-old-beyond.json", "orders/order-old-beyond.pdf", "uploads/order-old-beyond.bin", "uploads/order-old-beyond.json"].sort(),
+    );
+    expect(await s.getOrder("order-old-beyond")).toBeNull();
+    // A later cutoff (after the switch) still reaches it; here nothing is left.
+    expect(await s.purgeOlderThan(NEW_CUTOFF, false)).toEqual([]);
+  });
+
+  it("an old-rule order is purged by min(cutoff, KEEP_DESIGNS_FROM): not before its cutoff", async () => {
+    await order("order-old-young", at(OLD_CUTOFF.getTime() + DAY)); // before the switch, after this cutoff
+    expect(await s.purgeOlderThan(OLD_CUTOFF, false)).toEqual([]);
+    expect(await s.getOrder("order-old-young")).not.toBeNull();
+  });
+
+  it("an old-rule design that a kept order (outside the window) still uses is kept", async () => {
+    await order("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    await s.savePdf("order-new-share", new Uint8Array([2]));
+    await s.saveOrder(record("order-new-share", at(KEEP + 2 * DAY), "shared-design-x"));
+    const removed = await s.purgeOlderThan(NEW_CUTOFF, false);
+    expect(removed.sort()).toEqual(["orders/order-old-share.json", "orders/order-old-share.pdf"]);
+    expect(await s.readFile("uploads/shared-design-x.bin")).not.toBeNull();
+    expect(await s.getOrder("order-new-share")).not.toBeNull();
   });
 
   it("purge keeps an unordered AI upload", async () => {
@@ -207,6 +233,16 @@ function byOrderIds<T extends { order_id: string }>(rows: T[], url: URL): T[] {
   return rows.filter((r) => ids.has(r.order_id));
 }
 
+/** `record->files->>designPath=in.("a","b")` (paths never contain quotes or commas: PATH_RE). */
+function byDesignPath<T extends { files: OrderRecord["files"] }>(rows: T[], url: URL): T[] {
+  const f = url.searchParams.get("record->files->>designPath");
+  if (f === null) return rows;
+  const m = /^in\.\((.*)\)$/.exec(f);
+  if (!m) throw new Error(`unsupported designPath filter ${f}`);
+  const paths = new Set(m[1].split(",").map((p) => p.replace(/^"|"$/g, "")));
+  return rows.filter((r) => paths.has(r.files.designPath));
+}
+
 beforeEach(() => {
   db = { orders: [], ai: [], objects: [] };
   calls = [];
@@ -218,7 +254,7 @@ beforeEach(() => {
       const body = typeof init.body === "string" ? (JSON.parse(init.body) as unknown) : undefined;
       calls.push({ method, url: input.replace(BASE, ""), body });
       const p = url.pathname;
-      if (p === "/rest/v1/orders" && method === "GET") return ok(paged(byCreatedAt(db.orders, url), init));
+      if (p === "/rest/v1/orders" && method === "GET") return ok(paged(byDesignPath(byCreatedAt(db.orders, url), url), init));
       if (p === "/rest/v1/orders" && method === "DELETE") {
         const gone = new Set(byOrderIds(byCreatedAt(db.orders, url), url));
         db.orders = db.orders.filter((o) => !gone.has(o));
@@ -312,7 +348,40 @@ describe("SupabaseStorage purge (keep forever)", () => {
     const lists = calls.filter((c) => c.url === "/storage/v1/object/list/etihad" && (c.body as { prefix: string }).prefix === "uploads");
     expect(lists.length).toBeLessThanOrEqual(3);
     for (const c of lists) expect((c.body as { sortBy: unknown }).sortBy).toEqual({ column: "created_at", order: "desc" });
-    for (const c of calls.filter((x) => x.url.startsWith("/rest/v1/"))) expect(c.url).toMatch(/created_at=gte\./);
+    // Every read is bounded below, except the old-rule read, which only reaches rows from before the switch.
+    const before = encodeURIComponent(new Date(KEEP_DESIGNS_FROM).toISOString());
+    for (const c of calls.filter((x) => x.url.startsWith("/rest/v1/"))) {
+      if (!/created_at=gte\./.test(c.url)) expect(c.url).toContain(`&created_at=lt.${before}&`);
+    }
+  });
+
+  it("an old-rule order older than the window is still purged; a design a kept order outside the window uses stays", async () => {
+    const cutoff = NEW_CUTOFF; // window [KEEP+10d, KEEP+40d), references from KEEP+9d
+    sbOrder("order-old-far-01", at(KEEP - 90 * DAY));
+    sbOrder("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    sbOrder("order-new-share", at(KEEP + 2 * DAY), "shared-design-x", false);
+    sbObjects("orders/order-new-share.pdf")(at(KEEP + 2 * DAY));
+    const removed = await sb().purgeOlderThan(cutoff, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(
+      [
+        "order:order-old-far-01",
+        "order:order-old-share",
+        "orders/order-old-far-01.pdf",
+        "orders/order-old-share.pdf",
+        "uploads/order-old-far-01.bin",
+        "uploads/order-old-far-01.json",
+      ].sort(),
+    );
+    expect(db.orders.map((o) => o.order_id)).toEqual(["order-new-share"]);
+    expect(objectNames()).toEqual(["orders/order-new-share.pdf", "uploads/shared-design-x.bin", "uploads/shared-design-x.json"]);
+    // The "still used?" check asked for exactly the two old designs, among kept orders only.
+    const check = calls.filter((c) => c.url.includes("designPath=in."));
+    expect(check).toHaveLength(2); // one page with the kept order, then the empty page that ends a retention read
+    expect(decodeURIComponent(check[0].url)).toContain(`created_at=gte.${new Date(KEEP_DESIGNS_FROM).toISOString()}&record->files->>designPath=in.("uploads/order-old-far-01.bin","uploads/shared-design-x.bin")`);
+    // Nothing old is left: the next run reads one empty old-rule page and asks nothing more.
+    calls = [];
+    expect(await sb().purgeOlderThan(cutoff, false, ORPHAN_FAR)).toEqual([]);
+    expect(calls.some((c) => c.url.includes("designPath=in."))).toBe(false);
   });
 
   it("purge keeps an unordered AI upload", async () => {
@@ -420,8 +489,10 @@ describe("reference reads do not fail open", () => {
     const removed = await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR);
     expect(removed.sort()).toEqual(["uploads/nobody-uses-01.bin", "uploads/nobody-uses-01.json"]);
     // Pages continue after the rows actually received (Range 2-1001, 4-1003, …) until an empty one.
-    const orderReads = calls.filter((c) => c.url.startsWith("/rest/v1/orders?select="));
+    const orderReads = calls.filter((c) => c.url.startsWith("/rest/v1/orders?select=") && c.url.includes("created_at=gte."));
     expect(orderReads.length).toBe(4); // 2 + 2 + 1 rows, then empty
+    // Plus the old-rule read (nothing left before the switch here): one empty page.
+    expect(calls.filter((c) => c.url.startsWith("/rest/v1/orders?select=") && !c.url.includes("created_at=gte.")).length).toBe(1);
   });
 
   it("supabase: a non-list answer to a reference read throws before any delete", async () => {

@@ -744,7 +744,7 @@ describe('golden: LocalStorage.purgeOlderThan', () => {
     await add('order-new-rule-01', at(1), 'upload-shared-0001'); // …with a new-rule order: only PDFs go
     await add('order-new-rule-02', at(1.5), 'upload-new-rule-02'); // new rule: only the PDF goes
     await add('order-recent-0001', at(3), 'upload-recent-0001'); // newer than the cutoff
-    await add('order-beyond-0001', at(-40), 'upload-beyond-0001'); // older than the window: not looked at
+    await add('order-beyond-0001', at(-40), 'upload-beyond-0001'); // old rule older than the window: still removed (no lower bound)
     await upload('upload-ai-000001', at(-3)); // generated, never ordered: kept
     await s.aiRecordGeneration({ id: 'gen_golden01', createdAt: at(-3).toISOString(), day: '2026-11-19', ip: '', ipKey: '', shape: 'circle', corners: 'rounded', widthUm: 50_000, heightUm: 50_000, idea: 'x', lines: [], hasRefs: false, model: 'gpt-image', uploadId: 'upload-ai-000001', orderId: null });
     await upload('upload-unused-001', at(-3)); // nobody uses it: removed

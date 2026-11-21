@@ -71,6 +71,24 @@ describe("LocalStorage AI usage", () => {
     expect(await s.aiUsage(DAY)).toEqual([]);
   });
 
+  it("a block holds by the full IP too, so a new SESSION_SECRET (new ip_key) does not lift it", async () => {
+    const s = new LocalStorage(tmp());
+    await s.aiBlock("old-key", "6.6.6.6");
+    // Same IP, key made with another secret.
+    expect(await reserve(s, "new-key", { ip: "6.6.6.6" })).toEqual({ status: "blocked", used: 0 });
+    // Another IP with the new key is not blocked; a site-only call (ip '') never matches a block by IP.
+    expect((await reserve(s, "new-key", { ip: "7.7.7.7" })).status).toBe("ok");
+    await s.aiBlock("blank-ip-key", "");
+    expect((await reserve(s, "", { ip: "" })).status).toBe("ok");
+  });
+
+  it("the migration's reserve_ai checks the block by ip_key OR the full IP (mirrors the local adapter)", () => {
+    const sql = readFileSync(path.join(process.cwd(), "supabase", "migrations", "20261121000000_ai_designer.sql"), "utf8");
+    expect(sql.replace(/\s+/g, " ")).toContain(
+      "where b.ip_key = p_ip_key or (p_ip <> '' and b.ip = p_ip)",
+    );
+  });
+
   it("release frees one slot and never goes below zero", async () => {
     const s = new LocalStorage(tmp());
     for (let i = 0; i < 5; i++) await reserve(s, "k1");
@@ -138,6 +156,15 @@ describe("LocalStorage AI usage purge and input checks", () => {
     expect((await s.aiUsage("2000-01-01")).map((r) => r.day)).toEqual(["2025-01-03"]);
     expect(await s.aiPurgeUsageBefore("2025-01-03", false)).toEqual([]);
     await expect(s.aiPurgeUsageBefore("bad", false)).rejects.toThrow();
+  });
+
+  it("aiUsage can return one kind only", async () => {
+    const s = new LocalStorage(tmp());
+    await reserve(s, "k1");
+    await reserve(s, "k1", { kind: "brief" });
+    expect((await s.aiUsage(DAY)).map((r) => r.kind).sort()).toEqual(["brief", "image"]);
+    expect((await s.aiUsage(DAY, "image")).map((r) => r.kind)).toEqual(["image"]);
+    expect((await s.aiUsage(DAY, "brief")).map((r) => r.kind)).toEqual(["brief"]);
   });
 });
 
