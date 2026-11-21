@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import type {
@@ -7,6 +9,7 @@ import type {
   StoredFileMeta,
   UploadResponse,
 } from "@/lib/types";
+import { pngWithDeclaredSize } from "../png-header";
 import { setupEnv } from "./helpers";
 
 /**
@@ -26,6 +29,8 @@ import { POST as commit } from "@/app/api/upload/direct/commit/route";
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG = [0xff, 0xd8, 0xff, 0xe0];
 const ID = "abcDEF_123-xyz";
+/** Real, decodable files: commit now reads the image header, so magic bytes alone are refused. */
+const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, "..", "..", "fixtures", n)));
 
 type FakeAdapter = StorageAdapter & {
   files: Map<string, Uint8Array>;
@@ -225,16 +230,16 @@ describe("POST /api/upload/direct/commit", () => {
 
   it("commits a valid PNG: 200 and saveUploadMeta with the sniffed mime (not the name)", async () => {
     const f = makeFake();
-    const bytes = new Uint8Array([...PNG, 1, 2, 3]);
+    const bytes = fx("padded-400x400.png");
     f.files.set(`uploads/${ID}.bin`, bytes);
     fake = f;
     const res = await commit(commitReq({ uploadId: ID, name: "photo\u0001.jpg" }));
     expect(res.status).toBe(200);
-    expect((await res.json()) as UploadResponse).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: 11 });
+    expect((await res.json()) as UploadResponse).toEqual({ ok: true, uploadId: ID, kind: "png", bytes: bytes.byteLength });
     expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
     const [id, meta] = f.saveUploadMeta.mock.calls[0] as [string, StoredFileMeta];
     expect(id).toBe(ID);
-    expect(meta).toMatchObject({ mime: "image/png", originalName: "photo.jpg", bytes: 11 });
+    expect(meta).toMatchObject({ mime: "image/png", originalName: "photo.jpg", bytes: bytes.byteLength });
     expect(Number.isNaN(Date.parse(meta.createdAt))).toBe(false);
     expect(f.deleteFile).not.toHaveBeenCalled();
     expect(f.saveUpload).not.toHaveBeenCalled();
@@ -242,11 +247,48 @@ describe("POST /api/upload/direct/commit", () => {
 
   it("sniffs JPEG and defaults the name to 'design'", async () => {
     const f = makeFake();
-    f.files.set(`uploads/${ID}.bin`, new Uint8Array([...JPEG, 0, 0]));
+    f.files.set(`uploads/${ID}.bin`, fx("exif6-600x400.jpg"));
     fake = f;
     const res = await commit(commitReq({ uploadId: ID }));
     expect(res.status).toBe(200);
     expect(f.saveUploadMeta).toHaveBeenCalledWith(ID, expect.objectContaining({ mime: "image/jpeg", originalName: "design" }));
+  });
+
+  it.each([
+    ["PNG that is only magic bytes", new Uint8Array([...PNG, 1, 2, 3])],
+    ["JPEG that is only magic bytes", new Uint8Array([...JPEG, 0, 0])],
+    ["PNG header over the pixel cap (16000 x 16000)", pngWithDeclaredSize(16_000, 16_000)],
+  ])("rejects a %s with 400 corrupt and deletes it", async (_label, bytes) => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, bytes);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "a.png" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.deleteFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.files.has(`uploads/${ID}.bin`)).toBe(false);
+  });
+
+  it("commits a PNG header at 139.2 MP (full A4 at 1200 DPI)", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, pngWithDeclaredSize(9921, 14031));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("never judges a PDF: a real PDF and a magic-bytes-only PDF are both committed", async () => {
+    for (const bytes of [fx("two-page.pdf"), new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3])]) {
+      const f = makeFake();
+      f.files.set(`uploads/${ID}.bin`, bytes);
+      fake = f;
+      const res = await commit(commitReq({ uploadId: ID, name: "a.pdf" }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, kind: "pdf", bytes: bytes.byteLength });
+      expect(f.deleteFile).not.toHaveBeenCalled();
+    }
   });
 
   it("answers an already-committed id with 200 without re-writing", async () => {

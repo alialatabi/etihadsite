@@ -1,12 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import type { UploadResponse } from "@/lib/types";
+import { pngWithDeclaredSize } from "../png-header";
 import { setupEnv } from "./helpers";
 
 import { POST } from "@/app/api/upload/route";
 import { getStorage } from "@/lib/storage";
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** Real, decodable files: the upload routes now read the image header, so magic bytes alone are refused. */
+const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, "..", "..", "fixtures", n)));
 
 /** Builds a multipart request with a real Content-Length (as curl/browsers send). */
 async function multipart(form: FormData, ip: string, withLength = true) {
@@ -43,15 +48,58 @@ beforeEach(() => {
 
 describe("POST /api/upload", () => {
   it("stores a PNG and returns an uploadId", async () => {
-    const res = await upload(new Uint8Array([...PNG, 1, 2, 3]));
+    const png = fx("padded-400x400.png");
+    const res = await upload(png);
     expect(res.status).toBe(200);
     const r = await json(res);
     if (!r.ok) throw new Error("expected ok");
     expect(r.kind).toBe("png");
-    expect(r.bytes).toBe(11);
+    expect(r.bytes).toBe(png.byteLength);
     const stored = await getStorage().readUpload(r.uploadId);
     expect(stored?.meta.originalName).toBe("a.png");
     expect(stored?.meta.mime).toBe("image/png");
+  });
+
+  it("cleans the stored file name: control characters removed, at most 200 characters", async () => {
+    const ctl = String.fromCharCode(0, 31, 10); // NUL, unit separator, newline
+    const res = await upload(fx("padded-400x400.png"), `a${ctl[0]}b${ctl[1]}c${ctl[2]}${"x".repeat(300)}.png`);
+    expect(res.status).toBe(200);
+    const r = await json(res);
+    if (!r.ok) throw new Error("expected ok");
+    const name = (await getStorage().readUpload(r.uploadId))?.meta.originalName ?? "";
+    expect(name).toHaveLength(200);
+    expect(name.startsWith("abcxxx")).toBe(true);
+    expect([...name].some((ch) => ch.charCodeAt(0) < 32)).toBe(false);
+  });
+
+  it("refuses a PNG that is only magic bytes (header unreadable) as 400 corrupt and stores nothing", async () => {
+    const res = await upload(new Uint8Array([...PNG, 1, 2, 3]));
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ ok: false, error: "corrupt" });
+  });
+
+  it("refuses a JPEG that is only magic bytes as 400 corrupt", async () => {
+    const res = await upload(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]), "a.jpg", "image/jpeg");
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ ok: false, error: "corrupt" });
+  });
+
+  it("refuses a header over the pixel cap (16000 x 16000) as 400 corrupt, and accepts 139.2 MP", async () => {
+    const over = await upload(pngWithDeclaredSize(16_000, 16_000));
+    expect(over.status).toBe(400);
+    expect(await json(over)).toMatchObject({ ok: false, error: "corrupt" });
+    const a4 = await upload(pngWithDeclaredSize(9921, 14031));
+    expect(a4.status).toBe(200);
+  });
+
+  it("never judges a PDF: a real PDF and one that is only the magic bytes are both stored", async () => {
+    const real = await upload(fx("two-page.pdf"), "a.pdf", "application/pdf");
+    expect(real.status).toBe(200);
+    const bare = await upload(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3]), "b.pdf", "application/pdf");
+    expect(bare.status).toBe(200);
+    const r = await json(bare);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.kind).toBe("pdf");
   });
 
   it("rejects a GIF by magic bytes even when labelled image/png", async () => {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../../_lib/body";
+import { rasterHeaderOk } from "../../../_lib/image-header";
 import { cleanOriginalName, directUploadCap, uploadFail, uploadOk } from "../../../_lib/upload";
 import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
@@ -55,6 +56,8 @@ export async function POST(request: Request): Promise<Response> {
     if (bytes.byteLength > directUploadCap(settings, storage)) return reject("too_large");
     const kind = sniffKind(bytes);
     if (!kind) return reject("unsupported_type");
+    // A file with only the magic bytes (and junk after them) or an absurd pixel count is deleted, never kept.
+    if (!(await rasterHeaderOk(bytes, kind))) return reject("corrupt");
 
     const originalName = cleanOriginalName(parsed.data.name);
     const meta = { mime: MIME_BY_KIND[kind], originalName, bytes: bytes.byteLength, createdAt: new Date().toISOString() };
