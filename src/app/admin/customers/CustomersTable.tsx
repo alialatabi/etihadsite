@@ -16,6 +16,39 @@ const C = admin.customers;
 
 const LINK = 'font-bold text-[#121f34] underline-offset-4 hover:text-[#d01c4a] hover:underline';
 
+function WhatsappLink({ phone }: { phone: string }) {
+  return (
+    <a
+      href={whatsappUrl(phone)}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline"
+    >
+      <MessageCircle aria-hidden className="size-[18px] shrink-0 text-[#25d366]" />
+      {C.whatsapp}
+    </a>
+  );
+}
+
+function LastOrder({ row }: { row: CustomerRow }) {
+  return (
+    <>
+      {row.lastOrderId ? (
+        <Link href={`/admin/orders/${row.lastOrderId}`} className={LINK}>
+          <Ltr>{row.lastDisplayNo}</Ltr>
+        </Link>
+      ) : (
+        <Ltr className="font-bold text-[#121f34]">{row.lastDisplayNo}</Ltr>
+      )}
+      <span className="block text-[14px] text-[#5a6475]">{row.lastLabel}</span>
+    </>
+  );
+}
+
+function OptInPill({ optedIn }: { optedIn: boolean }) {
+  return <Pill tone={optedIn ? 'ok' : 'neutral'}>{optedIn ? C.marketingYes : C.marketingNo}</Pill>;
+}
+
 export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
   const [query, setQuery] = useState('');
   const [gov, setGov] = useState('');
@@ -72,21 +105,13 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
             <li key={r.phone} className="flex flex-col gap-3 rounded-xl border border-[#e7dfdf] bg-white p-4 shadow-[0_10px_28px_-18px_rgba(18,31,52,0.25)]">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="text-[16px] font-bold leading-normal text-[#121f34]">{r.name || C.noName}</p>
-                <Pill tone={r.marketingOptIn ? 'ok' : 'neutral'}>{r.marketingOptIn ? C.marketingYes : C.marketingNo}</Pill>
+                <OptInPill optedIn={r.marketingOptIn === true} />
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <a href={`tel:+${r.phone}`} aria-label={C.call} className="text-[15px] text-[#121f34] underline-offset-4 hover:underline">
                   <Ltr>{formatPhoneLocal(r.phone)}</Ltr>
                 </a>
-                <a
-                  href={whatsappUrl(r.phone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline"
-                >
-                  <MessageCircle aria-hidden className="size-[18px] shrink-0 text-[#25d366]" />
-                  {C.whatsapp}
-                </a>
+                <WhatsappLink phone={r.phone} />
               </div>
               <p className="text-[15px] leading-normal text-[#121f34]">
                 {[r.governorate, r.district].filter(Boolean).join(' · ')}
@@ -108,14 +133,7 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                 <div>
                   <dt className="text-[14px] text-[#5a6475]">{C.columns.last}</dt>
                   <dd className="text-[15px]">
-                    {r.lastOrderId ? (
-                      <Link href={`/admin/orders/${r.lastOrderId}`} className={LINK}>
-                        <Ltr>{r.lastDisplayNo}</Ltr>
-                      </Link>
-                    ) : (
-                      <Ltr className="font-bold text-[#121f34]">{r.lastDisplayNo}</Ltr>
-                    )}
-                    <span className="block text-[14px] text-[#5a6475]">{r.lastLabel}</span>
+                    <LastOrder row={r} />
                   </dd>
                 </div>
               </dl>
@@ -146,15 +164,7 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                       <a href={`tel:+${r.phone}`} aria-label={C.call} className="text-[#121f34] underline-offset-4 hover:underline">
                         <Ltr>{formatPhoneLocal(r.phone)}</Ltr>
                       </a>
-                      <a
-                        href={whatsappUrl(r.phone)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline"
-                      >
-                        <MessageCircle aria-hidden className="size-[18px] shrink-0 text-[#25d366]" />
-                        {C.whatsapp}
-                      </a>
+                      <WhatsappLink phone={r.phone} />
                     </div>
                   </TableCell>
                   <TableCell className={`${tableCls.cell} whitespace-nowrap`}>{r.governorate}</TableCell>
@@ -167,17 +177,10 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                     <Money amount={r.totalIqd} />
                   </TableCell>
                   <TableCell className={`${tableCls.cell} whitespace-nowrap`}>
-                    {r.lastOrderId ? (
-                      <Link href={`/admin/orders/${r.lastOrderId}`} className={LINK}>
-                        <Ltr>{r.lastDisplayNo}</Ltr>
-                      </Link>
-                    ) : (
-                      <Ltr className="font-bold text-[#121f34]">{r.lastDisplayNo}</Ltr>
-                    )}
-                    <span className="block text-[14px] text-[#5a6475]">{r.lastLabel}</span>
+                    <LastOrder row={r} />
                   </TableCell>
                   <TableCell className={tableCls.cell}>
-                    <Pill tone={r.marketingOptIn ? 'ok' : 'neutral'}>{r.marketingOptIn ? C.marketingYes : C.marketingNo}</Pill>
+                    <OptInPill optedIn={r.marketingOptIn === true} />
                   </TableCell>
                 </TableRow>
               ))}

@@ -17,6 +17,7 @@ import 'server-only';
  */
 import * as Sentry from '@sentry/nextjs';
 import { after } from 'next/server';
+import { toError } from './to-error';
 
 export interface ReportContext {
   /** Short place name, e.g. 'orders.notify'. Becomes the `where` tag. */
@@ -29,16 +30,6 @@ export interface ReportContext {
   extra?: Record<string, string | number | boolean | null | undefined>;
   /** Default 'error'. Use 'warning' for a degraded-but-working situation. */
   level?: 'warning' | 'error';
-}
-
-function toError(err: unknown): Error {
-  if (err instanceof Error) return err;
-  if (typeof err === 'string') return new Error(err);
-  try {
-    return new Error(`Non-error thrown: ${JSON.stringify(err)}`.slice(0, 300));
-  } catch {
-    return new Error('Non-error thrown');
-  }
 }
 
 /** Reports `err` to Sentry. Safe to call anywhere on the server; never throws. */

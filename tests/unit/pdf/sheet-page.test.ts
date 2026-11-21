@@ -4,7 +4,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
 import {
   PDFArray,
   PDFDict,
@@ -14,50 +13,13 @@ import {
   PDFRef,
   PDFString,
   PDFHexString,
-  decodePDFRawStream,
   type PDFPage,
 } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '@/config/defaults';
-import { computeLayout, layoutParamsFor } from '@/lib/layout';
 import { buildSheetPdf } from '@/lib/pdf/build-sheet';
 import { drawSheetPage, setPrintAtActualSize } from '@/lib/pdf/sheet-page';
-import type { LayoutResult, LayoutSettings, NormalisedArtwork, StickerSpec } from '@/lib/types';
-import cases from '@/lib/__fixtures__/layout-cases.json';
-
-const SETTINGS: LayoutSettings = { ...DEFAULT_SETTINGS.layout, marginUm: 3_000 };
-
-function layoutFor(spec: StickerSpec, settings: LayoutSettings = SETTINGS): LayoutResult {
-  const out = computeLayout(spec, layoutParamsFor(spec, settings));
-  if (!out.ok) throw new Error(`layout failed: ${out.reason}`);
-  return out.layout;
-}
-
-type Case = { name: string; spec: StickerSpec; expected: { ok: boolean; layout?: LayoutResult } };
-const fixtureLayout = (prefix: string): LayoutResult => {
-  const c = (cases as Case[]).find((x) => x.name.startsWith(prefix));
-  if (!c?.expected.layout) throw new Error('missing fixture ' + prefix);
-  return c.expected.layout;
-};
-
-async function raster(w: number, h: number, alpha = false): Promise<NormalisedArtwork> {
-  const img = sharp({ create: { width: w, height: h, channels: 4, background: { r: 30, g: 120, b: 220, alpha: 1 } } });
-  const bytes = alpha ? await img.png().toBuffer() : await img.flatten().jpeg({ quality: 90 }).toBuffer();
-  return { kind: 'raster', bytes: new Uint8Array(bytes), mime: alpha ? 'image/png' : 'image/jpeg', pxWidth: w, pxHeight: h, hasAlpha: alpha, effectiveDpi: 300 };
-}
-
-function contentOf(page: PDFPage): string {
-  const ctx = page.doc.context;
-  const contents = page.node.Contents();
-  if (!contents) return '';
-  const streams = contents instanceof PDFArray ? contents.asArray().map((r) => ctx.lookup(r)) : [contents];
-  return streams
-    .map((s) => {
-      if (!(s instanceof PDFRawStream)) throw new Error('unexpected stream type');
-      return Buffer.from(decodePDFRawStream(s).decode()).toString('latin1');
-    })
-    .join('\n');
-}
+import type { LayoutResult, NormalisedArtwork } from '@/lib/types';
+import { contentOf, fixtureLayout, layoutFor, raster } from './pdf-helpers';
 
 /** Operator tokens only (no operands): letters, plus `f*`. */
 const operatorsOf = (stream: string): string[] => stream.split(/\s+/).filter((t) => /^([A-Za-z]+|f\*)$/.test(t));

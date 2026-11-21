@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { whatsappLink } from '@/components/shell/whatsapp';
+import { whatsappHref } from '@/components/shell/whatsapp';
 import type { ShopSettings } from '@/lib/types';
 import { MobilePreview, PreviewPanel } from './PreviewPanels';
 import { Stepper } from './Stepper';
@@ -119,7 +119,7 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
     ((b.stepId === 'shape' && !b.design) || (b.stepId === 'design' && showViewResult(ai.phase, ai.result !== undefined)));
   const title = b.stepId === 'design' && b.mode === 'ai' ? builder.steps.design : TITLES[b.stepId];
   const showStrip = b.stepId === 'size' || b.stepId === 'quantity';
-  const inquiry = whatsappLink(settings.whatsapp);
+  const inquiry = whatsappHref(settings.whatsapp);
 
   return (
     <div id="builder">{/* #builder links land below the sticky header: html scroll-padding-top (globals.css) */}

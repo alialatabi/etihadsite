@@ -51,8 +51,6 @@ export const PREVIEW_JOB_TIMEOUT_MS = 20_000;
 export type JobSignal = {
   /** Aborts when the parent aborts or the time limit passes. */
   signal: AbortSignal;
-  /** True only if the time limit (not the parent) ended the job. */
-  timedOut: () => boolean;
   /** Clears the timer and the parent listener. Call in `finally`. */
   dispose: () => void;
 };
@@ -60,17 +58,12 @@ export type JobSignal = {
 /** A child AbortSignal that follows `parent` and also aborts after `ms`. */
 export function createJobSignal(parent: AbortSignal, ms: number = PREVIEW_JOB_TIMEOUT_MS): JobSignal {
   const ac = new AbortController();
-  let timed = false;
   const onParent = () => ac.abort();
   if (parent.aborted) ac.abort();
   else parent.addEventListener('abort', onParent);
-  const timer = setTimeout(() => {
-    timed = true;
-    ac.abort();
-  }, ms);
+  const timer = setTimeout(() => ac.abort(), ms);
   return {
     signal: ac.signal,
-    timedOut: () => timed && !parent.aborted,
     dispose: () => {
       clearTimeout(timer);
       parent.removeEventListener('abort', onParent);

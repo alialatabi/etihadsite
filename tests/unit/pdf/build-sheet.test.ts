@@ -1,14 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
 import {
-  PDFArray,
   PDFDict,
   PDFDocument,
   PDFName,
   PDFRawStream,
   PDFRef,
-  decodePDFRawStream,
   type PDFPage,
 } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -16,50 +13,15 @@ import { normaliseArtwork } from '@/lib/design/normalise.server';
 import { buildSheetPdf } from '@/lib/pdf/build-sheet';
 import { A4_PT, umToPt } from '@/lib/units';
 import type { LayoutResult, NormalisedArtwork, SheetPdfOutput, StickerSpec } from '@/lib/types';
-import cases from '@/lib/__fixtures__/layout-cases.json';
+import { contentOf, fixtureLayout as layoutOf, raster } from './pdf-helpers';
 
 const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, '..', '..', 'fixtures', n)));
 const outDir = join(__dirname, '..', '..', 'output');
-
-type Case = { name: string; spec: StickerSpec; expected: { ok: boolean; layout?: LayoutResult } };
-const layoutOf = (prefix: string): LayoutResult => {
-  const c = (cases as Case[]).find((x) => x.name.startsWith(prefix));
-  if (!c?.expected.layout) throw new Error('missing fixture ' + prefix);
-  return c.expected.layout;
-};
-
-function contentOf(page: PDFPage): string {
-  const ctx = page.doc.context;
-  const contents = page.node.Contents();
-  const streams = contents instanceof PDFArray ? contents.asArray().map((r) => ctx.lookup(r)) : [contents];
-  return streams
-    .map((s) => {
-      if (!(s instanceof PDFRawStream)) throw new Error('unexpected stream type');
-      return Buffer.from(decodePDFRawStream(s).decode()).toString('latin1');
-    })
-    .join('\n');
-}
 
 function xobjects(page: PDFPage): PDFRef[] {
   const res = page.node.Resources() as PDFDict;
   const xo = res.lookup(PDFName.of('XObject'), PDFDict);
   return xo.entries().map(([, v]) => v as PDFRef);
-}
-
-async function raster(w: number, h: number, alpha = false): Promise<NormalisedArtwork> {
-  const img = sharp({
-    create: { width: w, height: h, channels: 4, background: { r: 30, g: 120, b: 220, alpha: 1 } },
-  });
-  const bytes = alpha ? await img.png().toBuffer() : await img.flatten().jpeg({ quality: 90 }).toBuffer();
-  return {
-    kind: 'raster',
-    bytes: new Uint8Array(bytes),
-    mime: alpha ? 'image/png' : 'image/jpeg',
-    pxWidth: w,
-    pxHeight: h,
-    hasAlpha: alpha,
-    effectiveDpi: 300,
-  };
 }
 
 async function pdfArtwork(): Promise<NormalisedArtwork> {

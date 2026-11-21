@@ -11,14 +11,14 @@ import { getStorage } from '@/lib/storage';
 import type { AiBlock, AiGenerationRecord, AiUsageRow } from '@/lib/types';
 import { formatBaghdad } from '../_lib';
 import { blockIpAction, unblockIpAction } from './actions';
+import { listAiBlocks } from './blocks';
 import { DesignGrid } from './DesignGrid';
-import { designsSummary, pageFromParam, usageSince } from './summary';
+import { designsSummary, IP_KEY_RE, pageFromParam, usageSince } from './summary';
 
 export const dynamic = 'force-dynamic';
 
 const d = admin.designs;
 const PAGE_SIZE = 48;
-const IP_KEY_RE = /^[0-9a-f]{64}$/;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -46,7 +46,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
     ipKey && storage.aiListGenerations ? storage.aiListGenerations({ limit: 0, offset: 0 }).then((g) => g.total) : null,
     // Today, this month and the alerts (today and yesterday) need nothing older.
     storage.aiUsage?.(usageSince(today), 'image') ?? [],
-    storage.aiListBlocks?.() ?? [],
+    listAiBlocks(),
   ]);
 
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));

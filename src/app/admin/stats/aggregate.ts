@@ -174,17 +174,32 @@ export function aggregate(
   const shapes = new Map<string, number>();
   const sizes = new Map<string, number>();
 
+  // Formatting is the hot cost, so memoise per 15-minute UTC bucket. Exact for any zone whose UTC offset
+  // and DST transitions fall on 15-minute boundaries (Asia/Baghdad: +03:00).
+  const BUCKET_MS = 900_000;
+  const bucketCache = new Map<number, { day: string; wh?: { weekday: number; hour: number } }>();
+  const dayOf = (t: Date) => {
+    const b = Math.floor(t.getTime() / BUCKET_MS);
+    let c = bucketCache.get(b);
+    if (!c) {
+      c = { day: dayKey(t) };
+      bucketCache.set(b, c);
+    }
+    return c;
+  };
+  const whOf = (t: Date) => (dayOf(t).wh ??= weekdayAndHour(t));
+
   for (const e of events) {
     const t = new Date(e.ts);
     if (Number.isNaN(t.getTime())) continue;
-    const day = dayKey(t);
+    const day = dayOf(t).day;
     if (!inRange.has(day)) continue;
 
     switch (e.type) {
       case 'pageview': {
         pageVisitors.add(e.visitor);
         dailyVisitors.get(day)!.add(e.visitor);
-        const { weekday, hour } = weekdayAndHour(t);
+        const { weekday, hour } = whOf(t);
         weekdayVisitors[weekday].add(e.visitor);
         hourVisitors[hour].add(e.visitor);
         if (e.source && !sourceByVisitor.has(e.visitor)) sourceByVisitor.set(e.visitor, e.source);
@@ -209,7 +224,7 @@ export function aggregate(
         orders++;
         orderVisitors.add(e.visitor);
         dailyOrders.set(day, (dailyOrders.get(day) ?? 0) + 1);
-        const { weekday, hour } = weekdayAndHour(t);
+        const { weekday, hour } = whOf(t);
         weekdays[weekday].orders++;
         hours[hour].orders++;
         const m = e.meta ?? {};

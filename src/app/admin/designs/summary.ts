@@ -8,6 +8,9 @@
 import { DAY_MS } from '@/lib/shop-time';
 import type { AiUsageRow } from '@/lib/types';
 
+/** The keyed IP hash from src/lib/ai/ip.ts (HMAC-SHA256 hex, 64 chars). */
+export const IP_KEY_RE = /^[0-9a-f]{64}$/;
+
 export interface DesignAlert {
   ipKey: string;
   ip: string;
