@@ -115,6 +115,14 @@ function cleanLine(line: string): string {
 
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
+/**
+ * The token key must be a real secret in production: with SESSION_SECRET blank there, both routes
+ * answer `unavailable` instead of signing with the public dev salt (anyone could forge a token).
+ */
+export function secretReady(): boolean {
+  return process.env.NODE_ENV !== 'production' || (process.env.SESSION_SECRET ?? '').trim() !== '';
+}
+
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
 export function briefToken(visualDescription: string): string {
   const key = process.env.SESSION_SECRET || DEV_SALT;
@@ -137,6 +145,22 @@ export async function customArtworkUsable(png: Uint8Array): Promise<boolean> {
   if (info.channels !== 4) return false;
   const px = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   return hasAnyAlpha(px, info.width, info.height) && alphaBoundingBox(px, info.width, info.height, ALPHA_THRESHOLD) !== null;
+}
+
+/**
+ * Largest stored and returned PNG: base64 (×4/3) must stay well under Vercel's 4.5 MB response
+ * limit, together with the rest of the JSON.
+ */
+export const AI_PNG_MAX_BYTES = 3_200_000;
+
+/**
+ * The PNG when it fits `maxBytes`; else the same pixels re-encoded at maximum compression when that
+ * fits; else null (the route gives the use back and answers `failed`).
+ */
+export async function fitPngBudget(png: Uint8Array, maxBytes: number = AI_PNG_MAX_BYTES): Promise<Uint8Array | null> {
+  if (png.byteLength <= maxBytes) return png;
+  const smaller = await sharp(png).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+  return smaller.byteLength <= maxBytes ? new Uint8Array(smaller) : null;
 }
 
 /* ───────────────────────────── Schemas ───────────────────────────── */
@@ -212,7 +236,7 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
   const settings = await getSettings();
   const cfg = openAiConfig();
   const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !hasAiStorage(storage)) return briefFail('unavailable');
+  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return briefFail('unavailable');
 
   const { ip, ipKey } = identify(request);
   const rl = limiters().brief.check(ip || 'global');
@@ -261,9 +285,17 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
 
 /* ───────────────────────────── POST /api/design/generate ───────────────────────────── */
 
-const genFail = (error: GenerateError): GenerateResponse => ({ ok: false, error });
+export interface GenerateOutcome {
+  body: GenerateResponse;
+  retryAfterSec?: number;
+}
 
-export async function runGenerate(request: Request, json: unknown): Promise<GenerateResponse> {
+const genFail = (error: GenerateError, retryAfterSec?: number): GenerateOutcome => ({
+  body: { ok: false, error },
+  ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
+});
+
+export async function runGenerate(request: Request, json: unknown): Promise<GenerateOutcome> {
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return genFail('invalid_request');
   const req = parsed.data;
@@ -275,13 +307,19 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const settings = await getSettings();
   const cfg = openAiConfig();
   const storage = getStorage();
-  if (!settings.ai.enabled || !cfg || !hasAiStorage(storage)) return genFail('unavailable');
+  if (!settings.ai.enabled || !cfg || !secretReady() || !hasAiStorage(storage)) return genFail('unavailable');
 
   const lines = req.lines.map(cleanLine).filter((l) => l.length > 0);
   if (!textCapacity(lines, req.shape, req.widthUm, req.heightUm).ok) return genFail('text_too_long');
 
   const visualDescription = hardenVisualDescription(req.visualDescription);
   if (!visualDescription) return genFail('invalid_request');
+
+  // In-memory guard BEFORE any ref work and the stored reservation: every attempt counts, even one
+  // whose stored use is later given back, so failing calls cannot be repeated without limit.
+  const { ip, ipKey } = identify(request);
+  const rl = limiters().generate.check(ip || 'global');
+  if (!rl.ok) return genFail('ip_limit', rl.retryAfterSec);
 
   // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing.
   const refs: ImageRef[] = [];
@@ -297,7 +335,6 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
     }
   }
 
-  const { ip, ipKey } = identify(request);
   const day = shopDayKey(new Date());
   const perIpLimit = settings.ai.perIpDailyLimit;
   const reserved = await storage.aiReserve({
@@ -343,20 +380,28 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
       return genFail('failed');
     }
     if (req.shape === 'custom' && !(await customArtworkUsable(norm.png))) {
-      // The model ignored the transparent background (or drew nothing): the builder would answer no_alpha.
+      // The model ignored the transparent background (or drew nothing): the builder would answer
+      // no_alpha. OpenAI already charged for this image, so the use is KEPT (ruling, fix round 1)
+      // and the answer is `refused`, whose copy does not claim the try was free.
       report('ai.generate', 'custom output not usable', { code: 'custom_no_alpha' }, 'warning');
+      return genFail('refused');
+    }
+
+    const png = await fitPngBudget(norm.png);
+    if (!png) {
+      report('ai.generate', 'png too large', { shape: req.shape, bytes: norm.png.byteLength });
       await giveBack();
       return genFail('failed');
     }
 
     const uploadId = nanoid();
-    await storage.saveUpload(uploadId, norm.png, {
+    await storage.saveUpload(uploadId, png, {
       mime: 'image/png',
       originalName: 'ai-design.png',
-      bytes: norm.png.byteLength,
+      bytes: png.byteLength,
       createdAt: new Date().toISOString(),
     });
-    stored = { uploadId, png: norm.png, pxWidth: norm.pxWidth, pxHeight: norm.pxHeight };
+    stored = { uploadId, png, pxWidth: norm.pxWidth, pxHeight: norm.pxHeight };
   } catch {
     report('ai.generate', 'unexpected failure', { shape: req.shape });
     await giveBack();
@@ -387,11 +432,13 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   }
 
   return {
-    ok: true,
-    uploadId: stored.uploadId,
-    png: Buffer.from(stored.png).toString('base64'),
-    pxWidth: stored.pxWidth,
-    pxHeight: stored.pxHeight,
-    remainingToday: ipKey === '' ? null : Math.max(0, perIpLimit - reserved.used),
+    body: {
+      ok: true,
+      uploadId: stored.uploadId,
+      png: Buffer.from(stored.png).toString('base64'),
+      pxWidth: stored.pxWidth,
+      pxHeight: stored.pxHeight,
+      remainingToday: ipKey === '' ? null : Math.max(0, perIpLimit - reserved.used),
+    },
   };
 }

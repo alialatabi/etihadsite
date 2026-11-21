@@ -91,7 +91,7 @@ describe('golden: rate limiter', () => {
   });
 
   it('limiters(): the limits per route in both modes, and when the set is rebuilt', () => {
-    const capacity = (name: 'upload' | 'order' | 'log' | 'login' | 'brief') => {
+    const capacity = (name: 'upload' | 'order' | 'log' | 'login' | 'brief' | 'generate') => {
       const l = limiters()[name];
       let n = 0;
       while (n < 5_000 && l.check('probe').ok) n++;
@@ -99,12 +99,12 @@ describe('golden: rate limiter', () => {
     };
     process.env.TRUST_PROXY = '1';
     (globalThis as { __epLimiters?: unknown }).__epLimiters = undefined;
-    const perIp = { mode: limiters().mode, upload: capacity('upload'), order: capacity('order'), log: capacity('log'), login: capacity('login'), brief: capacity('brief') };
+    const perIp = { mode: limiters().mode, upload: capacity('upload'), order: capacity('order'), log: capacity('log'), login: capacity('login'), brief: capacity('brief'), generate: capacity('generate') };
     const same = limiters() === limiters();
     process.env.TRUST_PROXY = '3';
     const stillSameForOtherHopCount = limiters().order.check('probe').ok === false;
     process.env.TRUST_PROXY = '0';
-    const global = { mode: limiters().mode, upload: capacity('upload'), order: capacity('order'), log: capacity('log'), login: capacity('login'), brief: capacity('brief') };
+    const global = { mode: limiters().mode, upload: capacity('upload'), order: capacity('order'), log: capacity('log'), login: capacity('login'), brief: capacity('brief'), generate: capacity('generate') };
     process.env.TRUST_PROXY = '1';
     const rebuiltOnModeChange = limiters().order.check('probe').ok;
     expect({ perIp, same, stillSameForOtherHopCount, global, rebuiltOnModeChange }).toMatchSnapshot();

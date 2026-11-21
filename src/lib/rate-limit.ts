@@ -87,6 +87,8 @@ type Limiters = {
   track: RateLimiter;
   /** POST /api/design/brief: a cheap first guard before the stored daily AI counter. */
   brief: RateLimiter;
+  /** POST /api/design/generate: every attempt counts (never refunded), before refs and the stored reservation. */
+  generate: RateLimiter;
   mode: number;
 };
 const g = globalThis as unknown as { __epLimiters?: Limiters };
@@ -108,13 +110,15 @@ export function limiters(): Limiters {
       log: createRateLimiter({ limit: 60 * k, windowMs: HOUR }),
       login: createRateLimiter({ limit: 10 * k, windowMs: 15 * 60 * 1000 }),
       brief: createRateLimiter({ limit: 30 * k, windowMs: HOUR }),
+      generate: createRateLimiter({ limit: 15 * k, windowMs: HOUR }),
       // Keyed by the visitor hash, not by clientIp(): no shared "global" bucket, so no x20, and a mode change does not reset it.
       track: prevTrack ?? createRateLimiter({ limit: 300, windowMs: HOUR }),
     };
   }
   // An object built before `track` existed can survive a dev hot reload: add it without resetting the others.
   g.__epLimiters.track ??= createRateLimiter({ limit: 300, windowMs: HOUR });
-  // Same for `brief` (added 2026-11-21).
+  // Same for `brief` and `generate` (added 2026-11-21).
   g.__epLimiters.brief ??= createRateLimiter({ limit: 30 * (mode ? 1 : 20), windowMs: HOUR });
+  g.__epLimiters.generate ??= createRateLimiter({ limit: 15 * (mode ? 1 : 20), windowMs: HOUR });
   return g.__epLimiters;
 }
