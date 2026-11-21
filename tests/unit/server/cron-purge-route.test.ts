@@ -3,12 +3,16 @@ import { GET } from "@/app/api/cron/purge/route";
 import { DAY_MS, shopDayKey } from "@/lib/shop-time";
 import { setupEnv } from "./helpers";
 
+const reportError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/monitoring/report", () => ({ reportError }));
+
 const SECRET = "cron-secret-for-tests-0123456789";
 const call = (auth?: string, query = "") =>
   GET(new Request(`http://localhost/api/cron/purge${query}`, { headers: auth ? { authorization: auth } : {} }));
 
 describe("GET /api/cron/purge", () => {
   beforeEach(() => {
+    reportError.mockReset();
     setupEnv({ CRON_SECRET: SECRET });
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
@@ -24,6 +28,23 @@ describe("GET /api/cron/purge", () => {
     expect((await call("Bearer ")).status).toBe(401);
     process.env.CRON_SECRET = "short";
     expect((await call("Bearer short")).status).toBe(401);
+  });
+
+  it("reports a missing or short CRON_SECRET once per call, with a fixed message (still 401)", async () => {
+    delete process.env.CRON_SECRET;
+    expect((await call("Bearer x")).status).toBe(401);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    process.env.CRON_SECRET = "short-secret-xx";
+    expect((await call("Bearer short-secret-xx")).status).toBe(401);
+    expect(reportError).toHaveBeenCalledTimes(2);
+    const [err, ctx] = reportError.mock.calls[1] as [Error, { where: string }];
+    expect(err.message).toBe("CRON_SECRET is missing or too short: the retention purge cannot run");
+    expect(ctx.where).toBe("cron.purge.auth");
+  });
+
+  it("does not report a wrong bearer when the secret itself is fine", async () => {
+    expect((await call("Bearer nope")).status).toBe(401);
+    expect(reportError).not.toHaveBeenCalled();
   });
 
   it("runs the purge with the right secret (dry run reports only)", async () => {
