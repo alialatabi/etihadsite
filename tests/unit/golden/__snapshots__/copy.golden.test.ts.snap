@@ -4,7 +4,6 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
 [
   "{cols} x1",
   "{count} x2",
-  "{days} x1",
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
@@ -350,8 +349,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "rounded": "زوايا دائرية",
     "roundedHint": "فراغ 2 ملم بين الستيكرات",
     "sharp": "زوايا حادة (90°)",
-    "sharpHint": "بدون فراغ بينها",
-    "readyFileLink": "ملف جاهز أو أكثر من تصميم؟ راسلنا على واتساب"
+    "sharpHint": "بدون فراغ بينها"
   },
   "upload": {
     "title": "ارفع تصميمك",
@@ -441,7 +439,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "landmarkPlaceholder": "مثلاً: قرب مطعم المنصور، شارع الصناعة",
     "notes": "ملاحظات",
     "notesOptional": "(اختياري)",
-    "consent": "ملف تصميمك ينحذف بعد {days} يوم. اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.",
+    "consent": "اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.",
     "submit": "أرسل الطلب",
     "errors": {
       "invalid_phone": "اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567",
@@ -481,17 +479,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "whatsapp": "أرسل عبر واتساب"
   },
   "whatsappText": {
-    "newOrder": "مرحباً، عندي طلب ستيكرات:",
-    "readyFile": "مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4.",
-    "noDesign": "هلا، أريد ستيكرات بس ما عندي تصميم. تكدرون تصمموه إلي؟",
-    "editDesign": "هلا، رفعت تصميم بالموقع بس أحتاج أعدل عليه. تكدرون تساعدوني؟"
-  },
-  "noDesign": {
-    "title": "ما عندك تصميم؟ نصمملك إياه",
-    "hint": "ابعث لنا فكرتك على واتساب ونجهز لك التصميم.",
-    "short": "ما عندك تصميم؟ نصمملك",
-    "cta": "راسلنا على واتساب",
-    "afterUpload": "تحتاج تعديل على التصميم؟ راسلنا على واتساب"
+    "newOrder": "مرحباً، عندي طلب ستيكرات:"
   }
 }"
 `;
@@ -500,13 +488,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3285,
+  "chars": 2887,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 19,
-  "sha256OfRawJson": "b956e87e426c6a2324da2670bbed417f7d2dc2b332ce45e274b4c104319effea",
-  "strings": 148,
+  "objects": 18,
+  "sha256OfRawJson": "8fa90505648a6fa067ace0b93bbe05e1653a31d148b5976a3f38c4812be92da4",
+  "strings": 139,
 }
 `;
 
@@ -517,7 +505,6 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
     "home": "الرئيسية",
     "howItWorks": "شلون نشتغل؟",
     "start": "صمّم ستيكراتك",
-    "whatsapp": "واتساب",
     "inquiry": "راسلنا على واتساب"
   },
   "actions": {
@@ -546,7 +533,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
     "rateLimited": "طلبات كثيرة. انتظر شوية وجرّب مرة ثانية."
   },
   "footer": {
-    "filesNotice": "ملفات التصميم تنحذف بعد 30 يوم. رقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد.",
+    "filesNotice": "رقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد.",
     "rights": "جميع الحقوق محفوظة",
     "hours": "أوقات العمل",
     "contact": "تواصل معنا"
@@ -600,13 +587,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 574,
+  "chars": 536,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 14,
-  "sha256OfRawJson": "b01f40a46cdb903548bea2b77a707f5f037a19923378d940e6c24360e5642ec9",
-  "strings": 55,
+  "sha256OfRawJson": "42465b9a603c269c74d773c6cf94b6705121ab435b6ee05ce534b87aa96d14c2",
+  "strings": 54,
 }
 `;
 
@@ -844,8 +831,6 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
     "deliveryLabel": "التوصيل",
     "deliveryValue": "{fee} د.ع لكل المحافظات",
     "cta": "ابدأ هسة",
-    "noDesignTitle": "ما عندك تصميم؟ نصمملك",
-    "noDesignBody": "راسلنا على واتساب، نصمم لك الستيكر ونرسله لك تشوفه.",
     "ctaTitle": "جاهز؟ صمّم ستيكراتك",
     "ctaBody": "ما تحتاج تحسب شي. ارفع الملف وشوف الورقة مرتبة."
   },
@@ -858,7 +843,6 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 1`] = `
   "shell": {
     "menuLabel": "التنقل الرئيسي",
     "footerLinks": "روابط",
-    "whatsappAria": "تواصل معنا على واتساب",
     "homeAria": "الرئيسية"
   },
   "install": {
@@ -885,13 +869,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "pages" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 1991,
+  "chars": 1898,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 18,
-  "sha256OfRawJson": "0e36b98888308ed7e294eae6401def6d15db6572949c950548ac0c96f5f89a9e",
-  "strings": 87,
+  "sha256OfRawJson": "cb1df6b5ab2be1ed33a738942b752d28775f8b0c69f62c69b0134b2c41b97dfd",
+  "strings": 84,
 }
 `;
 

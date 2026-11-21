@@ -7,8 +7,6 @@ import { builder, common } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
 import { fillLtr } from '@/components/fill-ltr';
-import { WhatsAppButton, WhatsAppCard } from '@/components/WhatsAppButton';
-import { whatsappLink } from '@/components/shell/whatsapp';
 import { cn } from '@/lib/utils';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { needsCropNotice, pdfPrefillUm } from '../logic';
@@ -26,8 +24,6 @@ export function DesignStep({ b }: { b: BuilderApi }) {
   };
 
   const prefill = design && shape ? pdfPrefillUm(design, shape) : null;
-  const noDesignWa = whatsappLink(b.settings.whatsapp, builder.whatsappText.noDesign);
-  const editDesignWa = whatsappLink(b.settings.whatsapp, builder.whatsappText.editDesign);
   const acceptedCopy = shape === 'custom' ? builder.upload.acceptedCustom : builder.upload.accepted;
   const limitMb = uploadLimitMb(b.settings.maxUploadBytes);
   const accepted = fillLtr(acceptedCopy, { mb: limitMb });
@@ -131,16 +127,6 @@ export function DesignStep({ b }: { b: BuilderApi }) {
           )}
         </div>
       )}
-
-      {design
-        ? editDesignWa && (
-            <WhatsAppButton href={editDesignWa} variant="outline" size="sm" className="w-full sm:w-auto">
-              {builder.noDesign.afterUpload}
-            </WhatsAppButton>
-          )
-        : noDesignWa && (
-            <WhatsAppCard href={noDesignWa} title={builder.noDesign.title} hint={builder.noDesign.hint} cta={builder.noDesign.cta} />
-          )}
     </div>
   );
 }

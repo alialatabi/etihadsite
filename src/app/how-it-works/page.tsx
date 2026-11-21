@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { builder, common, fill, pages } from '@/content/ar';
+import { common, fill, pages } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { CtaLink } from '@/components/shell/CtaLink';
-import { WhatsAppCard } from '@/components/WhatsAppButton';
-import { whatsappLink } from '@/components/shell/whatsapp';
 import { getSettings } from '@/lib/settings';
 import { SHAPE_KEYS, resolveShapeSpacing, type ShapeKey, type ShapeSpacing } from '@/lib/layout/spacing';
 import { count, countLabel } from '@/lib/plural';
@@ -56,7 +54,6 @@ function RuleCard({ title, children }: { title: string; children: ReactNode }) {
 
 export default async function HowItWorksPage() {
   const settings = await getSettings();
-  const noDesignWa = whatsappLink(settings.whatsapp, builder.whatsappText.noDesign);
   const lay = settings.layout;
   const examples = computeExamples(lay);
   const sheet = illustrationLayout(lay);
@@ -132,9 +129,6 @@ export default async function HowItWorksPage() {
             </li>
           ))}
         </ol>
-        {noDesignWa && (
-          <WhatsAppCard href={noDesignWa} title={t.noDesignTitle} hint={t.noDesignBody} cta={builder.noDesign.cta} className="mt-6 md:max-w-xl" />
-        )}
       </section>
 
       <div className="cut-line mx-auto h-px max-w-6xl text-border" aria-hidden />

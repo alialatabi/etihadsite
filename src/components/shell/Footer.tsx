@@ -1,16 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { MessageCircle, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { common, pages } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import type { ShopSettings } from '@/lib/types';
-import { whatsappHref } from './whatsapp';
 
 /**
  * Site footer (Server Component). Brand, hours, contact, links, files notice.
  */
 export function Footer({ settings }: { settings: ShopSettings }) {
-  const wa = whatsappHref(settings.whatsapp);
   const year = new Date().getFullYear();
   return (
     <footer className="mt-16 bg-primary text-primary-foreground">
@@ -38,14 +36,6 @@ export function Footer({ settings }: { settings: ShopSettings }) {
                 <Phone className="size-4 shrink-0" aria-hidden />
                 <a href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`} className="hover:text-primary-foreground">
                   <Ltr>{settings.phone}</Ltr>
-                </a>
-              </li>
-            ) : null}
-            {wa ? (
-              <li className="flex items-center gap-2">
-                <MessageCircle className="size-4 shrink-0" aria-hidden />
-                <a href={wa} target="_blank" rel="noopener noreferrer" className="hover:text-primary-foreground">
-                  {common.nav.whatsapp}
                 </a>
               </li>
             ) : null}

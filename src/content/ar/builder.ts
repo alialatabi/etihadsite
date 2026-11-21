@@ -45,7 +45,6 @@ export const builder = {
     roundedHint: 'فراغ 2 ملم بين الستيكرات',
     sharp: 'زوايا حادة (90°)',
     sharpHint: 'بدون فراغ بينها',
-    readyFileLink: 'ملف جاهز أو أكثر من تصميم؟ راسلنا على واتساب',
   },
   upload: {
     title: 'ارفع تصميمك',
@@ -135,7 +134,7 @@ export const builder = {
     landmarkPlaceholder: 'مثلاً: قرب مطعم المنصور، شارع الصناعة',
     notes: 'ملاحظات',
     notesOptional: '(اختياري)',
-    consent: 'ملف تصميمك ينحذف بعد {days} يوم. اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.',
+    consent: 'اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.',
     submit: 'أرسل الطلب',
     errors: {
       invalid_phone: 'اكتب رقم موبايل عراقي صحيح، مثلاً 0770 123 4567',
@@ -176,20 +175,5 @@ export const builder = {
   },
   whatsappText: {
     newOrder: 'مرحباً، عندي طلب ستيكرات:',
-    readyFile: 'مرحباً، عندي ملف جاهز / أكثر من تصميم وأريد طباعته على A4.',
-    /** Prefilled when a customer without a design taps any «we design it for you» button. */
-    noDesign: 'هلا، أريد ستيكرات بس ما عندي تصميم. تكدرون تصمموه إلي؟',
-    /** Prefilled from the small «need an edit?» line shown after a design is uploaded. */
-    editDesign: 'هلا، رفعت تصميم بالموقع بس أحتاج أعدل عليه. تكدرون تساعدوني؟',
-  },
-  /** «No design? We design it» prompts (design step, shape step, home hero). Never mention a price. */
-  noDesign: {
-    title: 'ما عندك تصميم؟ نصمملك إياه',
-    hint: 'ابعث لنا فكرتك على واتساب ونجهز لك التصميم.',
-    /** Short label for the home hero button. */
-    short: 'ما عندك تصميم؟ نصمملك',
-    cta: 'راسلنا على واتساب',
-    /** Smaller line once a design is already uploaded. */
-    afterUpload: 'تحتاج تعديل على التصميم؟ راسلنا على واتساب',
   },
 } as const;

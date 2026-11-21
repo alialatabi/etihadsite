@@ -1,17 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { MessageCircle } from 'lucide-react';
 import { common, pages } from '@/content/ar';
 import type { ShopSettings } from '@/lib/types';
 import { NavLink } from './NavLink';
-import { whatsappHref } from './whatsapp';
 
 /**
  * Site header (Server Component). Sticky with blur; only NavLink is a client island.
  * Rendered in app/layout.tsx with the current settings.
  */
 export function Header({ settings }: { settings: ShopSettings }) {
-  const wa = whatsappHref(settings.whatsapp);
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
@@ -30,17 +27,6 @@ export function Header({ settings }: { settings: ShopSettings }) {
           >
             {common.nav.start}
           </Link>
-          {wa ? (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={pages.shell.whatsappAria}
-              className="hidden size-9 shrink-0 items-center justify-center rounded-lg border border-border text-primary transition-colors hover:bg-muted min-[400px]:flex sm:size-10"
-            >
-              <MessageCircle className="size-5" aria-hidden />
-            </a>
-          ) : null}
         </nav>
       </div>
     </header>

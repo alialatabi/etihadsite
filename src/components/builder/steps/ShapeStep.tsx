@@ -1,11 +1,9 @@
 'use client';
 
-import { Circle, MessageCircle, Shapes, Square } from 'lucide-react';
+import { Circle, Shapes, Square } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import { WhatsAppCard } from '@/components/WhatsAppButton';
-import { whatsappLink } from '@/components/shell/whatsapp';
 import type { Corners, Shape } from '@/lib/types';
 import type { BuilderApi } from '../useBuilder';
 
@@ -16,8 +14,6 @@ const OPTIONS: { id: Shape; Icon: typeof Circle; label: string; hint: string }[]
 ];
 
 export function ShapeStep({ b }: { b: BuilderApi }) {
-  const noDesignWa = b.settings.whatsapp ? whatsappLink(b.settings.whatsapp, builder.whatsappText.noDesign) : null;
-  const readyFileWa = b.settings.whatsapp ? whatsappLink(b.settings.whatsapp, builder.whatsappText.readyFile) : null;
   return (
     <div className="space-y-5">
       <div role="radiogroup" aria-label={builder.shape.title} className="grid gap-3 sm:grid-cols-3">
@@ -79,22 +75,6 @@ export function ShapeStep({ b }: { b: BuilderApi }) {
             ))}
           </RadioGroup>
         </fieldset>
-      )}
-
-      {noDesignWa && (
-        <WhatsAppCard href={noDesignWa} title={builder.noDesign.title} hint={builder.noDesign.hint} cta={builder.noDesign.cta}>
-          {readyFileWa && (
-            <a
-              href={readyFileWa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-primary underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <MessageCircle className="size-4 shrink-0" aria-hidden />
-              {builder.shape.readyFileLink}
-            </a>
-          )}
-        </WhatsAppCard>
       )}
     </div>
   );

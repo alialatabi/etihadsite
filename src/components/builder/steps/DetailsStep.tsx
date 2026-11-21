@@ -1,7 +1,7 @@
 'use client';
 
 import { LoaderCircle, MessageCircle, TriangleAlert } from 'lucide-react';
-import { builder, common, fill, governorates } from '@/content/ar';
+import { builder, common, governorates } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -125,7 +125,7 @@ export function DetailsStep({
           <Textarea id="cust-notes" rows={3} {...text('notes')} />
         </div>
 
-        <p className="text-xs leading-relaxed text-muted-foreground">{fill(builder.details.consent, { days: b.settings.retentionDays })}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{builder.details.consent}</p>
 
         {busy && (
           <div role="status" className="space-y-2 rounded-xl bg-muted p-4 text-sm">
