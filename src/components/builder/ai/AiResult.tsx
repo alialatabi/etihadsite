@@ -120,7 +120,7 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
     const dpi = resultDpiStatus(ai.result, b.settings.quality);
     // The text against the size the design will have once accepted (the size the arrangement step starts from).
     const accepted = resultAcceptedSpec(ai.result);
-    const textWarn = textWarning(ai.result.lines, accepted?.shape ?? null, accepted, maxWidthAtSize(accepted?.shape ?? null, b.corners, accepted, b.settings.layout));
+    const textWarn = textWarning(ai.result.lines, accepted?.shape ?? null, accepted, () => maxWidthAtSize(accepted?.shape ?? null, b.corners, accepted, b.settings.layout));
     return (
       <div className="space-y-4">
         {errorBox}

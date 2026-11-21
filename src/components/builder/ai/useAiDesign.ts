@@ -90,7 +90,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   // The cap on a recommended size is taken at the ratio typed on this page (a rectangle is free here), not the design's.
   const { settings } = b;
   const textWarning = useMemo(
-    () => textWarningFor(printable, shape, spec, maxWidthAtSize(shape, corners, spec, settings.layout)),
+    () => textWarningFor(printable, shape, spec, () => maxWidthAtSize(shape, corners, spec, settings.layout)),
     [printable, shape, spec, corners, settings.layout],
   );
 

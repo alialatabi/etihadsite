@@ -147,17 +147,19 @@ export function maxWidthAtSize(
 /**
  * Warning for `lines` (as typed or as printed: cleaned here exactly as for the print) on `size`.
  * `maxWidthUm` is the widest size the size step accepts (null: unknown): a larger size is never recommended.
+ * It may be a function, called only when the text does not fit.
  */
 export function textWarning(
   lines: string[],
   shape: Shape | null,
   size: { widthUm: number; heightUm: number } | null,
-  maxWidthUm: number | null,
+  maxWidthUm: number | null | (() => number | null),
 ): TextWarning {
   if (!shape || !size) return null;
   const capacity = textCapacity(printableLines(lines), shape, size.widthUm, size.heightUm);
   if (capacity.ok) return null;
   const min = capacity.minSizeUm;
-  if (min !== null && (maxWidthUm === null || min <= maxWidthUm)) return { kind: 'enlarge', sizeUm: min };
+  const max = typeof maxWidthUm === 'function' ? maxWidthUm() : maxWidthUm;
+  if (min !== null && (max === null || min <= max)) return { kind: 'enlarge', sizeUm: min };
   return { kind: 'reduce' };
 }
