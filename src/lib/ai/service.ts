@@ -26,7 +26,7 @@ import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { AiKind, StorageAdapter } from '@/lib/types';
+import type { AiKind, ShopSettings, StorageAdapter } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
   AI_BRIEF_PER_IP,
@@ -36,11 +36,14 @@ import {
   AI_LINE_MAX_CHARS,
   AI_MAX_LINES,
   AI_MAX_REFS,
+  AI_OPENAI_TIMEOUT_MS,
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, openAiConfig, type ImageRef } from './openai';
-import { aiAspectOk, buildImagePrompt, imageRequestSize, sanitizeLine } from './prompt-template';
+import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
+// The review box cleans the lines with the same function (browser-safe module).
+import { capUnits, cleanLine } from './sanitize';
 import { textCapacity } from './text-capacity';
 
 /* ───────────────────────────── API contract (used by the builder) ───────────────────────────── */
@@ -88,12 +91,6 @@ export const AI_BODY_MAX_BYTES = 16 * 1024;
 
 /* ───────────────────────────── Pure helpers ───────────────────────────── */
 
-/** Cuts to at most `max` UTF-16 units without leaving half a surrogate pair. */
-function capUnits(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max).replace(/[\uD800-\uDBFF]$/, '');
-}
-
 /**
  * Defence in depth for the model's English artwork description before it is signed and before it
  * enters the image prompt: control characters and newlines become spaces, « » go (they quote the
@@ -108,11 +105,6 @@ export function hardenVisualDescription(s: string): string {
   return capUnits(cleaned, AI_VISUAL_MAX_CHARS).trim();
 }
 
-/** A printed line as both routes see it: sanitised, and within the zod limit of generate. */
-function cleanLine(line: string): string {
-  return capUnits(sanitizeLine(line), AI_LINE_MAX_CHARS).trim();
-}
-
 const DEV_SALT = 'softy-dev-ai-brief-salt';
 
 /**
@@ -121,6 +113,15 @@ const DEV_SALT = 'softy-dev-ai-brief-salt';
  */
 export function secretReady(): boolean {
   return process.env.NODE_ENV !== 'production' || (process.env.SESSION_SECRET ?? '').trim() !== '';
+}
+
+/**
+ * The site can design now: the same checks both routes make before anything else (switch on, OpenAI key set,
+ * token secret ready, AI tables available). The home page passes it to the builder, so a missing key shows the
+ * notice before the customer types.
+ */
+export function aiReady(settings: Pick<ShopSettings, 'ai'>): boolean {
+  return settings.ai.enabled && openAiConfig() !== null && secretReady() && hasAiStorage(getStorage());
 }
 
 /** HMAC-SHA256 hex of the description `brief` returned; `generate` accepts only signed descriptions. */
@@ -295,7 +296,15 @@ const genFail = (error: GenerateError, retryAfterSec?: number): GenerateOutcome 
   ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
 });
 
+/** runGenerate's own deadline from its start: 10 s inside the route's maxDuration (120 s) for the answer. */
+export const GENERATE_DEADLINE_MS = 110_000;
+/** Time kept back from the deadline for normalising, storing and answering after OpenAI. */
+const AFTER_OPENAI_MS = 10_000;
+/** Less than this left for OpenAI: answer `failed` before reserving (a high-quality image takes longer). */
+const MIN_OPENAI_MS = 20_000;
+
 export async function runGenerate(request: Request, json: unknown): Promise<GenerateOutcome> {
+  const deadline = Date.now() + GENERATE_DEADLINE_MS;
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return genFail('invalid_request');
   const req = parsed.data;
@@ -321,18 +330,29 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
   const rl = limiters().generate.check(ip || 'global');
   if (!rl.ok) return genFail('ip_limit', rl.retryAfterSec);
 
-  // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing.
-  const refs: ImageRef[] = [];
-  for (const id of req.refUploadIds) {
-    const upload = await storage.readUpload(id);
-    if (!upload) return genFail('invalid_request');
-    const kind = sniffKind(upload.bytes);
-    if (kind !== 'png' && kind !== 'jpeg') return genFail('invalid_request');
-    try {
-      refs.push(await prepareRef(upload.bytes));
-    } catch {
-      return genFail('invalid_request');
-    }
+  // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing. Read in
+  // parallel (each is a storage round trip); any bad one refuses the request.
+  const prepared = await Promise.all(
+    req.refUploadIds.map(async (id): Promise<ImageRef | null> => {
+      const upload = await storage.readUpload(id);
+      if (!upload) return null;
+      const kind = sniffKind(upload.bytes);
+      if (kind !== 'png' && kind !== 'jpeg') return null;
+      try {
+        return await prepareRef(upload.bytes);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  if (prepared.some((r) => r === null)) return genFail('invalid_request');
+  const refs = prepared as ImageRef[];
+
+  // What is left for OpenAI before the deadline; too little for an image: not even reserved.
+  const timeoutMs = Math.min(AI_OPENAI_TIMEOUT_MS, deadline - Date.now() - AFTER_OPENAI_MS);
+  if (timeoutMs < MIN_OPENAI_MS) {
+    report('ai.generate', 'no time left for openai', { refs: refs.length }, 'warning');
+    return genFail('failed');
   }
 
   const day = shopDayKey(new Date());
@@ -365,7 +385,7 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
       size: size.size,
       background: size.background,
       refs,
-    });
+    }, timeoutMs);
     if (!result.ok) {
       await giveBack();
       return genFail(result.reason === 'refused' ? 'refused' : 'failed');
@@ -408,27 +428,32 @@ export async function runGenerate(request: Request, json: unknown): Promise<Gene
     return genFail('failed');
   }
 
-  // The image is saved and delivered; a failed record only costs the admin gallery entry.
-  try {
-    await storage.aiRecordGeneration?.({
-      id: nanoid(),
-      createdAt: new Date().toISOString(),
-      day,
-      ip,
-      ipKey,
-      shape: req.shape,
-      corners: req.corners,
-      widthUm: req.widthUm,
-      heightUm: req.heightUm,
-      idea: req.idea,
-      lines,
-      hasRefs: refs.length > 0,
-      model: AI_IMAGE_MODEL,
-      uploadId: stored.uploadId,
-      orderId: null,
-    });
-  } catch {
-    report('ai.generate', 'record failed', { uploadId: stored.uploadId });
+  // The image is saved and delivered; a failed record only costs the admin gallery entry (and the purge's
+  // protection of the upload), so it is tried twice before giving up. The answer stays ok either way.
+  const record = {
+    id: nanoid(),
+    createdAt: new Date().toISOString(),
+    day,
+    ip,
+    ipKey,
+    shape: req.shape,
+    corners: req.corners,
+    widthUm: req.widthUm,
+    heightUm: req.heightUm,
+    idea: req.idea,
+    lines,
+    hasRefs: refs.length > 0,
+    model: AI_IMAGE_MODEL,
+    uploadId: stored.uploadId,
+    orderId: null,
+  };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await storage.aiRecordGeneration?.(record);
+      break;
+    } catch {
+      if (attempt === 2) report('ai.generate', 'record failed', { uploadId: stored.uploadId });
+    }
   }
 
   return {

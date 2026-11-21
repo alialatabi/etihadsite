@@ -3,15 +3,29 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   aiAcceptedSize,
   aiShrinkWarning,
+  aiSizeDrifted,
   generateBlock,
   restoredState,
   seedUploadId,
   shapeStepOk,
   type PersistedForm,
 } from '@/components/builder/logic';
-import { addRefs, aiBusy, aiErrorMessage, isAiOffError, pngFileFromBase64, printableLines, showViewResult } from '@/components/builder/ai/ai-logic';
+import {
+  addRefs,
+  aiBusy,
+  aiErrorMessage,
+  canRetryAi,
+  isAiOffError,
+  pngFileFromBase64,
+  printableLines,
+  resultDpiStatus,
+  resultShown,
+  showViewResult,
+  typedLine,
+} from '@/components/builder/ai/ai-logic';
+import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
-import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
+import { attemptContextFor, submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
 import { builder } from '@/content/ar';
 import type { OrderResponse, UploadResponse } from '@/lib/types';
 
@@ -181,6 +195,34 @@ describe('submit with an accepted AI design', () => {
     expect(postOrder.mock.calls[1][0].uploadId).toBe('fresh');
   });
 
+  it('a retry keeps the attempt while the design is the same file; another file starts a new one', async () => {
+    const ids = ['o1', 'o2', 'o3'];
+    const newId = () => ids.shift()!;
+    const a = new File(['a'], 'a.png', { type: 'image/png' });
+    const b = new File(['b'], 'b.png', { type: 'image/png' });
+
+    // First try degrades after the upload finished: the context keeps the upload of file a.
+    const first = attemptContextFor(null, a, newId);
+    const degraded = await submitOrderFlow({ ...input, design: { ...input.design, file: a } }, first, deps({ postOrder: vi.fn(async () => { throw new Error('offline'); }) }));
+    expect(degraded.kind).toBe('degraded');
+    expect(first.uploadId).toBe('fresh');
+
+    // Same file again: same order id and upload (server idempotency).
+    expect(attemptContextFor(first, a, newId)).toBe(first);
+
+    // The customer picked another design: a new attempt, the old upload is not reused.
+    const second = attemptContextFor(first, b, newId);
+    expect(second).not.toBe(first);
+    expect(second.orderId).toBe('o2');
+    expect(second.uploadId).toBeUndefined();
+    const d = deps({ upload: vi.fn(async () => okUpload('for-b')) });
+    await submitOrderFlow({ ...input, design: { ...input.design, file: b } }, second, d);
+    expect(d.postOrder).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'for-b', orderId: 'o2' }));
+
+    // A fresh attempt for an accepted AI design starts from its upload.
+    expect(attemptContextFor(second, a, newId, 'ai-up')).toMatchObject({ orderId: 'o3', uploadId: 'ai-up', seeded: true, file: a });
+  });
+
   it('upload_missing without a seed is still an error', async () => {
     const d = deps({ postOrder: vi.fn(async () => ({ ok: false as const, error: 'upload_missing' as const, message: '' })) });
     const res = await submitOrderFlow(input, { orderId: 'o', rastered: false }, d);
@@ -219,9 +261,9 @@ describe('ai helpers', () => {
     expect(aiBusy('idle', true)).toBe(true);
     expect(aiBusy('result', false)).toBe(false);
     expect(aiBusy('reviewing', false)).toBe(false);
-    expect(showViewResult('generating')).toBe(true);
-    expect(showViewResult('result')).toBe(true);
-    expect(['idle', 'reviewing', 'error'].some((p) => showViewResult(p as never))).toBe(false);
+    expect(showViewResult('generating', false)).toBe(true);
+    expect(showViewResult('result', true)).toBe(true);
+    expect(['idle', 'reviewing', 'error'].some((p) => showViewResult(p as never, false))).toBe(false);
     // The page-1 button reads the same busy flag.
     const ready = { shape: 'circle' as const, size: { widthUm: 30_000, heightUm: 30_000 }, sizeOk: true, idea: 'x', unavailable: false };
     expect(generateBlock({ ...ready, busy: aiBusy('generating', false) })).toBe('busy');
@@ -250,6 +292,74 @@ describe('ai helpers', () => {
 
   it('printableLines trims and drops empty lines', () => {
     expect(printableLines([' قهوة ', '', '   ', 'بغداد'])).toEqual(['قهوة', 'بغداد']);
+  });
+
+  it('printableLines cleans a line exactly as the server does (what is confirmed is what is printed)', () => {
+    expect(printableLines(['«حلويات»\n<b>', '  a"b\'c`d \t\u0007  e  ', '«»'])).toEqual(['حلويات b', 'abcd e']);
+    expect(printableLines(['ا'.repeat(100)])[0]).toHaveLength(60);
+  });
+
+  it('typedLine drops the characters that are never printed but keeps spaces while typing', () => {
+    expect(typedLine('«قهوة» ')).toBe('قهوة ');
+    expect(typedLine('a  b<c>"d"')).toBe('a  bcd');
+    expect(typedLine('x\ny')).toBe('x y');
+  });
+});
+
+/* ───────────────────────── a kept result (A1, A4) ───────────────────────── */
+
+describe('the paid result stays until a new one arrives', () => {
+  it('«شوف التصميم» shows while a try runs or a result is kept, whatever the phase', () => {
+    expect(showViewResult('reviewing', true)).toBe(true);
+    expect(showViewResult('error', true)).toBe(true);
+    expect(showViewResult('idle', true)).toBe(true);
+    expect(showViewResult('error', false)).toBe(false);
+  });
+
+  it('the result shows whenever it exists, except while a new try runs', () => {
+    expect(resultShown('result', true)).toBe(true);
+    expect(resultShown('error', true)).toBe(true);
+    expect(resultShown('reviewing', true)).toBe(true);
+    expect(resultShown('idle', true)).toBe(true);
+    expect(resultShown('generating', true)).toBe(false);
+    expect(resultShown('result', false)).toBe(false);
+  });
+
+  it('another try is offered unless the error or the limits rule it out', () => {
+    const ok = { off: false, remainingToday: 3, phase: 'error' as const };
+    expect(canRetryAi({ ...ok, error: 'failed' })).toBe(true);
+    expect(canRetryAi({ ...ok, error: 'refused' })).toBe(true);
+    expect(canRetryAi({ ...ok, error: 'network' })).toBe(true);
+    for (const e of ['ip_limit', 'text_too_long', 'invalid_request'] as const) expect(canRetryAi({ ...ok, error: e })).toBe(false);
+    expect(canRetryAi({ ...ok, off: true, error: 'failed' })).toBe(false);
+    expect(canRetryAi({ ...ok, remainingToday: 0, error: 'failed' })).toBe(false);
+    expect(canRetryAi({ off: false, remainingToday: null, phase: 'result', error: undefined })).toBe(true);
+    // A stale error after «عدّل الفكرة» (phase no longer 'error') does not block a try.
+    expect(canRetryAi({ off: false, remainingToday: 2, phase: 'reviewing', error: 'text_too_long' })).toBe(true);
+  });
+
+  it('the result screen shows the DPI warning the arrangement step would show (spec 5.7)', () => {
+    const q = DEFAULT_SETTINGS.quality;
+    const at = (widthUm: number) => ({ pxWidth: 1024, pxHeight: 1024, madeFor: { shape: 'circle' as const, widthUm, heightUm: widthUm } });
+    expect(resultDpiStatus(at(170_000), q)).toBe('ok');
+    expect(resultDpiStatus(at(180_000), q)).toBe('warn');
+    expect(resultDpiStatus(at(370_000), q)).toBe('block');
+    // Rect: the width is kept and the height follows the image, as at accept.
+    expect(resultDpiStatus({ pxWidth: 1536, pxHeight: 1024, madeFor: { shape: 'rect', widthUm: 250_000, heightUm: 100_000 } }, q)).toBe('ok');
+    expect(resultDpiStatus({ pxWidth: 1536, pxHeight: 1024, madeFor: { shape: 'rect', widthUm: 270_000, heightUm: 100_000 } }, q)).toBe('warn');
+  });
+});
+
+/* ───────────────────────── page 1 rectangle (A6) ───────────────────────── */
+
+describe('aiSizeDrifted', () => {
+  it('a size typed freely on page 1 that no longer has the design ratio is caught', () => {
+    expect(aiSizeDrifted({ widthUm: 50_000, heightUm: 50_000 }, 1)).toBe(false);
+    expect(aiSizeDrifted({ widthUm: 50_000, heightUm: 30_000 }, 1)).toBe(true);
+    expect(aiSizeDrifted({ widthUm: 60_000, heightUm: 40_000 }, 1.5)).toBe(false);
+    // Rounding of the derived side is not a drift.
+    expect(aiSizeDrifted({ widthUm: 33_300, heightUm: 22_100 }, 1.5)).toBe(false);
+    expect(aiSizeDrifted(null, 1)).toBe(false);
   });
 });
 

@@ -5,9 +5,10 @@ import { builder } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { fillLtr } from '@/components/fill-ltr';
 import { count } from '@/lib/plural';
+import { uploadLimitMb } from '@/lib/upload-limit';
 import { cn } from '@/lib/utils';
 import type { BuilderApi } from '../useBuilder';
-import { aiErrorMessage } from './ai-logic';
+import { aiErrorMessage, canRetryAi, resultDpiStatus, resultShown } from './ai-logic';
 import type { AiDesignApi } from './useAiDesign';
 
 const CHECKER = 'bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]';
@@ -54,10 +55,22 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   );
 }
 
+function ErrorBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+      <TriangleAlert className="size-5 shrink-0" aria-hidden />
+      <p className="min-w-0 flex-1">{children}</p>
+    </div>
+  );
+}
+
 function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   const custom = b.shape === 'custom';
   const circle = b.shape === 'circle';
-  const noTriesLeft = ai.remainingToday === 0;
+  // 'refused' can be an unusable custom result, so another try is offered next to «عدّل الفكرة».
+  const canRetry = canRetryAi({ off: ai.off, remainingToday: ai.remainingToday, phase: ai.phase, error: ai.error });
+  // Only a failure of the try just made is shown (after «عدّل الفكرة» an old message would sit on a good design).
+  const errorBox = ai.phase === 'error' && ai.error ? <ErrorBox>{aiErrorMessage(ai.error)}</ErrorBox> : null;
 
   const editIdea = (
     <Button type="button" variant="ghost" className="h-11 px-4" onClick={ai.editIdea}>
@@ -83,42 +96,51 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
     );
   }
 
-  if (ai.phase === 'result' && ai.result) {
+  // The kept (paid) result: also after a failed retry (the error above it) and after «عدّل الفكرة».
+  if (ai.result && resultShown(ai.phase, true)) {
+    const dpi = resultDpiStatus(ai.result, b.settings.quality);
     return (
       <div className="space-y-4">
+        {errorBox}
         <DesignImage src={ai.result.previewUrl} custom={custom} circle={circle} />
         <PrintedText lines={ai.result.lines} />
+        {dpi === 'warn' && (
+          <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+            {builder.size.dpiWarn}
+          </p>
+        )}
+        {dpi === 'block' && (
+          <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {builder.size.dpiBlock}
+          </p>
+        )}
         <Remaining n={ai.remainingToday} />
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
             // The first page changed shape while the result waited: this image is not for it.
-            disabled={b.decoding || b.shape !== ai.result.madeFor.shape}
+            disabled={b.decoding || b.shape !== ai.result.madeFor.shape || dpi === 'block'}
             onClick={() => void ai.accept()}
             className="h-12 bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90"
           >
             {b.decoding ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
             {builder.ai.accept}
           </Button>
-          <Button type="button" variant="outline" className="h-12 px-5" disabled={noTriesLeft || b.decoding} onClick={() => void ai.retry()}>
+          <Button type="button" variant="outline" className="h-12 px-5" disabled={!canRetry || b.decoding} onClick={() => void ai.retry()}>
             <RefreshCw className="size-4" aria-hidden />
             {builder.ai.retry}
           </Button>
           {editIdea}
+          {errorBox && readyDesign}
         </div>
       </div>
     );
   }
 
   if (ai.phase === 'error' && ai.error) {
-    // 'refused' can be an unusable custom result, so another try is offered next to «عدّل الفكرة».
-    const canRetry = !ai.off && !noTriesLeft && ai.error !== 'ip_limit' && ai.error !== 'text_too_long' && ai.error !== 'invalid_request';
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          <TriangleAlert className="size-5 shrink-0" aria-hidden />
-          <p className="min-w-0 flex-1">{aiErrorMessage(ai.error)}</p>
-        </div>
+        {errorBox}
         <div className="flex flex-wrap items-center gap-3">
           {canRetry && (
             <Button type="button" variant="outline" className="h-11 px-4" onClick={() => void ai.retry()}>
@@ -136,6 +158,10 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   // Nothing running: the accepted design (also after a reload), or the way back to the idea.
   return (
     <div className="space-y-4">
+      {/* A shape change made the accepted design unusable (e.g. an opaque PNG for a custom die-cut). */}
+      {b.designError && (
+        <ErrorBox>{fillLtr(builder.upload.errors[b.designError], { mb: uploadLimitMb(b.settings.maxUploadBytes) })}</ErrorBox>
+      )}
       {b.design && <DesignImage src={b.design.previewUrl} custom={custom} circle={circle} />}
       {b.design && ai.acceptedLines && <PrintedText lines={ai.acceptedLines} />}
       <div className="flex flex-wrap items-center gap-3">

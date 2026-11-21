@@ -168,6 +168,67 @@ describe("POST /api/design/brief", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("brief refuses a body that is not declared as JSON (415) before any work", async () => {
+    const calls = stubOpenAi(() => jsonResponse({}));
+    const res = await briefRoute(
+      new Request("http://localhost/api/design/brief", {
+        method: "POST",
+        headers: { "content-type": "text/plain", "x-forwarded-for": nextIp() },
+        body: JSON.stringify(BODY),
+      }),
+    );
+    expect(res.status).toBe(415);
+    expect(await read(res)).toEqual({ ok: false, error: "invalid_request" });
+    expect(calls).toHaveLength(0);
+    expect(await briefUsage()).toBe(0);
+  });
+
+  it("brief refuses a request from another site (Origin host differs from Host: 403)", async () => {
+    const calls = stubOpenAi(() => jsonResponse({}));
+    const req = (headers: Record<string, string>) =>
+      briefRoute(
+        new Request("http://localhost/api/design/brief", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": nextIp(), ...headers },
+          body: JSON.stringify(BODY),
+        }),
+      );
+    for (const origin of ["https://evil.example", "null", "http://localhost.evil.example"]) {
+      const res = await req({ origin, host: "localhost" });
+      expect(res.status, origin).toBe(403);
+      expect(await read(res)).toEqual({ ok: false, error: "invalid_request" });
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it("brief accepts its own origin, and a request without Origin", async () => {
+    stubOpenAi(() => briefResponse({ printed_text: [], visual_description: "Stars.", spelling_fixes: [] }));
+    const req = (headers: Record<string, string>) =>
+      briefRoute(
+        new Request("http://localhost/api/design/brief", {
+          method: "POST",
+          headers: { "content-type": "application/json; charset=utf-8", "x-forwarded-for": nextIp(), ...headers },
+          body: JSON.stringify(BODY),
+        }),
+      );
+    expect((await req({ origin: "http://localhost" })).status).toBe(200);
+    expect((await req({ origin: "https://softy.example", host: "softy.example" })).status).toBe(200);
+    expect((await req({ origin: "https://softy.example", host: "internal:3000", "x-forwarded-host": "softy.example" })).status).toBe(200);
+    expect((await req({})).status).toBe(200);
+  });
+
+  it("aiReady: the home page knows up front when the site cannot design", async () => {
+    const { aiReady } = await import("@/lib/ai/service");
+    expect(aiReady(DEFAULT_SETTINGS)).toBe(true);
+    expect(aiReady({ ai: { ...DEFAULT_SETTINGS.ai, enabled: false } })).toBe(false);
+    vi.stubEnv("OPENAI_API_KEY", " ");
+    expect(aiReady(DEFAULT_SETTINGS)).toBe(false);
+    vi.stubEnv("OPENAI_API_KEY", "sk-x");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "");
+    expect(aiReady(DEFAULT_SETTINGS)).toBe(false);
+  });
+
   it("brief: the in-memory limiter stops a burst before the stored counter", async () => {
     stubOpenAi(() => briefResponse({ printed_text: [], visual_description: "Stars.", spelling_fixes: [] }));
     // Fill the in-memory limiter (30/h per ip) without touching the stored counter.

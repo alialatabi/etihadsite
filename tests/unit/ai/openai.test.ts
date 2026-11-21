@@ -8,7 +8,7 @@ vi.mock('@/lib/monitoring/report', () => ({
 }));
 
 import { generateImage, openAiConfig, type OpenAiConfig } from '@/lib/ai/openai';
-import { AI_IMAGE_MODEL } from '@/lib/ai/config';
+import { AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from '@/lib/ai/config';
 
 const KEY = 'sk-test-SECRET';
 const cfg: OpenAiConfig = { apiKey: KEY, baseUrl: 'https://api.test/v1' };
@@ -122,6 +122,23 @@ describe('generateImage', () => {
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'timeout' });
     fetchMock.mockRejectedValue(new DOMException('This operation was aborted', 'AbortError'));
     expect(await generateImage(cfg, baseReq)).toEqual({ ok: false, reason: 'timeout' });
+  });
+
+  it('uses the given timeout (else AI_OPENAI_TIMEOUT_MS) and reports the one used', async () => {
+    const timeouts: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+      timeouts.push(ms);
+      return real(ms);
+    });
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    await generateImage(cfg, baseReq);
+    await generateImage(cfg, baseReq, 25_000);
+    expect(timeouts).toEqual([AI_OPENAI_TIMEOUT_MS, 25_000]);
+
+    fetchMock.mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
+    expect(await generateImage(cfg, baseReq, 25_000)).toEqual({ ok: false, reason: 'timeout' });
+    expect(reported.at(-1)?.[1]).toMatchObject({ tags: { timeoutMs: 25_000 } });
   });
 
   it('500 → error', async () => {

@@ -1,4 +1,5 @@
 import { readJsonCapped } from "../../_lib/body";
+import { aiRequestRejection } from "../../_lib/same-origin";
 import { reportError } from "@/lib/monitoring/report";
 import {
   AI_BODY_MAX_BYTES,
@@ -7,7 +8,8 @@ import {
   type GenerateResponse,
 } from "@/lib/ai/service";
 
-export const maxDuration = 60;
+// runGenerate keeps its own deadline 10 s inside this (service.ts GENERATE_DEADLINE_MS).
+export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
 /**
@@ -16,11 +18,15 @@ export const dynamic = "force-dynamic";
  * as base64 PNG. Logic and the order of checks in src/lib/ai/service.ts.
  */
 export async function POST(request: Request): Promise<Response> {
-  const send = (body: GenerateResponse, retryAfterSec?: number) =>
+  const send = (body: GenerateResponse, retryAfterSec?: number, status?: number) =>
     Response.json(body, {
-      status: body.ok ? 200 : GENERATE_STATUS[body.error],
+      status: status ?? (body.ok ? 200 : GENERATE_STATUS[body.error]),
       headers: retryAfterSec !== undefined ? { "Retry-After": String(retryAfterSec) } : undefined,
     });
+
+  // Not JSON (415) or from another site (403): refused before the body is read.
+  const rejected = aiRequestRejection(request);
+  if (rejected !== null) return send({ ok: false, error: "invalid_request" }, undefined, rejected);
 
   let json: unknown;
   try {
