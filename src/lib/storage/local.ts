@@ -5,13 +5,19 @@
  * Layout under `root` (DATA_DIR):
  *   uploads/<uploadId>.bin + .json, orders/<orderId>.json + .pdf, settings.json,
  *   analytics/events-YYYY-MM.jsonl (one JSON event per line, UTC month),
- *   customers.json (CustomerRecord[] keyed by phone; never purged)
+ *   customers.json (CustomerRecord[] keyed by phone; never purged),
+ *   ai/usage.json (AiUsageRow[]), ai/generations.json (AiGenerationRecord[]), ai/blocks.json (AiBlock[])
  * All paths in the public API are relative to `root` and traversal-checked.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
+  AiBlock,
+  AiGenerationRecord,
+  AiKind,
+  AiReserveResult,
+  AiUsageRow,
   AnalyticsEvent,
   CustomerRecord,
   OrderRecord,
@@ -38,6 +44,8 @@ export class LocalStorage implements StorageAdapter {
   readonly root: string;
   /** Serialises read-modify-write of customers.json inside this process. */
   private customersLock: Promise<unknown> = Promise.resolve();
+  /** Serialises every read-modify-write of the ai/*.json files inside this process. */
+  private aiLock: Promise<unknown> = Promise.resolve();
 
   constructor(root: string) {
     this.root = path.resolve(root);
@@ -298,6 +306,141 @@ export class LocalStorage implements StorageAdapter {
   async listCustomers(): Promise<CustomerRecord[]> {
     const list = await this.readCustomers();
     return list.sort((a, b) => (a.lastOrderAt < b.lastOrderAt ? 1 : a.lastOrderAt > b.lastOrderAt ? -1 : 0));
+  }
+
+  /* ───────────── AI designer (dev only; same semantics as rpc reserve_ai) ───────────── */
+
+  private withAiLock<T>(run: () => Promise<T>): Promise<T> {
+    const next = this.aiLock.then(run, run);
+    this.aiLock = next.catch(() => undefined);
+    return next;
+  }
+
+  private async readAiList<T>(name: "usage" | "generations" | "blocks"): Promise<T[]> {
+    const raw = await this.readOptional(`ai/${name}.json`);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw.toString("utf8")) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      // Never overwrite an unreadable file with a fresh list.
+      throw new Error(`ai/${name}.json is unreadable`);
+    }
+  }
+
+  private writeAiList(name: "usage" | "generations" | "blocks", list: unknown[]): Promise<void> {
+    return this.writeAtomic(`ai/${name}.json`, JSON.stringify(list, null, 2));
+  }
+
+  aiReserve(a: {
+    day: string;
+    ipKey: string;
+    ip: string;
+    kind: AiKind;
+    perIpLimit: number;
+    siteLimit: number;
+  }): Promise<{ status: AiReserveResult; used: number }> {
+    return this.withAiLock(async () => {
+      const rows = await this.readAiList<AiUsageRow>("usage");
+      const row = rows.find((r) => r.day === a.day && r.ipKey === a.ipKey && r.kind === a.kind);
+      const used = row?.count ?? 0;
+      const blocks = await this.readAiList<AiBlock>("blocks");
+      if (blocks.some((b) => b.ipKey === a.ipKey)) return { status: "blocked" as const, used };
+      const site = rows
+        .filter((r) => r.day === a.day && r.kind === a.kind)
+        .reduce((n, r) => n + r.count, 0);
+      if (site >= a.siteLimit) return { status: "site_limit" as const, used };
+      if (a.ipKey !== "" && used >= a.perIpLimit) return { status: "ip_limit" as const, used };
+      const lastAt = new Date().toISOString();
+      if (row) {
+        row.count += 1;
+        row.lastAt = lastAt;
+        row.ip = a.ip;
+      } else {
+        rows.push({ day: a.day, ipKey: a.ipKey, ip: a.ip, kind: a.kind, count: 1, lastAt });
+      }
+      await this.writeAiList("usage", rows);
+      return { status: "ok" as const, used: used + 1 };
+    });
+  }
+
+  aiRelease(a: { day: string; ipKey: string; kind: AiKind }): Promise<void> {
+    return this.withAiLock(async () => {
+      const rows = await this.readAiList<AiUsageRow>("usage");
+      const row = rows.find((r) => r.day === a.day && r.ipKey === a.ipKey && r.kind === a.kind);
+      if (!row) return;
+      row.count = Math.max(row.count - 1, 0);
+      await this.writeAiList("usage", rows);
+    });
+  }
+
+  async aiUsage(sinceDay: string): Promise<AiUsageRow[]> {
+    const rows = await this.readAiList<AiUsageRow>("usage");
+    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+    return rows
+      .filter((r) => r.day >= sinceDay)
+      .sort((x, y) => cmp(x.day, y.day) || cmp(x.ipKey, y.ipKey) || cmp(x.kind, y.kind));
+  }
+
+  /** Like the table's constraints: a duplicate id or uploadId is refused. */
+  aiRecordGeneration(rec: AiGenerationRecord): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiGenerationRecord>("generations");
+      if (list.some((g) => g.id === rec.id || g.uploadId === rec.uploadId)) {
+        throw new Error("Duplicate AI generation");
+      }
+      list.push(rec);
+      await this.writeAiList("generations", list);
+    });
+  }
+
+  aiMarkOrdered(uploadId: string, orderId: string): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiGenerationRecord>("generations");
+      const g = list.find((x) => x.uploadId === uploadId);
+      if (!g) return;
+      g.orderId = orderId;
+      await this.writeAiList("generations", list);
+    });
+  }
+
+  async aiListGenerations(q: {
+    limit: number;
+    offset: number;
+    ipKey?: string;
+  }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
+    const list = (await this.readAiList<AiGenerationRecord>("generations"))
+      .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)
+      .sort((x, y) =>
+        x.createdAt !== y.createdAt
+          ? (x.createdAt < y.createdAt ? 1 : -1)
+          : x.id < y.id ? 1 : x.id > y.id ? -1 : 0,
+      );
+    const from = Math.max(0, Math.floor(q.offset));
+    return { rows: list.slice(from, from + Math.max(1, Math.floor(q.limit))), total: list.length };
+  }
+
+  /** Already blocked = kept as is (first block time stays). */
+  aiBlock(ipKey: string, ip: string): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiBlock>("blocks");
+      if (list.some((b) => b.ipKey === ipKey)) return;
+      list.push({ ipKey, ip, createdAt: new Date().toISOString() });
+      await this.writeAiList("blocks", list);
+    });
+  }
+
+  aiUnblock(ipKey: string): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiBlock>("blocks");
+      const next = list.filter((b) => b.ipKey !== ipKey);
+      if (next.length !== list.length) await this.writeAiList("blocks", next);
+    });
+  }
+
+  async aiListBlocks(): Promise<AiBlock[]> {
+    const list = await this.readAiList<AiBlock>("blocks");
+    return list.sort((x, y) => (x.createdAt < y.createdAt ? 1 : x.createdAt > y.createdAt ? -1 : 0));
   }
 
   /**
