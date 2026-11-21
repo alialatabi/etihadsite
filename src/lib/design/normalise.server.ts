@@ -22,7 +22,7 @@ import 'server-only';
 import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 import { effectiveDpi, pxForUmAtDpi } from '@/lib/units';
-import type { DesignKind, NormalisedArtwork, OrderError, StickerSpec } from '@/lib/types';
+import type { DesignKind, NormalisedArtwork, OrderError, PixelBox, StickerSpec } from '@/lib/types';
 import { reportError } from '@/lib/monitoring/report';
 import { sniffKind } from './kind';
 import { MAX_INPUT_PIXELS, pixelsOverCap } from './pixel-cap';
@@ -77,20 +77,18 @@ async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promi
   const { data, info } = await pipe.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
   let width = info.width;
   let height = info.height;
-  let pixels: Buffer = data;
+  let trim: PixelBox | null = null;
   let hasAlpha = false;
 
   if (channelHasAlpha) {
-    hasAlpha = hasAnyAlpha(pixels, width, height);
+    hasAlpha = hasAnyAlpha(data, width, height);
     if (spec.shape === 'custom') {
       if (!hasAlpha) return fail('no_alpha');
-      const box = alphaBoundingBox(pixels, width, height, ALPHA_THRESHOLD);
+      const box = alphaBoundingBox(data, width, height, ALPHA_THRESHOLD);
       if (!box) return fail('corrupt');
       if (box.width !== width || box.height !== height) {
-        pixels = await sharp(pixels, { raw: { width, height, channels: 4 } })
-          .extract(box)
-          .raw()
-          .toBuffer();
+        // Crop inside the final pipeline (before resize) instead of materialising a second raw buffer.
+        trim = box;
         width = box.width;
         height = box.height;
       }
@@ -108,7 +106,8 @@ async function normaliseRaster(bytes: Uint8Array, opts: NormaliseOptions): Promi
   const outW = Math.max(1, Math.round(width * scale));
   const outH = Math.max(1, Math.round(height * scale));
 
-  let out = sharp(pixels, { raw: { width, height, channels } });
+  let out = sharp(data, { raw: { width: info.width, height: info.height, channels } });
+  if (trim) out = out.extract(trim);
   if (channels === 4 && !hasAlpha) out = out.removeAlpha();
   if (scale < 1) out = out.resize(outW, outH, { fit: 'fill', kernel: 'lanczos3' });
   const encoded = hasAlpha
