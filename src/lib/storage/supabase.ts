@@ -120,6 +120,11 @@ function rowToCustomer(r: Record<string, unknown>): CustomerRecord {
     lastDisplayNo: String(r.last_display_no),
   };
   if (typeof r.name === 'string' && r.name) out.name = r.name;
+  // Present once migration 20261122000000 is applied (select=* then returns the columns); older rows/databases have none.
+  if (typeof r.marketing_opt_in === 'boolean') {
+    out.marketingOptIn = r.marketing_opt_in;
+    out.marketingOptInAt = typeof r.marketing_opt_in_at === 'string' ? r.marketing_opt_in_at : null;
+  }
   return out;
 }
 
@@ -174,6 +179,8 @@ function totalFromContentRange(res: Response): number {
 export class SupabaseStorage implements StorageAdapter {
   private readonly base: string;
   readonly directUploadMaxBytes = SUPABASE_MAX_UPLOAD_BYTES;
+  /** The v1 fallback of upsertCustomerFromOrder logs once per instance. */
+  private warnedNoCustomerV2 = false;
 
   constructor(
     url: string,
@@ -439,20 +446,31 @@ export class SupabaseStorage implements StorageAdapter {
 
   async upsertCustomerFromOrder(record: OrderRecord): Promise<void> {
     const c = record.customer;
-    await this.req('/rest/v1/rpc/upsert_customer', {
+    const args = {
+      p_phone: c.phone,
+      p_name: c.name ?? null,
+      p_governorate: c.governorate,
+      p_district: c.district,
+      p_landmark: c.landmark,
+      p_at: record.createdAt,
+      p_order_id: record.orderId,
+      p_display_no: record.displayNo,
+      p_total_iqd: record.price.totalIqd ?? 0,
+    };
+    // v2 also records the WhatsApp-offers choice (latest order wins). Until migration 20261122000000 is applied
+    // PostgREST answers 404 (PGRST202, function not found): fall back to v1 so the customer is still recorded
+    // (the opt-in is then NOT stored: apply the migration before deploying).
+    const res = await this.req('/rest/v1/rpc/upsert_customer_v2', {
       method: 'POST',
-      ...this.json({
-        p_phone: c.phone,
-        p_name: c.name ?? null,
-        p_governorate: c.governorate,
-        p_district: c.district,
-        p_landmark: c.landmark,
-        p_at: record.createdAt,
-        p_order_id: record.orderId,
-        p_display_no: record.displayNo,
-        p_total_iqd: record.price.totalIqd ?? 0,
-      }),
+      allowNotFound: true,
+      ...this.json({ ...args, p_marketing_opt_in: c.marketingOptIn === true }),
     });
+    if (res.ok) return;
+    if (!this.warnedNoCustomerV2) {
+      this.warnedNoCustomerV2 = true;
+      console.warn('[supabase] upsert_customer_v2 is missing: apply migration 20261122000000_marketing_opt_in.sql');
+    }
+    await this.req('/rest/v1/rpc/upsert_customer', { method: 'POST', ...this.json(args) });
   }
 
   async listCustomers(): Promise<CustomerRecord[]> {

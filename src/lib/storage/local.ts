@@ -297,6 +297,15 @@ export class LocalStorage implements StorageAdapter {
           cur.lastOrderAt = record.createdAt;
           cur.lastOrderId = record.orderId;
           cur.lastDisplayNo = record.displayNo;
+          // The latest order's explicit choice wins: an unticked box withdraws a stored yes. A customer who never
+          // opted in keeps no keys at all.
+          if (c.marketingOptIn === true) {
+            cur.marketingOptIn = true;
+            cur.marketingOptInAt = record.createdAt;
+          } else if (cur.marketingOptIn !== undefined) {
+            cur.marketingOptIn = false;
+            cur.marketingOptInAt = null;
+          }
         }
         if (record.createdAt < cur.firstOrderAt) cur.firstOrderAt = record.createdAt;
       } else {
@@ -313,6 +322,10 @@ export class LocalStorage implements StorageAdapter {
           lastDisplayNo: record.displayNo,
         };
         if (c.name) fresh.name = c.name;
+        if (c.marketingOptIn === true) {
+          fresh.marketingOptIn = true;
+          fresh.marketingOptInAt = record.createdAt;
+        }
         list.push(fresh);
       }
       await this.writeAtomic("customers.json", JSON.stringify(list, null, 2));

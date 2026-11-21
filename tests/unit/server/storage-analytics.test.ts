@@ -79,6 +79,39 @@ describe("LocalStorage analytics", () => {
     expect(list[1].name).toBeUndefined();
   });
 
+  it("opt-in: the latest order's explicit choice wins; an unticked order withdraws; no keys for a customer who never opted in", async () => {
+    const s = new LocalStorage(tmp());
+    const yes = (id: string, at: string, phone = "9647701234567") =>
+      order(id, at, { phone, marketingOptIn: true, marketingOptInAt: at });
+    // Never opted in: the stored record has no opt-in keys at all.
+    await s.upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z", { phone: "9647801112222" }));
+    await s.upsertCustomerFromOrder(order("order-0002", "2026-11-02T10:00:00.000Z", { phone: "9647801112222" }));
+    // Opt in, stay in on a second ticked order (date moves), then withdraw by an unticked order.
+    await s.upsertCustomerFromOrder(yes("order-0003", "2026-11-03T10:00:00.000Z"));
+    let a = (await s.listCustomers()).find((c) => c.phone === "9647701234567")!;
+    expect(a).toMatchObject({ marketingOptIn: true, marketingOptInAt: "2026-11-03T10:00:00.000Z" });
+    await s.upsertCustomerFromOrder(yes("order-0004", "2026-11-04T10:00:00.000Z"));
+    a = (await s.listCustomers()).find((c) => c.phone === "9647701234567")!;
+    expect(a.marketingOptInAt).toBe("2026-11-04T10:00:00.000Z");
+    await s.upsertCustomerFromOrder(order("order-0005", "2026-11-05T10:00:00.000Z"));
+    a = (await s.listCustomers()).find((c) => c.phone === "9647701234567")!;
+    expect(a).toMatchObject({ marketingOptIn: false, marketingOptInAt: null, ordersCount: 3 });
+    // An older order arriving late does not override the newer choice.
+    await s.upsertCustomerFromOrder(yes("order-0006", "2026-11-02T10:00:00.000Z"));
+    a = (await s.listCustomers()).find((c) => c.phone === "9647701234567")!;
+    expect(a).toMatchObject({ marketingOptIn: false, marketingOptInAt: null });
+    const never = (await s.listCustomers()).find((c) => c.phone === "9647801112222")!;
+    expect(never).not.toHaveProperty("marketingOptIn");
+    expect(never).not.toHaveProperty("marketingOptInAt");
+  });
+
+  it("opt-in on the very first order is stored with that order's time", async () => {
+    const s = new LocalStorage(tmp());
+    await s.upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z", { marketingOptIn: true, marketingOptInAt: "2026-11-01T10:00:00.000Z" }));
+    const [c] = await s.listCustomers();
+    expect(c).toMatchObject({ marketingOptIn: true, marketingOptInAt: "2026-11-01T10:00:00.000Z" });
+  });
+
   it("does not lose concurrent upserts", async () => {
     const s = new LocalStorage(tmp());
     await Promise.all(
@@ -183,11 +216,11 @@ describe("SupabaseStorage analytics (request shape)", () => {
     expect(out[0]).not.toHaveProperty("meta");
   });
 
-  it("upsertCustomerFromOrder calls rpc upsert_customer with 0 for unknown totals", async () => {
+  it("upsertCustomerFromOrder calls rpc upsert_customer_v2 with 0 for unknown totals", async () => {
     queue.push(empty(), empty());
     await store().upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z"));
     await store().upsertCustomerFromOrder(order("order-0002", "2026-11-01T10:00:00.000Z", { name: undefined }, null));
-    expect(calls[0].url).toBe(`${BASE}/rest/v1/rpc/upsert_customer`);
+    expect(calls[0].url).toBe(`${BASE}/rest/v1/rpc/upsert_customer_v2`);
     expect(JSON.parse(calls[0].init.body as string)).toEqual({
       p_phone: "9647701234567",
       p_name: "علي",
@@ -198,8 +231,61 @@ describe("SupabaseStorage analytics (request shape)", () => {
       p_order_id: "order-0001",
       p_display_no: "EP-order-0001",
       p_total_iqd: 10000,
+      p_marketing_opt_in: false,
     });
     expect(JSON.parse(calls[1].init.body as string)).toMatchObject({ p_name: null, p_total_iqd: 0 });
+  });
+
+  it("upsertCustomerFromOrder sends the opt-in only when the order ticked it", async () => {
+    queue.push(empty(), empty());
+    await store().upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z", { marketingOptIn: true, marketingOptInAt: "2026-11-01T10:00:00.000Z" }));
+    await store().upsertCustomerFromOrder(order("order-0002", "2026-11-02T10:00:00.000Z"));
+    expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ p_marketing_opt_in: true });
+    expect(JSON.parse(calls[1].init.body as string)).toMatchObject({ p_marketing_opt_in: false });
+  });
+
+  it("falls back to upsert_customer when upsert_customer_v2 does not exist yet (migration not applied)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const missing = () =>
+      new Response(JSON.stringify({ code: "PGRST202", message: "Could not find the function public.upsert_customer_v2" }), { status: 404, headers: { "content-type": "application/json" } });
+    queue.push(missing(), empty(), missing(), empty());
+    const s = store();
+    await s.upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z", { marketingOptIn: true }));
+    await s.upsertCustomerFromOrder(order("order-0002", "2026-11-02T10:00:00.000Z"));
+    expect(calls.map((c) => c.url.replace(BASE, ""))).toEqual([
+      "/rest/v1/rpc/upsert_customer_v2",
+      "/rest/v1/rpc/upsert_customer",
+      "/rest/v1/rpc/upsert_customer_v2",
+      "/rest/v1/rpc/upsert_customer",
+    ]);
+    // The v1 call carries exactly the old arguments (no opt-in parameter, which v1 does not have).
+    expect(Object.keys(JSON.parse(calls[1].init.body as string))).toEqual([
+      "p_phone", "p_name", "p_governorate", "p_district", "p_landmark", "p_at", "p_order_id", "p_display_no", "p_total_iqd",
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("does not hide a real v2 failure behind the v1 fallback", async () => {
+    queue.push(new Response("boom", { status: 500 }));
+    await expect(store().upsertCustomerFromOrder(order("order-0001", "2026-11-01T10:00:00.000Z"))).rejects.toThrow(/upsert_customer_v2 -> 500/);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("listCustomers maps the opt-in columns when present and leaves them out when absent", async () => {
+    const base = { name: "x", governorate: "g", district: "d", landmark: "l", first_order_at: "a", last_order_at: "b", orders_count: 1, total_iqd: 0, last_order_id: "o", last_display_no: "n" };
+    queue.push(
+      json([
+        { ...base, phone: "9647701234567", marketing_opt_in: true, marketing_opt_in_at: "2026-11-01T10:00:00+00:00" },
+        { ...base, phone: "9647701234568", marketing_opt_in: false, marketing_opt_in_at: null },
+        { ...base, phone: "9647701234569" },
+      ]),
+    );
+    const [a, b, c] = await store().listCustomers();
+    expect(a).toMatchObject({ marketingOptIn: true, marketingOptInAt: "2026-11-01T10:00:00+00:00" });
+    expect(b).toMatchObject({ marketingOptIn: false, marketingOptInAt: null });
+    expect(c).not.toHaveProperty("marketingOptIn");
+    expect(c).not.toHaveProperty("marketingOptInAt");
   });
 
   it("listCustomers maps rows, newest first, and never issues a DELETE", async () => {

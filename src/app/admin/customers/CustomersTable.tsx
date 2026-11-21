@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,18 +10,19 @@ import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
 import { admin } from '@/content/ar';
 import { formatPhoneLocal, whatsappUrl } from '@/lib/parse/phone';
-import { matchesQuery, type CustomerRow } from './filter';
+import { matchesOffers, matchesQuery, type CustomerRow } from './filter';
 
 const C = admin.customers;
 
 export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
   const [query, setQuery] = useState('');
   const [gov, setGov] = useState('');
+  const [offersOnly, setOffersOnly] = useState(false);
 
   const governorates = useMemo(() => [...new Set(rows.map((r) => r.governorate))].sort((a, b) => a.localeCompare(b, 'ar')), [rows]);
   const filtered = useMemo(
-    () => rows.filter((r) => (!gov || r.governorate === gov) && matchesQuery(r, query)),
-    [rows, query, gov],
+    () => rows.filter((r) => (!gov || r.governorate === gov) && matchesOffers(r, offersOnly) && matchesQuery(r, query)),
+    [rows, query, gov, offersOnly],
   );
 
   if (rows.length === 0) {
@@ -51,11 +53,19 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
             </option>
           ))}
         </select>
+        <label className="flex h-10 items-center gap-2 text-sm">
+          <input type="checkbox" checked={offersOnly} onChange={(e) => setOffersOnly(e.target.checked)} className="size-4 accent-brand" />
+          {C.marketingFilter}
+        </label>
         <span className="text-sm text-muted-foreground sm:ms-2">
           {C.total}: <Ltr>{filtered.length}</Ltr>
         </span>
-        <a href="/api/admin/customers" download className={`${buttonVariants({ variant: 'default' })} sm:ms-auto`}>
-          {C.download}
+        <a
+          href={offersOnly ? '/api/admin/customers?marketing=1' : '/api/admin/customers'}
+          download
+          className={`${buttonVariants({ variant: 'default' })} sm:ms-auto`}
+        >
+          {offersOnly ? C.marketingDownload : C.download}
         </a>
       </div>
 
@@ -70,6 +80,11 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col">
                       <span className="font-bold">{r.name || C.noName}</span>
+                      {r.marketingOptIn && (
+                        <Badge variant="secondary" className="w-fit">
+                          {C.marketingBadge}
+                        </Badge>
+                      )}
                       <a href={`tel:+${r.phone}`} aria-label={C.call} className="underline-offset-4 hover:underline">
                         <Ltr>{formatPhoneLocal(r.phone)}</Ltr>
                       </a>

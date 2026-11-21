@@ -125,6 +125,20 @@ export function DetailsStep({
           <Textarea id="cust-notes" rows={3} {...text('notes')} />
         </div>
 
+        <div className="flex items-start gap-3">
+          <input
+            id="cust-marketing"
+            type="checkbox"
+            checked={b.marketingOptIn}
+            onChange={(ev) => b.setMarketingOptIn(ev.target.checked)}
+            disabled={busy}
+            className="mt-0.5 size-5 shrink-0 accent-brand"
+          />
+          <Label htmlFor="cust-marketing" className="font-normal leading-relaxed">
+            {builder.details.marketingOptIn}
+          </Label>
+        </div>
+
         <p className="text-xs leading-relaxed text-muted-foreground">{builder.details.consent}</p>
 
         {busy && (

@@ -23,14 +23,14 @@ exports[`golden: SupabaseStorage — analytics and customers > customers 1`] = `
   },
   "upsert": {
     "requests": [
-      "POST /rest/v1/rpc/upsert_customer | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647701234567","p_name":"علي","p_governorate":"بغداد","p_district":"الكرادة","p_landmark":"قرب الجسر","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":19400}",
+      "POST /rest/v1/rpc/upsert_customer_v2 | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647701234567","p_name":"علي","p_governorate":"بغداد","p_district":"الكرادة","p_landmark":"قرب الجسر","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":19400,"p_marketing_opt_in":false}",
     ],
     "result": undefined,
     "unusedResponses": 0,
   },
   "upsertNoNameUnpriced": {
     "requests": [
-      "POST /rest/v1/rpc/upsert_customer | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647801112222","p_name":null,"p_governorate":"البصرة","p_district":"","p_landmark":"x","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":0}",
+      "POST /rest/v1/rpc/upsert_customer_v2 | auth=ok cache=no-store timeout=10000ms headers={"content-type":"application/json"} | body={"p_phone":"9647801112222","p_name":null,"p_governorate":"البصرة","p_district":"","p_landmark":"x","p_at":"2026-11-10T08:30:00.000Z","p_order_id":"abcDEF_123-xyz","p_display_no":"EP-261110-AB3C","p_total_iqd":0,"p_marketing_opt_in":false}",
     ],
     "result": undefined,
     "unusedResponses": 0,

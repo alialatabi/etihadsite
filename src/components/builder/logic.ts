@@ -153,8 +153,12 @@ export const CUSTOMER_FIELD_IDS = {
   district: 'cust-district',
 } as const satisfies Record<keyof CustomerErrors, string>;
 
-/** The `customer` block of the order request, built from the form and the validated phone. */
-export function toCustomerInfo(f: FormFields, phoneE164: string): CustomerInfo {
+/**
+ * The `customer` block of the order request, built from the form and the validated phone.
+ * `marketingOptIn` (the WhatsApp-offers box, kept outside FormFields so it is never saved or restored) is sent
+ * only when ticked: absent means false on the server.
+ */
+export function toCustomerInfo(f: FormFields, phoneE164: string, marketingOptIn: boolean = false): CustomerInfo {
   return {
     name: f.name.trim() || undefined,
     phone: phoneE164,
@@ -162,6 +166,7 @@ export function toCustomerInfo(f: FormFields, phoneE164: string): CustomerInfo {
     district: f.district.trim(),
     landmark: f.landmark.trim(),
     notes: f.notes.trim() || undefined,
+    ...(marketingOptIn ? { marketingOptIn: true } : {}),
   };
 }
 

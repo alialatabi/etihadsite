@@ -426,6 +426,31 @@ describe("POST /api/orders analytics + customers", () => {
     expect(record).toHaveBeenCalledTimes(1);
   });
 
+  it("stores the WhatsApp-offers opt-in on the order only when ticked, and hands it to the customer upsert", async () => {
+    const storage = getStorage() as unknown as Record<string, unknown>;
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    storage.upsertCustomerFromOrder = upsert;
+    storage.recordEvent = vi.fn().mockResolvedValue(undefined);
+    const yes = body({ orderId: "order-optin-yesaaaaaa", customer: { ...body().customer, marketingOptIn: true } });
+    expect((await call(yes)).status).toBe(200);
+    const stored = await getStorage().getOrder("order-optin-yesaaaaaa");
+    expect(stored?.customer.marketingOptIn).toBe(true);
+    expect(stored?.customer.marketingOptInAt).toBe(stored?.createdAt);
+    expect(upsert.mock.calls[0][0].customer.marketingOptIn).toBe(true);
+    // Unticked (false) and absent (an older cached page) both leave the stored order without the keys.
+    const no = body({ orderId: "order-optin-noaaaaaaa", customer: { ...body().customer, marketingOptIn: false } });
+    const none = body({ orderId: "order-optin-noneaaaaaa" });
+    expect((await call(no)).status).toBe(200);
+    expect((await call(none)).status).toBe(200);
+    for (const id of ["order-optin-noaaaaaaa", "order-optin-noneaaaaaa"]) {
+      const o = await getStorage().getOrder(id);
+      expect(o?.customer).not.toHaveProperty("marketingOptIn");
+      expect(o?.customer).not.toHaveProperty("marketingOptInAt");
+    }
+    // A non-boolean is refused like any other bad field.
+    expect((await call(body({ orderId: "order-optin-badaaaaaaa", customer: { ...body().customer, marketingOptIn: "yes" } }))).status).toBe(400);
+  });
+
   it("still succeeds when the customer upsert throws", async () => {
     const storage = getStorage() as unknown as Record<string, unknown>;
     storage.upsertCustomerFromOrder = vi.fn().mockRejectedValue(new Error("boom"));

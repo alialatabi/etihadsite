@@ -3,7 +3,7 @@
 exports[`golden: GET /api/admin/customers (CSV export) > authorised with no customers: header row only 1`] = `
 {
   "bareLfCount": 0,
-  "byteLength": 190,
+  "byteLength": 253,
   "crlfCount": 1,
   "firstThreeBytes": [
     "ef",
@@ -16,10 +16,10 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised with no cust
     "content-disposition=attachment; filename="customers-2026-11-10.csv"",
   ],
   "lines": [
-    "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
+    "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب","يوافق على العروض","تاريخ الموافقة"",
     "",
   ],
-  "sha256": "7899b3304804a07e874a158f9b6d2051edfbefb8dd11de07cf398b20581feccf",
+  "sha256": "4a91bb5067615607bf16de233cd1b998e2e4bfcac13dbb1354386400c9a26b8c",
   "status": 200,
 }
 `;
@@ -29,7 +29,7 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised: exact CSV b
   "almostExpiredStatus": 200,
   "full": {
     "bareLfCount": 1,
-    "byteLength": 664,
+    "byteLength": 757,
     "crlfCount": 4,
     "firstThreeBytes": [
       "ef",
@@ -42,14 +42,14 @@ exports[`golden: GET /api/admin/customers (CSV export) > authorised: exact CSV b
       "content-disposition=attachment; filename="customers-2026-11-10.csv"",
     ],
     "lines": [
-      "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب"",
-      ""علي حسين","964 770 123 4567","بغداد","المنصور, شارع 14","قرب ""المطعم""","2","88150","2026-11-01 12:00","2026-11-10 00:30","EP-261110-BBBB"",
+      "<U+FEFF>"الاسم","الموبايل","المحافظة","المنطقة","أقرب نقطة دالة","الطلبات","المجموع","أول طلب","آخر طلب","رقم آخر طلب","يوافق على العروض","تاريخ الموافقة"",
+      ""علي حسين","964 770 123 4567","بغداد","المنصور, شارع 14","قرب ""المطعم""","2","88150","2026-11-01 12:00","2026-11-10 00:30","EP-261110-BBBB","لا",""",
       ""'=HYPERLINK(""http://evil.example"",""x"")","964 780 111 2222","البصرة","","'+964 line
-second line","1","0","2026-11-05 15:00","2026-11-05 15:00","EP-261105-CCCC"",
-      ""","964 750 111 2222","أربيل","'-عنكاوا","'@home	tab","1","0","2026-10-31 23:59","2026-10-31 23:59","EP-261031-DDDD"",
+second line","1","0","2026-11-05 15:00","2026-11-05 15:00","EP-261105-CCCC","لا",""",
+      ""","964 750 111 2222","أربيل","'-عنكاوا","'@home	tab","1","0","2026-10-31 23:59","2026-10-31 23:59","EP-261031-DDDD","لا",""",
       "",
     ],
-    "sha256": "268a83ce2686405e0207680d3898d66da199cde5069c7ff5ce1e025064757e6a",
+    "sha256": "fad86bd4772400e48af31df61bf838e6ec4e7c96803babd4ccf456813e5a5e77",
     "status": 200,
   },
   "newYearsEve": "attachment; filename="customers-2026-12-31.csv"",

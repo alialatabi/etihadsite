@@ -228,8 +228,16 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
       "landmark": "أقرب نقطة دالة",
       "orders": "الطلبات",
       "spent": "المجموع",
-      "last": "آخر طلب"
+      "last": "آخر طلب",
+      "marketing": "يوافق على العروض",
+      "marketingAt": "تاريخ الموافقة"
     },
+    "marketingYes": "نعم",
+    "marketingNo": "لا",
+    "marketingBadge": "عروض واتساب",
+    "marketingFilter": "واتساب عروض",
+    "marketingDownload": "تنزيل قائمة العروض",
+    "marketingCsvFile": "customers-offers",
     "firstOrder": "أول طلب",
     "lastNo": "رقم آخر طلب",
     "call": "اتصال",
@@ -318,13 +326,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3115,
+  "chars": 3206,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "23c7ff28cab18233decebfe0be20e715d68f5248e6bf22c147ed819ea9e0a345",
-  "strings": 231,
+  "sha256OfRawJson": "72023259da016e34a883dab6899199bc210f6553417f680f22fd49c29ad0a84b",
+  "strings": 239,
 }
 `;
 
@@ -511,6 +519,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "landmarkPlaceholder": "مثلاً: قرب مطعم المنصور، شارع الصناعة",
     "notes": "ملاحظات",
     "notesOptional": "(اختياري)",
+    "marketingOptIn": "ابعثولي عروض وخصومات على الواتساب (اختياري)",
     "consent": "اسمك ورقمك وعنوانك نحتفظ بيهم حتى نخدمك بالطلبات الجاية، وما نشاركهم ويا أحد. نطبع حسب الملف المرفوع.",
     "submit": "أرسل الطلب",
     "errors": {
@@ -560,13 +569,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3981,
+  "chars": 4024,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "9561ad9736c5602a12cbe3e6dc110dfbbf17977f377bb1029f947890eb5da2cf",
-  "strings": 181,
+  "sha256OfRawJson": "6c188529b93b54e3ad372ec61d17af1c885134d019bf57f4f5abcf40c3e815b1",
+  "strings": 182,
 }
 `;
 

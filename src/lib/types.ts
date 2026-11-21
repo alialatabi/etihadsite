@@ -375,6 +375,13 @@ export interface CustomerInfo {
   district: string;
   landmark: string;
   notes?: string;
+  /**
+   * The customer ticked «ابعثولي عروض وخصومات على الواتساب» on this order (optional, unticked by default).
+   * Request: omitted = false. Stored on the order only when true, together with marketingOptInAt.
+   */
+  marketingOptIn?: boolean;
+  /** ISO 8601 UTC: when the box was ticked (the order's createdAt). Only on a stored order that opted in. */
+  marketingOptInAt?: string;
 }
 
 /** Body of POST /api/orders (JSON). The design was uploaded earlier via POST /api/upload. */
@@ -739,6 +746,13 @@ export interface CustomerRecord {
   totalIqd: number;
   lastOrderId: string;
   lastDisplayNo: string;
+  /**
+   * WhatsApp offers consent. The LATEST order's explicit choice wins (an order without the box ticked withdraws it).
+   * Absent = never opted in (rows from before 2026-11-22, or a customer who never ticked).
+   */
+  marketingOptIn?: boolean;
+  /** ISO 8601 UTC of the latest opt-in; null once withdrawn. Absent with `marketingOptIn`. */
+  marketingOptInAt?: string | null;
 }
 
 /* ────────────────────────────── Notification ───────────────────────────── */

@@ -209,6 +209,12 @@ describe('toCustomerInfo', () => {
     );
   });
 
+  it('adds marketingOptIn last and only when ticked; unticked keeps the exact old body', () => {
+    expect(toCustomerInfo(fields, '9647701234567', false)).toStrictEqual(toCustomerInfo(fields, '9647701234567'));
+    expect(Object.keys(toCustomerInfo(fields, '9647701234567', true))).toEqual(['name', 'phone', 'governorate', 'district', 'landmark', 'notes', 'marketingOptIn']);
+    expect(toCustomerInfo(fields, '9647701234567', true).marketingOptIn).toBe(true);
+  });
+
   it('does not trim or change the governorate', () => {
     expect(toCustomerInfo({ ...fields, governorate: ' البصرة ' }, '9647701234567').governorate).toBe(' البصرة ');
   });

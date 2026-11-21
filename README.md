@@ -157,6 +157,8 @@ The icons (`src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.pn
 ### Deployment
 Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`, and (after the AI designer ships) `OPENAI_API_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
 
+**Before deploying the WhatsApp-offers opt-in:** apply `supabase/migrations/20261122000000_marketing_opt_in.sql` on the production Supabase project FIRST. The new code falls back to the old `upsert_customer` when the migration is missing (customers are still recorded), but then nobody's opt-in is stored and those customers would have to opt in again. The migration is additive (two columns and a new function `upsert_customer_v2`; the old function stays).
+
 **Production checklist for the AI designer** (do these before or with the deploy that contains it):
 1. Apply `supabase/migrations/20261121000000_ai_designer.sql` on the production Supabase project (the code needs the new tables and RPCs).
 2. Set `OPENAI_API_KEY` in Vercel (use a fresh key, not one pasted in chat; set a monthly budget on the OpenAI account).

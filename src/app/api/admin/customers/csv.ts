@@ -49,7 +49,15 @@ const CUSTOMER_CSV_COLUMNS: readonly { header: string; value: (c: CustomerRecord
   { header: admin.customers.firstOrder, value: (c) => csvDate(c.firstOrderAt) },
   { header: col.last, value: (c) => csvDate(c.lastOrderAt) },
   { header: admin.customers.lastNo, value: (c) => c.lastDisplayNo },
+  // Appended last so the columns before it keep their place.
+  { header: col.marketing, value: (c) => (c.marketingOptIn === true ? admin.customers.marketingYes : admin.customers.marketingNo) },
+  { header: col.marketingAt, value: (c) => (c.marketingOptIn === true && c.marketingOptInAt ? csvDate(c.marketingOptInAt) : '') },
 ];
+
+/** Customers who agreed to WhatsApp offers on their latest order (the marketing export). */
+export function onlyMarketingOptIn<T extends { marketingOptIn?: boolean }>(customers: T[]): T[] {
+  return customers.filter((c) => c.marketingOptIn === true);
+}
 
 export function customersToCsv(headers: string[], customers: CustomerRecord[]): string {
   const lines = [headers.map(csvCell).join(',')];
@@ -60,9 +68,9 @@ export function customersToCsv(headers: string[], customers: CustomerRecord[]): 
 }
 
 /** The whole export as GET /api/admin/customers serves it: header row plus one row per customer. */
-export function customersCsv(customers: CustomerRecord[]): string {
+export function customersCsv(customers: CustomerRecord[], opts: { marketingOnly?: boolean } = {}): string {
   return customersToCsv(
     CUSTOMER_CSV_COLUMNS.map((column) => column.header),
-    customers,
+    opts.marketingOnly ? onlyMarketingOptIn(customers) : customers,
   );
 }

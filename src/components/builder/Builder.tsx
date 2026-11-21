@@ -103,7 +103,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
         material: b.material,
         stickers: b.stickers,
         sheets: b.sheets,
-        customer: toCustomerInfo(b.fields, phoneE164),
+        customer: toCustomerInfo(b.fields, phoneE164, b.marketingOptIn),
       },
       // The accepted AI design is already on the server: reuse its upload while it is still the design.
       seedUploadId({ aiUploadId: b.aiUploadId, aiFileId: b.aiFileId, fileId: b.fileId }),

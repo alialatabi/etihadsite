@@ -158,6 +158,16 @@ describe('saveDraft / loadDraft / clearDraft', () => {
     expect(loadDraft(NOW + 1000)).toEqual(FORM);
   });
 
+  it('never stores the WhatsApp-offers opt-in: neither storage mentions it, so it cannot come back pre-ticked', () => {
+    const local = fakeStorage();
+    const session = fakeStorage();
+    vi.stubGlobal('window', { localStorage: local, sessionStorage: session });
+    saveDraft(FORM, NOW);
+    expect(local.data.get(DRAFT_KEY)).not.toMatch(/marketing/i);
+    expect(session.data.get(FORM_KEY)).not.toMatch(/marketing/i);
+    expect(Object.keys(EMPTY_FIELDS)).not.toContain('marketingOptIn');
+  });
+
   it('a new tab (empty sessionStorage) gets the order back but not the personal fields', () => {
     const local = fakeStorage();
     vi.stubGlobal('window', { localStorage: local, sessionStorage: fakeStorage() });
