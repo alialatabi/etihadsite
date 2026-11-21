@@ -49,19 +49,6 @@
   --color-discount-foreground: var(--discount-foreground);
   --color-paper: var(--paper);
   --color-ink: var(--ink);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -115,55 +102,13 @@
   --border: oklch(0.91 0.008 20);
   --input: oklch(0.91 0.008 20);
   --ring: #d01c4a;
-  --chart-1: #d01c4a;
-  --chart-2: #121f34;
-  --chart-3: oklch(0.6 0.1 200);
-  --chart-4: oklch(0.75 0.12 120);
-  --chart-5: #8a2b8f;
   --radius: 0.75rem;
-  --sidebar: #fdfbfa;
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
 }
 
 @media (min-width: 640px) {
   :root {
     --header-h: 4rem;
   }
-}
-
-.dark {
-  --background: oklch(0.17 0.03 262);
-  --foreground: oklch(0.97 0.006 85);
-  --card: oklch(0.22 0.035 262);
-  --card-foreground: oklch(0.97 0.006 85);
-  --popover: oklch(0.22 0.035 262);
-  --popover-foreground: oklch(0.97 0.006 85);
-  --primary: oklch(0.9 0.02 20);
-  --primary-foreground: oklch(0.2 0.04 262);
-  --secondary: oklch(0.27 0.03 262);
-  --secondary-foreground: oklch(0.97 0.006 85);
-  --muted: oklch(0.27 0.03 262);
-  --muted-foreground: oklch(0.72 0.02 262);
-  --accent: oklch(0.3 0.05 8);
-  --accent-foreground: oklch(0.97 0.006 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: var(--brand);
-  --sidebar: oklch(0.22 0.035 262);
-  --sidebar-foreground: oklch(0.97 0.006 85);
-  --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: var(--brand-foreground);
-  --sidebar-accent: oklch(0.27 0.03 262);
-  --sidebar-accent-foreground: oklch(0.97 0.006 85);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: var(--brand);
 }
 
 @utility bg-brand-gradient {
@@ -220,10 +165,6 @@
   }
   h1, h2, h3, h4 {
     @apply font-heading;
-  }
-  /* Numbers inside <Ltr> align in columns (prices, sizes). */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
   }
   /* Dashed "cut line" motif helper. */
   .cut-line {
