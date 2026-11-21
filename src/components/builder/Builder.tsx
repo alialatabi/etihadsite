@@ -120,7 +120,7 @@ export function Builder({ settings }: { settings: ShopSettings }) {
   const inquiry = whatsappLink(settings.whatsapp);
 
   return (
-    <div id="builder" className="scroll-mt-14 sm:scroll-mt-16">{/* = sticky header height, so #builder links land on the stepper */}
+    <div id="builder">{/* #builder links land below the sticky header: html scroll-padding-top (globals.css) */}
       <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
         <div className={cn('min-w-0 space-y-6', b.restoring && 'invisible')} aria-busy={b.restoring || undefined}>
           <Stepper b={b} />
