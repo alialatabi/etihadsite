@@ -70,7 +70,7 @@ describe('admin orders list Telegram column', () => {
   });
 
   it('not sent: download link to the PDF and the send button', async () => {
-    orders = [withTelegram(2, 'failed')];
+    orders = [withTelegram(2, 'failed', new Date().toISOString())];
     const out = await html();
     expect(out).toContain(admin.orders.telegramDownload);
     expect(out).toContain(admin.orders.telegramResend);
