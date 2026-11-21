@@ -6,8 +6,22 @@ import { withSentryConfig } from "@sentry/nextjs/config";
  *   see docs/STACK_NOTES.md. Dynamic pages opt in with `export const dynamic = 'force-dynamic'`.
  * - sharp and pdf-lib stay external to the server bundle.
  * - pdfjs-dist optionally requires `canvas`; alias it to an empty module.
+ * - Security headers: one site-wide rule (see `securityHeaders`), and no `X-Powered-By`.
  */
+export const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  // frame-ancestors only: no script-src or other directive (Next inline scripts, Sentry and the PDF worker would break).
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    // One rule for every path, so /staff/<wrong key> and an unknown URL get identical headers
+    // (invariant 11). Referrer-Policy is not set here: src/proxy.ts sets no-referrer on the staff page.
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   serverExternalPackages: ["sharp", "pdf-lib"],
   turbopack: {
     rules: {
