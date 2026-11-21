@@ -239,6 +239,7 @@ exports[`golden: rate limiter > limit 0 and limit 1 1`] = `
 exports[`golden: rate limiter > limiters(): the limits per route in both modes, and when the set is rebuilt 1`] = `
 {
   "global": {
+    "brief": 600,
     "log": 1200,
     "login": 200,
     "mode": 0,
@@ -246,6 +247,7 @@ exports[`golden: rate limiter > limiters(): the limits per route in both modes, 
     "upload": 400,
   },
   "perIp": {
+    "brief": 30,
     "log": 60,
     "login": 10,
     "mode": 1,

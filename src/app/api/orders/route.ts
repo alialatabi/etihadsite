@@ -204,6 +204,18 @@ async function processOrder(
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
   await storage.saveOrder(record);
 
+  // An AI design (src/lib/ai/service.ts) is marked as ordered: best effort, never fails the order.
+  try {
+    await storage.aiMarkOrdered?.(req.uploadId, record.orderId);
+  } catch {
+    // Codes only: a storage error could echo the generation row (idea text, IP).
+    reportError(new Error("AI generation mark-ordered failed"), {
+      where: "orders.aiMarkOrdered",
+      route: "/api/orders",
+      tags: { orderId: record.orderId },
+    });
+  }
+
   // Customer list + analytics: best effort, must never fail the order.
   try {
     await storage.upsertCustomerFromOrder(record);

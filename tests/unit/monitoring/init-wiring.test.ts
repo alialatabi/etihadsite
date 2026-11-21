@@ -76,6 +76,15 @@ describe('server init (src/sentry.server.config.ts)', () => {
     expect(crumb.data.url).toBe('/staff/[redacted]');
   });
 
+  it('blanks the OpenAI key wherever it appears', async () => {
+    const OPENAI_KEY = 'sk-proj-OAkeyQ9w8e7r6t5y4u3i';
+    vi.stubEnv('OPENAI_API_KEY', OPENAI_KEY);
+    await import('../../../src/sentry.server.config');
+    const ev = dirtyEvent();
+    ev.exception.values[0].value = `openai said Bearer ${OPENAI_KEY} is wrong`;
+    expect(JSON.stringify(initOptions().beforeSend(ev))).not.toContain('OAkeyQ9w8e7r6t5y4u3i');
+  });
+
   it('drops the session integrations from the defaults', async () => {
     await import('../../../src/sentry.server.config');
     const o = initOptions();
