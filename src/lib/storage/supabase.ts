@@ -279,6 +279,26 @@ export class SupabaseStorage implements StorageAdapter {
     }
   }
 
+  /** Meta and .bin size of a committed upload, without downloading the .bin (see StorageAdapter.uploadInfo). */
+  async uploadInfo(uploadId: string) {
+    if (!ID_RE.test(uploadId)) return null;
+    const metaRaw = await this.getObject(uploadMetaPath(uploadId));
+    if (!metaRaw) return null;
+    let meta: StoredFileMeta;
+    try {
+      meta = JSON.parse(Buffer.from(metaRaw).toString('utf8')) as StoredFileMeta;
+    } catch (e) {
+      reportError(e, { where: 'storage.uploadInfo', tags: { uploadId } });
+      return null;
+    }
+    // Object info (JSON, no body): a purged .bin answers 404 and so the caller treats the upload as missing, like readUpload.
+    const res = await this.req(`/storage/v1/object/info/authenticated/${BUCKET}/${safePath(uploadPath(uploadId))}`, { allowNotFound: true });
+    if (!res.ok) return null;
+    const info = (await res.json().catch(() => null)) as { size?: unknown } | null;
+    const size = typeof info?.size === 'number' && Number.isFinite(info.size) ? info.size : Number(meta.bytes);
+    return { meta, size };
+  }
+
   async savePdf(orderId: string, bytes: Uint8Array): Promise<string> {
     if (!ID_RE.test(orderId)) throw new Error('Invalid order id');
     await this.putObject(pdfPath(orderId), bytes, 'application/pdf');

@@ -62,6 +62,49 @@ describe("rate limiter", () => {
     }
   });
 
+  it("has a separate commit limiter: 40 per hour per address (x20 without a trusted proxy), independent of the upload one", () => {
+    const prev = process.env.TRUST_PROXY;
+    try {
+      (globalThis as { __epLimiters?: unknown }).__epLimiters = undefined;
+      process.env.TRUST_PROXY = "1";
+      const l1 = limiters();
+      expect(l1.commit).not.toBe(l1.upload);
+      for (let i = 0; i < 40; i++) expect(l1.commit.check("ip").ok).toBe(true);
+      expect(l1.commit.check("ip").ok).toBe(false);
+      expect(l1.upload.check("ip").ok).toBe(true); // the start's allowance is untouched
+      process.env.TRUST_PROXY = "0";
+      const l0 = limiters();
+      for (let i = 0; i < 800; i++) expect(l0.commit.check("global").ok).toBe(true);
+      expect(l0.commit.check("global").ok).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+      (globalThis as { __epLimiters?: unknown }).__epLimiters = undefined;
+    }
+  });
+
+  it("adds the commit limiter to a set that predates it without resetting the others", () => {
+    const slot = globalThis as { __epLimiters?: unknown };
+    const prev = process.env.TRUST_PROXY;
+    try {
+      slot.__epLimiters = undefined;
+      process.env.TRUST_PROXY = "1";
+      const fresh = limiters();
+      const upload = createRateLimiter({ limit: 20, windowMs: 1000 });
+      const stale: Record<string, unknown> = { mode: fresh.mode, upload };
+      slot.__epLimiters = stale;
+      const patched = limiters();
+      expect(patched).toBe(stale);
+      expect(patched.upload).toBe(upload);
+      expect(patched.commit).toBeDefined();
+      expect(limiters().commit).toBe(patched.commit);
+    } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+      slot.__epLimiters = undefined;
+    }
+  });
+
   it("keeps a complete limiter set and adds the track limiter to one that predates it", () => {
     const slot = globalThis as { __epLimiters?: unknown };
     const prev = process.env.TRUST_PROXY;

@@ -141,6 +141,42 @@ describe("SupabaseStorage objects", () => {
     expect(Array.from(out!.bytes)).toEqual([1]);
   });
 
+  it("uploadInfo reads the meta and the .bin's object info, and never downloads the bytes", async () => {
+    const meta: StoredFileMeta = { mime: "image/png", originalName: "a.png", bytes: 1234, createdAt: "x" };
+    respond(json(meta), json({ name: `uploads/${ID}.bin`, size: 1234 }));
+    const out = await store().uploadInfo(ID);
+    expect(out).toEqual({ meta, size: 1234 });
+    expect(calls).toHaveLength(2);
+    expect(calls[0].url).toBe(`${BASE}/storage/v1/object/authenticated/etihad/uploads/${ID}.json`);
+    expect(calls[1].url).toBe(`${BASE}/storage/v1/object/info/authenticated/etihad/uploads/${ID}.bin`);
+    expect(calls[1].init.method ?? "GET").toBe("GET");
+    expectAuth(calls[1]);
+  });
+
+  it("uploadInfo is null without a meta (no further request) and when the .bin is gone, like readUpload", async () => {
+    respond(json({ statusCode: "404", error: "not_found" }, 400));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    expect(calls).toHaveLength(1);
+
+    const meta: StoredFileMeta = { mime: "image/png", originalName: "a.png", bytes: 1, createdAt: "x" };
+    respond(json(meta), json({ statusCode: "404", error: "not_found" }, 404));
+    expect(await store().uploadInfo(ID)).toBeNull();
+    expect(await store().uploadInfo("../x")).toBeNull();
+  });
+
+  it("uploadInfo falls back to meta.bytes when the info answer has no size, and is null for a meta that is not JSON", async () => {
+    const meta: StoredFileMeta = { mime: "image/png", originalName: "a.png", bytes: 77, createdAt: "x" };
+    respond(json(meta), json({ name: "x" }));
+    expect((await store().uploadInfo(ID))?.size).toBe(77);
+    respond(bytes(new TextEncoder().encode("not json")));
+    expect(await store().uploadInfo(ID)).toBeNull();
+  });
+
+  it("uploadInfo throws on an outage, like the other reads", async () => {
+    respond(json({ error: "x" }, 500));
+    await expect(store().uploadInfo(ID)).rejects.toThrow(/-> 500/);
+  });
+
   it("deleteFile sends DELETE with prefixes to the bucket", async () => {
     respond(json([]));
     await store().deleteFile(`uploads/${ID}.bin`);

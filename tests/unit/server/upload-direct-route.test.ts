@@ -39,6 +39,8 @@ type FakeAdapter = StorageAdapter & {
   saveUploadMeta: ReturnType<typeof vi.fn>;
   saveUpload: ReturnType<typeof vi.fn>;
   deleteFile: ReturnType<typeof vi.fn>;
+  readFile: ReturnType<typeof vi.fn>;
+  readUpload: ReturnType<typeof vi.fn>;
 };
 
 function makeFake(settings: Partial<ShopSettings> = {}): FakeAdapter {
@@ -304,6 +306,78 @@ describe("POST /api/upload/direct/commit", () => {
     expect(f.saveUpload).not.toHaveBeenCalled();
     expect(f.deleteFile).not.toHaveBeenCalled();
     expect(f.readFile).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo, answers an already-committed id from the meta alone: no download of the bytes", async () => {
+    const f = makeFake();
+    const info = vi.fn(async () => ({
+      meta: { mime: "application/pdf", originalName: "a.pdf", bytes: 5000, createdAt: new Date().toISOString() },
+      size: 5000,
+    }));
+    (f as StorageAdapter).uploadInfo = info;
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, uploadId: ID, kind: "pdf", bytes: 5000 });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(f.readUpload).not.toHaveBeenCalled();
+    expect(f.readFile).not.toHaveBeenCalled();
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it("with uploadInfo, a meta whose mime is not a design type answers 415 unsupported_type", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => ({
+      meta: { mime: "image/gif", originalName: "a.gif", bytes: 9, createdAt: new Date().toISOString() },
+      size: 9,
+    }));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(415);
+    expect(await res.json()).toMatchObject({ ok: false, error: "unsupported_type" });
+  });
+
+  it("with uploadInfo returning null (no meta, or the .bin was purged) it takes the fresh path: a missing .bin is still 400 corrupt", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.readUpload).not.toHaveBeenCalled();
+    expect(f.readFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+  });
+
+  it("with uploadInfo returning null and fresh bytes in place, commits them normally", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("rate limits commits per IP with its own limiter (40 per hour): 429 + Retry-After, and the start limiter is not touched", async () => {
+    const f = makeFake();
+    fake = f;
+    const ip = "6.6.6.6";
+    for (let i = 0; i < 40; i++) {
+      const r = await commit(commitReq({ uploadId: ID }, ip));
+      expect(r.status).toBe(400); // nothing uploaded: corrupt, but it was not rate limited
+    }
+    const limited = await commit(commitReq({ uploadId: ID }, ip));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBeTruthy();
+    expect(await limited.json()).toMatchObject({ ok: false, error: "rate_limited" });
+    // Refused before the body is read and before any storage call.
+    const readsBefore = f.readFile.mock.calls.length;
+    await commit(commitReq({ uploadId: ID }, ip));
+    expect(f.readFile.mock.calls.length).toBe(readsBefore);
+    // The same address can still start uploads, and another address can still commit.
+    expect((await start(startReq({ size: 10 }, ip))).status).toBe(200);
+    expect((await commit(commitReq({ uploadId: ID }, "6.6.6.7"))).status).toBe(400);
   });
 
   it.each([

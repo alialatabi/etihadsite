@@ -119,6 +119,24 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
+  async uploadInfo(uploadId: string) {
+    if (!ID_RE.test(uploadId)) return null;
+    const metaRaw = await this.readOptional(uploadMetaPath(uploadId));
+    if (!metaRaw) return null;
+    let size: number;
+    try {
+      size = (await fs.stat(this.resolveSafe(uploadPath(uploadId)))).size;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
+    }
+    try {
+      return { meta: JSON.parse(metaRaw.toString("utf8")) as StoredFileMeta, size };
+    } catch {
+      return null;
+    }
+  }
+
   async savePdf(orderId: string, bytes: Uint8Array): Promise<string> {
     if (!ID_RE.test(orderId)) throw new Error("Invalid order id");
     await this.writeAtomic(pdfPath(orderId), bytes);

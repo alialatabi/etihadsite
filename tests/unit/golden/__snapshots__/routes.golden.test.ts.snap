@@ -660,7 +660,7 @@ exports[`golden: POST /api/upload/direct/commit > direct-capable storage: every 
   "logged": [
     [
       "[upload/direct/commit] failed",
-      "GOLDEN storage down (readUpload)",
+      "GOLDEN storage down (uploadInfo)",
     ],
   ],
   "out": {

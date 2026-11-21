@@ -561,6 +561,12 @@ export interface StorageAdapter {
   readonly directUploadMaxBytes?: number;
   /** Optional: write only the meta of a direct upload whose bytes the server has checked. */
   saveUploadMeta?(uploadId: string, meta: StoredFileMeta): Promise<void>;
+  /**
+   * Optional: what a committed upload looks like WITHOUT reading its bytes: the stored meta and
+   * the size of the .bin. null when the meta is missing or unreadable, or the .bin is gone, i.e.
+   * exactly when readUpload() would answer null. Lets the commit step answer a retry cheaply.
+   */
+  uploadInfo?(uploadId: string): Promise<{ meta: StoredFileMeta; size: number } | null>;
   /** Optional: short-lived signed download URL for an admin download. */
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 

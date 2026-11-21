@@ -81,6 +81,8 @@ export function clientIp(
 const HOUR = 60 * 60 * 1000;
 type Limiters = {
   upload: RateLimiter;
+  /** POST /api/upload/direct/commit: kept apart from `upload`, so the start and the commit of one real upload do not use two hits of the same allowance. */
+  commit: RateLimiter;
   order: RateLimiter;
   log: RateLimiter;
   login: RateLimiter;
@@ -106,6 +108,7 @@ export function limiters(): Limiters {
     g.__epLimiters = {
       mode,
       upload: createRateLimiter({ limit: 20 * k, windowMs: HOUR }),
+      commit: createRateLimiter({ limit: 40 * k, windowMs: HOUR }),
       order: createRateLimiter({ limit: 5 * k, windowMs: HOUR }),
       log: createRateLimiter({ limit: 60 * k, windowMs: HOUR }),
       login: createRateLimiter({ limit: 10 * k, windowMs: 15 * 60 * 1000 }),
@@ -120,5 +123,7 @@ export function limiters(): Limiters {
   // Same for `brief` and `generate` (added 2026-11-21).
   g.__epLimiters.brief ??= createRateLimiter({ limit: 30 * (mode ? 1 : 20), windowMs: HOUR });
   g.__epLimiters.generate ??= createRateLimiter({ limit: 15 * (mode ? 1 : 20), windowMs: HOUR });
+  // And for `commit` (added 2026-11-21).
+  g.__epLimiters.commit ??= createRateLimiter({ limit: 40 * (mode ? 1 : 20), windowMs: HOUR });
   return g.__epLimiters;
 }

@@ -2,8 +2,9 @@ import { z } from "zod";
 import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "../../../_lib/body";
 import { rasterHeaderOk } from "../../../_lib/image-header";
 import { cleanOriginalName, directUploadCap, uploadFail, uploadOk } from "../../../_lib/upload";
-import { MIME_BY_KIND, sniffKind } from "@/lib/design/kind";
+import { MIME_BY_KIND, kindForMime, sniffKind } from "@/lib/design/kind";
 import { trackServer } from "@/lib/analytics/server";
+import { clientIp, limiters } from "@/lib/rate-limit";
 import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
@@ -25,7 +26,10 @@ const bodySchema = z.object({
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    // Not rate-limited again: a commit needs a file that a (rate-limited) start produced.
+    // Its own limiter (not the start's): a retry of a real commit must not be refused by the start's allowance, and a loop of commits must not be free.
+    const rl = limiters().commit.check(clientIp(request));
+    if (!rl.ok) return uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
+
     let parsed;
     try {
       parsed = bodySchema.safeParse(await readJsonCapped(request, SMALL_JSON_MAX_BYTES));
@@ -37,12 +41,22 @@ export async function POST(request: Request): Promise<Response> {
 
     const storage = getStorage();
     if (!storage.createDirectUpload) return uploadFail("corrupt");
-    // Already committed (retry after a network blip): answer from the stored meta.
-    const existing = await storage.readUpload(uploadId);
-    if (existing) {
-      const kind = sniffKind(existing.bytes);
-      if (!kind) return uploadFail("unsupported_type");
-      return uploadOk(uploadId, kind, existing.bytes.byteLength);
+    // Already committed (retry after a network blip): answer from the stored meta. The meta is only
+    // written after the bytes passed every check, and uploadInfo() does not download the file (up to 15 MB).
+    if (storage.uploadInfo) {
+      const info = await storage.uploadInfo(uploadId);
+      if (info) {
+        const kind = kindForMime(info.meta.mime);
+        if (!kind) return uploadFail("unsupported_type");
+        return uploadOk(uploadId, kind, info.size);
+      }
+    } else {
+      const existing = await storage.readUpload(uploadId);
+      if (existing) {
+        const kind = sniffKind(existing.bytes);
+        if (!kind) return uploadFail("unsupported_type");
+        return uploadOk(uploadId, kind, existing.bytes.byteLength);
+      }
     }
 
     const bytes = await storage.readFile(uploadPath(uploadId));
