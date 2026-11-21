@@ -766,10 +766,9 @@ export class SupabaseStorage implements StorageAdapter {
     if (!dryRun) {
       await this.deleteMany([...files]);
       // Exactly the rows classified above, by id; `created_at < oldRuleEnd` stays on as a backstop.
-      const before = encodeURIComponent(oldRuleEnd.toISOString());
       for (let i = 0; i < oldRule.length; i += ORDER_DELETE_CHUNK) {
         const ids = oldRule.slice(i, i + ORDER_DELETE_CHUNK).map((o) => o.order_id).join(',');
-        await this.req(`/rest/v1/orders?order_id=in.(${ids})&created_at=lt.${before}`, { method: 'DELETE' });
+        await this.req(`/rest/v1/orders?order_id=in.(${ids})&created_at=lt.${oldRuleEndQ}`, { method: 'DELETE' });
       }
     }
     return removed;
