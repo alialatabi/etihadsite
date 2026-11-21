@@ -2,7 +2,7 @@
  * Counters and limit alerts of the admin designs page. Pure (no I/O).
  * Only `kind === 'image'` rows count as designs; brief rows have their own, higher limit
  * and never raise an alert. A row with `ipKey === ''` is the site-only row (no per-IP
- * check was possible) and never raises an alert either.
+ * check was possible) and never raises an alert either. Neither does an already blocked IP.
  */
 import { DAY_MS } from '@/lib/shop-time';
 import type { AiUsageRow } from '@/lib/types';
@@ -33,7 +33,13 @@ function at(iso: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
-export function designsSummary(usage: AiUsageRow[], today: string, perIpLimit: number): DesignsSummary {
+/** `blockedKeys`: IPs already blocked never appear in `alerts` (nothing left to act on); their uses still count. */
+export function designsSummary(
+  usage: AiUsageRow[],
+  today: string,
+  perIpLimit: number,
+  blockedKeys: ReadonlySet<string> = new Set(),
+): DesignsSummary {
   const month = today.slice(0, 7);
   const yesterday = previousDay(today);
   let todayCount = 0;
@@ -46,7 +52,7 @@ export function designsSummary(usage: AiUsageRow[], today: string, perIpLimit: n
     allTime += r.count;
     if (r.day.slice(0, 7) === month) monthCount += r.count;
     if (r.day === today) todayCount += r.count;
-    if (r.ipKey !== '' && (r.day === today || r.day === yesterday) && r.count >= perIpLimit) {
+    if (r.ipKey !== '' && !blockedKeys.has(r.ipKey) && (r.day === today || r.day === yesterday) && r.count >= perIpLimit) {
       alerts.push({ ipKey: r.ipKey, ip: r.ip, count: r.count, lastAt: r.lastAt, day: r.day });
     }
   }

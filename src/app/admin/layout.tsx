@@ -14,7 +14,7 @@ import { designsSummary } from './designs/summary';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: admin.title, robots: { index: false, follow: false } };
 
-/** Customers at today's/yesterday's per-IP limit, for the nav badge. Never breaks the layout. */
+/** Customers at today's/yesterday's per-IP limit and not yet blocked, for the nav badge. Never breaks the layout. */
 async function designAlertCount(): Promise<number> {
   try {
     const storage = getStorage();
@@ -22,7 +22,8 @@ async function designAlertCount(): Promise<number> {
     const now = Date.now();
     const settings = await getSettings();
     const usage = await storage.aiUsage(shopDayKey(new Date(now - DAY_MS)));
-    return designsSummary(usage, shopDayKey(new Date(now)), settings.ai.perIpDailyLimit).alerts.length;
+    const blockedKeys = new Set((await storage.aiListBlocks?.())?.map((b) => b.ipKey) ?? []);
+    return designsSummary(usage, shopDayKey(new Date(now)), settings.ai.perIpDailyLimit, blockedKeys).alerts.length;
   } catch {
     return 0;
   }

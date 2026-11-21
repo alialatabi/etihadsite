@@ -430,13 +430,34 @@ describe("reference reads do not fail open", () => {
     expect(calls.every((c) => c.method !== "DELETE")).toBe(true);
   });
 
-  it("supabase: old-rule rows are deleted by id in chunks of 200", async () => {
-    for (let i = 0; i < 450; i++) db.orders.push({ order_id: `order-old-${String(i).padStart(4, "0")}`, created_at: inWindow(OLD_CUTOFF, 3), files: { designPath: `uploads/x${String(i).padStart(8, "0")}.bin`, pdfPath: `orders/order-old-${String(i).padStart(4, "0")}.pdf` } });
+  it("supabase: old-rule rows are deleted by id in chunks of 100", async () => {
+    for (let i = 0; i < 250; i++) db.orders.push({ order_id: `order-old-${String(i).padStart(4, "0")}`, created_at: inWindow(OLD_CUTOFF, 3), files: { designPath: `uploads/x${String(i).padStart(8, "0")}.bin`, pdfPath: `orders/order-old-${String(i).padStart(4, "0")}.pdf` } });
     await sb().purgeOlderThan(OLD_CUTOFF, false, ORPHAN_FAR);
     const dels = calls.filter((c) => c.method === "DELETE" && c.url.startsWith("/rest/v1/orders"));
-    expect(dels.map((d) => (/in\.\(([^)]*)\)/.exec(d.url)?.[1] ?? "").split(",").length)).toEqual([200, 200, 50]);
+    expect(dels.map((d) => (/in\.\(([^)]*)\)/.exec(d.url)?.[1] ?? "").split(",").length)).toEqual([100, 100, 50]);
     for (const d of dels) expect(d.url).toContain(`&created_at=lt.${encodeURIComponent(OLD_CUTOFF.toISOString())}`);
     expect(db.orders).toEqual([]);
+  });
+
+  it("supabase: a reference read that never ends in an empty page throws before any delete", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      calls.push({ method: (init as RequestInit | undefined)?.method ?? "GET", url: String(input).replace(BASE, "") });
+      return ok([{ order_id: "order-endless-1", created_at: at(NEW_CUTOFF.getTime() - DAY), files: null }]);
+    });
+    await expect(sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).rejects.toThrow(/ceiling/);
+    expect(calls.every((c) => c.method !== "DELETE")).toBe(true);
+    expect(calls.length).toBeLessThanOrEqual(10_001);
+  });
+
+  it("supabase: an object listing that never ends in an empty page throws before any delete", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      calls.push({ method: (init as RequestInit | undefined)?.method ?? "GET", url: url.replace(BASE, "") });
+      if (url.includes("/rest/v1/")) return ok([]);
+      return ok([{ name: "endless-000001.bin", created_at: at(NEW_CUTOFF.getTime() + 365 * DAY) }]);
+    });
+    await expect(sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).rejects.toThrow(/ceiling/);
+    expect(calls.every((c) => c.method !== "DELETE")).toBe(true);
   });
 
   it("local: an AI list that is valid JSON but not a list stops the purge", async () => {

@@ -3,7 +3,7 @@
 exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere in the copy 1`] = `
 [
   "{cols} x1",
-  "{count} x3",
+  "{count} x2",
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
@@ -299,7 +299,6 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "month": "هذا الشهر",
     "all": "الكل",
     "alerts": "زبائن وصلوا الحد",
-    "alertRow": "{count} تصاميم",
     "view": "شوف",
     "block": "احظر",
     "unblock": "إلغاء الحظر",
@@ -318,13 +317,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3129,
+  "chars": 3115,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "71e5924cf45dd7f596dd140f077dd2be1815bfc0d16c3188c21026e1b11cb443",
-  "strings": 232,
+  "sha256OfRawJson": "23c7ff28cab18233decebfe0be20e715d68f5248e6bf22c147ed819ea9e0a345",
+  "strings": 231,
 }
 `;
 

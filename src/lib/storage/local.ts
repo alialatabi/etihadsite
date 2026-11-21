@@ -37,6 +37,7 @@ import { parseStoredSettings } from "./settings-schema";
 
 export { deepMerge } from "./settings-schema";
 
+const AI_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
@@ -377,6 +378,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async aiUsage(sinceDay: string): Promise<AiUsageRow[]> {
+    if (!AI_DAY_RE.test(sinceDay)) throw new Error("Invalid day");
     const rows = await this.readAiList<AiUsageRow>("usage");
     const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
     return rows
@@ -419,11 +421,14 @@ export class LocalStorage implements StorageAdapter {
           : x.id < y.id ? 1 : x.id > y.id ? -1 : 0,
       );
     const from = Math.max(0, Math.floor(q.offset));
-    return { rows: list.slice(from, from + Math.max(1, Math.floor(q.limit))), total: list.length };
+    const limit = Math.floor(q.limit);
+    return { rows: limit >= 1 ? list.slice(from, from + limit) : [], total: list.length };
   }
 
   /** Already blocked = kept as is (first block time stays). */
   aiBlock(ipKey: string, ip: string): Promise<void> {
+    // '' is the site-only usage row; blocking it would block every site-only reservation.
+    if (ipKey === "") return Promise.reject(new Error("Invalid ipKey"));
     return this.withAiLock(async () => {
       const list = await this.readAiList<AiBlock>("blocks");
       if (list.some((b) => b.ipKey === ipKey)) return;
@@ -443,6 +448,18 @@ export class LocalStorage implements StorageAdapter {
   async aiListBlocks(): Promise<AiBlock[]> {
     const list = await this.readAiList<AiBlock>("blocks");
     return list.sort((x, y) => (x.createdAt < y.createdAt ? 1 : x.createdAt > y.createdAt ? -1 : 0));
+  }
+
+  /** Deletes usage counters of days before `day` (YYYY-MM-DD). Returns `ai_usage:<n>` (empty when none). */
+  async aiPurgeUsageBefore(day: string, dryRun: boolean): Promise<string[]> {
+    if (!AI_DAY_RE.test(day)) throw new Error("Invalid day");
+    return this.withAiLock(async () => {
+      const rows = await this.readAiList<AiUsageRow>("usage");
+      const keep = rows.filter((r) => r.day >= day);
+      const n = rows.length - keep.length;
+      if (n > 0 && !dryRun) await this.writeAiList("usage", keep);
+      return n > 0 ? [`ai_usage:${n}`] : [];
+    });
   }
 
   /**

@@ -247,7 +247,6 @@ export const admin = {
     month: 'هذا الشهر',
     all: 'الكل',
     alerts: 'زبائن وصلوا الحد',
-    alertRow: '{count} تصاميم',
     view: 'شوف',
     block: 'احظر',
     unblock: 'إلغاء الحظر',

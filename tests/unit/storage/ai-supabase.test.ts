@@ -146,6 +146,42 @@ describe("SupabaseStorage AI generations and blocks", () => {
     expect(await store().aiListGenerations({ limit: 10, offset: 50 })).toEqual({ rows: [], total: 7 });
   });
 
+  it("aiListGenerations with limit 0 asks for no rows but keeps the total", async () => {
+    queue.push(json([], 200, { "Content-Range": "*/12" }));
+    expect(await store().aiListGenerations({ limit: 0, offset: 0, ipKey: "k1" })).toEqual({ rows: [], total: 12 });
+    expect(calls[0].url).toBe(`${BASE}/rest/v1/ai_generations?select=id&limit=0&ip_key=eq.k1`);
+    expect(calls[0].init.headers.Prefer).toBe("count=exact");
+  });
+
+  it("a 416 answer releases its body without reading it", async () => {
+    const cancel = vi.fn(async () => {});
+    const res = new Response("x", { status: 416, headers: { "Content-Range": "*/7" } });
+    Object.defineProperty(res, "body", { value: { cancel } });
+    queue.push(res);
+    expect(await store().aiListGenerations({ limit: 10, offset: 50 })).toEqual({ rows: [], total: 7 });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("aiBlock refuses an empty ipKey without a request", async () => {
+    await expect(store().aiBlock("", "1.2.3.4")).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("aiPurgeUsageBefore counts (dry) or deletes ai_usage rows before the day", async () => {
+    queue.push(json([{ day: "2025-01-01" }, { day: "2025-01-02" }]));
+    expect(await store().aiPurgeUsageBefore("2025-02-01", true)).toEqual(["ai_usage:2"]);
+    expect(calls[0].url).toBe(`${BASE}/rest/v1/ai_usage?select=day&day=lt.2025-02-01&limit=100000`);
+    expect(calls[0].init.method ?? "GET").toBe("GET");
+    queue.push(json([{ day: "2025-01-01" }]));
+    expect(await store().aiPurgeUsageBefore("2025-02-01", false)).toEqual(["ai_usage:1"]);
+    expect(calls[1].url).toBe(`${BASE}/rest/v1/ai_usage?select=day&day=lt.2025-02-01`);
+    expect(calls[1].init.method).toBe("DELETE");
+    queue.push(empty(204));
+    expect(await store().aiPurgeUsageBefore("2025-02-01", false)).toEqual([]);
+    await expect(store().aiPurgeUsageBefore("2025-2-1", false)).rejects.toThrow();
+    expect(calls).toHaveLength(3);
+  });
+
   it("aiMarkOrdered PATCHes ai_generations?upload_id=eq.<id>", async () => {
     queue.push(empty(204));
     await store().aiMarkOrdered("up_abcdefgh", "ORDER_abcdefgh");

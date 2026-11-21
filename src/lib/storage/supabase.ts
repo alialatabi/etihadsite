@@ -46,8 +46,10 @@ const OBJECT_TIMEOUT_MS = 30_000;
 const PAGE_ROWS = 1000;
 /** Object paths per bulk-delete request. */
 const DELETE_CHUNK = 500;
-/** Order ids per retention row-delete request (keeps the URL short). */
-const ORDER_DELETE_CHUNK = 200;
+/** Order ids per retention row-delete request (keeps the URL short even with long ids). */
+const ORDER_DELETE_CHUNK = 100;
+/** Hard ceiling on pages of an until-empty read: a server that never answers an empty page must end in an error, never a loop (before any delete). */
+const MAX_PURGE_PAGES = 10_000;
 /** The `limit=` sent on the dry-run purge select of event ids (it counts what would be deleted); PostgREST's max-rows (default 1000) caps the rows actually read. */
 const DRY_RUN_COUNT_LIMIT = 100_000;
 /** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
@@ -215,7 +217,8 @@ export class SupabaseStorage implements StorageAdapter {
    */
   private async selectAllPaged(pathAndQuery: string, opts: { untilEmpty?: boolean } = {}): Promise<Record<string, unknown>[]> {
     const rows: Record<string, unknown>[] = [];
-    for (let from = 0; ; ) {
+    for (let from = 0, pages = 0; ; ) {
+      if (opts.untilEmpty && ++pages > MAX_PURGE_PAGES) throw new Error('[supabase] select: page ceiling reached');
       const res = await this.req(pathAndQuery, {
         headers: { Range: `${from}-${from + PAGE_ROWS - 1}`, 'Range-Unit': 'items' },
         timeoutMs: OBJECT_TIMEOUT_MS,
@@ -489,15 +492,27 @@ export class SupabaseStorage implements StorageAdapter {
   /** Newest first. One Range page with an exact total; a page past the end (416) is empty. */
   async aiListGenerations(q: { limit: number; offset: number; ipKey?: string }) {
     const from = Math.max(0, Math.floor(q.offset));
-    const to = from + Math.max(1, Math.floor(q.limit)) - 1;
+    const limit = Math.floor(q.limit);
     const filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
+    if (!(limit >= 1)) {
+      // An empty page, but still with the exact total (PostgREST `limit=0` answers `[]` with Content-Range */total).
+      const res = await this.req(`/rest/v1/ai_generations?select=id&limit=0${filter}`, {
+        headers: { Prefer: 'count=exact' },
+        timeoutMs: OBJECT_TIMEOUT_MS,
+      });
+      return { rows: [], total: totalFromContentRange(res) };
+    }
+    const to = from + limit - 1;
     const res = await this.req(`/rest/v1/ai_generations?select=*&order=created_at.desc,id.desc${filter}`, {
       headers: { Range: `${from}-${to}`, 'Range-Unit': 'items', Prefer: 'count=exact' },
       allowStatus: 416,
       timeoutMs: OBJECT_TIMEOUT_MS,
     });
     const total = totalFromContentRange(res);
-    if (res.status === 416) return { rows: [], total };
+    if (res.status === 416) {
+      await res.body?.cancel(); // body not read: release the connection
+      return { rows: [], total };
+    }
     const rows = (await res.json()) as Record<string, unknown>[];
     return { rows: rows.map(rowToGeneration), total };
   }
@@ -519,6 +534,8 @@ export class SupabaseStorage implements StorageAdapter {
 
   /** Already blocked = kept as is (first block time stays). */
   async aiBlock(ipKey: string, ip: string): Promise<void> {
+    // '' is the site-only usage row; blocking it would block every site-only reservation.
+    if (ipKey === '') throw new Error('Invalid ipKey');
     await this.req('/rest/v1/ai_blocks?on_conflict=ip_key', {
       method: 'POST',
       ...this.json({ ip_key: ipKey, ip }, 'resolution=ignore-duplicates,return=minimal'),
@@ -534,6 +551,22 @@ export class SupabaseStorage implements StorageAdapter {
     return rows.map((r) => ({ ipKey: String(r.ip_key), ip: String(r.ip ?? ''), createdAt: String(r.created_at) }));
   }
 
+  /** Deletes usage counters of days before `day` (YYYY-MM-DD). Returns `ai_usage:<n>` (empty when none). */
+  async aiPurgeUsageBefore(day: string, dryRun: boolean): Promise<string[]> {
+    if (!DAY_RE.test(day)) throw new Error('Invalid day');
+    if (dryRun) {
+      const res = await this.req(`/rest/v1/ai_usage?select=day&day=lt.${day}&limit=${DRY_RUN_COUNT_LIMIT}`);
+      const n = ((await res.json()) as unknown[]).length;
+      return n ? [`ai_usage:${n}`] : [];
+    }
+    const res = await this.req(`/rest/v1/ai_usage?select=day&day=lt.${day}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    const n = ((await res.json().catch(() => [])) as unknown[]).length;
+    return n ? [`ai_usage:${n}`] : [];
+  }
+
   /* ───────────── retention ───────────── */
 
   /**
@@ -544,7 +577,8 @@ export class SupabaseStorage implements StorageAdapter {
    */
   private async listPrefixSince(prefix: 'uploads' | 'orders', from: Date): Promise<ListedObject[]> {
     const out: ListedObject[] = [];
-    for (let offset = 0; ; ) {
+    for (let offset = 0, pages = 0; ; ) {
+      if (++pages > MAX_PURGE_PAGES) throw new Error('[supabase] list: page ceiling reached');
       const res = await this.req(`/storage/v1/object/list/${BUCKET}`, {
         method: 'POST',
         ...this.json({ prefix, limit: PAGE_ROWS, offset, sortBy: { column: 'created_at', order: 'desc' } }),

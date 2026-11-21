@@ -49,12 +49,13 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
   const [generations, usage, blocks]: [{ rows: AiGenerationRecord[]; total: number }, AiUsageRow[], AiBlock[]] =
     await Promise.all([
       storage.aiListGenerations?.({ limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE, ipKey }) ?? { rows: [], total: 0 },
+      // Usage rows are kept 400 days (retention purge), so this loads at most ~400 days of rows.
       storage.aiUsage?.('2000-01-01') ?? [],
       storage.aiListBlocks?.() ?? [],
     ]);
 
-  const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit);
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));
+  const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit, blockedKeys);
   const pages = Math.max(1, Math.ceil(generations.total / PAGE_SIZE));
   const href = (page: number) => {
     const q = new URLSearchParams();
@@ -102,15 +103,13 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
                   <Link href={`/admin/designs?ip=${a.ipKey}`} className={buttonVariants({ variant: 'outline' })}>
                     {d.view}
                   </Link>
-                  {blockedKeys.has(a.ipKey) ? null : (
-                    <form action={blockIpAction}>
-                      <input type="hidden" name="ipKey" value={a.ipKey} />
-                      <input type="hidden" name="ip" value={a.ip} />
-                      <Button type="submit" variant="destructive">
-                        {d.block}
-                      </Button>
-                    </form>
-                  )}
+                  <form action={blockIpAction}>
+                    <input type="hidden" name="ipKey" value={a.ipKey} />
+                    <input type="hidden" name="ip" value={a.ip} />
+                    <Button type="submit" variant="destructive">
+                      {d.block}
+                    </Button>
+                  </form>
                 </div>
               </li>
             ))}
