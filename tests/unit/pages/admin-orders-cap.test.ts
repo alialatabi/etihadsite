@@ -6,6 +6,7 @@ import type { OrderRecord } from '@/lib/types';
 let orders: OrderRecord[] = [];
 vi.mock('@/lib/auth/guard', () => ({ requireAdmin: async () => undefined }));
 vi.mock('@/lib/storage', () => ({ getStorage: () => ({ listOrders: async () => orders }) }));
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ retentionDays: 30 }) }));
 vi.mock('@/components/admin/SheetPdfPreview', () => ({ SheetPdfPreview: () => null }));
 
 import OrdersPage from '@/app/admin/page';
@@ -50,5 +51,38 @@ describe('admin orders list cap', () => {
     expect(await html()).not.toContain(admin.orders.capped);
     orders = [];
     expect(await html()).not.toContain(admin.orders.capped);
+  });
+});
+
+describe('admin orders list Telegram column', () => {
+  const withTelegram = (i: number, telegram: OrderRecord['notified']['telegram'], createdAt?: string) => ({
+    ...record(i),
+    notified: { telegram },
+    ...(createdAt ? { createdAt } : {}),
+  });
+
+  it('sent: only the green check text, no buttons', async () => {
+    orders = [withTelegram(1, 'sent')];
+    const out = await html();
+    expect(out).toContain(admin.orders.telegramSent);
+    expect(out).not.toContain(admin.orders.telegramResend);
+    expect(out).not.toContain(admin.orders.telegramDownload);
+  });
+
+  it('not sent: download link to the PDF and the send button', async () => {
+    orders = [withTelegram(2, 'failed', new Date().toISOString())];
+    const out = await html();
+    expect(out).toContain(admin.orders.telegramDownload);
+    expect(out).toContain(admin.orders.telegramResend);
+    expect(out).toContain(`/api/admin/files/${orders[0]?.orderId}/pdf`);
+    expect(out).toContain(admin.orders.telegramFailed);
+  });
+
+  it('PDF older than the retention: no buttons, says the file is gone', async () => {
+    orders = [withTelegram(3, 'skipped', '2020-01-01T00:00:00.000Z')];
+    const out = await html();
+    expect(out).toContain(admin.orders.telegramFileMissing);
+    expect(out).not.toContain(admin.orders.telegramResend);
+    expect(out).not.toContain(admin.orders.telegramDownload);
   });
 });

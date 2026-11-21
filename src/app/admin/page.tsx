@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { MessageCircle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,75 +9,82 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SheetPdfPreview } from "@/components/admin/SheetPdfPreview";
+import {
+  AdminPageHeader,
+  EmptyState,
+  InfoStrip,
+  StatusPill,
+  TableFrame,
+  tableCls,
+} from "@/components/admin/kit";
 import { Ltr } from "@/components/Ltr";
 import { Money } from "@/components/Money";
-import { admin, common, order } from "@/content/ar";
+import { admin, common } from "@/content/ar";
 import { requireAdmin } from "@/lib/auth/guard";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
 import { whatsappUrl } from "@/lib/parse/phone";
+import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
-import {
-  formatBaghdad,
-  orderPriceView,
-  statusVariant,
-  telegramLabel,
-} from "./_lib";
+import { cn } from "@/lib/utils";
+import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from "./_lib";
+import { TelegramCell, TelegramSentMark } from "./orders/TelegramCell";
 
 export const dynamic = "force-dynamic";
+/** The "send to Telegram" button runs resendTelegramAction under this page's limit (sendTelegram aborts after 25 s). */
+export const maxDuration = 60;
 
 /** listOrders() answers at most this many orders (the newest) from Supabase. */
 const ORDERS_LIST_CAP = 1000;
 
 export default async function OrdersPage() {
   await requireAdmin();
-  const orders = await getStorage().listOrders();
+  const [orders, settings] = await Promise.all([getStorage().listOrders(), getSettings()]);
+  const retentionDays = settings.retentionDays;
   const c = admin.orders.columns;
 
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{admin.orders.title}</h1>
+    <section>
+      <AdminPageHeader title={admin.orders.title} />
       {/* Older orders exist but are not listed (paging is a later task). */}
       {orders.length === ORDERS_LIST_CAP ? (
-        <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm">
-          {admin.orders.capped}
-        </p>
+        <div role="status" className="mb-4">
+          <InfoStrip>{admin.orders.capped}</InfoStrip>
+        </div>
       ) : null}
       {orders.length === 0 ? (
-        <p className="rounded-2xl border bg-card p-8 text-center text-muted-foreground shadow-sm">
-          {admin.orders.empty}
-        </p>
+        <EmptyState title={admin.orders.empty} />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
+        <TableFrame label={admin.orders.title}>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>{c.no}</TableHead>
-                <TableHead>{c.preview}</TableHead>
-                <TableHead>{c.date}</TableHead>
-                <TableHead>{c.customer}</TableHead>
-                <TableHead>{c.phone}</TableHead>
-                <TableHead>{c.spec}</TableHead>
-                <TableHead>{c.sheets}</TableHead>
-                <TableHead>{c.material}</TableHead>
-                <TableHead>{c.total}</TableHead>
-                <TableHead>{c.status}</TableHead>
-                <TableHead>{c.telegram}</TableHead>
+              <TableRow className="border-[#e7dfdf] hover:bg-transparent">
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.no}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.preview}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.date}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.customer}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.phone}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.spec}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.sheets}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.material}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.total}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.status}</TableHead>
+                <TableHead className={cn(tableCls.head, "px-3")}>{c.telegram}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {orders.map((o) => {
                 const pv = orderPriceView(o);
                 return (
-                  <TableRow key={o.orderId}>
-                    <TableCell>
+                  <TableRow key={o.orderId} className={tableCls.row}>
+                    <TableCell className={cn(tableCls.cell, tableCls.num, "px-3")}>
                       <Link
                         href={`/admin/orders/${o.orderId}`}
-                        className="font-medium underline-offset-4 hover:underline"
+                        className="text-[15px] font-bold text-[#121f34] underline-offset-4 hover:text-[#d01c4a] hover:underline"
                       >
                         <Ltr>{o.displayNo}</Ltr>
                       </Link>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
                       {/* The number link in the previous cell is the accessible one; this is a bigger click target. */}
                       <Link
                         href={`/admin/orders/${o.orderId}`}
@@ -88,15 +95,15 @@ export default async function OrdersPage() {
                         <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="thumb" />
                       </Link>
                     </TableCell>
-                    <TableCell>{formatBaghdad(o.createdAt)}</TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, tableCls.num, "px-3")}>{formatBaghdad(o.createdAt)}</TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
                       {o.customer.name || admin.orders.noName}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
                       <div className="flex flex-col gap-1">
                         <a
                           href={`tel:+${o.customer.phone}`}
-                          className="underline-offset-4 hover:underline"
+                          className="font-medium text-[#121f34] underline-offset-4 hover:underline"
                           aria-label={admin.orders.call}
                         >
                           <Ltr>+{o.customer.phone}</Ltr>
@@ -105,47 +112,61 @@ export default async function OrdersPage() {
                           href={whatsappUrl(o.customer.phone)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline"
                         >
+                          <span
+                            aria-hidden
+                            className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-[#052e16]"
+                          >
+                            <MessageCircle className="size-3" />
+                          </span>
                           {admin.orders.whatsapp}
                         </a>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
                       {shapeLabel(o.spec.shape, o.spec.corners)} ·{" "}
                       {sizeLabel(o.spec.widthUm, o.spec.heightUm)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, tableCls.num, "px-3")}>
                       {pv.sheets === null ? (
                         admin.orders.missing
                       ) : (
                         <Ltr>{pv.sheets}</Ltr>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
                       {pv.material
                         ? common.materials[pv.material]
                         : admin.orders.missing}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(tableCls.cell, tableCls.num, "px-3 font-semibold")}>
                       {pv.totalIqd === null ? (
                         admin.orders.missing
                       ) : (
                         <Money amount={pv.totalIqd} />
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[o.status]}>
-                        {order.status[o.status]}
-                      </Badge>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
+                      <StatusPill status={o.status} />
                     </TableCell>
-                    <TableCell>{telegramLabel[o.notified.telegram]}</TableCell>
+                    <TableCell className={cn(tableCls.cell, "px-3")}>
+                      {o.notified.telegram === "sent" ? (
+                        <TelegramSentMark />
+                      ) : (
+                        <TelegramCell
+                          orderId={o.orderId}
+                          reason={telegramLabel[o.notified.telegram]}
+                          pdfPurged={isPdfPurged(o.createdAt, retentionDays)}
+                        />
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
-        </div>
+        </TableFrame>
       )}
     </section>
   );

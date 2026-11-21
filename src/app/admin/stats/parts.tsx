@@ -1,30 +1,37 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Panel, StatTile } from '@/components/admin/kit';
 import { Ltr } from '@/components/Ltr';
 import { admin } from '@/content/ar';
 import type { DailyPoint } from './aggregate';
 
-export function Kpi({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+/** One KPI tile. The value is a touch smaller on phones so long amounts fit a two-column grid. */
+export function Kpi({
+  label,
+  hint,
+  tone,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  tone?: 'default' | 'ink';
+  children: ReactNode;
+}) {
   return (
-    <Card size="sm">
-      <CardContent className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="text-2xl font-bold leading-tight">{children}</span>
-        {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
-      </CardContent>
-    </Card>
+    <StatTile
+      label={label}
+      hint={hint}
+      tone={tone}
+      className="min-w-0"
+      value={<span className="block break-words text-[22px] leading-tight sm:text-[30px]">{children}</span>}
+    />
   );
 }
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <Panel title={title} description={hint}>
+      {children}
+    </Panel>
   );
 }
 
@@ -38,14 +45,14 @@ export interface BarRow {
 /** Horizontal bars with the label above the bar so long Arabic names never get clipped. */
 export function BarList({ rows }: { rows: BarRow[] }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{admin.stats.audience.none}</p>;
+  if (rows.length === 0) return <p className="text-[15px] leading-normal text-[#5a6475]">{admin.stats.audience.none}</p>;
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-4">
       {rows.map((r) => (
-        <li key={r.label} className="flex flex-col gap-1">
-          <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span>{r.label}</span>
-            <span className="text-muted-foreground">
+        <li key={r.label} className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-[#121f34]">
+            <span className="min-w-0">{r.label}</span>
+            <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#5a6475]">
               <Ltr>{r.value}</Ltr>
               {r.note ? (
                 <>
@@ -55,8 +62,8 @@ export function BarList({ rows }: { rows: BarRow[] }) {
               ) : null}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${(r.value / max) * 100}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-[#f7f0ef]" aria-hidden="true">
+            <div className="h-full rounded-full bg-[#121f34]" style={{ width: `${(r.value / max) * 100}%` }} />
           </div>
         </li>
       ))}
@@ -79,27 +86,32 @@ export function DayColumns({
   const first = points[0]?.day.slice(5);
   const last = points[points.length - 1]?.day.slice(5);
   return (
-    <figure className="flex flex-col gap-1" aria-label={`${label}: ${total}`}>
-      <figcaption className="flex items-baseline justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">
+    <figure className="flex flex-col gap-1.5" aria-label={`${label}: ${total}`}>
+      <figcaption className="flex items-baseline justify-between gap-3">
+        <span className="text-[15px] font-semibold text-[#121f34]">{label}</span>
+        <span className="text-[14px] font-medium text-[#5a6475]">
           {admin.stats.daily.axisMax} <Ltr>{max}</Ltr>
         </span>
       </figcaption>
-      <div dir="ltr" className="flex h-28 items-end gap-px border-b border-s ps-0.5" role="img" aria-label={`${label}: ${total}`}>
+      <div
+        dir="ltr"
+        className="flex h-28 items-end gap-px border-b border-s border-[#e7dfdf] ps-0.5"
+        role="img"
+        aria-label={`${label}: ${total}`}
+      >
         {points.map((p) => {
           const v = pick(p);
           return (
             <div key={p.day} className="flex h-full flex-1 items-end" title={`${p.day}: ${v}`}>
               <div
-                className="w-full rounded-t-sm bg-primary"
+                className="w-full rounded-t-sm bg-[#121f34]"
                 style={{ height: v ? `${Math.max(4, (v / max) * 100)}%` : '0%' }}
               />
             </div>
           );
         })}
       </div>
-      <div dir="ltr" className="flex justify-between text-xs text-muted-foreground">
+      <div dir="ltr" className="flex justify-between text-[14px] font-medium tabular-nums text-[#5a6475]">
         <span>{first}</span>
         <span>{last}</span>
       </div>

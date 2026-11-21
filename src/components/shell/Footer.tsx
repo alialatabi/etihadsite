@@ -11,7 +11,7 @@ import type { ShopSettings } from '@/lib/types';
 export function Footer({ settings }: { settings: ShopSettings }) {
   const year = new Date().getFullYear();
   return (
-    <footer className="mt-16 bg-primary text-primary-foreground">
+    <footer data-site-footer className="mt-16 bg-primary text-primary-foreground">
       <div className="cut-line mx-auto h-px max-w-6xl text-brand/70" aria-hidden />
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-1">

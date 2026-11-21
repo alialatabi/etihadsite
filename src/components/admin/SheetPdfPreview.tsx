@@ -148,7 +148,7 @@ export function SheetPdfPreview({
       aria-busy={state === 'loading'}
       style={{ aspectRatio: `${SHEET_ASPECT.width} / ${SHEET_ASPECT.height}` }}
       className={cn(
-        'relative w-full overflow-hidden rounded-md border bg-white shadow-sm',
+        'relative w-full overflow-hidden rounded-md border border-[#e7dfdf] bg-white shadow-sm',
         small ? 'max-w-24' : 'mx-auto max-w-[720px]',
         className,
       )}

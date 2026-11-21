@@ -1,4 +1,6 @@
+import { ExternalLink } from 'lucide-react';
 import { headers } from 'next/headers';
+import { AdminPageHeader, Panel } from '@/components/admin/kit';
 import { Ltr } from '@/components/Ltr';
 import { admin, staff } from '@/content/ar';
 import { requireAdmin } from '@/lib/auth/guard';
@@ -21,19 +23,23 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const settings = await getSettings();
   const link = await staffLink();
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{admin.settings.title}</h1>
-      {link ? (
-        <div className="flex flex-col gap-1 rounded-xl border p-4 text-sm">
-          <span className="font-medium">{staff.adminLinkLabel}</span>
-          <Ltr>
-            <a href={link} className="break-all text-primary underline" rel="noreferrer">
-              {link}
+    <section className="flex flex-col">
+      <AdminPageHeader title={admin.settings.title} />
+      <div className="flex flex-col gap-6">
+        {link ? (
+          <Panel title={staff.adminLinkLabel}>
+            <a
+              href={link}
+              rel="noreferrer"
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-[#e7dfdf] bg-white px-4 py-2 text-[15px] font-medium text-[#121f34] transition-colors hover:bg-[#f7f0ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a]"
+            >
+              <ExternalLink aria-hidden className="size-5 shrink-0 text-[#5a6475]" />
+              <Ltr className="min-w-0 break-all underline underline-offset-4">{link}</Ltr>
             </a>
-          </Ltr>
-        </div>
-      ) : null}
-      <SettingsForm settings={settings} saved={saved === '1'} />
+          </Panel>
+        ) : null}
+        <SettingsForm settings={settings} saved={saved === '1'} />
+      </div>
     </section>
   );
 }

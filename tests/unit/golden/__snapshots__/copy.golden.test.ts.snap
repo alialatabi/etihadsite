@@ -83,7 +83,14 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "changeStatus": "تغيير الحالة",
     "telegramSent": "وصل تيليغرام",
     "telegramFailed": "فشل تيليغرام",
-    "telegramSkipped": "تيليغرام غير مفعّل"
+    "telegramSkipped": "تيليغرام غير مفعّل",
+    "telegramDownload": "تحميل الملف",
+    "telegramResend": "إرسال للتيليغرام",
+    "telegramSending": "جاري الإرسال…",
+    "telegramResendFailed": "ما انرسل، جرّب مرة ثانية",
+    "telegramNotConfigured": "التيليغرام مو مفعّل بالإعدادات",
+    "telegramFileMissing": "ملف الطباعة انحذف، ما أگدر أرسله",
+    "telegramNotFound": "الطلب مو موجود"
   },
   "preview": {
     "loading": "جاري تحميل المعاينة…",
@@ -327,13 +334,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3228,
+  "chars": 3368,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "1c5d24fa3994d9fd1050e069ccabd8bed46ae58ac5dc1c93fe9c70575495efff",
-  "strings": 240,
+  "sha256OfRawJson": "a20f775168ada6eed144152b9d4728132c1b486c371a2be1b71a1d29e309ee30",
+  "strings": 247,
 }
 `;
 

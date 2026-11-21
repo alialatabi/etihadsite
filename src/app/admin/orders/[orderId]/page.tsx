@@ -1,28 +1,36 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowRight, Check, Download, MessageCircle, Phone } from 'lucide-react';
 import { SheetPdfPreview } from '@/components/admin/SheetPdfPreview';
-import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminPageHeader, Panel, Pill, StatusPill, btn, type PillTone } from '@/components/admin/kit';
 import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
-import { admin, common, fill, order } from '@/content/ar';
+import { admin, common, fill } from '@/content/ar';
 import { requireAdmin } from '@/lib/auth/guard';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import { whatsappUrl } from '@/lib/parse/phone';
 import { getSettings } from '@/lib/settings';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import { formatBaghdad, isPdfPurged, orderPriceView, statusVariant, telegramLabel } from '../../_lib';
+import type { OrderRecord } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from '../../_lib';
 import { StatusForm } from './StatusForm';
 
 export const dynamic = 'force-dynamic';
 
+/** Telegram delivery state -> pill tone (sent is ok, failed warns, skipped is neutral). */
+const telegramTone: Record<OrderRecord['notified']['telegram'], PillTone> = {
+  sent: 'ok',
+  failed: 'warn',
+  skipped: 'neutral',
+};
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 border-b py-2 last:border-b-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-end font-medium">{children}</dd>
+    <div className="flex items-start justify-between gap-4 border-b border-[#e7dfdf] py-2.5 text-[15px] leading-normal last:border-b-0">
+      <dt className="text-[#5a6475]">{label}</dt>
+      <dd className="min-w-0 text-end font-medium text-[#121f34]">{children}</dd>
     </div>
   );
 }
@@ -52,33 +60,62 @@ export default async function OrderDetailPage({
   const pdfPurged = isPdfPurged(o.createdAt, (await getSettings()).retentionDays);
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin" className={buttonVariants({ variant: 'ghost' })}>
-          {d.back}
-        </Link>
-        <h1 className="text-2xl font-bold">
-          <Ltr>{o.displayNo}</Ltr>
-        </h1>
-        <Badge variant={statusVariant[o.status]}>{order.status[o.status]}</Badge>
-      </div>
-      {updated ? <p className="text-sm text-muted-foreground">{d.statusSaved}</p> : null}
+    <section>
+      <AdminPageHeader
+        title={<Ltr>{o.displayNo}</Ltr>}
+        actions={
+          <Link href="/admin" className={btn.outline}>
+            <ArrowRight aria-hidden className="size-5" />
+            {d.back}
+          </Link>
+        }
+      >
+        <StatusPill status={o.status} />
+      </AdminPageHeader>
+      {updated ? (
+        <p
+          role="status"
+          className="mb-4 flex items-center gap-2 rounded-xl border border-[#e7dfdf] bg-[#eef0f4] px-4 py-3 text-[15px] font-medium text-[#121f34]"
+        >
+          <Check aria-hidden className="size-5 shrink-0 text-[#0b5a2e]" />
+          {d.statusSaved}
+        </p>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{d.status}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StatusForm orderId={o.orderId} status={o.status} />
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Panel title={d.customer}>
+            <dl>
+              <Row label={d.name}>{o.customer.name || admin.orders.noName}</Row>
+              <Row label={d.phone}>
+                <a
+                  href={`tel:+${o.customer.phone}`}
+                  className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
+                >
+                  <Phone aria-hidden className="size-4 shrink-0 text-[#5a6475]" />
+                  <Ltr>+{o.customer.phone}</Ltr>
+                </a>
+              </Row>
+              <Row label={d.governorate}>{o.customer.governorate}</Row>
+              <Row label={d.district}>{o.customer.district || admin.orders.missing}</Row>
+              <Row label={d.landmark}>{o.customer.landmark}</Row>
+              <Row label={d.notes}>{o.customer.notes || admin.orders.missing}</Row>
+              <Row label={d.originalFile}>
+                <Ltr>{o.design.originalName}</Ltr>
+              </Row>
+            </dl>
+            <a
+              href={whatsappUrl(o.customer.phone)}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(btn.whatsapp, 'mt-4 w-full sm:w-auto')}
+            >
+              <MessageCircle aria-hidden className="size-5" />
+              {admin.orders.whatsapp}
+            </a>
+          </Panel>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{d.summary}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <Panel title={d.summary}>
             <dl>
               <Row label={d.shape}>{shapeLabel(o.spec.shape, o.spec.corners)}</Row>
               <Row label={d.size}>
@@ -106,84 +143,75 @@ export default async function OrderDetailPage({
               <Row label={d.totalStickers}>
                 {pv.totalStickers === null ? admin.orders.missing : <Ltr>{pv.totalStickers}</Ltr>}
               </Row>
-              <Row label={d.unitPrice}>{money(pv.unitPriceIqd, !!pv.material)}</Row>
-              <Row label={d.discount}>
-                {pv.discountPercent === null ? admin.orders.missing : <Ltr>{pv.discountPercent}%</Ltr>}
-              </Row>
-              <Row label={d.subtotal}>{money(pv.subtotalIqd, !!pv.material)}</Row>
-              <Row label={d.delivery}>{money(pv.deliveryFeeIqd)}</Row>
-              <Row label={d.total}>{money(pv.totalIqd, !!pv.material)}</Row>
               <Row label={d.dpi}>
                 {o.design.effectiveDpi !== undefined ? <Ltr>{Math.round(o.design.effectiveDpi)}</Ltr> : d.vector}
               </Row>
               <Row label={d.createdAt}>{formatBaghdad(o.createdAt)}</Row>
-              <Row label={d.telegram}>{telegramLabel[o.notified.telegram]}</Row>
+              <Row label={d.telegram}>
+                <Pill tone={telegramTone[o.notified.telegram]}>{telegramLabel[o.notified.telegram]}</Pill>
+              </Row>
             </dl>
-          </CardContent>
-        </Card>
+          </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{d.customer}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <Panel>
             <dl>
-              <Row label={d.name}>{o.customer.name || admin.orders.noName}</Row>
-              <Row label={d.phone}>
-                <a href={`tel:+${o.customer.phone}`} className="underline-offset-4 hover:underline">
-                  <Ltr>+{o.customer.phone}</Ltr>
-                </a>{' '}
-                <a
-                  href={whatsappUrl(o.customer.phone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  ({admin.orders.whatsapp})
-                </a>
+              <Row label={d.unitPrice}>{money(pv.unitPriceIqd, !!pv.material)}</Row>
+              <Row label={d.discount}>
+                {pv.discountPercent === null ? (
+                  admin.orders.missing
+                ) : pv.discountPercent > 0 ? (
+                  <Pill tone="discount">
+                    <Ltr>{pv.discountPercent}%</Ltr>
+                  </Pill>
+                ) : (
+                  <Ltr>{pv.discountPercent}%</Ltr>
+                )}
               </Row>
-              <Row label={d.governorate}>{o.customer.governorate}</Row>
-              <Row label={d.district}>{o.customer.district || admin.orders.missing}</Row>
-              <Row label={d.landmark}>{o.customer.landmark}</Row>
-              <Row label={d.notes}>{o.customer.notes || admin.orders.missing}</Row>
-              <Row label={d.originalFile}>
-                <Ltr>{o.design.originalName}</Ltr>
-              </Row>
+              <Row label={d.subtotal}>{money(pv.subtotalIqd, !!pv.material)}</Row>
+              <Row label={d.delivery}>{money(pv.deliveryFeeIqd)}</Row>
             </dl>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Dashed cut line, as in the customer price summary. */}
+            <div aria-hidden className="cut-line my-3 h-px text-[#9aa3b5]" />
+            <dl>
+              <div className="flex items-baseline justify-between gap-4 py-1">
+                <dt className="text-[18px] font-bold text-[#121f34]">{d.total}</dt>
+                <dd className="text-end text-[26px] font-bold leading-tight tabular-nums text-[#121f34]">
+                  {money(pv.totalIqd, !!pv.material)}
+                </dd>
+              </div>
+            </dl>
+          </Panel>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{d.preview}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pdfPurged ? (
-            <p className="text-muted-foreground">{admin.orders.pdfPurged}</p>
-          ) : (
-            <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
-          )}
-        </CardContent>
-      </Card>
+        <div className="contents min-w-0 lg:flex lg:flex-col lg:gap-6">
+          <Panel title={d.status} className="order-first lg:order-none">
+            <StatusForm orderId={o.orderId} status={o.status} />
+          </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{d.files}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {pdfPurged ? (
-            <p className="w-full text-muted-foreground">{admin.orders.pdfPurged}</p>
-          ) : (
-            <a href={`/api/admin/files/${o.orderId}/pdf`} className={buttonVariants()}>
-              {admin.orders.downloadPdf}
+          <Panel title={d.preview}>
+            {pdfPurged ? (
+              <p className="text-[15px] leading-normal text-[#5a6475]">{admin.orders.pdfPurged}</p>
+            ) : (
+              <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
+            )}
+          </Panel>
+
+          <Panel title={d.files} bodyClassName="flex flex-col gap-2">
+            {pdfPurged ? (
+              <p className="text-[15px] leading-normal text-[#5a6475]">{admin.orders.pdfPurged}</p>
+            ) : (
+              <a href={`/api/admin/files/${o.orderId}/pdf`} className={cn(btn.ink, 'w-full')}>
+                <Download aria-hidden className="size-5" />
+                {admin.orders.downloadPdf}
+              </a>
+            )}
+            <a href={`/api/admin/files/${o.orderId}/design`} className={cn(btn.outline, 'w-full')}>
+              <Download aria-hidden className="size-5" />
+              {admin.orders.downloadDesign}
             </a>
-          )}
-          <a href={`/api/admin/files/${o.orderId}/design`} className={buttonVariants({ variant: 'outline' })}>
-            {admin.orders.downloadDesign}
-          </a>
-        </CardContent>
-      </Card>
+          </Panel>
+        </div>
+      </div>
     </section>
   );
 }
