@@ -559,6 +559,7 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     await saveRef(REF, await opaquePng(32, 32));
     const storage = getStorage();
     const read = vi.spyOn(storage, "readUpload");
+    const readBin = vi.spyOn(storage, "readFile");
     const info = vi.spyOn(storage, "uploadInfo");
 
     await storage.aiBlock!(aiIpKey("10.9.1.1"), "10.9.1.1");
@@ -572,6 +573,7 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     expect(await readGen(await call(refBody(), "10.9.3.3"))).toEqual({ ok: false, error: "site_limit" });
 
     expect(read).not.toHaveBeenCalled();
+    expect(readBin).not.toHaveBeenCalled();
     expect(info).not.toHaveBeenCalled();
     expect(calls).toHaveLength(1); // only the ref-less call reached OpenAI
   });
@@ -581,15 +583,22 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     await saveRef(REF, await opaquePng(32, 32));
     const storage = getStorage();
     const read = vi.spyOn(storage, "readUpload");
+    const readBin = vi.spyOn(storage, "readFile");
     await storage.aiBlock!("key-from-an-older-secret", "10.9.4.4");
     expect(await readGen(await call(refBody(), "10.9.4.4"))).toEqual({ ok: false, error: "blocked" });
     expect(read).not.toHaveBeenCalled();
+    expect(readBin).not.toHaveBeenCalled();
   });
 
   it("the stored reservation still decides: a ref call under the caps goes through", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     await saveRef(REF, await opaquePng(32, 32));
+    const storage = getStorage();
+    const read = vi.spyOn(storage, "readUpload");
+    const readBin = vi.spyOn(storage, "readFile");
     expect((await readGen(await call(refBody()))).ok).toBe(true);
+    expect(readBin).toHaveBeenCalledTimes(1);
+    expect(read).not.toHaveBeenCalled();
     expect(calls.map((c) => c.path)).toEqual(["/images/edits"]);
     expect(await imageUsage()).toBe(1);
   });
@@ -620,6 +629,7 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     await saveRef(REF, bytes);
     await saveRef("ref-pdf-000000002", new TextEncoder().encode("%PDF-1.4 hello"), "application/pdf");
     const read = vi.spyOn(storage, "readUpload");
+    const readBin = vi.spyOn(storage, "readFile");
 
     expect(await readGen(await call(body({ refUploadIds: ["ref-pdf-000000002"] })))).toEqual({ ok: false, error: "invalid_request" });
     await storage.saveSettings({ ...DEFAULT_SETTINGS, maxUploadBytes: 1024 });
@@ -627,6 +637,7 @@ describe("generate: cheap checks before the reference images are downloaded", ()
     expect(await readGen(await call(body({ refUploadIds: ["ref-missing-00002"] })))).toEqual({ ok: false, error: "invalid_request" });
 
     expect(read).not.toHaveBeenCalled();
+    expect(readBin).not.toHaveBeenCalled();
     expect(calls).toHaveLength(0);
     expect(await imageUsage()).toBe(0);
   });

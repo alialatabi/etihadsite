@@ -25,7 +25,7 @@ import { clientIp, limiters } from '@/lib/rate-limit';
 import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
-import { ID_RE } from '@/lib/storage/paths';
+import { ID_RE, uploadPath } from '@/lib/storage/paths';
 import type { AiKind, AiReserveResult } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
@@ -360,7 +360,8 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     if (early) return genFail(early);
   }
   // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
-  // also in parallel); any bad one refuses the request.
+  // also in parallel); any bad one refuses the request. With uploadInfo the meta is already checked, so the bytes
+  // are read with readFile instead of fetching the meta again through readUpload.
   const uploadInfo = storage.uploadInfo?.bind(storage);
   if (uploadInfo) {
     const infos = await Promise.all(req.refUploadIds.map((id) => uploadInfo(id)));
@@ -372,12 +373,12 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
   }
   const prepared = await Promise.all(
     req.refUploadIds.map(async (id): Promise<ImageRef | null> => {
-      const upload = await storage.readUpload(id);
-      if (!upload) return null;
-      const kind = sniffKind(upload.bytes);
+      const bytes = uploadInfo ? await storage.readFile(uploadPath(id)) : ((await storage.readUpload(id))?.bytes ?? null);
+      if (!bytes) return null;
+      const kind = sniffKind(bytes);
       if (kind !== 'png' && kind !== 'jpeg') return null;
       try {
-        return await prepareRef(upload.bytes);
+        return await prepareRef(bytes);
       } catch {
         return null;
       }
