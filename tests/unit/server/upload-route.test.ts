@@ -161,5 +161,5 @@ describe("POST /api/upload", () => {
       "9.9.9.9",
     );
     expect(limited.status).toBe(429);
-  });
+  }, 20_000); // 400 sharp uploads: 1.5 s alone, over 5 s under full parallel load
 });

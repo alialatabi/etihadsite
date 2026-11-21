@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { admin, common } from '@/content/ar';
-import { MAX_DISCOUNT_TIERS, MAX_TIER_PERCENT } from '@/lib/storage/settings-limits';
+import { AI_PER_IP_MAX, AI_SITE_MAX, MAX_DISCOUNT_TIERS, MAX_TIER_PERCENT } from '@/lib/storage/settings-limits';
 import { MATERIALS, type ShopSettings } from '@/lib/types';
 import { umToMm } from '@/lib/units';
 import { saveSettingsAction, type SettingsFormState } from '../actions';
@@ -20,11 +20,11 @@ interface TierRow {
 
 const s = admin.settings;
 
-function Field({ name, label, defaultValue, type = 'text', dir, step }: { step?: string; name: string; label: string; defaultValue: string; type?: string; dir?: 'ltr' }) {
+function Field({ name, label, defaultValue, type = 'text', dir, step, min, max }: { step?: string; min?: number; max?: number; name: string; label: string; defaultValue: string; type?: string; dir?: 'ltr' }) {
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} className="h-12" defaultValue={defaultValue} dir={dir} step={step ?? (type === 'number' ? 'any' : undefined)} />
+      <Input id={name} name={name} type={type} className="h-12" defaultValue={defaultValue} dir={dir} step={step ?? (type === 'number' ? 'any' : undefined)} min={min} max={max} />
     </div>
   );
 }
@@ -169,8 +169,8 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
         <CardContent className="flex flex-col gap-4">
           <Check name="aiEnabled" label={s.aiEnabled} defaultChecked={settings.ai.enabled} />
           <div className="grid gap-4 md:grid-cols-2">
-            <Field name="aiPerIp" label={s.aiPerIp} defaultValue={String(settings.ai.perIpDailyLimit)} step="1" type="number" dir="ltr" />
-            <Field name="aiSite" label={s.aiSite} defaultValue={String(settings.ai.siteDailyLimit)} step="1" type="number" dir="ltr" />
+            <Field name="aiPerIp" label={s.aiPerIp} defaultValue={String(settings.ai.perIpDailyLimit)} min={1} max={AI_PER_IP_MAX} step="1" type="number" dir="ltr" />
+            <Field name="aiSite" label={s.aiSite} defaultValue={String(settings.ai.siteDailyLimit)} min={1} max={AI_SITE_MAX} step="1" type="number" dir="ltr" />
           </div>
         </CardContent>
       </Card>

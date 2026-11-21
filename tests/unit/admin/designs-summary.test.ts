@@ -73,6 +73,15 @@ describe('designsSummary', () => {
     expect(s.alerts.map((a) => a.ipKey)).toEqual([KEY_B, KEY_A]);
   });
 
+  it('an already blocked IP is not an alert, but its uses still count', () => {
+    const rows = [row({ ipKey: KEY_A, count: 5 }), row({ ipKey: KEY_B, ip: '5.6.7.8', count: 6 })];
+    const s = designsSummary(rows, '2026-11-21', 5, new Set([KEY_A]));
+    expect(s.alerts.map((a) => a.ipKey)).toEqual([KEY_B]);
+    expect(s.today).toBe(11);
+    expect(designsSummary(rows, '2026-11-21', 5).alerts).toHaveLength(2);
+    expect(designsSummary(rows, '2026-11-21', 5, new Set([KEY_A, KEY_B])).alerts).toEqual([]);
+  });
+
   it('site-only rows never alert', () => {
     const s = designsSummary([row({ ipKey: '', ip: '', count: 300 })], '2026-11-21', 5);
     expect(s.alerts).toEqual([]);
