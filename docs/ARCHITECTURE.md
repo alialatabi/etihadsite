@@ -21,6 +21,7 @@ Pages (`src/app`):
 | `/admin/stats` | `admin/stats/page.tsx` | Statistics for the last 7, 30 or 90 days (`aggregate.ts` computes, `rows.ts` labels, `parts.tsx` draws). |
 | `/admin/customers` | `admin/customers/page.tsx` | Customer list with search and filter; CSV download. |
 | `/admin/settings` | `admin/settings/page.tsx` | Settings form (`SettingsForm.tsx`, `saveSettingsAction`). Also shows the full staff link when `STAFF_PAGE_KEY` is set. |
+| `/admin/designs` | `admin/designs/page.tsx` | AI designer: counters (today, this month, all time), alerts for IPs at the daily limit (today and yesterday, with a badge on the nav link), the blocked list, and a gallery of every generated design (48 per page; `?ip=<64 hex>` filters, `?page=` pages). Shows the full IP (D9). Counters come from `summary.ts` (pure); block and unblock are the actions in `admin/designs/actions.ts`. |
 | `/staff/<key>` | `staff-sheets/page.tsx` | Hidden staff page (see "The staff page" below). `src/proxy.ts` rewrites only the right key to the real route `/staff-sheets`; any other `/staff` URL, and `/staff-sheets` asked for directly, is the normal 404, byte for byte the same answer as an unknown URL. |
 
 Metadata routes: `manifest.ts`, `robots.ts` (disallows `/admin` and `/api`; it deliberately does not mention `/staff`, which would advertise it), `sitemap.ts`, `opengraph-image.tsx`, plus the committed icon files.
@@ -38,17 +39,18 @@ API (`src/app/api`):
 | `POST /api/track` | Analytics beacon (section 5). |
 | `POST /api/log` | Client error log to `console.warn`. Answers 204 even when it ignores the body (413 only for a body over 8 KiB). |
 | `GET /api/cron/purge` | Daily retention purge. Needs `Authorization: Bearer $CRON_SECRET`. `?dry=1` only reports. |
-| `GET /api/admin/files/<orderId>/<pdf\|design>` | Admin download (a 302 to a 60-second signed link on Supabase). |
+| `GET /api/admin/files/<orderId>/<pdf\|design>` | Admin download (a 302 to a 60-second signed link on Supabase). A missing print PDF answers 410 `{ error: "purged" }` (the PDF is purged after `retentionDays`, section 5); a missing design stays 404. The order page shows «انحذف ملف الطباعة» instead of the preview and the PDF download once `isPdfPurged()` (`admin/_lib.ts`) says the order is older than `retentionDays`. |
 | `GET /api/admin/customers` | Customer list as CSV (UTF-8 with BOM). |
+| `GET /api/admin/designs/<uploadId>/image` | A generated design as inline PNG (`Cache-Control: private`), streamed from storage (no signed URL in the page). `adminApiGuard()` first. |
 | `POST /monitoring` | Sentry tunnel: the browser sends its error events here (same origin, so ad-blockers do not drop them). Where the Node server runs the app, the Sentry SDK answers it first (`serveTunnelIntegration` in `src/sentry.server.config.ts`); on Vercel the route file `monitoring/route.ts` (`export { POST } from '@sentry/nextjs/tunnel'`) answers it. Forwards only for this site's own DSN (another DSN gets 403); while `NEXT_PUBLIC_SENTRY_DSN` is unset it answers 500 "Tunnel not configured" and forwards nothing. GET is 405, not matched by `src/proxy.ts`; `robots.ts` is golden-pinned and does not list it (crawlers only GET). See "Error monitoring (Sentry)". |
 | `POST /sentry-tunnel` | Second copy of the same route file (`app/sentry-tunnel/route.ts`), where `withSentryConfig` sends envelope requests (`content-type: application/x-sentry-envelope`) for any path the app does not serve, on Vercel only. With the file committed, the SDK does not generate one into the build. |
 
-Server actions (`src/app/admin/actions.ts`): `loginAction`, `logoutAction`, `updateOrderStatus`, `saveSettingsAction`.
+Server actions (`src/app/admin/actions.ts`): `loginAction`, `logoutAction`, `updateOrderStatus`, `saveSettingsAction`; and `blockIpAction`, `unblockIpAction` in `src/app/admin/designs/actions.ts` (both start with `requireAdmin()` and accept only a 64-hex IP key).
 
 Admin protection has two layers and both stay:
 
 1. `src/proxy.ts` (Next 16's replacement for `middleware.ts`) guards `/admin/*` and `/api/admin/*`, except `/admin/login`. No valid cookie: pages redirect to the login page, API routes answer 401 JSON. (The same file also gates the staff page, below; its matcher has `/staff/:path*` and `/staff-sheets` for that.)
-2. Every admin page behind the login and the two guarded actions (`updateOrderStatus`, `saveSettingsAction`) call `await requireAdmin()` (`src/lib/auth/guard.ts`) as their first statement, and every admin route handler calls `adminApiGuard()` (`src/lib/auth/session.ts`). The login page and the admin layout call `verifySession()` directly.
+2. Every admin page behind the login and the guarded actions (`updateOrderStatus`, `saveSettingsAction`, `blockIpAction`, `unblockIpAction`) call `await requireAdmin()` (`src/lib/auth/guard.ts`) as their first statement, and every admin route handler calls `adminApiGuard()` (`src/lib/auth/session.ts`). The login page and the admin layout call `verifySession()` directly.
 
 The session is an HS256 JWT (`src/lib/auth/token.ts`) in the HttpOnly cookie `ep_admin`, valid 7 days.
 
@@ -109,6 +111,9 @@ Everything stored goes through the `StorageAdapter` interface in `src/lib/types.
 | Settings | `ShopSettings` | `settings.json` | table `settings` (row `id = 1`, `data` jsonb) |
 | Analytics events | `AnalyticsEvent` | `analytics/events-YYYY-MM.jsonl` | table `events` |
 | Customers | `CustomerRecord` | `customers.json` | table `customers` (RPC `upsert_customer`) |
+| AI daily counters | `AiUsageRow` | `ai/usage.json` | table `ai_usage` (RPCs `reserve_ai`, `release_ai`) |
+| AI generations | `AiGenerationRecord` | `ai/generations.json` | table `ai_generations` |
+| AI blocked IPs | `AiBlock` | `ai/blocks.json` | table `ai_blocks` |
 
 Path builders live in `src/lib/storage/paths.ts`; both adapters validate a path before using it. The schema is in `supabase/migrations/`. Row level security is on with no policies, so only the secret key can read or write.
 
@@ -125,7 +130,7 @@ Settings are stored as the owner saved them. On read they are deep-merged over `
 | `STORAGE`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DATA_DIR` | `storage/index.ts`; `DATA_DIR` also in `scripts/purge-orders.ts` | `process.env` directly |
 | `ORDER_TRANSPORT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `notify/index.ts` | `getOrderEnv()` |
 | `TURNSTILE_SECRET_KEY` | `api/orders/route.ts` | `getOrderEnv()` |
-| `OPENAI_API_KEY`, `OPENAI_BASE_URL` | `lib/ai/openai.ts` (`openAiConfig()`), used by the two `/api/design/*` routes | `process.env` directly, at call time. Secret, server only. Empty key = the AI designer answers `unavailable`. Deliberately **not** in `orderEnvSchema`: a bad key must never break orders. `OPENAI_BASE_URL` (default `https://api.openai.com/v1`) is for tests |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL` | `lib/ai/openai.ts` (`openAiConfig()`), used by the two `/api/design/*` routes | `process.env` directly, at call time. Secret, server only; its literal value is also blanked by the Sentry scrubber (section "Error monitoring"). Empty key = the AI designer answers `unavailable`. Deliberately **not** in `orderEnvSchema`: a bad key must never break orders. `OPENAI_BASE_URL` (default `https://api.openai.com/v1`) is for tests |
 | `TRUST_PROXY` | `rate-limit.ts` | `process.env` directly |
 | `STAFF_PAGE_KEY` | `src/proxy.ts` (through `staff-gate.ts`), `staff-key.ts` (the staff page and the admin settings page) | `process.env` directly; 24+ characters, otherwise the staff page is a 404 and the admin page shows no link |
 | `CRON_SECRET` | `api/cron/purge/route.ts` | `process.env` directly |
@@ -152,6 +157,8 @@ First-party and cookieless. Events: `pageview` (sent by `src/components/shell/Tr
 
 - **Stored per event:** time, type, visitor hash, path, step, traffic source, device class, city, region and country (from Vercel's `x-vercel-ip-*` headers, absent locally) and a small `meta` object (for an order: material, sheets, the typed sticker count when there is one, total, governorate, shape, size).
 - **Never stored:** IP address, user agent, the referrer URL (it is reduced to a source name such as `instagram`), cookies, names or phone numbers.
+- **The one exception is not analytics.** The AI designer tables (`ai_usage`, `ai_generations`, `ai_blocks`) store the **full client IP** next to a keyed hash (`ip_key`, below). This is an explicit owner decision (D9, 2026-11-21): the admin page must show which address hit the limit and let the owner block it. It applies to those three tables only. Analytics events, Sentry and logs still never carry an IP.
+- **`ip_key`** is `HMAC-SHA256(SESSION_SECRET, "ai-ip|" + ip)` in hex (`src/lib/ai/ip.ts`, `aiIpKey`). It is the limit and block key, so a block survives the IP text being formatted differently. When `clientIp()` answers `global` (`TRUST_PROXY=0`, local development) the key is empty: the per-IP limit is skipped and only the site cap applies. `ipOf()` (analytics) and `clientIp()` (rate limits) stay separate (invariant 9).
 - **Visitor hash:** the first 16 hex characters of `sha256(shop day | IP | user agent | salt)`. It changes every day, so one visitor cannot be followed across days. The salt is `SESSION_SECRET`: changing that secret splits the same day's visitors in two.
 - **Dropped:** bots, an empty user agent, every `/admin` and `/staff` path in any letter case (`isAdminPath`, `isStaffPath`), and anything beyond 300 events per hour from one visitor hash. `/api/track` answers 204 whether it stored the event or not (400 only for an invalid body).
 
@@ -159,10 +166,17 @@ Retention:
 
 | Data | Kept for | Removed by |
 |---|---|---|
-| Orders, sheet PDFs, designs | `settings.retentionDays` (default 30) | `GET /api/cron/purge` daily on Vercel; `pnpm purge:orders` locally |
-| Direct uploads never committed | 3 hours | the cron |
+| Sheet PDFs (`orders/<id>.pdf`) | `settings.retentionDays` (default 30; the admin label says it is the print file) | `GET /api/cron/purge` daily on Vercel; `pnpm purge:orders` locally. The PDF can be rebuilt, so it is the only large file that goes. |
+| Orders (record) and their design file | **forever** (owner decision D10, 2026-11-21), so a future "order again" can reuse them | never. **Exception:** orders created before `KEEP_DESIGNS_FROM` (`src/config/defaults.ts`; set it to the deploy date in the deploy commit) keep the old rule: record, PDF and design removed after `retentionDays`, as those customers were told |
+| Generated designs (`ai_generations` rows and their upload files), ordered or not | forever (D10) | never: the purge skips every upload that an `ai_generations` row or an order points to |
+| Uploads that no order and no generation uses (an upload abandoned before ordering) | `retentionDays` | the cron |
+| Direct uploads never committed (no meta file) | 3 hours | the cron |
+| Blocked IPs (`ai_blocks`) | forever | the admin's «إلغاء الحظر» |
+| AI daily counters (`ai_usage`) | forever: no code removes them yet (a few rows per IP per day; they are also the source of the all-time and monthly counters on the admin page, so they must not shrink) | never |
 | Analytics events | 400 days | the cron (the local script does not remove them) |
 | Customers | permanently (owner decision; the consent text says so) | never |
+
+Every purge run only looks at items created in `[cutoff − PURGE_WINDOW_DAYS (30), cutoff)`, so the work stays flat as data grows. A cron that stops for more than 30 days therefore leaves the items of the skipped days behind; they are not picked up later. The deletion promise was removed from the site copy (D11): `builder.details.consent` and `common.filesNotice` no longer say that design files are deleted after a period, because designs are now kept; the sentences about keeping the customer's name, phone and address stay.
 
 ## Error monitoring (Sentry)
 
@@ -205,6 +219,55 @@ The tunnel does not forward cookies or custom headers, but it passes on the visi
 - Not captured on purpose: `src/lib/storage/local.ts` and what it loads, `auth/token.ts` and `staff-gate.ts` stay free of Sentry (they run under tsx and in the proxy).
 
 Captures carry ids, route names and error codes only (`orderId`, `uploadId`, file type and size), never a name, phone, address or file name. `reportError` flushes inside `after()` so a serverless function does not freeze before the event is sent.
+
+## AI sticker designer
+
+Added 2026-11-21 (spec `docs/superpowers/specs/2026-11-21-ai-sticker-designer-design.md`, decisions D1-D13). The customer describes a sticker in one free-text field and the site generates the artwork with OpenAI. The result is an ordinary upload, so it goes through the existing arrangement, quantity, details and order pipeline unchanged; uploading a ready design stays available («عندي تصميم جاهز»). The OpenAI key is read only on the server; the browser never talks to OpenAI.
+
+**Flow.** shape → size → idea (+ up to 5 reference images, uploaded through the normal direct-upload path and sent as `refUploadIds`) → `POST /api/design/brief` → review box (the customer edits the printed lines, sees the spelling fixes, and is blocked when the text is too much for the size) → `POST /api/design/generate` → result → «أكمل بهذا» hands the PNG to `onFile()` like an uploaded file → order. The five step ids (`shape`, `design`, `size`, `quantity`, `details`) are unchanged; only what they render and their labels changed (invariant 15). If the feature is off (no key, `ai.enabled = false`, cap reached, IP blocked) ordering is never blocked: the upload path remains.
+
+**Module map** (`src/lib/ai/`, all `server-only` except `config.ts` and `text-capacity.ts`, which the browser imports too):
+
+| File | What lives there |
+|---|---|
+| `config.ts` | Constants: models, sizes, caps (`AI_BRIEF_PER_IP` 20, `AI_BRIEF_SITE` 1,500, `AI_OPENAI_TIMEOUT_MS` 50 s, `AI_MAX_LINES` 8, `AI_LINE_MAX_CHARS` 60, `AI_MAX_REFS` 5, `AI_MIN_PIXELS` 655,360, `AI_MAX_ASPECT` 3). Safe in browser code. |
+| `openai.ts` | `openAiConfig()`, `postOpenAi()` (plain `fetch`, no SDK, timeout, never throws, reports only fixed messages and whitelisted codes), `generateImage()` (no refs: `/images/generations`; refs: `/images/edits` multipart `image[]`). Failure reasons: `refused` (moderation / content policy), `timeout`, `error`. |
+| `brief.ts` | The extractor: one `POST /responses` call to `gpt-5.4-mini` with a strict JSON schema and `store: false`; the customer's message goes in `input` as data, never into `instructions`; worked examples in the prompt. Returns the lines to print, an English artwork description and the spelling fixes. |
+| `prompt-template.ts` | `buildImagePrompt()` (the fixed template: shape rule, size in cm, artwork description, the exact numbered lines, the minimum text height, colours, style), `sanitizeLine`, `aiAspectOk`, `imageRequestSize`. Pure functions, but `server-only`. |
+| `text-capacity.ts` | `textCapacity()`: does the text fit at 12 pt on this shape and size. Pure and browser-safe; the review box and the server use the same function. |
+| `normalise.ts` | `normaliseGenerated()` (sharp pixel clean-up) and `prepareRef()` (reference image: auto-orient, fit inside 1024, strip metadata). |
+| `ip.ts` | `aiIpKey()`. |
+| `service.ts` | `runBrief()` and `runGenerate()`: all the logic, schemas, limits and release rules. The two route files (`app/api/design/*/route.ts`) only read the capped body and turn the outcome into a Response. |
+
+**Models.** Images: `gpt-image-2.6-flare`, quality `high`, 1024 px on the long side (`AI_IMAGE_LONG_SIDE`). Brief: `gpt-5.4-mini`. Sizes sent: circle and custom 1024x1024 with `background: transparent`; a rectangle has its long side 1024 and the other side from the aspect ratio rounded to a multiple of 16 (grown until at least 655,360 pixels), `background: opaque`; a rectangle longer than 3:1 is refused (`invalid_request`). OpenAI quirks are in `docs/STACK_NOTES.md`.
+
+**Text rules** (`text-capacity.ts`). Minimum text size 12 pt (em 4.233 mm). A line of `n` characters (combining marks not counted) needs `ceil(n x 0.55 em / usable width)` rows, each `1.4 em` tall; the rows may take at most 65 % of the usable height. Usable box: circle = the inscribed square (0.70 d, less 8 %), rect = 90 % of each side, custom = 80 %. The constants were calibrated on the spike images; the unit tests pin them. `generate` rechecks it server-side (`text_too_long`).
+
+**Pixels** (`normaliseGenerated`). The model's opaque pixels come back at alpha 253-254 and its transparent pixels carry dark RGB, so the stored PNG is normalised: circle and rect are flattened onto white (opaque RGB; the PDF's own circle clip cuts the circle); custom keeps its alpha channel but alpha >= 250 becomes 255 and alpha <= 8 becomes 0 with white RGB. A custom result with no usable transparency is not accepted (see cost guards). The stored PNG must be at most 3.2 MB (`AI_PNG_MAX_BYTES`, re-encoded at maximum compression first) because it travels back as base64 under Vercel's 4.5 MB response limit.
+
+**Limits** (one "use" = one try; the day is the shop day, `shopDayKey`, Asia/Baghdad):
+
+| What | Limit | Where it lives |
+|---|---|---|
+| Generations per IP per day | 5 (`settings.ai.perIpDailyLimit`) | stored, `ai_usage` kind `image`, atomic |
+| Generations for the whole site per day | 300 (`settings.ai.siteDailyLimit`) | stored, same RPC |
+| Briefs per IP per day / site per day | 20 / 1,500 (`AI_BRIEF_PER_IP`, `AI_BRIEF_SITE`; constants, not settings) | stored, `ai_usage` kind `brief` |
+| First-line guards | brief 30/h per IP, generate 15/h per IP | in memory per instance (`limiters().brief` / `.generate` in `rate-limit.ts`), so a client cannot hammer the stored counter or the OpenAI call |
+| Master switch | `settings.ai.enabled` | admin settings |
+
+The stored counters are exact across serverless instances: `reserve_ai` takes a per-(day, kind) advisory lock, then checks in this order: blocked, site cap, per-IP cap, and counts the use. The local adapter does the same inside one in-process lock (development only).
+
+**Cost guards** (what keeps the bill bounded; do not reorder `runGenerate`):
+
+1. Everything cheap and free of OpenAI is checked first: body, the signed `briefToken` (the model's artwork description reaches `generate` from the browser, so `brief` signs it with an HMAC of `SESSION_SECRET` and `generate` refuses any description it did not sign; the raw idea is stored for the admin page but never sent to OpenAI by `generate`), the 3:1 aspect, `ai.enabled` and the key, text capacity, then the in-memory limiter, then the reference images (read and prepared before the reservation, so a bad one costs nothing).
+2. Then the atomic reservation. From there on every failure gives the use back (`aiRelease`): OpenAI error, timeout, content-policy refusal, an unreadable or oversize result, a failed save. A failed try never counts against the customer.
+3. **Refused but counted:** a custom shape whose image has no usable transparency was already paid for at OpenAI, so the use is **kept** and the answer is `refused` (its copy does not claim the try was free).
+4. In production with `SESSION_SECRET` blank both routes answer `unavailable` (the token would be signed with a public dev salt).
+5. The OpenAI call has a 50 s timeout (`maxDuration` of the route is 60 s). Retries are the customer's choice and count.
+
+**After generation.** The PNG is saved as an ordinary upload (`uploads/<id>.bin|json`, original name `ai-design.png`) and recorded in `ai_generations` (full IP, `ip_key`, shape, size, idea, printed lines, `uploadId`, `orderId: null`). If recording fails the customer still gets the design and only the gallery entry is lost (that upload is then unreferenced and follows the unused-upload rule). `POST /api/orders` calls `aiMarkOrdered(uploadId, orderId)` after saving the order (best effort, never fails the order), which fills `orderId` and makes the gallery link to the order.
+
+**Admin.** `/admin/designs` and its image route (section 1). The «إلغاء الحظر» and «احظر» buttons stop generation only; a blocked customer can still upload a design and order. Settings: the three `ai` fields in `/admin/settings`.
 
 ## 6. Module homes
 
@@ -284,8 +347,13 @@ Breaking one of these loses data, breaks a customer in the middle of an order, o
 5. **Visible copy**: every string in `src/content/ar`, the order summary text and the Telegram caption.
 6. **Old-brand identifiers that are data.** They look like leftovers of the previous shop name but they are stored in browsers, databases or URLs: the bucket `etihad`, the cookie `ep_admin`, the order number prefix `EP-`, the browser storage keys `ub:form:v1` (sessionStorage), `ub:draft:v1` (localStorage), the IndexedDB database `ub:draft`, `ub:order-success:v1`, `softy-tracked`, `softy-step-<id>` and `softy-install-dismissed`, the `globalThis` keys `__epStorage` and `__epLimiters`, the package name `etihad`, and every environment variable name.
 7. **API surface**: route paths, status codes, the JSON bodies and their key order.
-8. **Security boundaries**: the session check stays the first statement of every admin page behind the login, of `updateOrderStatus` and `saveSettingsAction`, and of both `/api/admin` route handlers (see section 1); server modules keep `import 'server-only'`; the price is always recomputed on the server; no IP or user agent is added to a stored event.
+8. **Security boundaries**: the session check stays the first statement of every admin page behind the login, of `updateOrderStatus` and `saveSettingsAction`, and of both `/api/admin` route handlers (see section 1); server modules keep `import 'server-only'`; the price is always recomputed on the server; no IP or user agent is added to a stored analytics event (the three AI tables are the one decided exception, invariant 13); the OpenAI key stays server-side and `/api/design/*` never call OpenAI before the limits and checks of the AI section.
 9. **The visitor hash inputs** (section 5). `ipOf()` in `analytics/server.ts` and `clientIp()` in `rate-limit.ts` are separate on purpose: merging them changes stored hashes.
 10. **The dots geometry** (`REG_MARKS`: 5 mm wide, centre 7 mm from both edges, 3 mm clearance, K black, layer `sk_marks`) matches the plotter's template. A dot at 6.8 mm or 4.8 mm wide may be rejected by the machine, and a sticker within 3 mm of a dot may make the camera misread the sheet. Change it only on the owner's word after a plotter test. The same goes for `PrintScaling /None`: a sheet shrunk by "fit to page" moves the dots off the template.
 11. **The staff key never leaks**: `/staff` stays out of the sitemap, `robots.txt` and analytics, the staff page sends no design file to the server, and a wrong key gets exactly the answer of an unknown URL (so no route may match `/staff/<anything>`; the page stays behind the proxy rewrite).
-12. **Nothing private goes to Sentry**: never the staff key or any `/staff/<key>` URL, never customer data (name, phone, address, file names or contents), never a signed URL with its token, a bot token or a cookie. Keep `dataCollection` in `src/lib/monitoring/config.ts` switched off (this SDK version has no `sendDefaultPii`; `dataCollection` is its replacement), keep every `Sentry.init` behind the scrubber hooks, and pass only ids and codes to `reportError` / `reportClientError`. Do not add tracing, replay or profiling.
+12. **Nothing private goes to Sentry**: never the staff key or any `/staff/<key>` URL, never customer data (name, phone, address, file names or contents, and in the AI designer the idea text, the printed lines, the IP, the OpenAI key and OpenAI response bodies), never a signed URL with its token, a bot token or a cookie. Keep `dataCollection` in `src/lib/monitoring/config.ts` switched off (this SDK version has no `sendDefaultPii`; `dataCollection` is its replacement), keep every `Sentry.init` behind the scrubber hooks, and pass only ids and codes to `reportError` / `reportClientError`. Do not add tracing, replay or profiling.
+13. **The AI tables and RPCs** (migration `20261121000000_ai_designer.sql`, applied once it reaches production: never edit it, add a new file): `ai_usage`, `ai_generations` (`upload_id` unique), `ai_blocks`, and the RPCs `reserve_ai` / `release_ai`. RLS on, no policies, nothing granted to `anon` or `authenticated`, the RPCs `security invoker` and executable by `service_role` only. `reserve_ai` is the only thing that makes the daily limits atomic across serverless instances (advisory lock per day and kind, order: blocked, site cap, per-IP cap); do not replace it with read-then-write. These tables hold the full client IP (D9); that is allowed for them only, and `AiGenerationRecord`, `AiUsageRow` and `AiBlock` follow invariant 2. `ShopSettings.ai` is the new settings key (appended after `retentionDays`: key order is golden-pinned).
+14. **The AI adapter methods are optional on `StorageAdapter`** (`aiReserve`, `aiRelease`, `aiRecordGeneration`, `aiMarkOrdered`, `aiListGenerations`, `aiUsage`, `aiBlock`, `aiUnblock`, `aiListBlocks`) so a third adapter or a test double compiles without them; both real adapters implement all of them. `service.ts` answers `unavailable` when `aiReserve` or `aiRelease` is missing, and the order route and the admin pages use `?.`: a missing method must never break an order. `local.ts` keeps its no-`server-only`, relative-import rule (section 3) for its AI code too.
+15. **Builder steps keep their ids** (`shape`, `design`, `size`, `quantity`, `details`, `STEPS` in `types.ts`). They are data: analytics `step` events, the admin funnel, draft restore and `builder-logic.golden`. The AI designer changed what the `shape` and `design` steps render and their stepper labels, not their ids or order. An accepted AI design enters through the same `onFile()` as an upload, and the submit flow reuses its `uploadId` instead of uploading the PNG again; the order, the PDF and the staff sheet for an uploaded design are unchanged.
+16. **Retention rules** (D10, section 5): orders and design files are kept forever; only `orders/<id>.pdf` is purged after `retentionDays`; the purge never deletes an upload that an order or an `ai_generations` row uses; orders created before `KEEP_DESIGNS_FROM` keep the old delete-everything rule. Moving `KEEP_DESIGNS_FROM` earlier would keep data that customers were told would be deleted; moving it later would delete data that is now meant to stay. Set it once, to the deploy date. A purged PDF must stay a handled state in the admin (410 and the «انحذف ملف الطباعة» text), never a 500.
+17. **The deletion promise is gone from the copy** (D11): `builder.details.consent` and `common.filesNotice` no longer promise that design files are deleted. Do not put such a sentence back unless the retention rule above changes first.

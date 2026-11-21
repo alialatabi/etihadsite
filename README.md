@@ -9,6 +9,8 @@
 ### شنو يسوي الموقع؟
 الزبون يختار الشكل (دائري، مستطيل، أو مخصص)، يرفع تصميمه (PNG أو JPG أو PDF)، يكتب القياس بالسنتيمتر، فيشوف ورقة A4 مرتبة قدامه مع عدد الستيكرات بالورقة. بعدين يختار الخامة (ورقي أو بلاستك) ويكتب عدد الأوراق (أو يضغط زر اختيار سريع: 10 / 20 / 50 / 100)، وكل ما زاد العدد يزيد الخصم على سعر الورقة. يكتب اسمه وعنوانه ورقمه، ويرسل الطلب. الطلب يوصلك على تيليغرام، ويطلع لك ملف PDF جاهز للطباعة بالقياس الحقيقي.
 
+**المصمم بالذكاء الاصطناعي:** الزبون ممكن بدال ما يرفع تصميم يكتب فكرته بخانة وحدة، والموقع يسوي له التصميم (بحد أقصى 5 تصاميم لكل زبون باليوم و300 للموقع كله، وتغيّرهم من الإعدادات). التصميم يكمل بنفس مسار الطلب. من لوحة الإدارة، صفحة **التصاميم**، تشوف كل التصاميم والعدّادات وتحظر أي عنوان IP. يحتاج `OPENAI_API_KEY`، وبدونه الميزة تنطفي والطلبات تشتغل عادي.
+
 صفحة «شلون نشتغل؟» تحسب أرقامها من نفس محرك الترتيب، فإذا غيّرت الهامش أو الفراغات من الإعدادات تتغير الأرقام لحالها.
 
 ### تشغيل الموقع على جهازك
@@ -58,7 +60,7 @@ pnpm dev
 ```bash
 pnpm purge:orders
 ```
-يحذف الطلبات والملفات الأقدم من مدة الاحتفاظ (30 يوم افتراضياً). قائمة الزبائن ما تنحذف. حتى تشوف شنو راح ينحذف بدون ما ينحذف شي: `pnpm purge:orders --dry-run`.
+يحذف ملفات الطباعة PDF الأقدم من مدة الاحتفاظ (30 يوم افتراضياً) والملفات المرفوعة اللي ما صارت طلب. الطلبات وتصاميمها وقائمة الزبائن ما تنحذف (الطلبات القديمة قبل تاريخ `KEEP_DESIGNS_FROM` بس تنحذف كاملة مثل أول). حتى تشوف شنو راح ينحذف بدون ما ينحذف شي: `pnpm purge:orders --dry-run`.
 
 ### نصائح الطباعة (مهم)
 - اطبع ملف PDF بحجم **100% / «الحجم الفعلي» (Actual size)**. لا تختار أبداً **«Fit to page»** أو «ملاءمة الصفحة»، لأنها تصغّر الورقة وتخرب القياس.
@@ -74,7 +76,7 @@ pnpm purge:orders
 - الرابط: **https://etihad-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
 - الطلبات والملفات والإعدادات محفوظة بـ **Supabase** (مشروع `etihad`)، مو على الحاسبة.
 - لوحة التحكم: `https://etihad-print.vercel.app/admin` بكلمة السر الخاصة بالموقع المنشور (غير كلمة السر المحلية).
-- كل يوم تنحذف تلقائياً الطلبات والملفات الأقدم من 30 يوم. قائمة الزبائن تبقى.
+- كل يوم تنحذف تلقائياً ملفات الطباعة PDF الأقدم من 30 يوم. الطلبات وتصاميمها (المرفوعة والمولّدة) وقائمة الزبائن تبقى.
 - للنشر من جديد بعد أي تعديل: `vercel deploy --prod`.
 - باقي: باقة **Vercel Pro** للاستخدام التجاري، و `ORDER_TRANSPORT=telegram` حتى توصلك الطلبات على تيليگرام.
 - **Cloudflare Turnstile** (ضد الطلبات الوهمية) مو مكتمل: الفحص موجود بالسيرفر بس الموقع ما بيه خانة التحقق. لا تحط قيمة لـ `TURNSTILE_SECRET_KEY`، لأن وقتها كل الطلبات تنرفض.
@@ -85,6 +87,8 @@ pnpm purge:orders
 
 ### What it does
 Customers pick a sticker shape (circle, rectangle with rounded or sharp corners, or custom die-cut), upload one design (PNG, JPG or PDF, first page only), enter the size in cm and see a live A4 preview with the per-sheet count. They pick a material (paper or plastic) and a number of sheets (typed, or a quick-pick button; the per-sheet price drops by volume discount tiers) and submit name, phone and address. The shop receives the order on Telegram plus a print-ready artwork-only PDF, and can manage orders, customers, statistics and settings in `/admin`.
+
+**AI sticker designer.** Instead of uploading, a customer can describe the sticker in one text field. The server fixes the spelling of the text to print, shows it for review, then generates the artwork with OpenAI (`gpt-image-2.6-flare`) from a fixed prompt template; the result continues through the normal arrangement and order flow. Limits: 5 generations per IP and 300 for the whole site per day (editable in settings), a failed try is not counted. `/admin/designs` shows counters, a gallery of every generated design, alerts for IPs at the limit and an IP block button. Without `OPENAI_API_KEY` the feature is off and ordering is unaffected. See "AI sticker designer" in `docs/ARCHITECTURE.md`.
 
 The «شلون نشتغل؟» page (`/how-it-works`) computes its numbers with the same layout engine (`computeLayout`) using the live settings, so it never drifts from the builder. With the defaults, a 3 cm circle gives 54 stickers per sheet.
 
@@ -116,11 +120,12 @@ Checks: `pnpm check` (runs `pnpm typecheck && pnpm test && pnpm lint && pnpm lin
 | `TURNSTILE_SECRET_KEY` | **Leave unset.** The check exists on the server only: no page renders a Turnstile widget or sends a token, so setting the secret makes every order fail with `captcha_failed`. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is not read by any code yet |
 
 ### Admin and settings
-`/admin` has four sections:
-- **Orders** (`/admin`, `/admin/orders/<id>`): list, detail, downloads of the A4 PDF and the original design, status (جديد، قيد الطباعة، مكتمل، ملغي).
+`/admin` has five sections:
+- **Orders** (`/admin`, `/admin/orders/<id>`): list, detail, downloads of the A4 PDF and the original design, status (جديد، قيد الطباعة، مكتمل، ملغي). The print PDF is removed after `retentionDays`; the order page then says so.
+- **Designs** (`/admin/designs`): AI designer counters (today, month, all time), the gallery of every generated design with its idea, printed lines and order link, alerts for IPs that reached the daily limit, and block / unblock (stops generation only; the customer can still upload and order). The full IP is shown here by owner decision.
 - **Statistics** (`/admin/stats`): visits, funnel, orders, revenue, sources, devices and cities for the last 7, 30 or 90 days, from first-party cookieless events.
 - **Customers** (`/admin/customers`): one row per phone number with search and a governorate filter; «تنزيل Excel» downloads `GET /api/admin/customers` as CSV.
-- **Settings** (`/admin/settings`; also shows the staff link when `STAFF_PAGE_KEY` is set): shop name, tagline, phone, WhatsApp (international digits, no `+`, e.g. `9647701234567`), hours, area, Telegram chat id; per-sheet price and on/off switch for each material, minimum and maximum sheets, volume discount tiers, quick-pick sheet counts, delivery fee; layout margin, gaps and rotation; retention days.
+- **Settings** (`/admin/settings`; also shows the staff link when `STAFF_PAGE_KEY` is set): shop name, tagline, phone, WhatsApp (international digits, no `+`, e.g. `9647701234567`), hours, area, Telegram chat id; per-sheet price and on/off switch for each material, minimum and maximum sheets, volume discount tiers, quick-pick sheet counts, delivery fee; layout margin, gaps and rotation; retention days of the print PDF; the AI designer switch and its two daily limits.
 
 Prices are shown while «إظهار الأسعار للزبائن» is on (the default). When it is off the site shows «السعر يُحدد عند التأكيد» and no number. The server always recomputes the price from the material and the sheet count; the browser never sends one.
 
@@ -131,9 +136,9 @@ Prices are shown while «إظهار الأسعار للزبائن» is on (the d
 4. Set `ORDER_TRANSPORT=telegram`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `.env.local`, restart.
 
 ### Data and retention
-Local: orders, uploads, generated PDFs, settings, the customer list and analytics events live under `./data` (gitignored). Purge orders and files older than the retention period (default 30 days) with `pnpm purge:orders` (`--dry-run` only lists); schedule it daily. It runs `scripts/purge-orders.ts`, which does not remove customers or analytics events.
+Local: orders, uploads, generated PDFs, settings, the customer list and analytics events live under `./data` (gitignored). Purge with `pnpm purge:orders` (`--dry-run` only lists); schedule it daily. It runs `scripts/purge-orders.ts`, which removes print PDFs and unused uploads older than the retention period (default 30 days). Orders and their design files, generated AI designs, customers and analytics events are kept (orders created before `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` keep the old rule: removed whole).
 
-Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers` and the private bucket `etihad` (schema in `supabase/migrations/`, RLS on with no policies, so only the secret key can touch them). Vercel Cron calls `GET /api/cron/purge` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`; it removes orders, PDFs and designs older than `retentionDays`, direct uploads that were never committed (older than 3 h), and analytics events older than 400 days. Customers are never deleted. `?dry=1` only reports.
+Hosted (`STORAGE=supabase`): tables `orders`, `settings`, `events`, `customers`, `ai_usage`, `ai_generations`, `ai_blocks` and the private bucket `etihad` (schema in `supabase/migrations/`, RLS on with no policies, so only the secret key can touch them). Vercel Cron calls `GET /api/cron/purge` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`; it removes print PDFs older than `retentionDays`, uploads that no order or AI generation uses, direct uploads that were never committed (older than 3 h), and analytics events older than 400 days. Orders and their designs, AI generations and customers are never deleted (except orders created before `KEEP_DESIGNS_FROM`, which keep the old rule). `?dry=1` only reports.
 
 Uploads on Vercel go browser → bucket through a one-time signed URL (`POST /api/upload/direct`, then `/api/upload/direct/commit`, where the server re-checks size and magic bytes), because Vercel caps request and response bodies at 4.5 MB. Admin downloads redirect to 60-second signed links for the same reason.
 
@@ -150,7 +155,13 @@ A4 21 × 29.7 cm, 3 mm margin, 4 cutter dots (stickers keep 3 mm away from them)
 The icons (`src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.png`) are committed files derived from `public/brand/softy-mark.png`. No script generates them: to change the logo, replace those files by hand. The Open Graph image (`src/app/opengraph-image.tsx`) reads `public/brand/softy-logo.png` and adds Latin text, so it needs no Arabic font at build time. `metadataBase` is not set in the root layout, so the sitemap URLs are relative paths.
 
 ### Deployment
-Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
+Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`, and (after the AI designer ships) `OPENAI_API_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
+
+**Production checklist for the AI designer** (do these before or with the deploy that contains it):
+1. Apply `supabase/migrations/20261121000000_ai_designer.sql` on the production Supabase project (the code needs the new tables and RPCs).
+2. Set `OPENAI_API_KEY` in Vercel (use a fresh key, not one pasted in chat; set a monthly budget on the OpenAI account).
+3. Set `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` to the deploy date (orders before it keep the old 30-day delete rule), commit it with the deploy.
+4. Deploy, then open `/admin/designs` and make one test generation.
 
 Still open: Vercel **Pro** (Hobby forbids commercial use), `ORDER_TRANSPORT=telegram`, a Turnstile client widget (until one exists keep `TURNSTILE_SECRET_KEY` unset, see the table above), and a cross-instance rate limiter (the in-memory one is per serverless instance; a Vercel Firewall rate-limit rule on `/api/upload/direct` and `/api/orders` covers it).
 
