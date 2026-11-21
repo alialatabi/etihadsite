@@ -25,6 +25,8 @@
 - Model ids: image `gpt-image-2.6-flare`, quality `high`; extractor `gpt-5.4-mini`. Limits: 5 images/IP/day, 300 images/site/day; briefs 20/IP/day, 1,500/site/day. Day = `shopDayKey()` (Asia/Baghdad).
 - `OPENAI_API_KEY` is read only from `process.env` inside `src/lib/ai/`; never logged, never in the repo. Tests and e2e use `OPENAI_BASE_URL` pointing at a mock.
 - The full client IP is stored in the AI tables (D9). No IP in analytics events or Sentry.
+- Tasks run **one at a time, in order** (1, 2, 8, 9 share the copy snapshot; 2, 5, 6 share `types.ts` and the adapters). Stage **named paths only** (`git add <files>`); never `git add -A` — `Claude outputs/`, `example.pdf`, `.claude/` are untracked on purpose.
+- OpenAI image size rules (probed 2026-11-21): width and height multiples of 16, **at least 655,360 pixels** (1024×640 ok, 1024×624 rejected), aspect **≤ 3:1**.
 
 ## Review Focus
 
@@ -88,12 +90,15 @@ export const AI_MAX_REFS = 5;
 export const AI_BRIEF_PER_IP = 20;
 export const AI_BRIEF_SITE = 1500;
 export const AI_OPENAI_TIMEOUT_MS = 50_000;
+export const AI_MIN_PIXELS = 655_360;
+export const AI_MAX_ASPECT = 3;
+export const AI_REF_LONG_SIDE = 1024;
 
 // text-capacity.ts
 export const PT12_EM_UM = 4233;          // 12 pt
-export const LINE_PITCH_EM = 1.5;
+export const LINE_PITCH_EM = 1.4;
 export const GLYPH_ADVANCE_EM = 0.55;
-export const TEXT_HEIGHT_SHARE = 0.5;
+export const TEXT_HEIGHT_SHARE = 0.65;  // calibrated on spike images a (passes at 5 cm) and c (fails at 3 cm)
 export interface TextCapacity { ok: boolean; rowsNeeded: number; rowsAllowed: number; minSizeUm: number | null }
 export function usableBoxUm(shape: Shape, widthUm: number, heightUm: number): { w: number; h: number };
 export function textCapacity(lines: string[], shape: Shape, widthUm: number, heightUm: number): TextCapacity;
@@ -102,6 +107,8 @@ export function textCapacity(lines: string[], shape: Shape, widthUm: number, hei
 export interface TemplateInput { shape: Shape; corners: Corners; widthUm: number; heightUm: number; visualDescription: string; lines: string[]; hasRefs: boolean }
 export function buildImagePrompt(input: TemplateInput): string;
 export function imageRequestSize(shape: Shape, widthUm: number, heightUm: number): { size: string; background: 'transparent' | 'opaque' };
+export function aiAspectOk(shape: Shape, widthUm: number, heightUm: number): boolean;   // rect: long/short <= AI_MAX_ASPECT; others true
+export function sanitizeLine(line: string): string;   // removes « » " ' ` < >, control chars and newlines, collapses spaces, trims, cuts to AI_LINE_MAX_CHARS
 
 // ip.ts
 export function aiIpKey(ip: string): string;   // HMAC-SHA256 hex (64 chars), key = process.env.SESSION_SECRET || 'softy-dev-ai-salt', message 'ai-ip|' + ip
@@ -112,12 +119,12 @@ Rules (spec §5.3, §5.4):
 - Character count of a line = code points excluding combining marks (`/\p{M}/u`), after trim. Rows for a line = `ceil(chars × GLYPH_ADVANCE_EM × PT12_EM_UM / usable.w)`; blank lines ignored.
 - `rowsAllowed = floor(TEXT_HEIGHT_SHARE × usable.h / (LINE_PITCH_EM × PT12_EM_UM))`; `ok = rowsNeeded ≤ rowsAllowed`.
 - `minSizeUm`: when not ok, the smallest width (1,000 µm steps, aspect kept, ≤ 204,000) that is ok; `null` if none; `null` too when already ok.
-- `imageRequestSize`: circle and custom → `'1024x1024'` with `transparent`; rect → long side 1024, short side `round(1024 × short/long / 16) × 16`, `opaque`.
+- `imageRequestSize`: circle and custom → `'1024x1024'` with `transparent`; rect (`opaque`): `r = long/short` (caller guarantees ≤ 3); start `L = 1024`, `S = round(L / r / 16) × 16`; while `L × S < AI_MIN_PIXELS`: `L += 16`, recompute `S`. Orientation follows the sticker.
 - `buildImagePrompt` contains, in order: the designer role line; the shape rule from spec §5.4 table (circle: "circle inscribed in the canvas … transparent outside"; rect: "fill the whole canvas edge to edge … no border, no bleed" plus "rounded corners" note when `corners==='rounded'`; custom: "die-cut … transparent background … one continuous smooth thick white border (about 3% of the canvas width)"); `Final printed size: W cm × H cm` (one decimal); `Artwork: <visualDescription>`; the refs line when `hasRefs`; the numbered lines each wrapped in `«»` with the letter-for-letter rule, or "Do not add any text, letters or numbers." when no lines; the min text rule `at least N% of the canvas's shorter side` with `N = ceil(3000 / min(w,h) × 100)`; the colour rule (bright, no very dark colours, no large black areas, no black or near-black gradients); the style rule (clean vector-like, bold shapes, no tiny details, no watermark, signature or frame, not a mockup).
 
 - [ ] **Step 1: Failing tests**
-  - `text-capacity.test.ts`: `3 cm circle cannot hold «حلويات الريم»` → `{ok:false, rowsNeeded:2, rowsAllowed:1}`; `5 cm circle holds it` → `ok:true`; `no lines is always ok` → `{ok:true, rowsNeeded:0}`; `tanween does not count` (`'أهلاً'` counts 4); `minSizeUm is the smallest ok width` (for the 6 birthday lines from spike case c on a 30,000 µm circle: `textCapacity(lines,'circle',min,min).ok === true` and at `min-1000` false); `rect uses 90 % box` (`usableBoxUm('rect',90000,60000)` → `{w:81000,h:54000}`).
-  - `prompt-template.test.ts`: `custom asks for transparent background and white border`; `circle asks for inscribed circle and transparent outside`; `every line appears wrapped in «»`; `no lines → no text rule`; `prompt never contains the raw idea text` (build with a `visualDescription` and assert a sentinel Arabic idea string passed nowhere is absent — the function has no idea parameter; assert `Object.keys` of `TemplateInput` usage by building with only the interface); `min text percent for 5 cm is 6`; `imageRequestSize rect 90000×60000 → 1024x688 opaque`, `60000×90000 → 688x1024`, `circle → 1024x1024 transparent`.
+  - `text-capacity.test.ts` (fixtures from the spike): `spike a: 5 cm circle holds حلويات الريم / أهلاً وسهلاً / 07801112233` → `ok:true`; `spike c: 3 cm circle cannot hold the 6 birthday lines` (عيد ميلاد سعيد / يا حبيبي / محمد / عمرك سنتين / نحبك هواية / ماما وبابا) → `ok:false`; `3 cm circle holds حلويات الريم on 2 rows` → `{ok:true, rowsNeeded:2, rowsAllowed:2}`; `no lines is always ok` → `{ok:true, rowsNeeded:0}`; `tanween does not count` (`'أهلاً'` counts 4); `minSizeUm is the smallest ok width` (for the 6 birthday lines on a 30,000 µm circle: `textCapacity(lines,'circle',min,min).ok === true` and at `min-1000` false); `rect uses 90 % box` (`usableBoxUm('rect',90000,60000)` → `{w:81000,h:54000}`).
+  - `prompt-template.test.ts`: `custom asks for transparent background and white border`; `circle asks for inscribed circle and transparent outside`; `every line appears wrapped in «»`; `no lines → no text rule`; `prompt never contains the raw idea text` (build with a `visualDescription` and assert a sentinel Arabic idea string passed nowhere is absent — the function has no idea parameter; assert `Object.keys` of `TemplateInput` usage by building with only the interface); `min text percent for 5 cm is 6`; `imageRequestSize rect 90000×60000 → 1024x688 opaque`, `60000×90000 → 688x1024`, `100000×50000 → 1152x576`, `150000×50000 → 1440x480`, `circle → 1024x1024 transparent`; `aiAspectOk rect 160000×50000 → false`; `sanitizeLine('«حلويات»\n<b>') → 'حلويات b'`.
   - `ip.test.ts`: `same ip same key`, `different ip different key`, `64 hex chars`, `key depends on SESSION_SECRET` (stub env).
 - [ ] **Step 2:** `pnpm vitest run tests/unit/ai` → FAIL (modules missing).
 - [ ] **Step 3:** Implement the four files to the rules above.
@@ -148,6 +155,7 @@ export function normaliseGenerated(png: Uint8Array, shape: Shape): Promise<{ png
 ```
 - `generateImage`: no refs → `POST {baseUrl}/images/generations` JSON `{model: AI_IMAGE_MODEL, prompt, size, quality:'high', n:1, background, output_format:'png'}`; refs → `POST {baseUrl}/images/edits` multipart with `image[]` per ref plus the same fields. Timeout `AI_OPENAI_TIMEOUT_MS` via `AbortSignal.timeout`. `refused` when the error code is `moderation_blocked` or the message/type mentions safety/content policy; `timeout` on abort; everything else `error`. Never include the key or the response body in thrown errors or `reportError` calls (codes only).
 - `extractBrief`: `POST {baseUrl}/responses` with `model: AI_BRIEF_MODEL`, the spike's instructions (copy from spec §3 notes and add: "Only words the customer explicitly wants WRITTEN on the sticker are printed text — e.g. after «مكتوب», «اكتب», «عليه», a shop or person name, a phone number. Descriptions of the picture (after «بيه», «بي», «جوه», «صورة», «رسمة», colours, objects) are NEVER printed text.") and 4 worked examples, including: «ستيكر مستطيل لكافيه گلبهار، مكتوب عليه كافيه گلبهار وجوة منها چاي وقهوة وپيتزا، وبي كوب چاي عراقي استكان وورد» → `printed_text: ["كافيه گلبهار"]`. Strict JSON schema `{printed_text: string[], visual_description: string, spelling_fixes: {from,to}[]}` mapped to `Brief`. Truncate to `AI_MAX_LINES` lines.
+- `prepareRef(bytes: Uint8Array): Promise<ImageRef>` (in `normalise.ts`): sharp `rotate()`, resize to fit `AI_REF_LONG_SIDE` (never enlarge), strip metadata, re-encode PNG if it has alpha else JPEG q85. The route sends only prepared refs.
 - `normaliseGenerated` (sharp): circle/rect → `flatten({background:'#ffffff'})`, `removeAlpha()`, PNG; custom → raw RGBA pass: alpha ≥ 250 → 255; alpha ≤ 8 → alpha 0 and RGB 255,255,255; PNG with alpha. Returns pixel size.
 
 - [ ] **Step 1: Failing tests** (stub `fetch` with `vi.stubGlobal`):
@@ -156,7 +164,8 @@ export function normaliseGenerated(png: Uint8Array, shape: Shape): Promise<{ png
   - normalise: `alpha 253 becomes 255 for custom` (synthetic 4×4 RGBA with alpha 253 and a transparent dark pixel → output alpha 255 / transparent pixel RGB 255,255,255); `circle is flattened to opaque white` (output channels 3, former transparent corner = 255,255,255); `rect is opaque`.
 - [ ] **Step 2:** `pnpm vitest run tests/unit/ai` → new tests FAIL.
 - [ ] **Step 3:** Implement the three modules.
-- [ ] **Step 4:** Tests PASS; `CI=1 pnpm check` PASS.
+- [ ] **Step 4:** Tests PASS; `CI=1 pnpm check` PASS. Add test `prepareRef shrinks a 3000 px JPEG to 1024 and drops EXIF`.
+- [ ] **Step 4b (main session, live):** run `extractBrief` with the real key on ~10 messy Iraqi messages (incl. the café and birthday cases); every printed line must be text the customer asked to be written. Tune the instructions/examples until all pass; record the messages and results in the commit message.
 - [ ] **Step 5:** Commit `feat(ai): openai client, brief extractor, png normalisation`.
 
 ### Task 5: Storage — migration and AI adapter methods (Opus)
@@ -174,7 +183,7 @@ export interface AiGenerationRecord { id: string; createdAt: string; day: string
 export interface AiUsageRow { day: string; ipKey: string; ip: string; kind: AiKind; count: number; lastAt: string }
 export interface AiBlock { ipKey: string; ip: string; createdAt: string }
 // StorageAdapter, all optional:
-aiReserve?(a: { day: string; ipKey: string; ip: string; kind: AiKind; perIpLimit: number; siteLimit: number }): Promise<AiReserveResult>; // ipKey '' = no per-IP check (TRUST_PROXY=0)
+aiReserve?(a: { day: string; ipKey: string; ip: string; kind: AiKind; perIpLimit: number; siteLimit: number }): Promise<{ status: AiReserveResult; used: number }>; // used = this IP's count for the day after the call; ipKey '' = no per-IP check (TRUST_PROXY=0)
 aiRelease?(a: { day: string; ipKey: string; kind: AiKind }): Promise<void>;
 aiRecordGeneration?(rec: AiGenerationRecord): Promise<void>;
 aiMarkOrdered?(uploadId: string, orderId: string): Promise<void>;
@@ -188,7 +197,7 @@ Migration (pattern of `20261107000100_patch_order.sql`: RLS on, no policies, `re
 - `ai_usage(day date, ip_key text, ip text, kind text check (kind in ('image','brief')), count int not null default 0, last_at timestamptz, primary key (day, ip_key, kind))`
 - `ai_generations(id text primary key, created_at timestamptz default now(), day date, ip text, ip_key text, shape text, corners text, width_um int, height_um int, idea text, lines jsonb, has_refs boolean, model text, upload_id text unique, order_id text)` + index on `(created_at desc)` and `(ip_key)`.
 - `ai_blocks(ip_key text primary key, ip text, created_at timestamptz default now())`.
-- `reserve_ai(p_day date, p_ip_key text, p_ip text, p_kind text, p_per_ip int, p_site int) returns text`: `pg_advisory_xact_lock(hashtext('ai|' || p_day || '|' || p_kind))`; `'blocked'` if `p_ip_key` in `ai_blocks`; site total = `sum(count)` for (day, kind) → `'site_limit'` when ≥ `p_site`; when `p_ip_key <> ''` and that row's count ≥ `p_per_ip` → `'ip_limit'`; else upsert +1 (`last_at = now()`, `ip = p_ip`) and `'ok'`. Site-only rows use `ip_key = ''`.
+- `reserve_ai(p_day date, p_ip_key text, p_ip text, p_kind text, p_per_ip int, p_site int) returns jsonb` (`{"status": text, "used": int}`): `pg_advisory_xact_lock(hashtext('ai|' || p_day || '|' || p_kind))`; `'blocked'` if `p_ip_key` in `ai_blocks`; site total = `sum(count)` for (day, kind) → `'site_limit'` when ≥ `p_site`; when `p_ip_key <> ''` and that row's count ≥ `p_per_ip` → `'ip_limit'`; else upsert +1 (`last_at = now()`, `ip = p_ip`) and `'ok'`. Site-only rows use `ip_key = ''`.
 - `release_ai(p_day date, p_ip_key text, p_kind text) returns void`: `count = greatest(count - 1, 0)`.
 - Local adapter: `ai/usage.json`, `ai/generations.json`, `ai/blocks.json` under `DATA_DIR`, same semantics, guarded by one in-process promise lock (pattern `customersLock`, local.ts:40).
 
@@ -204,9 +213,9 @@ Migration (pattern of `20261107000100_patch_order.sql`: RLS on, no policies, `re
 - Modify: `src/lib/storage/supabase.ts:408-458` (`purgeOlderThan`), `src/lib/storage/local.ts:331-387`, `src/lib/types.ts:557-564` (doc comment), `src/app/api/admin/files/[orderId]/[which]/route.ts`, `src/app/admin/orders/[orderId]/page.tsx:169-174`, `src/content/ar/admin.ts`
 - Test: `tests/unit/golden/supabase-storage.golden.test.ts` (update), `tests/unit/storage/storage.test.ts` or a new `tests/unit/storage/purge-keep.test.ts`, `tests/unit/golden/routes.golden.test.ts` (purge route snapshot if its output changes)
 
-**Interfaces:** `purgeOlderThan(cutoff, dryRun)` keeps its signature; new behaviour (spec §5.6): delete only `orders/<id>.pdf` of orders older than `cutoff`; never delete order rows/records or design files referenced by any order or by `ai_generations.upload_id` (local: `ai/generations.json`); unreferenced uploads older than `cutoff` and orphan `.bin` > 3 h are still deleted. Admin PDF route: when the PDF file is missing it answers `410` JSON `{ error: 'purged', message: admin.orders.pdfPurged }` with `admin.orders.pdfPurged` = `'ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ.'`. The order page renders that notice instead of the PDF link when the order is older than `retentionDays` (computed from `createdAt` and settings; no storage call on page load). The design download link stays.
+**Interfaces:** `export const KEEP_DESIGNS_FROM = '2026-11-22T00:00:00+03:00'` in `src/config/defaults.ts` (no `@/` imports there): orders created **before** it keep the old rule (record, PDF and design deleted after `retentionDays`, as those customers were told); orders from it on follow the new rule. The hand-over tells the owner to set it to the real deploy date in the deploy commit. Bound every purge scan to a window `[cutoff − 30 days, cutoff)` (orders by `created_at`; `uploads/` objects listed with `sortBy: created_at` and stopped once past the window), so cron time stays flat as data grows. `purgeOlderThan(cutoff, dryRun)` keeps its signature; new behaviour (spec §5.6) for orders from `KEEP_DESIGNS_FROM`: delete only `orders/<id>.pdf` of orders older than `cutoff`; never delete order rows/records or design files referenced by any order or by `ai_generations.upload_id` (local: `ai/generations.json`); unreferenced uploads older than `cutoff` and orphan `.bin` > 3 h are still deleted. Admin PDF route: when the PDF file is missing it answers `410` JSON `{ error: 'purged', message: admin.orders.pdfPurged }` with `admin.orders.pdfPurged` = `'ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ.'`. The order page renders that notice instead of the PDF link when the order is older than `retentionDays` (computed from `createdAt` and settings; no storage call on page load). The design download link stays.
 
-- [ ] **Step 1: Failing tests** (local adapter + stubbed Supabase): `purge keeps orders and designs, deletes old PDFs`; `purge keeps an unordered AI upload`; `purge still deletes an unreferenced old upload`; `admin pdf route answers 410 when the PDF was purged`.
+- [ ] **Step 1: Failing tests** (local adapter + stubbed Supabase): `purge keeps orders and designs, deletes old PDFs`; `orders before KEEP_DESIGNS_FROM are purged the old way`; `purge only scans the 30-day window`; `purge keeps an unordered AI upload`; `purge still deletes an unreferenced old upload`; `admin pdf route answers 410 when the PDF was purged`.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Implement. Update the doc comment in `types.ts`.
 - [ ] **Step 4:** Tests PASS. `supabase-storage.golden` (and `routes.golden` if affected) FAIL on the purge request sequence — review that the diff only removes order/design deletes and adds the ai reference lookup, then update one file at a time.
@@ -225,18 +234,20 @@ Migration (pattern of `20261107000100_patch_order.sql`: RLS on, no policies, `re
 ```ts
 // POST /api/design/brief  body: { idea: string(1..1000), shape: Shape, widthUm: int, heightUm: int }
 type BriefResponse =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string }
+  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
   | { ok: false; error: 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed' };
-// POST /api/design/generate  body: { shape, corners, widthUm, heightUm, idea: string(1..1000), visualDescription: string(1..600), lines: string[](≤8, each ≤60), refUploadIds: string[](≤5, ID_RE) }
+// POST /api/design/generate  body: { shape, corners, widthUm, heightUm, idea: string(1..1000), visualDescription: string(1..600), briefToken: string(64 hex), lines: string[](≤8, each ≤60), refUploadIds: string[](≤5, ID_RE) }
 type GenerateResponse =
   | { ok: true; uploadId: string; png: string /* base64 */; pxWidth: number; pxHeight: number; remainingToday: number | null }
   | { ok: false; error: 'unavailable' | 'blocked' | 'ip_limit' | 'site_limit' | 'text_too_long' | 'refused' | 'failed' | 'invalid_request' };
 ```
-- `generate` order: zod → `settings.ai.enabled && openAiConfig()` else `unavailable` → `textCapacity(lines, shape, w, h).ok` else `text_too_long` → refs: each `readUpload`, magic-byte kind PNG/JPEG (`src/lib/design/kind.ts`) else `invalid_request` → `ip = clientIp(request)`; `ipKey = ip === 'global' ? '' : aiIpKey(ip)` → `aiReserve({day: shopDayKey(new Date()), kind:'image', perIpLimit: settings.ai.perIpDailyLimit, siteLimit: settings.ai.siteDailyLimit})` → non-ok maps to the same error name → `generateImage` (prompt from `buildImagePrompt`, size from `imageRequestSize`) → failure: `aiRelease` then `refused`/`failed` → `normaliseGenerated` → `saveUpload(nanoid(), png, {mime:'image/png', originalName:'ai-design.png', bytes, createdAt})` → `aiRecordGeneration` → `remainingToday = perIp − used` (null when ipKey '') → respond. `export const maxDuration = 60; export const dynamic = 'force-dynamic'`.
+- `briefToken = HMAC-SHA256(SESSION_SECRET || dev salt, 'ai-brief|' + visualDescription)` hex, made by `brief`, verified (timing-safe) by `generate`; mismatch = `invalid_request`. So a direct caller cannot write the image prompt.
+- `brief` returns only the fixes whose `to` occurs inside a returned line. `generate` passes every line through `sanitizeLine` and drops empties before anything else.
+- `generate` order: zod → `briefToken` check → `aiAspectOk` else `invalid_request` → `settings.ai.enabled && openAiConfig()` else `unavailable` → `textCapacity(lines, shape, w, h).ok` else `text_too_long` → refs: each `readUpload`, magic-byte kind PNG/JPEG (`src/lib/design/kind.ts`) else `invalid_request`, then `prepareRef` → `ip = clientIp(request)`; `ipKey = ip === 'global' ? '' : aiIpKey(ip)` → `aiReserve({day: shopDayKey(new Date()), kind:'image', perIpLimit: settings.ai.perIpDailyLimit, siteLimit: settings.ai.siteDailyLimit})` → non-ok maps to the same error name → `generateImage` (prompt from `buildImagePrompt`, size from `imageRequestSize`) → failure: `aiRelease` then `refused`/`failed` → `normaliseGenerated` → `saveUpload(nanoid(), png, {mime:'image/png', originalName:'ai-design.png', bytes, createdAt})` → `aiRecordGeneration` → `remainingToday = perIpLimit − used` from `aiReserve` (null when ipKey '') → respond. `export const maxDuration = 60; export const dynamic = 'force-dynamic'`.
 - `brief`: zod → enabled + key → in-memory `brief` limiter → `aiReserve({kind:'brief', perIpLimit: AI_BRIEF_PER_IP, siteLimit: AI_BRIEF_SITE})` → `extractBrief` (release on failure) → respond. When the adapter lacks `aiReserve` (should not happen), answer `unavailable`.
 - Logs and `reportError` carry codes only (no idea text, no IP, no key).
 
-- [ ] **Step 1: Failing tests** (stub `fetch` for OpenAI via `OPENAI_BASE_URL=http://openai.test`, local storage in a temp `DATA_DIR`): `brief returns lines, fixes and visualDescription`; `brief rejects idea over 1000 chars`; `brief unavailable without key`; `generate stores the png and returns uploadId`; `generate re-checks text capacity`; `generate answers ip_limit on the 6th call from one ip`; `generate answers blocked for a blocked ip`; `generate releases the reservation when OpenAI fails` (count unchanged after a 500); `generate with refs calls /images/edits`; `generate unavailable when settings.ai.enabled is false`; `order with an AI upload marks the generation ordered`.
+- [ ] **Step 1: Failing tests** (stub `fetch` for OpenAI via `OPENAI_BASE_URL=http://openai.test`, local storage in a temp `DATA_DIR`): `brief returns lines, fixes and visualDescription`; `brief rejects idea over 1000 chars`; `brief unavailable without key`; `generate stores the png and returns uploadId`; `generate re-checks text capacity`; `generate rejects a forged visualDescription (bad briefToken)`; `generate strips « » and newlines from lines`; `brief drops fixes outside printed lines`; `generate answers ip_limit on the 6th call from one ip`; `generate answers blocked for a blocked ip`; `generate releases the reservation when OpenAI fails` (count unchanged after a 500); `generate with refs calls /images/edits`; `generate unavailable when settings.ai.enabled is false`; `order with an AI upload marks the generation ordered`.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Implement routes, `service.ts`, orders hook, env/Sentry/rate-limit changes.
 - [ ] **Step 4:** Tests PASS; update `misc.golden` (limiter capacities) after reviewing the diff; `CI=1 pnpm check` PASS.
@@ -246,7 +257,7 @@ type GenerateResponse =
 
 **Files:**
 - Create: `src/components/builder/steps/StartStep.tsx` (renders for step id `shape`), `src/components/builder/ai/TextReview.tsx`, `src/components/builder/ai/AiResult.tsx`, `src/components/builder/ai/useAiDesign.ts`, `src/components/builder/ai/api.ts`
-- Modify: `src/components/builder/Builder.tsx:21-27,123-127` (render map), `src/components/builder/useBuilder.ts` (mode, idea, aiSizeUm, `stepOk.shape`), `src/components/builder/logic.ts:43-56,215` (`PersistedForm` optional `mode?: 'ai' | 'upload'`, `idea?: string`, `aiUploadId?: string`, `aiSizeUm?: {w:number;h:number}`), `src/components/builder/steps/DesignStep.tsx` (upload mode unchanged; AI mode renders `AiResult`), `src/components/builder/steps/SizeStep.tsx` (warning), `src/components/builder/useSubmitOrder.ts:35` (seed `uploadId` from `aiUploadId` when the design file is the accepted AI file), `src/content/ar/builder.ts` (new `ai` section, new step labels, new `hero.flow`), `src/content/ar/pages.ts` (how-it-works steps for the new flow)
+- Modify: `src/components/builder/Builder.tsx:21-27,123-127` (render map), `src/components/builder/useBuilder.ts` (mode, idea, aiSizeUm, `stepOk.shape`), `src/components/builder/logic.ts:43-56,215` (`PersistedForm` optional `mode?: 'ai' | 'upload'`, `idea?: string`, `aiUploadId?: string`, `aiFileId?: string`, `aiSizeUm?: {w:number;h:number}`), `src/components/builder/steps/DesignStep.tsx` (upload mode unchanged; AI mode renders `AiResult`), `src/components/builder/steps/SizeStep.tsx` (warning), `src/components/builder/useSubmitOrder.ts:35` (seed `uploadId` from `aiUploadId` when the design file is the accepted AI file), `src/content/ar/builder.ts` (new `ai` section, new step labels, new `hero.flow`), `src/content/ar/pages.ts` (how-it-works steps for the new flow)
 - Test: `tests/unit/builder/ai-flow.test.ts`, `tests/unit/builder/builder-state.test.ts` (restored keys gain the optional fields), `tests/unit/builder/draft.test.ts` (unchanged: still 5 steps), `copy.golden` update, e2e `tests/e2e/helpers.ts` + `order-flow.spec.ts` + `draft-restore.spec.ts` + `validation.spec.ts` + new `tests/e2e/ai-design.spec.ts`
 
 **Interfaces:**
@@ -261,7 +272,7 @@ Behaviour (spec §5.2, §5.3; D3, D7):
 - Custom shape size: after accept, keep the **longer** side of the decoded design at the typed size (spec §5.2): set width so that `max(w,h) === typed` before `deriveLockedSize`.
 - Step `size`: when `aiSizeUm` exists and the current size is smaller in either dimension, show `builder.ai.shrinkWarning`.
 - Draft: persist `mode`, `idea`, `aiUploadId`, `aiSizeUm` (optional). The accepted PNG persists through the existing IndexedDB design slot. Refs and un-accepted results are not persisted.
-- Submit: if `form.aiUploadId` and the design file is the AI file (`file.name === 'ai-design.png'` and same size), seed the submit context `uploadId` so the file is not uploaded again.
+- Submit: `accept()` stores `aiUploadId` together with `aiFileId` = the draft `fileId` that `onFile` assigned to the AI file. Seed the submit context `uploadId` only when the current design's `fileId === aiFileId`. Any new design (upload or another generation), a shape change or «عندي تصميم جاهز» clears both.
 
 Copy (`builder.ai`, exact):
 ```
@@ -272,11 +283,12 @@ tooMuchText: 'كتابتك كثيرة على هذا القياس — قلّله�
 printedText: 'الكتابة:', remaining: 'باقيلك {n} محاولات اليوم', accept: 'أكمل بهذا', retry: 'جرّب مرة لخ', editIdea: 'عدّل الفكرة',
 shrinkWarning: 'صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع',
 unavailable: 'التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.',
+aspect: 'للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.',
 errors: { ip_limit: 'خلصت محاولاتك لليوم. ارجع باچر أو ارفع تصميم جاهز.', site_limit: 'التصميم بالموقع وصل حده اليوم. ارجع باچر أو ارفع تصميم جاهز.', blocked: 'التصميم بالموقع مو متوفر إلك. تكدر ترفع تصميم جاهز.', text_too_long: 'الكتابة كثيرة على هذا القياس.', refused: 'ما نكدر نصمم هذي الفكرة. جرّب فكرة ثانية.', failed: 'صار خلل بالتصميم، ما انحسبت المحاولة. جرّب مرة لخ.', invalid_request: 'تأكد من الفكرة والصور وجرّب مرة لخ.', unavailable: 'التصميم بالموقع مو متوفر هسه.' }
 ```
 Step labels: `builder.steps.shape` = `'صمّم'`, `design` = `'التصميم'`, `size` = `'الترتيب'` (others unchanged). `builder.hero.flow` first item becomes `'صمّم ستيكرك'` (rest unchanged). How-it-works step 1 text: `'اختار الشكل والقياس واكتب فكرتك — نصمم لك الستيكر بثواني، أو ارفع تصميمك الجاهز.'`. Plurals for `{n}` via `count()`.
 
-- [ ] **Step 1: Failing tests** (`ai-flow.test.ts`, pure logic extracted into `logic.ts`/`useAiDesign` helpers): `stepOk.shape requires size in ai mode only`; `custom accept keeps the longer side at the typed size`; `shrink warning only below the generated size`; `restoredState keeps mode, idea, aiUploadId, aiSizeUm`; `accepted AI design survives reload and submit reuses uploadId` (submitFlow with seeded uploadId does not call upload).
+- [ ] **Step 1: Failing tests** (`ai-flow.test.ts`, pure logic extracted into `logic.ts`/`useAiDesign` helpers): `stepOk.shape requires size in ai mode only`; `custom accept keeps the longer side at the typed size`; `shrink warning only below the generated size`; `restoredState keeps mode, idea, aiUploadId, aiSizeUm`; `accepted AI design survives reload and submit reuses uploadId` (submitFlow with seeded uploadId does not call upload); `uploading a file after accepting an AI design clears aiUploadId` (submit uploads the new file); `rect wider than 3:1 shows builder.ai.aspect and disables generate`.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Implement components, hook, copy.
 - [ ] **Step 4:** Unit tests PASS; `copy.golden` and `builder-state` updated after diff review. e2e: `tests/e2e/ai-design.spec.ts` with a mock OpenAI server (`OPENAI_BASE_URL` → a tiny Node HTTP server started in Playwright `globalSetup`, returning a fixed PNG and a fixed brief) covering idea → review → generate → accept → arrangement → quantity → details → submit; update helpers/specs for the new first page (upload path: shape → «عندي تصميم جاهز» → upload). Run `pnpm e2e` → PASS.
@@ -314,4 +326,4 @@ Copy (`admin.designs`, exact): `title: 'التصاميم'`, `today: 'اليوم'
 - [ ] **Step 2:** `CI=1 pnpm check` → PASS; `pnpm build` → PASS; `pnpm e2e` → PASS.
 - [ ] **Step 3:** Live smoke with the real key in `.env.local` (`STORAGE=local`): one generation per shape through the UI; open the order PDF and the admin designs page; copy screenshots to `Claude outputs/ai-sticker-test/smoke/` for the owner.
 - [ ] **Step 4:** `graphify update .`; commit `docs: AI designer, retention and privacy changes`.
-- [ ] **Step 5:** Hand-over to the owner (not done by the agent): rotate the key, set `OPENAI_API_KEY` in Vercel, apply the migration on production Supabase, then deploy — only when the owner says so.
+- [ ] **Step 5:** Hand-over to the owner (not done by the agent): rotate the key, set `OPENAI_API_KEY` in Vercel, apply the migration on production Supabase, set `KEEP_DESIGNS_FROM` to the deploy date, then deploy — only when the owner says so. Correct the earlier "≈150 KB copy" figure: the full PNG (≈1.5 MB) is kept. Work is committed locally on `feat/ai-sticker-designer`, not pushed.
