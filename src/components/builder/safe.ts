@@ -11,6 +11,7 @@ import { countLabel } from '@/lib/plural';
 import { priceFor, priceForStickers } from '@/lib/pricing';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import type {
+  Corners,
   LayoutOutcome,
   LayoutSettings,
   Material,
@@ -71,6 +72,13 @@ export function safeMaxWidth(aspect: number, spec: StickerSpec, layoutSettings: 
   } catch {
     return null;
   }
+}
+
+/** Largest width (µm) the size step accepts for `shape` at `aspect` (a circle is always 1); null when unavailable. */
+export function maxWidthAtAspect(shape: Shape, corners: Corners, aspect: number, layoutSettings: LayoutSettings): number | null {
+  const probe: StickerSpec = { shape, ...(shape === 'rect' ? { corners } : {}), widthUm: 50_000, heightUm: 50_000 };
+  const m = safeMaxWidth(shape === 'circle' ? 1 : aspect, probe, layoutSettings);
+  return m && m > 0 ? m : null;
 }
 
 export function safeCountLabel(n: number): string {
