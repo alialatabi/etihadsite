@@ -8,6 +8,7 @@ import { getSettings } from '@/lib/settings';
 import { DAY_MS, shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
 import { logoutAction } from './actions';
+import { listAiBlocks } from './designs/blocks';
 import { alertBadgeCount, designsSummary } from './designs/summary';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ async function designAlertCount(): Promise<number> {
     const [settings, usage, blocks] = await Promise.all([
       getSettings(),
       storage.aiUsage(shopDayKey(new Date(now - DAY_MS)), 'image'),
-      storage.aiListBlocks?.() ?? [],
+      listAiBlocks(),
     ]);
     const blockedKeys = new Set(blocks.map((b) => b.ipKey));
     return alertBadgeCount(designsSummary(usage, shopDayKey(new Date(now)), settings.ai.perIpDailyLimit, blockedKeys).alerts);
