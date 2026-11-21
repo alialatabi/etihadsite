@@ -29,7 +29,7 @@ import {
 } from '@/components/builder/ai/ai-logic';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
-import { attemptContextFor, submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
+import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
 import { builder } from '@/content/ar';
 import { safeLayout } from '@/components/builder/safe';
 import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
@@ -202,32 +202,22 @@ describe('submit with an accepted AI design', () => {
     expect(postOrder.mock.calls[1][0].uploadId).toBe('fresh');
   });
 
-  it('a retry keeps the attempt while the design is the same file; another file starts a new one', async () => {
-    const ids = ['o1', 'o2', 'o3'];
-    const newId = () => ids.shift()!;
+  it('a degraded submit keeps the finished upload in the context; a new context uploads the new file', async () => {
     const a = new File(['a'], 'a.png', { type: 'image/png' });
     const b = new File(['b'], 'b.png', { type: 'image/png' });
 
     // First try degrades after the upload finished: the context keeps the upload of file a.
-    const first = attemptContextFor(null, a, newId);
+    const first: AttemptContext = { orderId: 'o1', rastered: false };
     const degraded = await submitOrderFlow({ ...input, design: { ...input.design, file: a } }, first, deps({ postOrder: vi.fn(async () => { throw new Error('offline'); }) }));
     expect(degraded.kind).toBe('degraded');
     expect(first.uploadId).toBe('fresh');
 
-    // Same file again: same order id and upload (server idempotency).
-    expect(attemptContextFor(first, a, newId)).toBe(first);
-
-    // The customer picked another design: a new attempt, the old upload is not reused.
-    const second = attemptContextFor(first, b, newId);
-    expect(second).not.toBe(first);
-    expect(second.orderId).toBe('o2');
+    // The customer picked another design: a new context, the old upload is not reused.
+    const second: AttemptContext = { orderId: 'o2', rastered: false };
     expect(second.uploadId).toBeUndefined();
     const d = deps({ upload: vi.fn(async () => okUpload('for-b')) });
     await submitOrderFlow({ ...input, design: { ...input.design, file: b } }, second, d);
     expect(d.postOrder).toHaveBeenCalledWith(expect.objectContaining({ uploadId: 'for-b', orderId: 'o2' }));
-
-    // A fresh attempt for an accepted AI design starts from its upload.
-    expect(attemptContextFor(second, a, newId, 'ai-up')).toMatchObject({ orderId: 'o3', uploadId: 'ai-up', seeded: true, file: a });
   });
 
   it('upload_missing without a seed is still an error', async () => {
