@@ -63,19 +63,17 @@ export function sizeError(b: BuilderApi): ReactNode {
  */
 export function SizeFields({ b, children }: { b: BuilderApi; children?: ReactNode }) {
   const isCircle = b.shape === 'circle';
-  const widthBad = b.widthText.trim() !== '' && safeParseCm(b.widthText) === null;
-  const heightBad = !isCircle && b.heightText.trim() !== '' && safeParseCm(b.heightText) === null;
   const error = sizeError(b);
 
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row">
         {isCircle ? (
-          <SizeField id="size-width" label={builder.size.diameter} value={b.widthText} onChange={b.onWidthChange} invalid={widthBad || !!error} describedBy="size-msg" />
+          <SizeField id="size-width" label={builder.size.diameter} value={b.widthText} onChange={b.onWidthChange} invalid={!!error} describedBy="size-msg" />
         ) : (
           <>
-            <SizeField id="size-width" label={builder.size.width} value={b.widthText} onChange={b.onWidthChange} invalid={widthBad || !!error} describedBy="size-msg" />
-            <SizeField id="size-height" label={builder.size.height} value={b.heightText} onChange={b.onHeightChange} invalid={heightBad || !!error} describedBy="size-msg" />
+            <SizeField id="size-width" label={builder.size.width} value={b.widthText} onChange={b.onWidthChange} invalid={!!error} describedBy="size-msg" />
+            <SizeField id="size-height" label={builder.size.height} value={b.heightText} onChange={b.onHeightChange} invalid={!!error} describedBy="size-msg" />
           </>
         )}
       </div>
