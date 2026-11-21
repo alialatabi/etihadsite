@@ -37,6 +37,7 @@ export const admin = {
     noName: '—',
     downloadPdf: 'تنزيل ورقة A4',
     downloadDesign: 'تنزيل التصميم الأصلي',
+    pdfPurged: 'ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ.',
     call: 'اتصال',
     whatsapp: 'واتساب',
     changeStatus: 'تغيير الحالة',

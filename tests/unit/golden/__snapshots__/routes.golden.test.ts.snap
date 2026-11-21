@@ -95,6 +95,8 @@ exports[`golden: GET /api/cron/purge > authorised: dry run reports, real run del
     "uploads/upload-edge-002.json",
     "uploads/upload-new-0001.bin",
     "uploads/upload-new-0001.json",
+    "uploads/upload-orphan-01.bin",
+    "uploads/upload-orphan-01.json",
   ],
   "again": "second real run -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":0,"removedEvents":0}",
   "before": [
@@ -125,14 +127,14 @@ exports[`golden: GET /api/cron/purge > authorised: dry run reports, real run del
   "customersKept": [
     "9647701234567 orders=4",
   ],
-  "dry": "dry run (?dry=1) -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":14,"removedEvents":2}",
+  "dry": "dry run (?dry=1) -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-10-11T09:00:00.000Z","removed":12,"removedEvents":2}",
   "dryRunLeftEverything": true,
   "logged": [
-    "[cron/purge] would remove 14 item(s) older than 2026-10-11T09:00:00.000Z",
-    "[cron/purge] removed 10 item(s) older than 2026-10-11T09:00:00.000Z",
+    "[cron/purge] would remove 12 item(s) older than 2026-10-11T09:00:00.000Z",
+    "[cron/purge] removed 8 item(s) older than 2026-10-11T09:00:00.000Z",
     "[cron/purge] removed 0 item(s) older than 2026-10-11T09:00:00.000Z",
   ],
-  "real": "real run -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":10,"removedEvents":2}",
+  "real": "real run -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":8,"removedEvents":2}",
   "removedPaths": [
     "analytics/events-2025-01.jsonl",
     "analytics/events-2025-09.jsonl",
@@ -144,8 +146,6 @@ exports[`golden: GET /api/cron/purge > authorised: dry run reports, real run del
     "uploads/upload-edge-001.json",
     "uploads/upload-old-0001.bin",
     "uploads/upload-old-0001.json",
-    "uploads/upload-orphan-01.bin",
-    "uploads/upload-orphan-01.json",
   ],
 }
 `;
@@ -170,7 +170,7 @@ exports[`golden: GET /api/cron/purge > retentionDays comes from settings; unsupp
     ],
   ],
   "noEvents": "storage without purgeEventsOlderThan -> 200 [content-type=application/json] {"ok":true,"dryRun":false,"cutoff":"2026-10-11T09:00:00.000Z","removed":3,"removedEvents":0}",
-  "oneDay": "retentionDays = 1, dry -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-11-09T09:00:00.000Z","removed":26,"removedEvents":2}",
+  "oneDay": "retentionDays = 1, dry -> 200 [content-type=application/json] {"ok":true,"dryRun":true,"cutoff":"2026-11-09T09:00:00.000Z","removed":18,"removedEvents":2}",
   "unsupported": "storage without purgeOlderThan -> 501 [content-type=application/json] {"ok":false,"error":"unsupported"}",
 }
 `;

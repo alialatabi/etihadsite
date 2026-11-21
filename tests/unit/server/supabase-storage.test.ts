@@ -329,23 +329,28 @@ describe("SupabaseStorage not-found vs outage", () => {
 describe("SupabaseStorage purge", () => {
   const OLD = "oldOrder0001";
   const KEEP = "keepUpload01";
-  it("deletes old orders with their files, keeps uploads used by newer orders, drops stale orphans", async () => {
+  it("deletes old-rule orders in the window with their files, keeps uploads used by newer orders, drops stale orphans", async () => {
     const now = Date.parse("2026-11-07T12:00:00Z");
     const cutoff = new Date(now - 30 * 86400_000);
     const orphanCutoff = new Date(now - 3 * 3600_000);
     respond(
-      json([{ order_id: OLD, files: { pdfPath: `orders/${OLD}.pdf`, designPath: `uploads/${OLD}.bin` } }]),
-      json([{ design: `uploads/${KEEP}.bin` }]),
+      // every order from a day before the window (2026-09-08T12:00Z) on
       json([
-        { name: `${OLD}.bin`, created_at: "2026-09-01T00:00:00Z" },
-        { name: `${OLD}.json`, created_at: "2026-09-01T00:00:00Z" },
-        { name: `${KEEP}.bin`, created_at: "2026-09-01T00:00:00Z" },
-        { name: `${KEEP}.json`, created_at: "2026-09-01T00:00:00Z" },
-        { name: "orphanStale1.bin", created_at: "2026-11-07T06:00:00Z" },
+        { order_id: OLD, created_at: "2026-09-20T00:00:00+00:00", files: { pdfPath: `orders/${OLD}.pdf`, designPath: `uploads/${OLD}.bin` } },
+        { order_id: "newOrder0001", created_at: "2026-11-01T00:00:00+00:00", files: { pdfPath: "orders/newOrder0001.pdf", designPath: `uploads/${KEEP}.bin` } },
+      ]),
+      json([]), // ai_generations
+      json([
         { name: "orphanFresh1.bin", created_at: "2026-11-07T11:30:00Z" },
+        { name: "orphanStale1.bin", created_at: "2026-11-07T06:00:00Z" },
         { name: "committedNew.bin", created_at: "2026-11-07T06:00:00Z" },
         { name: "committedNew.json", created_at: "2026-11-07T06:00:00Z" },
+        { name: `${OLD}.bin`, created_at: "2026-09-20T00:00:00Z" },
+        { name: `${OLD}.json`, created_at: "2026-09-20T00:00:00Z" },
+        { name: `${KEEP}.bin`, created_at: "2026-09-20T00:00:00Z" },
+        { name: `${KEEP}.json`, created_at: "2026-09-20T00:00:00Z" },
       ]),
+      json([{ name: "newOrder0001.pdf", created_at: "2026-11-01T00:00:00Z" }, { name: `${OLD}.pdf`, created_at: "2026-09-20T00:00:00Z" }]),
       json([]),
       empty(204),
     );
@@ -359,11 +364,11 @@ describe("SupabaseStorage purge", () => {
     expect(removed).not.toContain("uploads/committedNew.bin");
     const del = calls.find((c) => c.init.method === "DELETE" && c.url.endsWith("/object/etihad"))!;
     expect(JSON.parse(del.init.body as string).prefixes).toHaveLength(4);
-    expect(calls.at(-1)!.url).toContain("/rest/v1/orders?created_at=lt.");
+    expect(calls.at(-1)!.url).toContain("/rest/v1/orders?created_at=gte.2026-09-08T12%3A00%3A00.000Z&created_at=lt.2026-10-08T12%3A00%3A00.000Z");
     expect(calls.at(-1)!.init.method).toBe("DELETE");
   });
   it("dry run deletes nothing", async () => {
-    respond(json([]), json([]), json([]));
+    respond(json([]), json([]), json([]), json([]));
     expect(await store().purgeOlderThan(new Date(), true)).toEqual([]);
     expect(calls.every((c) => c.init.method !== "DELETE")).toBe(true);
   });

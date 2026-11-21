@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, utimesSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { ACCEPTED_EXTENSIONS, ACCEPTED_MIME, DEFAULT_SETTINGS, DISPLAY_NO_ALPHABET, SHOP_TIME_ZONE } from '@/config/defaults';
+import { ACCEPTED_EXTENSIONS, ACCEPTED_MIME, DEFAULT_SETTINGS, DISPLAY_NO_ALPHABET, KEEP_DESIGNS_FROM, SHOP_TIME_ZONE } from '@/config/defaults';
 import { clientLogSchema, orderRequestSchema } from '@/lib/order-schema';
 import { getStorage } from '@/lib/storage';
 import { LocalStorage, deepMerge } from '@/lib/storage/local';
@@ -717,6 +717,48 @@ describe('golden: LocalStorage.purgeOlderThan', () => {
       after,
       secondRunRemoves: again,
       emptyRoot: await new LocalStorage(tmp()).purgeOlderThan(cutoff, false),
+    }).toMatchSnapshot();
+  });
+
+  it('keep forever (D10): window, old and new rule, AI uploads', async () => {
+    const s = new LocalStorage(tmp());
+    // Dates derive from KEEP_DESIGNS_FROM (the owner sets it at deploy). Cutoff 2 days after the
+    // switch, so the window [cutoff − 30 days, cutoff) holds both rules.
+    const KEEP = new Date(KEEP_DESIGNS_FROM).getTime();
+    const DAY = 86_400_000;
+    const at = (days: number) => new Date(KEEP + days * DAY);
+    const meta = (createdAt: string): StoredFileMeta => ({ mime: 'image/png', originalName: 'a.png', bytes: 1, createdAt });
+    const touch = (rel: string, when: Date) => utimesSync(path.join(s.root, rel), when, when);
+    const upload = async (uploadId: string, when: Date) => {
+      await s.saveUpload(uploadId, new Uint8Array([1]), meta(when.toISOString()));
+      touch(`uploads/${uploadId}.bin`, when);
+      touch(`uploads/${uploadId}.json`, when);
+    };
+    const add = async (orderId: string, when: Date, uploadId: string) => {
+      await upload(uploadId, when);
+      await s.savePdf(orderId, new Uint8Array([2]));
+      await s.saveOrder(record(orderId, when.toISOString(), { uploadId }));
+    };
+    await add('order-old-rule-01', at(-5), 'upload-old-rule-01'); // old rule: record, PDF, design removed
+    await add('order-old-rule-02', at(-4), 'upload-shared-0001'); // old rule, design shared…
+    await add('order-new-rule-01', at(1), 'upload-shared-0001'); // …with a new-rule order: only PDFs go
+    await add('order-new-rule-02', at(1.5), 'upload-new-rule-02'); // new rule: only the PDF goes
+    await add('order-recent-0001', at(3), 'upload-recent-0001'); // newer than the cutoff
+    await add('order-beyond-0001', at(-40), 'upload-beyond-0001'); // older than the window: not looked at
+    await upload('upload-ai-000001', at(-3)); // generated, never ordered: kept
+    await s.aiRecordGeneration({ id: 'gen_golden01', createdAt: at(-3).toISOString(), day: '2026-11-19', ip: '', ipKey: '', shape: 'circle', corners: 'rounded', widthUm: 50_000, heightUm: 50_000, idea: 'x', lines: [], hasRefs: false, model: 'gpt-image', uploadId: 'upload-ai-000001', orderId: null });
+    await upload('upload-unused-001', at(-3)); // nobody uses it: removed
+    await upload('upload-unused-old', at(-40)); // older than the window: not looked at
+
+    const cutoff = at(2);
+    const before = tree(s.root);
+    const real = await s.purgeOlderThan(cutoff, false);
+    const after = tree(s.root);
+    expect({
+      realRunReports: [...real].sort(),
+      removedPaths: before.filter((p) => !after.includes(p)),
+      ordersKept: (await s.listOrders()).map((o) => o.orderId).sort(),
+      secondRunRemoves: await s.purgeOlderThan(cutoff, false),
     }).toMatchSnapshot();
   });
 });

@@ -9,7 +9,7 @@
  * (saveSettings stamps `updated_at`; purgeOlderThan derives its orphan cutoff from the clock).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM } from '@/config/defaults';
 import { SUPABASE_MAX_UPLOAD_BYTES, SupabaseStorage } from '@/lib/storage/supabase';
 import type { AnalyticsEvent, OrderRecord, StoredFileMeta } from '@/lib/types';
 import { canon, sha16, sha256, show, visible } from './_util';
@@ -247,33 +247,76 @@ describe('golden: SupabaseStorage — analytics and customers', () => {
 describe('golden: SupabaseStorage — retention purge and failures', () => {
   const cutoff = new Date('2026-10-11T09:00:00.000Z');
   const responses = () => [
-    // old orders
+    // every order from a day before the window [2026-09-11T09:00Z, cutoff) on; all are old-rule (before KEEP_DESIGNS_FROM)
     json([
-      { order_id: 'order-old-0001', files: { designPath: 'uploads/upload-old-0001.bin', pdfPath: 'orders/order-old-0001.pdf' } },
-      { order_id: 'order-old-0002', files: { designPath: 'uploads/upload-shared-01.bin', pdfPath: 'orders/order-old-0002.pdf' } },
-      { order_id: 'order-old-0003', files: null },
-      { order_id: 'order-old-0004', files: { designPath: '../evil.bin', pdfPath: 'orders/../../evil.pdf' } },
+      { order_id: 'order-old-0001', created_at: '2026-09-20T00:00:00+00:00', files: { designPath: 'uploads/upload-old-0001.bin', pdfPath: 'orders/order-old-0001.pdf' } },
+      { order_id: 'order-old-0002', created_at: '2026-09-20T00:00:00+00:00', files: { designPath: 'uploads/upload-shared-01.bin', pdfPath: 'orders/order-old-0002.pdf' } },
+      { order_id: 'order-old-0003', created_at: '2026-09-21T00:00:00+00:00', files: null },
+      { order_id: 'order-old-0004', created_at: '2026-09-22T00:00:00+00:00', files: { designPath: '../evil.bin', pdfPath: 'orders/../../evil.pdf' } },
+      // kept orders: their designs must stay
+      { order_id: 'order-kept-0001', created_at: '2026-10-20T00:00:00+00:00', files: { designPath: 'uploads/upload-shared-01.bin', pdfPath: 'orders/order-kept-0001.pdf' } },
+      { order_id: 'order-kept-0002', created_at: '2026-10-21T00:00:00+00:00', files: null },
+      { order_id: 'order-kept-0003', created_at: '2026-11-09T00:00:00+00:00', files: { designPath: 'uploads/upload-new-0001.bin', pdfPath: 'orders/order-kept-0003.pdf' } },
     ]),
-    // designs still used by kept orders
-    json([{ design: 'uploads/upload-shared-01.bin' }, { design: null }, { design: 'uploads/upload-new-0001.bin' }]),
-    // bucket listing of uploads/
+    // ai_generations upload ids
+    json([]),
+    // bucket listing of uploads/, newest first
     json([
-      { name: 'upload-old-0001.bin', created_at: '2026-09-01T00:00:00.000Z' },
-      { name: 'upload-old-0001.json', created_at: '2026-09-01T00:00:00.000Z' },
-      { name: 'upload-shared-01.bin', created_at: '2026-09-01T00:00:00.000Z' },
-      { name: 'upload-shared-01.json', created_at: '2026-09-01T00:00:00.000Z' },
+      { name: '.emptyFolderPlaceholder' },
+      { name: 'upload-nodate-001.bin' },
+      { name: 'upload-uncommitted-1h.bin', created_at: '2026-11-10T08:00:00.000Z' }, // no .json, younger than 3 h
+      { name: 'upload-fresh-0001.json', created_at: '2026-11-10T05:00:01.000Z' },
+      { name: 'upload-uncommitted-4h.bin', created_at: '2026-11-10T05:00:00.000Z' }, // no .json, older than 3 h
+      { name: 'upload-fresh-0001.bin', created_at: '2026-11-10T05:00:00.000Z' },
       { name: 'upload-new-0001.bin', created_at: '2026-11-09T00:00:00.000Z' },
       { name: 'upload-new-0001.json', created_at: '2026-11-09T00:00:00.000Z' },
       { name: 'upload-orphan-old.bin', created_at: '2026-09-15T00:00:00.000Z' },
       { name: 'upload-orphan-old.json', created_at: '2026-09-15T00:00:00.000Z' },
-      { name: 'upload-uncommitted-4h.bin', created_at: '2026-11-10T05:00:00.000Z' }, // no .json, older than 3 h
-      { name: 'upload-uncommitted-1h.bin', created_at: '2026-11-10T08:00:00.000Z' }, // no .json, younger than 3 h
-      { name: 'upload-fresh-0001.bin', created_at: '2026-11-10T05:00:00.000Z' },
-      { name: 'upload-fresh-0001.json', created_at: '2026-11-10T05:00:01.000Z' },
+      // older than the window: only reached because they share the page
+      { name: 'upload-old-0001.bin', created_at: '2026-09-01T00:00:00.000Z' },
+      { name: 'upload-old-0001.json', created_at: '2026-09-01T00:00:00.000Z' },
+      { name: 'upload-shared-01.bin', created_at: '2026-09-01T00:00:00.000Z' },
+      { name: 'upload-shared-01.json', created_at: '2026-09-01T00:00:00.000Z' },
       { name: 'upload-metaonly-01.json', created_at: '2026-09-01T00:00:00.000Z' }, // bin already gone
-      { name: 'upload-nodate-001.bin' },
       { name: 'bad name.bin', created_at: '2026-01-01T00:00:00.000Z' },
-      { name: '.emptyFolderPlaceholder', created_at: '2026-01-01T00:00:00.000Z' },
+    ]),
+    // bucket listing of orders/, newest first
+    json([
+      { name: 'order-kept-0003.pdf', created_at: '2026-11-09T00:00:00.000Z' },
+      { name: 'order-kept-0002.pdf', created_at: '2026-10-21T00:00:00.000Z' },
+      { name: 'order-kept-0001.pdf', created_at: '2026-10-20T00:00:00.000Z' },
+      { name: 'order-old-0002.pdf', created_at: '2026-09-20T00:00:00.000Z' },
+      { name: 'order-old-0001.pdf', created_at: '2026-09-20T00:00:00.000Z' },
+    ]),
+  ];
+
+  // New rule (orders from KEEP_DESIGNS_FROM on): dates derive from the constant so the owner can move it.
+  const KEEP = new Date(KEEP_DESIGNS_FROM).getTime();
+  const DAY = 86_400_000;
+  const at = (days: number) => new Date(KEEP + days * DAY).toISOString();
+  const keepCutoff = new Date(KEEP + 40 * DAY);
+  const keepResponses = () => [
+    json([
+      { order_id: 'order-keep-0001', created_at: at(20).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0001.bin', pdfPath: 'orders/order-keep-0001.pdf' } },
+      { order_id: 'order-keep-0002', created_at: at(21).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0002.bin', pdfPath: 'orders/order-keep-0002.pdf' } }, // PDF already purged
+      { order_id: 'order-keep-0003', created_at: at(45).replace('Z', '+00:00'), files: { designPath: 'uploads/upload-keep-0003.bin', pdfPath: 'orders/order-keep-0003.pdf' } }, // newer than the cutoff
+    ]),
+    json([{ upload_id: 'upload-ai-00001' }, { upload_id: null }]),
+    json([
+      { name: 'upload-keep-0003.bin', created_at: at(45) },
+      { name: 'upload-keep-0003.json', created_at: at(45) },
+      { name: 'upload-keep-0002.bin', created_at: at(21) },
+      { name: 'upload-keep-0002.json', created_at: at(21) },
+      { name: 'upload-keep-0001.bin', created_at: at(20) },
+      { name: 'upload-keep-0001.json', created_at: at(20) },
+      { name: 'upload-ai-00001.bin', created_at: at(15) }, // generated, never ordered: kept
+      { name: 'upload-ai-00001.json', created_at: at(15) },
+      { name: 'upload-unused-01.bin', created_at: at(15) }, // nobody uses it: removed
+      { name: 'upload-unused-01.json', created_at: at(15) },
+    ]),
+    json([
+      { name: 'order-keep-0003.pdf', created_at: at(45) },
+      { name: 'order-keep-0001.pdf', created_at: at(20) },
     ]),
   ];
 
@@ -281,8 +324,9 @@ describe('golden: SupabaseStorage — retention purge and failures', () => {
     const dry = await run(responses(), (s) => s.purgeOlderThan(cutoff, true));
     const real = await run([...responses(), json([]), empty(204)], (s) => s.purgeOlderThan(cutoff, false));
     const explicitOrphanCutoff = await run(responses(), (s) => s.purgeOlderThan(cutoff, true, new Date('2026-11-10T08:30:00.000Z')), (r) => r.filter((p) => p.includes('uncommitted')));
-    const nothingOld = await run([json([]), json([]), json([])], (s) => s.purgeOlderThan(cutoff, false));
-    expect({ dry, real, explicitOrphanCutoff, nothingOld }).toMatchSnapshot();
+    const nothingOld = await run([json([]), json([]), json([]), json([])], (s) => s.purgeOlderThan(cutoff, false));
+    const keepForever = await run([...keepResponses(), json([])], (s) => s.purgeOlderThan(keepCutoff, false, new Date(KEEP + 70 * DAY)));
+    expect({ dry, real, explicitOrphanCutoff, nothingOld, keepForever }).toMatchSnapshot();
   });
 
   it('non-2xx answers and network errors throw (message format)', async () => {

@@ -67,5 +67,16 @@ export const ACCEPTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf'] as const;
 /** Alphabet for the human-friendly order number (no 0/O/1/I). */
 export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
+/**
+ * Retention rule switch (owner decision D10). Orders created BEFORE this instant keep the old
+ * rule (record, print PDF and design deleted after retentionDays, as those customers were told).
+ * Orders from it on are kept forever with their design; only their print PDF is purged.
+ * Set it to the real deploy date in the deploy commit.
+ */
+export const KEEP_DESIGNS_FROM = '2026-11-22T00:00:00+03:00';
+
+/** Each retention purge only looks at items created in [cutoff − this many days, cutoff). */
+export const PURGE_WINDOW_DAYS = 30;
+
 /** Time zone for anything the shop reads. */
 export const SHOP_TIME_ZONE = 'Asia/Baghdad';

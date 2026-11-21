@@ -11,7 +11,7 @@ exports[`golden: GET /api/admin/files/[orderId]/[which] > auth, parameters, down
   "design (pdf), display number with unsafe characters -> 200 [content-type=application/pdf; content-length=5; content-disposition=attachment; filename="EP_26_11__x____design.pdf"; cache-control=private, no-store] <5 bytes sha 38523c087796e5d5>",
   "legacy order: sheets from offer -> 200 [content-type=application/pdf; content-length=15; content-disposition=attachment; filename="EP-261110-AB3C_circle-30x30mm_x10.pdf"; cache-control=private, no-store] <15 bytes sha fbf536c9da41d9f2>",
   "legacy order: design file is gone -> 404 [] (empty body)",
-  "no sheets anywhere: pdf file is gone -> 404 [] (empty body)",
+  "no sheets anywhere: pdf file is gone -> 410 [content-type=application/json] {"error":"purged","message":"ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ."}",
   "no sheets anywhere: design -> 200 [content-type=image/png; content-length=1; content-disposition=attachment; filename="EP-261110-AB3C_design.png"; cache-control=private, no-store] <1 bytes sha 4bf5122f344554c5>",
   "unknown order -> 404 [] (empty body)",
   "bad order id -> 404 [] (empty body)",
@@ -25,7 +25,7 @@ exports[`golden: GET /api/admin/files/[orderId]/[which] > cloud storage: 302 to 
   "rows": [
     "pdf -> 302 [cache-control=private, no-store; location=https://sb.example/storage/v1/object/sign/etihad/x?token=t&download=name] (empty body)",
     "design with unsafe display number -> 302 [cache-control=private, no-store; location=https://sb.example/storage/v1/object/sign/etihad/x?token=t&download=name] (empty body)",
-    "no signed link (object missing) -> 404 [] (empty body)",
+    "no signed link (object missing) -> 410 [content-type=application/json] {"error":"purged","message":"ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ."}",
   ],
   "signedDownloadUrlArguments": [
     [

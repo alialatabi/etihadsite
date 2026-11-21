@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS } from "@/config/defaults";
+import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM } from "@/config/defaults";
 import { LocalStorage } from "@/lib/storage/local";
 import type { OrderRecord } from "@/lib/types";
 
@@ -187,16 +187,18 @@ describe("LocalStorage", () => {
 
   it("purges old orders and orphan uploads", async () => {
     const s = new LocalStorage(tmp());
+    // An order from before KEEP_DESIGNS_FROM, inside the 30-day window before the cutoff: old rule.
+    const keep = new Date(KEEP_DESIGNS_FROM).getTime();
     await s.saveUpload("order-old-1", new Uint8Array([1]), {
       mime: "image/png",
       originalName: "a",
       bytes: 1,
-      createdAt: "2020-01-01T00:00:00Z",
+      createdAt: new Date(keep - 10 * 86_400_000).toISOString(),
     });
     await s.savePdf("order-old-1", new Uint8Array([1]));
-    await s.saveOrder(record("order-old-1", "2020-01-01T00:00:00.000Z"));
+    await s.saveOrder(record("order-old-1", new Date(keep - 10 * 86_400_000).toISOString()));
     await s.saveOrder(record("order-new-1", new Date().toISOString()));
-    const cutoff = new Date(Date.now() - 86_400_000);
+    const cutoff = new Date(keep - 2 * 86_400_000);
     const dry = await s.purgeOlderThan(cutoff, true);
     expect(dry).toContain("orders/order-old-1.json");
     expect(await s.getOrder("order-old-1")).not.toBeNull();
@@ -208,7 +210,8 @@ describe("LocalStorage", () => {
   it("keeps uploads referenced by retained orders and removes old .tmp leftovers", async () => {
     const dir = tmp();
     const s = new LocalStorage(dir);
-    const old = new Date("2020-01-01T00:00:00Z");
+    // Inside the purge window [cutoff − 30 days, cutoff).
+    const old = new Date(Date.now() - 5 * 86_400_000);
     const meta = {
       mime: "image/png",
       originalName: "a",

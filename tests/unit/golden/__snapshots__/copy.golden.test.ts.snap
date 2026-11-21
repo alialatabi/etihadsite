@@ -74,6 +74,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "noName": "—",
     "downloadPdf": "تنزيل ورقة A4",
     "downloadDesign": "تنزيل التصميم الأصلي",
+    "pdfPurged": "ملف الطباعة انحذف بعد مدة الاحتفاظ. التصميم محفوظ.",
     "call": "اتصال",
     "whatsapp": "واتساب",
     "changeStatus": "تغيير الحالة",
@@ -298,13 +299,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 2941,
+  "chars": 2991,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 20,
-  "sha256OfRawJson": "b1f73cc1e26df250de2a44ef03db6a630a74b06e8353470338d49bec515de190",
-  "strings": 214,
+  "sha256OfRawJson": "c65b45d87938c8e53fe2ecca53d3bd5dbe942186d8741e06ced3a6e6d43056d6",
+  "strings": 215,
 }
 `;
 

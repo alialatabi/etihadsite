@@ -1,7 +1,8 @@
 /**
  * Retention purge. Usage: pnpm purge:orders [--dry-run]  (runs tsx scripts/purge-orders.ts)
- * Deletes orders (record, PDF, original design) and orphan uploads older than
- * settings.retentionDays from DATA_DIR (default ./data).
+ * Deletes print PDFs and unused uploads older than settings.retentionDays from DATA_DIR
+ * (default ./data); orders and their designs are kept (orders from before KEEP_DESIGNS_FROM
+ * are removed whole). Same rules as the cron purge: LocalStorage.purgeOlderThan.
  */
 import { LocalStorage } from '../src/lib/storage/local';
 

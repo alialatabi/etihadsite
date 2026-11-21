@@ -10,9 +10,10 @@ import { admin, common, fill, order } from '@/content/ar';
 import { requireAdmin } from '@/lib/auth/guard';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import { whatsappUrl } from '@/lib/parse/phone';
+import { getSettings } from '@/lib/settings';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import { formatBaghdad, orderPriceView, statusVariant, telegramLabel } from '../../_lib';
+import { formatBaghdad, isPdfPurged, orderPriceView, statusVariant, telegramLabel } from '../../_lib';
 import { StatusForm } from './StatusForm';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,7 @@ export default async function OrderDetailPage({
   if (!o) notFound();
   const d = admin.detail;
   const pv = orderPriceView(o);
+  const pdfPurged = isPdfPurged(o.createdAt, (await getSettings()).retentionDays);
 
   return (
     <section className="flex flex-col gap-4">
@@ -157,7 +159,11 @@ export default async function OrderDetailPage({
           <CardTitle>{d.preview}</CardTitle>
         </CardHeader>
         <CardContent>
-          <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
+          {pdfPurged ? (
+            <p className="text-muted-foreground">{admin.orders.pdfPurged}</p>
+          ) : (
+            <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
+          )}
         </CardContent>
       </Card>
 
@@ -166,9 +172,13 @@ export default async function OrderDetailPage({
           <CardTitle>{d.files}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <a href={`/api/admin/files/${o.orderId}/pdf`} className={buttonVariants()}>
-            {admin.orders.downloadPdf}
-          </a>
+          {pdfPurged ? (
+            <p className="w-full text-muted-foreground">{admin.orders.pdfPurged}</p>
+          ) : (
+            <a href={`/api/admin/files/${o.orderId}/pdf`} className={buttonVariants()}>
+              {admin.orders.downloadPdf}
+            </a>
+          )}
           <a href={`/api/admin/files/${o.orderId}/design`} className={buttonVariants({ variant: 'outline' })}>
             {admin.orders.downloadDesign}
           </a>
