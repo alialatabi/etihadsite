@@ -26,15 +26,7 @@ const IQD_FORMAT = new Intl.NumberFormat('ar-IQ-u-nu-latn', { maximumFractionDig
 
 /** Discount % for this sheet count (highest qualifying tier). */
 export function discountFor(sheets: number, tiers: readonly DiscountTier[]): number {
-  let best = 0;
-  let bestMin = -1;
-  for (const t of tiers) {
-    if (sheets >= t.minSheets && t.minSheets > bestMin) {
-      best = t.percent;
-      bestMin = t.minSheets;
-    }
-  }
-  return best;
+  return activeTier(sheets, tiers)?.percent ?? 0;
 }
 
 /** Tiers sorted ascending by minSheets (defensive copy). */
