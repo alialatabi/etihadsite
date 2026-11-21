@@ -118,7 +118,44 @@ describe("LocalStorage AI usage", () => {
   });
 });
 
+describe("LocalStorage AI usage purge and input checks", () => {
+  it("aiUsage rejects a malformed sinceDay", async () => {
+    const s = new LocalStorage(tmp());
+    await expect(s.aiUsage("bad")).rejects.toThrow();
+    await expect(s.aiUsage("2026-1-1")).rejects.toThrow();
+    await expect(s.aiUsage("2026-11-21T00:00")).rejects.toThrow();
+    expect(await s.aiUsage("2000-01-01")).toEqual([]);
+  });
+
+  it("aiPurgeUsageBefore removes only days before the cutoff; dry run keeps everything", async () => {
+    const s = new LocalStorage(tmp());
+    await reserve(s, "k1", { day: "2025-01-01" });
+    await reserve(s, "k2", { day: "2025-01-02" });
+    await reserve(s, "k1", { day: "2025-01-03" });
+    expect(await s.aiPurgeUsageBefore("2025-01-03", true)).toEqual(["ai_usage:2"]);
+    expect(await s.aiUsage("2000-01-01")).toHaveLength(3);
+    expect(await s.aiPurgeUsageBefore("2025-01-03", false)).toEqual(["ai_usage:2"]);
+    expect((await s.aiUsage("2000-01-01")).map((r) => r.day)).toEqual(["2025-01-03"]);
+    expect(await s.aiPurgeUsageBefore("2025-01-03", false)).toEqual([]);
+    await expect(s.aiPurgeUsageBefore("bad", false)).rejects.toThrow();
+  });
+});
+
 describe("LocalStorage AI generations and blocks", () => {
+  it("aiBlock refuses an empty ipKey (the site-only row)", async () => {
+    const s = new LocalStorage(tmp());
+    await expect(s.aiBlock("", "1.2.3.4")).rejects.toThrow();
+    expect(await s.aiListBlocks()).toEqual([]);
+    expect((await reserve(s, "")).status).toBe("ok");
+  });
+
+  it("aiListGenerations with limit 0 is an empty page with the total", async () => {
+    const s = new LocalStorage(tmp());
+    await s.aiRecordGeneration(gen("g1", "2026-11-20T10:00:00.000Z", "k1"));
+    await s.aiRecordGeneration(gen("g2", "2026-11-21T10:00:00.000Z", "k1"));
+    expect(await s.aiListGenerations({ limit: 0, offset: 0 })).toEqual({ rows: [], total: 2 });
+  });
+
   it("list generations newest first with total and ipKey filter", async () => {
     const s = new LocalStorage(tmp());
     expect(await s.aiListGenerations({ limit: 10, offset: 0 })).toEqual({ rows: [], total: 0 });

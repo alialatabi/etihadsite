@@ -580,6 +580,12 @@ export interface StorageAdapter {
    */
   purgeEventsOlderThan?(cutoff: Date, dryRun: boolean): Promise<string[]>;
 
+  /**
+   * Optional (retention purge): removes AI usage counters of days before `day` (YYYY-MM-DD).
+   * Returns what was removed (`ai_usage:<n>`), or what would be when `dryRun` is true.
+   */
+  aiPurgeUsageBefore?(day: string, dryRun: boolean): Promise<string[]>;
+
   /* AI sticker designer (optional; both adapters implement them). Types: section below. */
 
   /**
@@ -597,6 +603,7 @@ export interface StorageAdapter {
   aiListGenerations?(q: { limit: number; offset: number; ipKey?: string }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
   /** Usage rows with day ≥ sinceDay (YYYY-MM-DD). */
   aiUsage?(sinceDay: string): Promise<AiUsageRow[]>;
+  /** Throws on an empty ipKey ('' is the site-only row and must never be blocked). */
   aiBlock?(ipKey: string, ip: string): Promise<void>;
   aiUnblock?(ipKey: string): Promise<void>;
   /** Newest first. */
