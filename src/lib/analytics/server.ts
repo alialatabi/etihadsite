@@ -58,7 +58,7 @@ export async function trackServer(
   try {
     const event: AnalyticsEvent = {
       ts: new Date().toISOString(),
-      visitor: visitorHash(request),
+      visitor: partial.visitor ?? visitorHash(request),
       device: classifyDevice(request.headers.get('user-agent')),
       ...geoFrom(request),
       ...partial,

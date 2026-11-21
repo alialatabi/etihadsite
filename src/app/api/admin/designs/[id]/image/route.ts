@@ -17,7 +17,7 @@ export async function GET(
   const file = await getStorage().readUpload(id);
   if (!file) return new Response(null, { status: 404 });
 
-  return new Response(Buffer.from(file.bytes), {
+  return new Response(file.bytes as BodyInit, {
     headers: {
       'Content-Type': 'image/png',
       'Content-Length': String(file.bytes.byteLength),

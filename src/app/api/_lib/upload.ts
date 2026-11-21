@@ -1,9 +1,13 @@
 /** Shared by the three upload routes: status table, JSON answers, name clean-up, and the size cap of the two direct-upload steps. */
+import type { z } from "zod";
+import { SMALL_JSON_MAX_BYTES, readJsonCapped } from "./body";
 import { order } from "@/content/ar";
+import { MIME_BY_KIND } from "@/lib/design/kind";
 import type {
   DesignKind,
   ShopSettings,
   StorageAdapter,
+  StoredFileMeta,
   UploadError,
   UploadResponse,
 } from "@/lib/types";
@@ -39,6 +43,33 @@ export function uploadOk(
 /** Stored file name: "design" when the client sent none, control characters removed, at most 200 characters. */
 export function cleanOriginalName(name: string | undefined): string {
   return (name || "design").replace(/[\u0000-\u001f]/g, "").slice(0, 200);
+}
+
+/** Meta stored with a checked upload. */
+export function uploadMetaFor(
+  kind: DesignKind,
+  name: string | undefined,
+  byteLength: number,
+): StoredFileMeta {
+  return {
+    mime: MIME_BY_KIND[kind],
+    originalName: cleanOriginalName(name),
+    bytes: byteLength,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/** Parses a small JSON body with `schema`; null when it is too large, not JSON, or does not match. */
+export async function parseSmallJson<T>(
+  request: Request,
+  schema: z.ZodType<T>,
+): Promise<T | null> {
+  try {
+    const parsed = schema.safeParse(await readJsonCapped(request, SMALL_JSON_MAX_BYTES));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Largest file a direct (browser → bucket) upload may have: the shop cap, bounded by the bucket's. */

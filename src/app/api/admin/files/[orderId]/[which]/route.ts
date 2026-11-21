@@ -1,8 +1,7 @@
 import { admin } from "@/content/ar";
 import { adminApiGuard } from "@/lib/auth/session";
 import { EXT_BY_KIND, MIME_BY_KIND } from "@/lib/design/kind";
-import { pdfFileNameFor } from "@/lib/display-no";
-import { orderPriceView } from "@/lib/order-price-view";
+import { orderPdfFileName } from "@/lib/display-no";
 import { getStorage } from "@/lib/storage";
 import { ID_RE } from "@/lib/storage/paths";
 
@@ -34,7 +33,7 @@ export async function GET(
   let mime: string;
   if (which === "pdf") {
     path = record.files.pdfPath;
-    name = pdfFileNameFor(record.displayNo, record.spec, orderPriceView(record).sheets ?? 0);
+    name = orderPdfFileName(record);
     mime = "application/pdf";
   } else {
     path = record.files.designPath;
@@ -51,7 +50,7 @@ export async function GET(
   const bytes = await storage.readFile(path);
   if (!bytes) return which === "pdf" ? pdfPurged() : new Response(null, { status: 404 });
 
-  return new Response(Buffer.from(bytes), {
+  return new Response(bytes as BodyInit, {
     headers: {
       "Content-Type": mime,
       "Content-Length": String(bytes.byteLength),

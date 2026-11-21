@@ -2,6 +2,7 @@ import 'server-only';
 /** Header check of a stored raster upload: used by both upload routes after the magic-byte sniff. */
 import sharp from 'sharp';
 import { MAX_INPUT_PIXELS, pixelsWithinCap } from '@/lib/design/pixel-cap';
+import { sniffKind } from '@/lib/design/kind';
 import type { DesignKind } from '@/lib/types';
 
 /**
@@ -17,4 +18,14 @@ export async function rasterHeaderOk(bytes: Uint8Array, kind: DesignKind): Promi
   } catch {
     return false;
   }
+}
+
+/** Magic-byte sniff, then the header check: the byte rules shared by POST /api/upload and the direct-upload commit. */
+export async function checkUploadBytes(
+  bytes: Uint8Array,
+): Promise<{ ok: true; kind: DesignKind } | { ok: false; error: 'unsupported_type' | 'corrupt' }> {
+  const kind = sniffKind(bytes);
+  if (!kind) return { ok: false, error: 'unsupported_type' };
+  if (!(await rasterHeaderOk(bytes, kind))) return { ok: false, error: 'corrupt' };
+  return { ok: true, kind };
 }
