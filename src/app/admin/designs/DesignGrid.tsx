@@ -24,7 +24,7 @@ export function DesignGrid({ rows }: { rows: AiGenerationRecord[] }) {
           <div className="flex flex-col gap-2 p-3 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-muted-foreground">
-                <Ltr>{formatBaghdad(g.createdAt)}</Ltr>
+                {formatBaghdad(g.createdAt)}
               </span>
               {g.orderId ? (
                 <Link href={`/admin/orders/${g.orderId}`}>
@@ -45,7 +45,6 @@ export function DesignGrid({ rows }: { rows: AiGenerationRecord[] }) {
                 {g.lines.join(' / ')}
               </p>
             ) : null}
-            <Ltr className="text-xs text-muted-foreground">{g.ip}</Ltr>
           </div>
         </li>
       ))}

@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Ltr } from '@/components/Ltr';
-import { fillLtr } from '@/components/fill-ltr';
-import { admin } from '@/content/ar';
+import { admin, common } from '@/content/ar';
+import { count } from '@/lib/plural';
 import { requireAdmin } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
 import { shopDayKey } from '@/lib/shop-time';
@@ -54,6 +54,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
     ]);
 
   const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit);
+  const blockedKeys = new Set(blocks.map((b) => b.ipKey));
   const pages = Math.max(1, Math.ceil(generations.total / PAGE_SIZE));
   const href = (page: number) => {
     const q = new URLSearchParams();
@@ -91,21 +92,25 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
                 className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border bg-card p-3 shadow-sm"
               >
                 <Ltr className="font-medium">{a.ip}</Ltr>
-                <span>{fillLtr(d.alertRow, { count: a.count })}</span>
+                <span>
+                  <Ltr>{a.count}</Ltr> {count(a.count, common.plural.design)}
+                </span>
                 <span className="text-sm text-muted-foreground">
-                  <Ltr>{formatBaghdad(a.lastAt)}</Ltr>
+                  {formatBaghdad(a.lastAt)}
                 </span>
                 <div className="ms-auto flex items-center gap-2">
                   <Link href={`/admin/designs?ip=${a.ipKey}`} className={buttonVariants({ variant: 'outline' })}>
                     {d.view}
                   </Link>
-                  <form action={blockIpAction}>
-                    <input type="hidden" name="ipKey" value={a.ipKey} />
-                    <input type="hidden" name="ip" value={a.ip} />
-                    <Button type="submit" variant="destructive">
-                      {d.block}
-                    </Button>
-                  </form>
+                  {blockedKeys.has(a.ipKey) ? null : (
+                    <form action={blockIpAction}>
+                      <input type="hidden" name="ipKey" value={a.ipKey} />
+                      <input type="hidden" name="ip" value={a.ip} />
+                      <Button type="submit" variant="destructive">
+                        {d.block}
+                      </Button>
+                    </form>
+                  )}
                 </div>
               </li>
             ))}
@@ -121,7 +126,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
               <li key={b.ipKey} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border bg-card p-3 shadow-sm">
                 <Ltr className="font-medium">{b.ip}</Ltr>
                 <span className="text-sm text-muted-foreground">
-                  <Ltr>{formatBaghdad(b.createdAt)}</Ltr>
+                  {formatBaghdad(b.createdAt)}
                 </span>
                 <div className="ms-auto flex items-center gap-2">
                   <Link href={`/admin/designs?ip=${b.ipKey}`} className={buttonVariants({ variant: 'outline' })}>

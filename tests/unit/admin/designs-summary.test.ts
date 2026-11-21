@@ -27,7 +27,7 @@ describe('designsSummary', () => {
     expect(s.allTime).toBe(5);
   });
 
-  it('month uses the shop-day YYYY-MM of today and allTime sums everything', () => {
+  it('month uses Baghdad YYYY-MM (shop day) and allTime sums everything', () => {
     const s = designsSummary(
       [
         row({ day: '2026-11-01', count: 2 }),
