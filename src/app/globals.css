@@ -201,12 +201,17 @@
     -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
     mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
   }
-  /* Admin pages (marked by src/app/admin/template.tsx): no decorative pattern, calm grey work surface. */
+  /* Admin pages (marked by src/app/admin/template.tsx): no decorative pattern. */
   body:has([data-admin])::before {
     display: none;
   }
+  /* Softy paper ground; the admin has its own ink top bar, so the public header and footer are hidden. */
   body:has([data-admin]) {
-    background-color: color-mix(in oklab, var(--muted) 70%, var(--background));
+    background-color: #fdfbfa;
+  }
+  body:has([data-admin]) [data-site-header],
+  body:has([data-admin]) [data-site-footer] {
+    display: none;
   }
   html {
     @apply font-sans;

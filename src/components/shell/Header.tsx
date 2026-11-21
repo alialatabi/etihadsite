@@ -10,7 +10,7 @@ import { NavLink } from './NavLink';
  */
 export function Header({ settings }: { settings: ShopSettings }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+    <header data-site-header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
         <Link href="/" aria-label={pages.shell.homeAria} className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Image src="/brand/softy-mark.png" alt="" width={36} height={36} className="size-8 rounded-lg sm:size-9" priority />

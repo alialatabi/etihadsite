@@ -1,8 +1,7 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Ltr } from '@/components/Ltr';
+import { AdminNav } from '@/components/admin/AdminNav';
 import { admin } from '@/content/ar';
 import { verifySession } from '@/lib/auth/session';
 import { getSettings } from '@/lib/settings';
@@ -39,41 +38,38 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const authed = await verifySession();
   const alertCount = authed ? await designAlertCount() : 0;
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <>
       {authed ? (
-        <nav className="mb-6 flex flex-wrap items-center gap-2 border-b pb-3">
-          <span className="me-4 text-lg font-bold">{admin.title}</span>
-          <Link href="/admin" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.orders}
-          </Link>
-          <Link href="/admin/stats" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.stats}
-          </Link>
-          <Link href="/admin/customers" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.customers}
-          </Link>
-          <Link href="/admin/designs" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.designs}
-            {alertCount > 0 ? (
-              <Badge variant="destructive" className="ms-1">
-                <Ltr>{alertCount}</Ltr>
-              </Badge>
-            ) : null}
-          </Link>
-          <Link href="/admin/settings" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.settings}
-          </Link>
-          <Link href="/" className={buttonVariants({ variant: 'ghost' })}>
-            {admin.nav.site}
-          </Link>
-          <form action={logoutAction} className="ms-auto">
-            <Button type="submit" variant="outline">
-              {admin.nav.logout}
-            </Button>
-          </form>
-        </nav>
+        <div className="sticky top-0 z-40 w-full bg-[#121f34] text-[#fdfbfa]">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 md:flex-nowrap">
+            <div className="order-1 flex min-w-0 items-center gap-3">
+              <Image src="/brand/softy-mark.png" alt="" width={36} height={36} className="size-9 shrink-0 rounded-lg" priority />
+              <span className="truncate text-[18px] font-bold">{admin.title}</span>
+            </div>
+            <div className="order-2 ms-auto flex shrink-0 items-center gap-1 md:order-3">
+              <Link
+                href="/"
+                className="inline-flex h-11 items-center rounded-xl px-3 text-[15px] font-medium text-[#fdfbfa]/85 transition-colors hover:bg-[#1b2b46] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdfbfa]"
+              >
+                {admin.nav.site}
+              </Link>
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="inline-flex h-11 items-center rounded-xl border border-[#2a3a55] px-4 text-[15px] font-medium text-[#fdfbfa] transition-colors hover:bg-[#1b2b46] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdfbfa]"
+                >
+                  {admin.nav.logout}
+                </button>
+              </form>
+            </div>
+            <AdminNav
+              designAlerts={alertCount}
+              className="order-3 -mx-4 w-[calc(100%+2rem)] overflow-x-auto px-4 sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-6 md:order-2 md:mx-0 md:w-auto md:min-w-0 md:flex-1 md:overflow-visible md:px-0"
+            />
+          </div>
+        </div>
       ) : null}
-      {children}
-    </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">{children}</div>
+    </>
   );
 }
