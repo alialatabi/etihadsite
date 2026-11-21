@@ -5,36 +5,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, decodePDFRawStream, type PDFPage } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { normaliseArtwork } from '@/lib/design/normalise.server';
-import { computeLayout, layoutParamsFor } from '@/lib/layout';
 import { buildStaffPdf } from '@/lib/pdf/build-staff-pdf';
 import { A4_PT } from '@/lib/units';
-import type { LayoutResult, LayoutSettings, NormalisedArtwork, StickerSpec } from '@/lib/types';
+import type { NormalisedArtwork, StickerSpec } from '@/lib/types';
+import { contentOf, layoutFor } from './pdf-helpers';
 
-const SETTINGS: LayoutSettings = { ...DEFAULT_SETTINGS.layout, marginUm: 3_000 };
 const NOW = new Date('2026-11-12T10:30:00.000Z');
-
-function layoutFor(spec: StickerSpec): LayoutResult {
-  const out = computeLayout(spec, layoutParamsFor(spec, SETTINGS));
-  if (!out.ok) throw new Error(`layout failed: ${out.reason}`);
-  return out.layout;
-}
-
-function contentOf(page: PDFPage): string {
-  const ctx = page.doc.context;
-  const contents = page.node.Contents();
-  if (!contents) return '';
-  const streams = contents instanceof PDFArray ? contents.asArray().map((r) => ctx.lookup(r)) : [contents];
-  return streams
-    .map((s) => {
-      if (!(s instanceof PDFRawStream)) throw new Error('unexpected stream type');
-      return Buffer.from(decodePDFRawStream(s).decode()).toString('latin1');
-    })
-    .join('\n');
-}
 
 async function items() {
   const circle: StickerSpec = { shape: 'circle', widthUm: 58_000, heightUm: 58_000 };
