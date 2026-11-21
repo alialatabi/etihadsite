@@ -4,7 +4,8 @@ import 'server-only';
  *
  *   Postgres  public.orders (order_id, created_at, record jsonb), public.settings (id=1, data jsonb),
  *             rpc patch_order(p_id, p_patch) for atomic status/notified updates,
- *             public.events (analytics), public.customers + rpc upsert_customer (never purged)
+ *             public.events (analytics), public.customers + rpc upsert_customer (never purged),
+ *             public.ai_usage + rpc reserve_ai / release_ai, public.ai_generations, public.ai_blocks
  *   Storage   private bucket `etihad`: uploads/<id>.bin + .json, orders/<id>.pdf
  *
  * Schema: supabase/migrations/*.sql. RLS is on with no policies, so only the SECRET key
@@ -19,7 +20,19 @@ import 'server-only';
  */
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
-import type { AnalyticsEvent, CustomerRecord, OrderRecord, ShopSettings, StorageAdapter, StoredFileMeta } from '@/lib/types';
+import type {
+  AiBlock,
+  AiGenerationRecord,
+  AiKind,
+  AiReserveResult,
+  AiUsageRow,
+  AnalyticsEvent,
+  CustomerRecord,
+  OrderRecord,
+  ShopSettings,
+  StorageAdapter,
+  StoredFileMeta,
+} from '@/lib/types';
 import { ID_RE, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { parseStoredSettings } from './settings-schema';
 
@@ -39,6 +52,8 @@ const PURGE_ORDER_LIMIT = 10_000;
 const DRY_RUN_COUNT_LIMIT = 100_000;
 /** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
 const ORPHAN_UPLOAD_MAX_AGE_MS = 3 * 3600_000;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const AI_RESERVE_RESULTS: readonly AiReserveResult[] = ['ok', 'ip_limit', 'site_limit', 'blocked'];
 
 function safePath(rel: string): string {
   if (typeof rel !== 'string' || !PATH_RE.test(rel)) throw new Error('Invalid storage path');
@@ -105,6 +120,54 @@ function rowToCustomer(r: Record<string, unknown>): CustomerRecord {
   return out;
 }
 
+/** AiGenerationRecord → public.ai_generations row. */
+function generationToRow(g: AiGenerationRecord) {
+  return {
+    id: g.id,
+    created_at: g.createdAt,
+    day: g.day,
+    ip: g.ip,
+    ip_key: g.ipKey,
+    shape: g.shape,
+    corners: g.corners,
+    width_um: g.widthUm,
+    height_um: g.heightUm,
+    idea: g.idea,
+    lines: g.lines,
+    has_refs: g.hasRefs,
+    model: g.model,
+    upload_id: g.uploadId,
+    order_id: g.orderId,
+  };
+}
+
+/** public.ai_generations row → AiGenerationRecord. */
+function rowToGeneration(r: Record<string, unknown>): AiGenerationRecord {
+  return {
+    id: String(r.id),
+    createdAt: String(r.created_at),
+    day: String(r.day),
+    ip: String(r.ip ?? ''),
+    ipKey: String(r.ip_key ?? ''),
+    shape: r.shape as AiGenerationRecord['shape'],
+    corners: r.corners as AiGenerationRecord['corners'],
+    widthUm: Number(r.width_um),
+    heightUm: Number(r.height_um),
+    idea: String(r.idea ?? ''),
+    lines: Array.isArray(r.lines) ? r.lines.map(String) : [],
+    hasRefs: r.has_refs === true,
+    model: String(r.model ?? ''),
+    uploadId: String(r.upload_id),
+    orderId: typeof r.order_id === 'string' ? r.order_id : null,
+  };
+}
+
+/** PostgREST `Content-Range: 0-47/123` (or a star before the slash on an empty page) → 123; 0 when absent. */
+function totalFromContentRange(res: Response): number {
+  const m = /\/(\d+)$/.exec(res.headers.get('content-range') ?? '');
+  return m ? Number(m[1]) : 0;
+}
+
 export class SupabaseStorage implements StorageAdapter {
   private readonly base: string;
   readonly directUploadMaxBytes = SUPABASE_MAX_UPLOAD_BYTES;
@@ -122,16 +185,16 @@ export class SupabaseStorage implements StorageAdapter {
    */
   private async req(
     path: string,
-    init: RequestInit & { allowNotFound?: boolean; timeoutMs?: number } = {},
+    init: RequestInit & { allowNotFound?: boolean; allowStatus?: number; timeoutMs?: number } = {},
   ): Promise<Response> {
-    const { allowNotFound, timeoutMs, ...rest } = init;
+    const { allowNotFound, allowStatus, timeoutMs, ...rest } = init;
     const res = await fetch(`${this.base}${path}`, {
       ...rest,
       headers: { apikey: this.key, Authorization: `Bearer ${this.key}`, ...((rest.headers as Record<string, string>) ?? {}) },
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs ?? TIMEOUT_MS),
     });
-    if (res.ok) return res;
+    if (res.ok || res.status === allowStatus) return res;
     if (allowNotFound && (await isNotFound(res))) return res;
     const text = await res.text().catch(() => '');
     throw new Error(`[supabase] ${rest.method ?? 'GET'} ${path.split('?')[0]} -> ${res.status} ${text.slice(0, 200)}`);
@@ -382,6 +445,87 @@ export class SupabaseStorage implements StorageAdapter {
     });
     const n = ((await res.json().catch(() => [])) as unknown[]).length;
     return n ? [`events:${n}`] : [];
+  }
+
+  /* ───────────── AI designer ───────────── */
+
+  /** Atomic in Postgres (rpc reserve_ai, advisory lock per day and kind). Throws on outage or an unexpected answer. */
+  async aiReserve(a: { day: string; ipKey: string; ip: string; kind: AiKind; perIpLimit: number; siteLimit: number }) {
+    const res = await this.req('/rest/v1/rpc/reserve_ai', {
+      method: 'POST',
+      ...this.json({ p_day: a.day, p_ip_key: a.ipKey, p_ip: a.ip, p_kind: a.kind, p_per_ip: a.perIpLimit, p_site: a.siteLimit }),
+    });
+    const out = (await res.json().catch(() => null)) as { status?: unknown; used?: unknown } | null;
+    const status = out?.status as AiReserveResult;
+    if (!out || !AI_RESERVE_RESULTS.includes(status) || typeof out.used !== 'number') {
+      throw new Error('[supabase] reserve_ai: unexpected answer');
+    }
+    return { status, used: out.used };
+  }
+
+  async aiRelease(a: { day: string; ipKey: string; kind: AiKind }): Promise<void> {
+    await this.req('/rest/v1/rpc/release_ai', { method: 'POST', ...this.json({ p_day: a.day, p_ip_key: a.ipKey, p_kind: a.kind }) });
+  }
+
+  async aiRecordGeneration(rec: AiGenerationRecord): Promise<void> {
+    await this.req('/rest/v1/ai_generations', { method: 'POST', ...this.json(generationToRow(rec), 'return=minimal') });
+  }
+
+  /** No matching row = no-op. Invalid ids never reach the network. */
+  async aiMarkOrdered(uploadId: string, orderId: string): Promise<void> {
+    if (!ID_RE.test(uploadId) || !ID_RE.test(orderId)) return;
+    await this.req(`/rest/v1/ai_generations?upload_id=eq.${encodeURIComponent(uploadId)}`, {
+      method: 'PATCH',
+      ...this.json({ order_id: orderId }, 'return=minimal'),
+    });
+  }
+
+  /** Newest first. One Range page with an exact total; a page past the end (416) is empty. */
+  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string }) {
+    const from = Math.max(0, Math.floor(q.offset));
+    const to = from + Math.max(1, Math.floor(q.limit)) - 1;
+    const filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
+    const res = await this.req(`/rest/v1/ai_generations?select=*&order=created_at.desc,id.desc${filter}`, {
+      headers: { Range: `${from}-${to}`, 'Range-Unit': 'items', Prefer: 'count=exact' },
+      allowStatus: 416,
+      timeoutMs: OBJECT_TIMEOUT_MS,
+    });
+    const total = totalFromContentRange(res);
+    if (res.status === 416) return { rows: [], total };
+    const rows = (await res.json()) as Record<string, unknown>[];
+    return { rows: rows.map(rowToGeneration), total };
+  }
+
+  async aiUsage(sinceDay: string): Promise<AiUsageRow[]> {
+    if (!DAY_RE.test(sinceDay)) throw new Error('Invalid day');
+    const rows = await this.selectAllPaged(
+      `/rest/v1/ai_usage?select=day,ip_key,ip,kind,count,last_at&day=gte.${sinceDay}&order=day.asc,ip_key.asc,kind.asc`,
+    );
+    return rows.map((r) => ({
+      day: String(r.day),
+      ipKey: String(r.ip_key ?? ''),
+      ip: String(r.ip ?? ''),
+      kind: r.kind as AiKind,
+      count: Number(r.count),
+      lastAt: String(r.last_at ?? ''),
+    }));
+  }
+
+  /** Already blocked = kept as is (first block time stays). */
+  async aiBlock(ipKey: string, ip: string): Promise<void> {
+    await this.req('/rest/v1/ai_blocks?on_conflict=ip_key', {
+      method: 'POST',
+      ...this.json({ ip_key: ipKey, ip }, 'resolution=ignore-duplicates,return=minimal'),
+    });
+  }
+
+  async aiUnblock(ipKey: string): Promise<void> {
+    await this.req(`/rest/v1/ai_blocks?ip_key=eq.${encodeURIComponent(ipKey)}`, { method: 'DELETE' });
+  }
+
+  async aiListBlocks(): Promise<AiBlock[]> {
+    const rows = await this.selectAllPaged('/rest/v1/ai_blocks?select=ip_key,ip,created_at&order=created_at.desc');
+    return rows.map((r) => ({ ipKey: String(r.ip_key), ip: String(r.ip ?? ''), createdAt: String(r.created_at) }));
   }
 
   /* ───────────── retention ───────────── */

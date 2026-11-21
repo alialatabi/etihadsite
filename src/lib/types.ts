@@ -567,6 +567,74 @@ export interface StorageAdapter {
    * removed, or what would be when `dryRun` is true. Customers are never removed.
    */
   purgeEventsOlderThan?(cutoff: Date, dryRun: boolean): Promise<string[]>;
+
+  /* AI sticker designer (optional; both adapters implement them). Types: section below. */
+
+  /**
+   * Atomically checks blocked → site cap → per-IP cap for (day, kind) and, when allowed, counts
+   * one use. `used` = this ipKey's count for the day after the call. `ipKey` '' = no per-IP
+   * check (TRUST_PROXY=0); the use is then counted on the site-only row.
+   */
+  aiReserve?(a: { day: string; ipKey: string; ip: string; kind: AiKind; perIpLimit: number; siteLimit: number }): Promise<{ status: AiReserveResult; used: number }>;
+  /** Gives back one reserved use (a failed try does not count); never below 0. */
+  aiRelease?(a: { day: string; ipKey: string; kind: AiKind }): Promise<void>;
+  aiRecordGeneration?(rec: AiGenerationRecord): Promise<void>;
+  /** Sets orderId on the generation whose uploadId matches; no match = no-op. */
+  aiMarkOrdered?(uploadId: string, orderId: string): Promise<void>;
+  /** Newest first; `total` counts every row matching the filter. */
+  aiListGenerations?(q: { limit: number; offset: number; ipKey?: string }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
+  /** Usage rows with day ≥ sinceDay (YYYY-MM-DD). */
+  aiUsage?(sinceDay: string): Promise<AiUsageRow[]>;
+  aiBlock?(ipKey: string, ip: string): Promise<void>;
+  aiUnblock?(ipKey: string): Promise<void>;
+  /** Newest first. */
+  aiListBlocks?(): Promise<AiBlock[]>;
+}
+
+/* ────────────────────────────── AI sticker designer ────────────────────── */
+
+/**
+ * Stored records of the in-site AI designer. Unlike analytics, these hold the FULL client IP
+ * (owner decision D9, 2026-11-21); `ipKey` is a keyed hash of it, the limit/block key.
+ * `day` is the shop day (Asia/Baghdad), YYYY-MM-DD.
+ */
+export type AiKind = 'image' | 'brief';
+export type AiReserveResult = 'ok' | 'ip_limit' | 'site_limit' | 'blocked';
+
+export interface AiGenerationRecord {
+  id: string;
+  createdAt: string;
+  day: string;
+  ip: string;
+  ipKey: string;
+  shape: Shape;
+  corners: Corners;
+  widthUm: number;
+  heightUm: number;
+  idea: string;
+  lines: string[];
+  hasRefs: boolean;
+  model: string;
+  /** The generated PNG, stored as an ordinary upload. */
+  uploadId: string;
+  /** Set when an order used this design. */
+  orderId: string | null;
+}
+
+/** One daily counter. `ipKey` '' = the site-only row (per-IP check skipped). */
+export interface AiUsageRow {
+  day: string;
+  ipKey: string;
+  ip: string;
+  kind: AiKind;
+  count: number;
+  lastAt: string;
+}
+
+export interface AiBlock {
+  ipKey: string;
+  ip: string;
+  createdAt: string;
 }
 
 /* ────────────────────────────── Analytics & customers ──────────────────── */
