@@ -11,7 +11,7 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DEFAULT_SETTINGS, KEEP_DESIGNS_FROM, PURGE_WINDOW_DAYS } from "../../config/defaults";
+import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
   AiBlock,
   AiGenerationRecord,
@@ -33,6 +33,7 @@ import {
   uploadMetaPath,
   uploadPath,
 } from "./paths";
+import { purgeBounds } from "./purge-rules";
 import { parseStoredSettings } from "./settings-schema";
 
 export { deepMerge } from "./settings-schema";
@@ -40,6 +41,7 @@ export { deepMerge } from "./settings-schema";
 const AI_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
 
 export class LocalStorage implements StorageAdapter {
   readonly root: string;
@@ -87,6 +89,16 @@ export class LocalStorage implements StorageAdapter {
       return await fs.readFile(this.resolveSafe(rel));
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
+    }
+  }
+
+  private async exists(rel: string): Promise<boolean> {
+    try {
+      await fs.stat(this.resolveSafe(rel));
+      return true;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
       throw e;
     }
   }
@@ -191,9 +203,7 @@ export class LocalStorage implements StorageAdapter {
     );
     return records
       .filter((r): r is OrderRecord => r !== null)
-      .sort((a, b) =>
-        a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
-      );
+      .sort((a, b) => cmp(b.createdAt, a.createdAt));
   }
 
   async updateOrder(
@@ -265,7 +275,7 @@ export class LocalStorage implements StorageAdapter {
         }
       }
     }
-    return out.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+    return out.sort((a, b) => cmp(a.ts, b.ts));
   }
 
   private async readCustomers(): Promise<CustomerRecord[]> {
@@ -337,7 +347,7 @@ export class LocalStorage implements StorageAdapter {
 
   async listCustomers(): Promise<CustomerRecord[]> {
     const list = await this.readCustomers();
-    return list.sort((a, b) => (a.lastOrderAt < b.lastOrderAt ? 1 : a.lastOrderAt > b.lastOrderAt ? -1 : 0));
+    return list.sort((a, b) => cmp(b.lastOrderAt, a.lastOrderAt));
   }
 
   /* ───────────── AI designer (dev only; same semantics as rpc reserve_ai) ───────────── */
@@ -412,7 +422,6 @@ export class LocalStorage implements StorageAdapter {
   async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
     if (!AI_DAY_RE.test(sinceDay)) throw new Error("Invalid day");
     const rows = await this.readAiList<AiUsageRow>("usage");
-    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
     return rows
       .filter((r) => r.day >= sinceDay && (kind === undefined || r.kind === kind))
       .sort((x, y) => cmp(x.day, y.day) || cmp(x.ipKey, y.ipKey) || cmp(x.kind, y.kind));
@@ -447,11 +456,7 @@ export class LocalStorage implements StorageAdapter {
   }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
     const list = (await this.readAiList<AiGenerationRecord>("generations"))
       .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)
-      .sort((x, y) =>
-        x.createdAt !== y.createdAt
-          ? (x.createdAt < y.createdAt ? 1 : -1)
-          : x.id < y.id ? 1 : x.id > y.id ? -1 : 0,
-      );
+      .sort((x, y) => cmp(y.createdAt, x.createdAt) || cmp(y.id, x.id));
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);
     return { rows: limit >= 1 ? list.slice(from, from + limit) : [], total: list.length };
@@ -479,7 +484,7 @@ export class LocalStorage implements StorageAdapter {
 
   async aiListBlocks(): Promise<AiBlock[]> {
     const list = await this.readAiList<AiBlock>("blocks");
-    return list.sort((x, y) => (x.createdAt < y.createdAt ? 1 : x.createdAt > y.createdAt ? -1 : 0));
+    return list.sort((x, y) => cmp(y.createdAt, x.createdAt));
   }
 
   /** Deletes usage counters of days before `day` (YYYY-MM-DD). Returns `ai_usage:<n>` (empty when none). */
@@ -532,18 +537,13 @@ export class LocalStorage implements StorageAdapter {
   async purgeOlderThan(cutoff: Date, dryRun: boolean): Promise<string[]> {
     const removed: string[] = [];
     const drop = async (rel: string) => {
-      if ((await this.readOptional(rel)) === null) return;
+      if (!(await this.exists(rel))) return;
       removed.push(rel);
       if (!dryRun) await this.deleteFile(rel);
     };
-    const keepFrom = new Date(KEEP_DESIGNS_FROM);
-    // Fail safe: a bad switch date would decide which rule applies, so nothing runs without it.
-    if (Number.isNaN(keepFrom.getTime())) throw new Error("bad KEEP_DESIGNS_FROM");
-    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
-    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
     // Old rule: created before min(cutoff, KEEP_DESIGNS_FROM), with NO lower bound (a purge outage or a
     // lower retentionDays must never strand a promised deletion).
-    const oldRuleEnd = keepFrom < cutoff ? keepFrom : cutoff;
+    const { oldRuleEnd, inWindow } = purgeBounds(cutoff);
     const orders = await this.listOrders();
     const oldRule = orders.filter((o) => new Date(o.createdAt) < oldRuleEnd);
     const deleting = new Set(oldRule.map((o) => o.orderId));
@@ -570,9 +570,10 @@ export class LocalStorage implements StorageAdapter {
         return []; // directory does not exist
       }
     };
+    const uploadNames = await list("uploads");
     // Interrupted writeAtomic() leftovers.
     for (const dir of ["uploads", "orders"]) {
-      for (const name of await list(dir)) {
+      for (const name of dir === "uploads" ? uploadNames : await list(dir)) {
         if (!name.endsWith(".tmp")) continue;
         const stat = await fs
           .stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, dir, name))
@@ -583,7 +584,7 @@ export class LocalStorage implements StorageAdapter {
         }
       }
     }
-    for (const name of await list("uploads")) {
+    for (const name of uploadNames) {
       if (!name.endsWith(".bin")) continue;
       if (used.has(`uploads/${name}`)) continue;
       const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name));
