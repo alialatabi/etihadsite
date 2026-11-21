@@ -10,7 +10,8 @@ import { clearDraftFile } from './draft-store';
 import { clearDraft, saveSuccess } from './logic';
 import { logClient } from './logClient';
 import { postOrder, uploadWithProgress } from './orderApi';
-import { submitOrderFlow, type AttemptContext, type SubmitInput } from './submitFlow';
+import { attemptFingerprint, clearStoredAttempt, keepAttemptAfterError, loadStoredAttempt, resolveAttempt, saveStoredAttempt, type KeptAttempt } from './submitAttempt';
+import { submitOrderFlow, type SubmitInput } from './submitFlow';
 
 type SubmitPhase = 'idle' | 'uploading' | 'processing' | 'failed' | 'degraded';
 
@@ -24,7 +25,7 @@ export interface SubmitState {
 export function useSubmitOrder(maxUploadBytes: number) {
   const router = useRouter();
   const [state, setState] = useState<SubmitState>({ phase: 'idle', progress: 0, message: null });
-  const ctxRef = useRef<AttemptContext | null>(null);
+  const keptRef = useRef<KeptAttempt | null>(null);
   const busy = useRef(false);
 
   /** `seedUploadId`: the accepted AI design's upload, when the design being ordered is that file (logic.ts seedUploadId). */
@@ -32,10 +33,14 @@ export function useSubmitOrder(maxUploadBytes: number) {
     async (input: SubmitInput, seedUploadId?: string) => {
       if (busy.current) return;
       busy.current = true;
-      // One id per attempt; retries after a network failure keep it (server idempotency).
-      ctxRef.current ??= { orderId: nanoid(), rastered: false, ...(seedUploadId ? { uploadId: seedUploadId, seeded: true } : {}) };
+      // One id per order: a retry of the SAME order keeps it (server idempotency), also after a reload (sessionStorage);
+      // an order the customer changed since gets a fresh id (and a fresh upload when the design changed).
+      const fp = attemptFingerprint(input, seedUploadId);
+      const ctx = resolveAttempt({ kept: keptRef.current, stored: loadStoredAttempt(), fp, seedUploadId, newId: nanoid });
+      keptRef.current = { ctx, fp };
+      saveStoredAttempt(ctx.orderId, fp.order);
       setState({ phase: 'uploading', progress: 0, message: null });
-      const result = await submitOrderFlow(input, ctxRef.current, {
+      const result = await submitOrderFlow(input, ctx, {
         upload: uploadWithProgress,
         postOrder,
         rasterise: rasterisePdfPage,
@@ -48,6 +53,8 @@ export function useSubmitOrder(maxUploadBytes: number) {
       busy.current = false;
 
       if (result.kind === 'ok') {
+        keptRef.current = null;
+        clearStoredAttempt();
         saveSuccess(result.response);
         clearDraft();
         void clearDraftFile();
@@ -67,7 +74,12 @@ export function useSubmitOrder(maxUploadBytes: number) {
       if (result.kind === 'degraded') {
         setState({ phase: 'degraded', progress: 0, message: null });
       } else {
-        ctxRef.current = null; // fixable error → next attempt gets a fresh id
+        // A fixable error ends the attempt (next one gets a fresh id), except rate_limited: an earlier try with this id may
+        // have been saved, and the next attempt must reach the server's idempotency with the same id.
+        if (!keepAttemptAfterError(result.code)) {
+          keptRef.current = null;
+          clearStoredAttempt();
+        }
         setState({ phase: 'failed', progress: 0, message: result.message });
       }
     },
