@@ -12,11 +12,12 @@ import type { AiDesignApi } from './useAiDesign';
 
 const CHECKER = 'bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]';
 
-function DesignImage({ src, custom }: { src: string; custom: boolean }) {
+/** The design as it will be cut: on a checkerboard for a custom shape, clipped round for a circle. */
+function DesignImage({ src, custom, circle }: { src: string; custom: boolean; circle: boolean }) {
   return (
     <div className={cn('mx-auto flex aspect-square w-full max-w-sm items-center justify-center overflow-hidden rounded-2xl border p-3', custom ? CHECKER : 'bg-white')}>
       {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL preview */}
-      <img src={src} alt="" className="max-h-full max-w-full object-contain" />
+      <img src={src} alt="" className={cn('max-h-full max-w-full object-contain', circle && 'aspect-square rounded-full object-cover')} />
     </div>
   );
 }
@@ -44,6 +45,7 @@ function Remaining({ n }: { n: number | null }) {
 /** The design step when the site designs the sticker: progress, then the result with accept / retry / edit the idea. */
 export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   const custom = b.shape === 'custom';
+  const circle = b.shape === 'circle';
   const noTriesLeft = ai.remainingToday === 0;
 
   const editIdea = (
@@ -74,7 +76,7 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   if (ai.phase === 'result' && ai.result) {
     return (
       <div className="space-y-4">
-        <DesignImage src={ai.result.previewUrl} custom={custom} />
+        <DesignImage src={ai.result.previewUrl} custom={custom} circle={circle} />
         <PrintedText lines={ai.result.lines} />
         <Remaining n={ai.remainingToday} />
         <div className="flex flex-wrap items-center gap-3">
@@ -123,7 +125,7 @@ export function AiResult({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   // Nothing running: the accepted design (also after a reload), or the way back to the idea.
   return (
     <div className="space-y-4">
-      {b.design && <DesignImage src={b.design.previewUrl} custom={custom} />}
+      {b.design && <DesignImage src={b.design.previewUrl} custom={custom} circle={circle} />}
       {b.design && ai.acceptedLines && <PrintedText lines={ai.acceptedLines} />}
       <div className="flex flex-wrap items-center gap-3">
         {editIdea}

@@ -138,8 +138,7 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
         </section>
       )}
 
-      <div className="cut-line h-px text-border" aria-hidden />
-      <Button type="button" variant="outline" disabled={!b.shape} onClick={b.chooseUpload} className="h-12 w-full px-5 text-base sm:w-auto">
+      <Button type="button" variant="outline" disabled={!b.shape} onClick={b.chooseUpload} className="mt-2 h-12 w-full px-5 text-base sm:w-auto">
         <Upload className="size-5" aria-hidden />
         {builder.ai.readyDesign}
       </Button>

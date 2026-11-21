@@ -1,4 +1,4 @@
-import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, upload, setSize, perSheetBadge, fillDetails, fakeIpHeaders } from './helpers';
+import { chooseQuantity, test, expect, builder, makeFixtures, snap, next, chooseShape, readyDesign, upload, setSize, perSheetBadge, fillDetails, fakeIpHeaders } from './helpers';
 
 test.use({ extraHTTPHeaders: fakeIpHeaders() });
 
@@ -9,7 +9,7 @@ test.beforeEach(({}, info) => {
 async function toSizeStep(page: import('@playwright/test').Page, png: string) {
   await page.goto('/');
   await chooseShape(page, builder.shape.circle);
-  await next(page).click();
+  await readyDesign(page);
   await upload(page, png);
   await expect(page.locator('img[src^="blob:"]').first()).toBeVisible();
   await next(page).click();
@@ -33,7 +33,7 @@ test('JPEG with custom shape shows no_alpha', async ({ page }, info) => {
   const { jpg } = await makeFixtures();
   await page.goto('/');
   await chooseShape(page, builder.shape.custom);
-  await next(page).click();
+  await readyDesign(page);
   await upload(page, jpg);
   await expect(page.getByRole('alert').filter({ hasText: 'الشكل المخصص يحتاج PNG شفاف' })).toBeVisible();
   await snap(page, info, 'validation-no-alpha');

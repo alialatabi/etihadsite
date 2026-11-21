@@ -6,6 +6,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  // A stand-in OpenAI API for the AI designer (tests/e2e/openai-mock.ts), reached through OPENAI_BASE_URL.
+  globalSetup: './tests/e2e/global-setup.ts',
   timeout: 90_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
@@ -32,6 +34,8 @@ export default defineConfig({
       ADMIN_PASSWORD: 'e2e-password',
       SESSION_SECRET: 'e2e-session-secret-e2e-session-secret-1234',
       STAFF_PAGE_KEY: 'e2e-staff-key-e2e-staff-key-1234',
+      OPENAI_API_KEY: 'e2e-openai-key',
+      OPENAI_BASE_URL: 'http://127.0.0.1:3197/v1',
     },
   },
 });
