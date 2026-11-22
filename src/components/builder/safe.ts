@@ -5,7 +5,7 @@
  * deliberate even where the wrapped function cannot throw today.
  */
 import { builder, common } from '@/content/ar';
-import { computeLayout, layoutParamsFor, deriveLockedSize, maxWidthFor } from '@/lib/layout';
+import { computeLayout, computeMultiLayout, layoutParamsFor, deriveLockedSize, maxWidthFor } from '@/lib/layout';
 import { formatCm, parseCm } from '@/lib/parse/cm';
 import { countLabel } from '@/lib/plural';
 import { priceFor, priceForStickers } from '@/lib/pricing';
@@ -15,6 +15,7 @@ import type {
   LayoutOutcome,
   LayoutSettings,
   Material,
+  MultiLayoutOutcome,
   OrderSummary,
   PriceBreakdown,
   Shape,
@@ -41,6 +42,15 @@ export function safeFormatCm(um: number): string {
 export function safeLayout(spec: StickerSpec, layoutSettings: LayoutSettings): LayoutOutcome {
   try {
     return computeLayout(spec, layoutParamsFor(spec, layoutSettings));
+  } catch {
+    return { ok: false, reason: 'invalid' };
+  }
+}
+
+/** Several designs on one sheet; like safeLayout it never throws (a failure reads as an invalid layout). */
+export function safeMultiLayout(specs: StickerSpec[], layoutSettings: LayoutSettings): MultiLayoutOutcome {
+  try {
+    return computeMultiLayout(specs, layoutSettings);
   } catch {
     return { ok: false, reason: 'invalid' };
   }

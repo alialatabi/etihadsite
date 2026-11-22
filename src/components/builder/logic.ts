@@ -2,6 +2,7 @@
  * Builder helpers with no React, unit-tested in Node. Everything here is pure except the
  * browser-storage section at the bottom (localStorage draft + sessionStorage), which is this module's only I/O.
  */
+import { MAX_DESIGNS } from '@/config/defaults';
 import { effectiveDpi, ptToUm } from '@/lib/units';
 import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
@@ -67,6 +68,19 @@ export interface PersistedForm extends FormFields {
   aiSizeUm?: { w: number; h: number };
   /** The lines printed on the accepted AI design (for the «الكتابة كثيرة» warning on the arrangement step after a reload). */
   aiLines?: string[];
+  /**
+   * Multi-design orders only (written only while more than one design is in the order): designs 2..N.
+   * Each file is kept in IndexedDB under 'design:<fileId>' (design 1 keeps 'design'). The sizes are the typed texts;
+   * the size itself is derived again from the text and the decoded artwork after a reload.
+   */
+  multi?: { extras: SavedExtra[] };
+}
+
+/** One saved extra design of a multi-design draft. */
+export interface SavedExtra {
+  fileId: string;
+  widthText: string;
+  heightText: string;
 }
 
 export type BuilderMode = 'ai' | 'upload';
@@ -175,7 +189,13 @@ export function toCustomerInfo(f: FormFields, phoneE164: string, marketingOptIn:
 /** What the summary card shows. totalBeforeDiscountIqd is display-only (null/absent: no discount or no published price). */
 export type SummaryData = Omit<OrderSummary, 'displayNo'> & { totalBeforeDiscountIqd?: number | null };
 
-export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: PriceBreakdown): SummaryData {
+export function buildSummary(
+  spec: StickerSpec,
+  layout: Pick<LayoutResult, 'countPerSheet'>,
+  price: PriceBreakdown,
+  /** Multi-design orders only: every design's size (designs[0] is the spec) and the copies of each per sheet. */
+  multi?: { designs: { widthUm: number; heightUm: number }[]; perDesign: number },
+): SummaryData {
   const beforeDiscount = totalBeforeDiscountIqd(price);
   return {
     shape: spec.shape,
@@ -193,6 +213,7 @@ export function buildSummary(spec: StickerSpec, layout: LayoutResult, price: Pri
     totalIqd: price.totalIqd,
     ...(beforeDiscount !== null ? { totalBeforeDiscountIqd: beforeDiscount } : {}),
     ...(price.requestedStickers !== undefined ? { requestedStickers: price.requestedStickers } : {}),
+    ...(multi ? { designs: multi.designs, perDesign: multi.perDesign } : {}),
   };
 }
 
@@ -217,7 +238,29 @@ export interface RestoredState {
   aiFileId?: string;
   aiSizeUm?: { w: number; h: number };
   aiLines?: string[];
+  /** Saved extra designs (2..N); present only when at least one saved entry is valid. */
+  multi?: { extras: SavedExtra[] };
   fields: FormFields;
+}
+
+/** The longest size text an extra design may carry in the draft. */
+const SAVED_TEXT_MAX = 32;
+
+/** The valid entries of a saved `multi.extras` (at most MAX_DESIGNS - 1, in order), or null when none is usable. */
+function restoredExtras(saved: unknown): SavedExtra[] | null {
+  const list = (saved as { extras?: unknown } | null | undefined)?.extras;
+  if (!Array.isArray(list)) return null;
+  const out: SavedExtra[] = [];
+  for (const e of list) {
+    if (out.length >= MAX_DESIGNS - 1) break;
+    const x = e as Partial<SavedExtra> | null;
+    if (!x || typeof x !== 'object' || !isDraftId(x.fileId)) continue;
+    const widthText = typeof x.widthText === 'string' ? x.widthText.slice(0, SAVED_TEXT_MAX) : '';
+    const heightText = typeof x.heightText === 'string' ? x.heightText.slice(0, SAVED_TEXT_MAX) : '';
+    if (out.some((o) => o.fileId === x.fileId)) continue;
+    out.push({ fileId: x.fileId, widthText, heightText });
+  }
+  return out.length > 0 ? out : null;
 }
 
 /** An id kept in the draft: a non-empty string of at most 64 characters. */
@@ -260,6 +303,9 @@ export function restoredState(saved: Partial<PersistedForm>): RestoredState {
   if (Array.isArray(lines) && lines.length > 0 && lines.length <= AI_MAX_LINES && lines.every((l) => typeof l === 'string')) {
     r.aiLines = (lines as string[]).map((l) => l.slice(0, AI_LINE_MAX_CHARS));
   }
+  // Extra designs (multi-design orders only; single-design drafts have none).
+  const extras = restoredExtras(saved.multi);
+  if (extras) r.multi = { extras };
   return r;
 }
 

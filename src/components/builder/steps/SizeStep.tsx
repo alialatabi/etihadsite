@@ -8,9 +8,12 @@ import { textWarning } from '../ai/ai-logic';
 import { acceptedAiLines, aiShrinkWarning } from '../logic';
 import { safeFormatCm } from '../safe';
 import type { BuilderApi } from '../useBuilder';
+import { MultiSizeStep } from './MultiSizeStep';
 import { SizeFields, sizeError } from './SizeFields';
 
 export function SizeStep({ b }: { b: BuilderApi }) {
+  // Several designs: one size row per design (the single-design page below is untouched).
+  if (b.multiActive) return <MultiSizeStep b={b} />;
   const isCircle = b.shape === 'circle';
   const max = b.maxWidthUm ? safeFormatCm(b.maxWidthUm) : null;
   const error = sizeError(b);

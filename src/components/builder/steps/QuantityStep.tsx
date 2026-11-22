@@ -250,6 +250,16 @@ function ResultBlock({ b }: { b: BuilderApi }) {
           {builder.summary.requestedStickers} <CountLabel n={b.stickers!} />
         </p>
       )}
+      {b.multiActive && (
+        <div className="space-y-0.5 text-center text-sm">
+          {b.perDesignCount !== null && (
+            <p className="font-medium">
+              {builder.multi.perDesignLine} <CountLabel n={b.perDesignCount} />
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">{builder.multi.equalSplit}</p>
+        </div>
+      )}
     </section>
   );
 }
