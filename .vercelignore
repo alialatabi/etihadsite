@@ -19,3 +19,6 @@ docs/superpowers
 .superpowers
 .codex
 .mcp.json
+
+# Loose files in the repo root (the owner's PDFs) never go to Vercel.
+/*.pdf
