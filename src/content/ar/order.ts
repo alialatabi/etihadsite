@@ -22,6 +22,10 @@ export const order = {
     dpi: 'جودة الصورة',
     time: 'الوقت',
     whatsapp: 'واتساب',
+    /** Multi-design orders: the designs block (count, each size, copies of each design received). */
+    designs: 'التصاميم',
+    perDesign: 'من كل تصميم',
+    cutOut: 'مفرغ',
   },
   /** Plain-text order summary (WhatsApp / success). */
   text: {
@@ -39,6 +43,10 @@ export const order = {
     delivery: 'التوصيل',
     total: 'الإجمالي',
     priceUnset: 'يُحدد عند التأكيد',
+    /** Multi-design orders: the designs block. */
+    designs: 'التصاميم',
+    perDesign: 'من كل تصميم',
+    cutOut: 'مفرغ',
   },
   status: {
     new: 'جديد',

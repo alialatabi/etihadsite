@@ -2,15 +2,16 @@ import { BodyTooLarge, readJsonCapped } from "../_lib/body";
 import { trackServer } from "@/lib/analytics/server";
 import { builder, order } from "@/content/ar";
 import { getOrderEnv } from "@/lib/env";
-import { makeDisplayNo, pdfFileNameFor } from "@/lib/display-no";
+import { makeDisplayNo, multiPdfFileNameFor, pdfFileNameFor } from "@/lib/display-no";
 import { normaliseArtwork } from "@/lib/design/normalise.server";
-import { computeLayout, layoutParamsFor } from "@/lib/layout";
+import { computeLayout, computeMultiLayout, layoutParamsFor } from "@/lib/layout";
 import { reportError } from "@/lib/monitoring/report";
 import { notifyShop } from "@/lib/notify";
-import { buildOrderRecord, summaryOf } from "@/lib/order-record";
+import { buildMultiOrderRecord, buildOrderRecord, summaryOf, type MultiDesignInput } from "@/lib/order-record";
 import { orderRequestSchema } from "@/lib/order-schema";
 import { orderSummaryText } from "@/lib/order-text";
 import { normalisePhone, whatsappUrl } from "@/lib/parse/phone";
+import { buildMultiSheetPdf } from "@/lib/pdf/build-multi-sheet";
 import { buildSheetPdf } from "@/lib/pdf/build-sheet";
 import {
   priceFor,
@@ -26,11 +27,14 @@ import { getStorage } from "@/lib/storage";
 import { uploadPath } from "@/lib/storage/paths";
 import { verifyTurnstile } from "@/lib/turnstile";
 import type {
+  NormalisedArtwork,
   OrderError,
   OrderRecord,
   OrderRequest,
   OrderResponse,
+  PriceBreakdown,
   ShopSettings,
+  StickerSpec,
   StorageAdapter,
 } from "@/lib/types";
 import { PRINT_DPI } from "@/lib/print-dpi";
@@ -67,10 +71,12 @@ const MAX_SHEET_PDF_BYTES = 14 * 1024 * 1024;
 const FALLBACK_DPI = [600, 300] as const;
 
 type Failure = Extract<OrderResponse, { ok: false }>;
-const fail = (error: OrderError): Failure => ({
+// `designIndex` (0-based) is set only by multi-design orders, so a single order's error body keeps its keys.
+const fail = (error: OrderError, designIndex?: number): Failure => ({
   ok: false,
   error,
   message: order.errors[error],
+  ...(designIndex !== undefined ? { designIndex } : {}),
 });
 
 function successFor(
@@ -157,6 +163,8 @@ async function processOrder(
   const phone = normalisePhone(req.customer.phone);
   if (!phone) return fail("invalid_phone");
 
+  if (req.designs) return processMultiOrder(request, req, req.designs, phone, settings);
+
   if (quantityErrorFor(req, settings) !== null) return fail("invalid_quantity");
 
   const upload = await storage.readUpload(req.uploadId);
@@ -227,6 +235,29 @@ async function processOrder(
     pdfPath,
   });
 
+  return completeOrder(request, storage, settings, { req, record, price, spec, pdfBytes: pdf.bytes, fileName });
+}
+
+interface PreparedOrder {
+  req: OrderRequest;
+  record: OrderRecord;
+  price: PriceBreakdown;
+  /** The spec the analytics event reports (design 0 for a multi-design order). */
+  spec: StickerSpec;
+  pdfBytes: Uint8Array;
+  fileName: string;
+}
+
+/**
+ * Everything after the record is built, shared by single and multi-design orders: persist, replay
+ * race, AI mark, customer upsert, analytics, Telegram, answer.
+ */
+async function completeOrder(
+  request: Request,
+  storage: StorageAdapter,
+  settings: ShopSettings,
+  { req, record, price, spec, pdfBytes, fileName }: PreparedOrder,
+): Promise<OrderResponse> {
   // Persist BEFORE notifying: the admin dashboard is the record of truth.
   // saveOrder is first-write-wins (a duplicate orderId never overwrites) and cannot tell the caller
   // it lost, so the stored record is read back: another serverless instance that got there first
@@ -291,12 +322,14 @@ async function processOrder(
       shape: spec.shape,
       widthMm: umToMm(spec.widthUm),
       heightMm: umToMm(spec.heightUm),
+      // Multi-design orders only.
+      ...(req.designs ? { designs: req.designs.length } : {}),
     },
   });
 
   let notified: OrderRecord["notified"] = { telegram: "failed" };
   try {
-    const result = await notifyShop(record, pdf.bytes, fileName, settings);
+    const result = await notifyShop(record, pdfBytes, fileName, settings);
     notified = { telegram: result.telegram };
     if (result.error) {
       console.error("[orders] notify failed:", result.error);
@@ -315,6 +348,108 @@ async function processOrder(
     notified,
   };
   return successFor(updated, settings);
+}
+
+/** Each design's spec: the shared shape and corners with that design's own size. */
+const specsOf = (req: OrderRequest, designs: NonNullable<OrderRequest["designs"]>): StickerSpec[] =>
+  designs.map((d) => ({ ...req.spec, widthUm: d.widthUm, heightUm: d.heightUm }));
+
+/**
+ * Multi-design order (req.designs present): the same pipeline as a single order, in the same error
+ * order (quantity, lowest missing upload, layout, normalise in design order), with one sheet that
+ * holds the same number of copies of EACH design. Errors that belong to one design carry its index.
+ */
+async function processMultiOrder(
+  request: Request,
+  req: OrderRequest,
+  designs: NonNullable<OrderRequest["designs"]>,
+  phone: string,
+  settings: ShopSettings,
+): Promise<OrderResponse> {
+  const storage = getStorage();
+  const specs = specsOf(req, designs);
+  const outcome = computeMultiLayout(specs, settings.layout);
+
+  // Multi-design orders are always placed as a sticker count (the schema keeps `stickers` for them).
+  if (req.stickers === undefined) return fail("invalid_request");
+  const stickers = req.stickers;
+  const quantityError = outcome.ok
+    ? validateStickers(req.material, stickers, outcome.layout.countPerSheet, settings.pricing)
+    : settings.pricing.materials[req.material]?.enabled
+      ? null
+      : "material_disabled";
+  if (quantityError !== null) return fail("invalid_quantity");
+
+  // Reads one at a time; the bytes stay for a possible lower-DPI pass below.
+  const uploads: NonNullable<Awaited<ReturnType<StorageAdapter["readUpload"]>>>[] = [];
+  for (let i = 0; i < designs.length; i++) {
+    const upload = await storage.readUpload(designs[i].uploadId);
+    if (!upload) return fail("upload_missing", i);
+    uploads.push(upload);
+  }
+
+  if (!outcome.ok)
+    return fail(outcome.reason === "invalid" ? "invalid_request" : outcome.reason, outcome.designIndex);
+  const layout = outcome.layout;
+  const sheets = sheetsForStickers(stickers, layout.countPerSheet);
+
+  // One design at a time: sharp holds a full raw copy of the picture while it works.
+  const normalised = async (dpi: number) => {
+    const out: Extract<Awaited<ReturnType<typeof normaliseArtwork>>, { ok: true }>[] = [];
+    for (let i = 0; i < specs.length; i++) {
+      const norm = await normaliseArtwork(uploads[i].bytes, {
+        spec: specs[i],
+        targetDpi: dpi,
+        blockDpi: settings.quality.blockDpi,
+      });
+      if (!norm.ok) return { ok: false as const, error: norm.error, designIndex: i };
+      out.push(norm);
+    }
+    return { ok: true as const, norms: out };
+  };
+  const first = await normalised(PRINT_DPI);
+  if (!first.ok) return fail(first.error, first.designIndex);
+  let norms = first.norms;
+
+  const displayNo = makeDisplayNo();
+  const fileName = multiPdfFileNameFor(displayNo, designs.length, sheets);
+  const buildPdf = (artworks: NormalisedArtwork[]) =>
+    buildMultiSheetPdf({
+      layout,
+      artworks,
+      meta: { displayNo, description: `multi ${designs.length} designs x${layout.countPerSheet}` },
+    });
+  let pdf = await buildPdf(norms.map((n) => n.artwork));
+  // Same size cap as a single order: when over it, ALL raster designs are re-normalised at a lower DPI
+  // (the whole set or nothing: a failed pass keeps the last set that built). Vector PDFs do not grow with it.
+  for (const dpi of FALLBACK_DPI) {
+    if (pdf.bytes.length <= MAX_SHEET_PDF_BYTES || !norms.some((n) => n.artwork.kind === "raster")) break;
+    const again = await normalised(dpi);
+    if (!again.ok) break;
+    norms = again.norms;
+    pdf = await buildPdf(norms.map((n) => n.artwork));
+  }
+
+  const price = priceForStickers(req.material, stickers, layout.countPerSheet, settings);
+  const pdfPath = await storage.savePdf(req.orderId, pdf.bytes);
+  const inputs: MultiDesignInput[] = norms.map((norm, i) => ({ norm, uploadMeta: uploads[i].meta }));
+  const record = buildMultiOrderRecord({
+    req: { ...req, designs },
+    phone,
+    displayNo,
+    createdAt: new Date().toISOString(),
+    layout,
+    designs: inputs,
+    price,
+    pdfPath,
+  });
+  return completeOrder(request, storage, settings, { req, record, price, spec: req.spec, pdfBytes: pdf.bytes, fileName });
+}
+
+/** A replay must carry the same designs as the stored order: both single (no list) or the same uploads in the same order. */
+function sameDesignPaths(stored: string[] | undefined, designs: OrderRequest["designs"]): boolean {
+  if (stored === undefined || designs === undefined) return stored === undefined && designs === undefined;
+  return stored.length === designs.length && stored.every((p, i) => p === uploadPath(designs[i].uploadId));
 }
 
 const inflight = new Map<string, Promise<OrderResponse>>();
@@ -356,7 +491,8 @@ export async function POST(request: Request): Promise<Response> {
     const existing = await getStorage().getOrder(req.orderId);
     if (existing)
       return send(
-        existing.files.designPath === uploadPath(req.uploadId)
+        existing.files.designPath === uploadPath(req.uploadId) &&
+          sameDesignPaths(existing.files.designPaths, req.designs)
           ? successFor(existing, settings)
           : fail("invalid_request"),
       );

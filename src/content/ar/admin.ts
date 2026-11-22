@@ -96,6 +96,12 @@ export const admin = {
     status: 'الحالة',
     statusSaved: 'تم تحديث الحالة.',
     telegram: 'تيليغرام',
+    designs: 'التصاميم',
+    designN: 'تصميم {n}',
+    perDesign: 'من كل تصميم',
+    cutOut: 'مفرغ',
+    notCutOut: 'غير مفرغ',
+    downloadDesignN: 'تنزيل تصميم {n}',
   },
   stats: {
     title: 'الإحصائيات',

@@ -22,6 +22,7 @@ import { Money } from "@/components/Money";
 import { admin, common } from "@/content/ar";
 import { requireAdmin } from "@/lib/auth/guard";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
+import { count } from "@/lib/plural";
 import { whatsappUrl } from "@/lib/parse/phone";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
@@ -126,7 +127,13 @@ export default async function OrdersPage() {
                     </TableCell>
                     <TableCell className={cn(tableCls.cell, "px-3")}>
                       {shapeLabel(o.spec.shape, o.spec.corners)} ·{" "}
-                      {sizeLabel(o.spec.widthUm, o.spec.heightUm)}
+                      {o.designs ? (
+                        <>
+                          <Ltr>{o.designs.length}</Ltr> {count(o.designs.length, common.plural.design)}
+                        </>
+                      ) : (
+                        sizeLabel(o.spec.widthUm, o.spec.heightUm)
+                      )}
                     </TableCell>
                     <TableCell className={cn(tableCls.cell, tableCls.num, "px-3")}>
                       {pv.sheets === null ? (

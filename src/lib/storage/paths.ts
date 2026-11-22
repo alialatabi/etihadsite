@@ -11,3 +11,6 @@ export const orderJsonPath = (orderId: string) => `orders/${orderId}.json`;
 export const pdfPath = (orderId: string) => `orders/${orderId}.pdf`;
 /** The meta file that sits next to a stored design: `uploads/<id>.bin` → `uploads/<id>.json`. */
 export const metaPathForDesign = (designPath: string) => designPath.replace(/\.bin$/, '.json');
+/** Every original upload an order holds: `files.designPaths` for a multi-design order, else the one `designPath`. */
+export const designPathsOf = (files: { designPath: string; designPaths?: string[] }): string[] =>
+  files.designPaths && files.designPaths.length > 0 ? files.designPaths : [files.designPath];

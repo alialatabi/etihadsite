@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 const pdfPurged = () => Response.json({ error: "purged", message: admin.orders.pdfPurged }, { status: 410 });
 
 /**
- * GET /api/admin/files/<orderId>/<pdf|design> — attachment download. Auth re-checked here.
+ * GET /api/admin/files/<orderId>/<pdf|design|design-N> — attachment download. Auth re-checked here.
+ * `design-N` (N from 1) is the Nth original upload of a multi-design order (files.designPaths).
  * A missing PDF answers 410 `{ error: "purged" }`; a missing design stays 404.
  */
 export async function GET(
@@ -21,7 +22,9 @@ export async function GET(
   const denied = await adminApiGuard();
   if (denied) return denied;
   const { orderId, which } = await ctx.params;
-  if (!ID_RE.test(orderId) || (which !== "pdf" && which !== "design"))
+  // `design-N` with N a plain 1-based number (no sign, no leading zero); anything else is not a file.
+  const nth = /^design-([1-9]\d{0,2})$/.exec(which);
+  if (!ID_RE.test(orderId) || (which !== "pdf" && which !== "design" && !nth))
     return new Response(null, { status: 404 });
 
   const storage = getStorage();
@@ -35,6 +38,15 @@ export async function GET(
     path = record.files.pdfPath;
     name = orderPdfFileName(record);
     mime = "application/pdf";
+  } else if (nth) {
+    // Only a multi-design order has a list; N must point inside it, and the kind comes from that design.
+    const n = Number(nth[1]);
+    const stored = record.files.designPaths?.[n - 1];
+    const design = record.designs?.[n - 1];
+    if (!stored || !design) return new Response(null, { status: 404 });
+    path = stored;
+    name = `${record.displayNo}_design-${n}.${EXT_BY_KIND[design.kind]}`;
+    mime = MIME_BY_KIND[design.kind];
   } else {
     path = record.files.designPath;
     name = `${record.displayNo}_design.${EXT_BY_KIND[record.design.kind]}`;

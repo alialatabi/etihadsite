@@ -33,7 +33,7 @@ import type {
   StorageAdapter,
   StoredFileMeta,
 } from '@/lib/types';
-import { ID_RE, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
+import { ID_RE, designPathsOf, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { purgeBounds } from './purge-rules';
 import { parseStoredSettings } from './settings-schema';
 
@@ -699,7 +699,7 @@ export class SupabaseStorage implements StorageAdapter {
       if (created < oldRuleEnd && ID_RE.test(o.order_id)) oldRule.push(o);
       else {
         if (inWindow(created)) pdfOnly.push(o);
-        if (o.files?.designPath) used.add(o.files.designPath);
+        if (o.files?.designPath) for (const d of designPathsOf(o.files)) used.add(d);
       }
     }
     for (const g of ai) if (g.upload_id && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
@@ -709,7 +709,7 @@ export class SupabaseStorage implements StorageAdapter {
     // Otherwise every kept order is already in `used` and nothing is asked.
     const unsure =
       oldRuleEnd < refFromDate
-        ? [...new Set(oldRule.map((o) => o.files?.designPath).filter((d): d is string => !!d && PATH_RE.test(d) && !used.has(d)))]
+        ? [...new Set(oldRule.flatMap((o) => (o.files?.designPath ? designPathsOf(o.files) : [])).filter((d) => PATH_RE.test(d) && !used.has(d)))]
         : [];
     for (let i = 0; i < unsure.length; i += DESIGN_CHECK_CHUNK) {
       const list = unsure.slice(i, i + DESIGN_CHECK_CHUNK).map((d) => encodeURIComponent(`"${d}"`)).join(',');
@@ -719,15 +719,32 @@ export class SupabaseStorage implements StorageAdapter {
       )) as { files: OrderRecord['files'] | null }[];
       for (const k of keptUses) if (k.files?.designPath) used.add(k.files.designPath);
     }
+    // A kept MULTI-design order may use a path as one of its other designs (files.designPaths), which the
+    // designPath lookup above cannot see. Asked only when a multi-design order exists among the orders read
+    // (so a store without any keeps the exact requests it always made): one request per still-unsure path,
+    // jsonb containment on the list, and the match is tested here too (a row that does not list the path
+    // proves nothing, so it is ignored).
+    if (unsure.length > 0 && orders.some((o) => o.files?.designPaths)) {
+      for (const d of unsure) {
+        if (used.has(d)) continue;
+        const holders = (await this.selectAllPaged(
+          `/rest/v1/orders?select=files:record->files&created_at=gte.${oldRuleEndQ}&record->files->designPaths=cs.${encodeURIComponent(JSON.stringify([d]))}&order=order_id.asc`,
+          { untilEmpty: true },
+        )) as { files: OrderRecord['files'] | null }[];
+        for (const h of holders) if (h.files?.designPaths?.includes(d)) used.add(d);
+      }
+    }
 
     const removed: string[] = [];
     const files = new Set<string>();
     for (const o of oldRule) {
       if (o.files?.pdfPath && PATH_RE.test(o.files.pdfPath)) files.add(o.files.pdfPath);
-      const d = o.files?.designPath;
-      if (d && PATH_RE.test(d) && !used.has(d)) {
-        files.add(d);
-        files.add(metaPathForDesign(d));
+      if (o.files?.designPath) {
+        for (const d of designPathsOf(o.files)) {
+          if (!PATH_RE.test(d) || used.has(d)) continue;
+          files.add(d);
+          files.add(metaPathForDesign(d));
+        }
       }
       removed.push(`order:${o.order_id}`);
     }

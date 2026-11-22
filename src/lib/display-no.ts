@@ -31,7 +31,14 @@ export function pdfFileNameFor(
   return `${displayNo}_${spec.shape}-${mm(spec.widthUm)}x${mm(spec.heightUm)}mm_x${sheets}.pdf`;
 }
 
+/** ASCII file name of the A4 PDF of a multi-design order: EP-251107-AB3C_multi-3designs_x20.pdf */
+export function multiPdfFileNameFor(displayNo: string, designCount: number, sheets: number): string {
+  return `${displayNo}_multi-${designCount}designs_x${sheets}.pdf`;
+}
+
 /** Print-PDF file name of a stored order: the admin download and the Telegram resend use the same name. */
 export function orderPdfFileName(record: OrderRecord): string {
+  if (record.designs)
+    return multiPdfFileNameFor(record.displayNo, record.designs.length, orderPriceView(record).sheets ?? 0);
   return pdfFileNameFor(record.displayNo, record.spec, orderPriceView(record).sheets ?? 0);
 }

@@ -27,6 +27,7 @@ import type {
 } from "../types";
 import {
   ID_RE,
+  designPathsOf,
   metaPathForDesign,
   orderJsonPath,
   pdfPath,
@@ -547,7 +548,7 @@ export class LocalStorage implements StorageAdapter {
     const oldRule = orders.filter((o) => new Date(o.createdAt) < oldRuleEnd);
     const deleting = new Set(oldRule.map((o) => o.orderId));
     // Designs used by any order we keep, and uploads behind an AI generation, survive whatever their age.
-    const used = new Set(orders.filter((o) => !deleting.has(o.orderId)).map((o) => o.files.designPath));
+    const used = new Set(orders.filter((o) => !deleting.has(o.orderId)).flatMap((o) => designPathsOf(o.files)));
     for (const g of await this.readAiList<AiGenerationRecord>("generations")) used.add(uploadPath(g.uploadId));
     for (const order of orders) {
       const created = new Date(order.createdAt);
@@ -556,9 +557,11 @@ export class LocalStorage implements StorageAdapter {
       if (!old && !inWindow(created)) continue;
       await drop(order.files.pdfPath);
       if (!old) continue;
-      if (!used.has(order.files.designPath)) {
-        await drop(order.files.designPath);
-        await drop(metaPathForDesign(order.files.designPath));
+      // A multi-design order holds several uploads (files.designPaths); a single one has just designPath.
+      for (const designPath of designPathsOf(order.files)) {
+        if (used.has(designPath)) continue;
+        await drop(designPath);
+        await drop(metaPathForDesign(designPath));
       }
       await drop(orderJsonPath(order.orderId));
     }
