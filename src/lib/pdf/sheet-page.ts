@@ -62,9 +62,9 @@ const MARKS_PROPERTY = 'SkMarks';
 /** Control-point distance, as a fraction of the radius, for a cubic Bezier quarter circle. */
 const BEZIER_CIRCLE_KAPPA = 0.5522847498;
 /** Cover-scaled artwork may overflow its cell by this fraction before a rectangle clip is added. */
-const COVER_OVERFLOW_TOLERANCE = 0.002;
+export const COVER_OVERFLOW_TOLERANCE = 0.002;
 
-function circlePath(cx: number, cy: number, r: number): PDFOperator[] {
+export function circlePath(cx: number, cy: number, r: number): PDFOperator[] {
   const c = BEZIER_CIRCLE_KAPPA * r;
   return [
     moveTo(cx + r, cy),
@@ -76,12 +76,12 @@ function circlePath(cx: number, cy: number, r: number): PDFOperator[] {
   ];
 }
 
-function rectPath(x: number, y: number, w: number, h: number): PDFOperator[] {
+export function rectPath(x: number, y: number, w: number, h: number): PDFOperator[] {
   return [moveTo(x, y), lineTo(x + w, y), lineTo(x + w, y + h), lineTo(x, y + h), closePath()];
 }
 
 /** Rectangle with quarter-circle corners of radius `r` (0 < r ≤ min(w, h) / 2), counter-clockwise from the bottom edge. */
-function roundedRectPath(x: number, y: number, w: number, h: number, r: number): PDFOperator[] {
+export function roundedRectPath(x: number, y: number, w: number, h: number, r: number): PDFOperator[] {
   const c = BEZIER_CIRCLE_KAPPA * r;
   const right = x + w;
   const top = y + h;
@@ -99,7 +99,7 @@ function roundedRectPath(x: number, y: number, w: number, h: number, r: number):
   ];
 }
 
-interface EmbeddedArtwork {
+export interface EmbeddedArtwork {
   xobjectName: PDFName;
   bw: number;
   bh: number;
@@ -112,7 +112,7 @@ interface EmbeddedArtwork {
  * Embed once. `bw x bh` is the native size of the embedded object in its own space
  * (images: pixels mapped from the unit square; forms: the box in points, origin 0,0).
  */
-async function embedArtwork(doc: PDFDocument, page: PDFPage, artwork: NormalisedArtwork): Promise<EmbeddedArtwork> {
+export async function embedArtwork(doc: PDFDocument, page: PDFPage, artwork: NormalisedArtwork): Promise<EmbeddedArtwork> {
   if (artwork.kind === 'raster') {
     const image = artwork.mime === 'image/png' ? await doc.embedPng(artwork.bytes) : await doc.embedJpg(artwork.bytes);
     const xobjectName = page.node.newXObject('Image', image.ref);
@@ -143,7 +143,7 @@ function marksLayer(doc: PDFDocument): PDFRef {
 }
 
 /** The 4 dots as one even-odd filled path, K black, inside the `sk_marks` layer. */
-function marksOperators(doc: PDFDocument, page: PDFPage, marks: NonNullable<LayoutResult['marks']>, pageH: number): PDFOperator[] {
+export function marksOperators(doc: PDFDocument, page: PDFPage, marks: NonNullable<LayoutResult['marks']>, pageH: number): PDFOperator[] {
   const layer = marksLayer(doc);
   const resources = page.node.normalizedEntries().Resources;
   resources.set(PDFName.of('Properties'), doc.context.obj({ [MARKS_PROPERTY]: layer }));
