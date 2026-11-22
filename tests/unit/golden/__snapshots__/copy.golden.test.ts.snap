@@ -15,10 +15,10 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{gapY} x1",
   "{h} x3",
   "{margin} x1",
-  "{max} x5",
+  "{max} x6",
   "{mb} x4",
   "{min} x1",
-  "{n} x4",
+  "{n} x10",
   "{name} x4",
   "{no} x1",
   "{pages} x1",
@@ -131,7 +131,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "createdAt": "وقت الطلب",
     "status": "الحالة",
     "statusSaved": "تم تحديث الحالة.",
-    "telegram": "تيليغرام"
+    "telegram": "تيليغرام",
+    "designs": "التصاميم",
+    "designN": "تصميم {n}",
+    "perDesign": "من كل تصميم",
+    "cutOut": "مفرغ",
+    "notCutOut": "غير مفرغ",
+    "downloadDesignN": "تنزيل تصميم {n}"
   },
   "stats": {
     "title": "الإحصائيات",
@@ -334,13 +340,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3368,
+  "chars": 3423,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 21,
-  "sha256OfRawJson": "a20f775168ada6eed144152b9d4728132c1b486c371a2be1b71a1d29e309ee30",
-  "strings": 247,
+  "sha256OfRawJson": "73e46d060086a04209573d508005cfd9e88d591540571b466253e4052219cd84",
+  "strings": 253,
 }
 `;
 
@@ -563,12 +569,32 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "body": "نتواصل وياك بالواتساب لتأكيد الطلب والسعر.",
     "whatsapp": "أرسل عبر واتساب",
     "whatsappRequired": "ما وصل الطلب للمطبعة تلقائياً. اضغط «أرسل عبر واتساب» لإكماله.",
-    "newOrder": "طلب جديد"
+    "newOrder": "طلب جديد",
+    "checkNote": "راح نتأكد من كل تصميم إنه جاهز للطباعة، وإذا احتاج أي تعديل نعدّله ونرسله إلك على الواتساب.",
+    "checkNoteClose": "تمام"
   },
   "degraded": {
     "title": "تعذر إرسال الطلب",
     "body": "لا تقلق، أرسل طلبك والتصميم لنا مباشرة على الواتساب.",
     "whatsapp": "أرسل عبر واتساب"
+  },
+  "multi": {
+    "checkbox": "عندي أكثر من تصميم",
+    "hint": "كل التصاميم بنفس الشكل، ولكل تصميم قياسه.",
+    "designN": "تصميم {n}",
+    "cutOut": "مفرغ",
+    "add": "إضافة تصميم",
+    "replaceN": "غيّر ملف التصميم رقم {n}",
+    "removeN": "احذف التصميم رقم {n}",
+    "limitNotice": "الحد الأقصى {max} تصاميم بالطلب. تجاهلنا الملفات الزايدة.",
+    "sizesTitle": "قياس كل تصميم",
+    "doNotFit": "هاي التصاميم بهاي القياسات ما تدخل مع بعضها بورقة وحدة. صغّر قياس واحد منها.",
+    "perDesign": "من كل تصميم",
+    "perDesignLine": "من كل تصميم:",
+    "equalSplit": "كل ورقة تحمل نفس العدد من كل تصميم.",
+    "designError": "التصميم رقم {n}: ",
+    "previewSizes": "قياسات التصاميم",
+    "waitingDesign": "بانتظار الملف"
   },
   "whatsappText": {
     "newOrder": "مرحباً، عندي طلب ستيكرات:"
@@ -580,13 +606,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 4260,
+  "chars": 4731,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 21,
-  "sha256OfRawJson": "1cc8ca148a451a3b56c041346b4736d94ee5d6919308f1a37b0427c623733e52",
-  "strings": 185,
+  "objects": 22,
+  "sha256OfRawJson": "6dae1bc7dd4b3f9d2e996cdde687af11deb1c893e93ca929e8306e462d6447dc",
+  "strings": 203,
 }
 `;
 
@@ -766,7 +792,10 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
     "notes": "ملاحظات",
     "dpi": "جودة الصورة",
     "time": "الوقت",
-    "whatsapp": "واتساب"
+    "whatsapp": "واتساب",
+    "designs": "التصاميم",
+    "perDesign": "من كل تصميم",
+    "cutOut": "مفرغ"
   },
   "text": {
     "newOrder": "طلب جديد",
@@ -782,7 +811,10 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
     "subtotal": "المجموع",
     "delivery": "التوصيل",
     "total": "الإجمالي",
-    "priceUnset": "يُحدد عند التأكيد"
+    "priceUnset": "يُحدد عند التأكيد",
+    "designs": "التصاميم",
+    "perDesign": "من كل تصميم",
+    "cutOut": "مفرغ"
   },
   "status": {
     "new": "جديد",
@@ -823,13 +855,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 899,
+  "chars": 945,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 6,
-  "sha256OfRawJson": "293db2b1485b9a116f8644306756f96d951bdc5096cbbaaffb3155dfe113aa21",
-  "strings": 61,
+  "sha256OfRawJson": "175fdf16ef913724bf940b38a6bf9ec30e4b507c009920f01292fb2702606719",
+  "strings": 67,
 }
 `;
 

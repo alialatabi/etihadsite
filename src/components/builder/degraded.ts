@@ -28,19 +28,20 @@ export function manualSummaryText(s: SummaryData): string {
 export function degradedText(s: SummaryData): string {
   let body: string;
   try {
+    // The shared builder writes the designs block itself for a multi-design order (summary.designs).
     body = orderSummaryText({ ...s, displayNo: '—' });
   } catch {
     body = manualSummaryText(s);
+    // The manual fallback has no designs block: the size of every design and what each one gets.
+    if (s.designs && s.designs.length > 0) {
+      const lines = s.designs.map(
+        (d, i) => `${fill(builder.multi.designN, { n: i + 1 })}: ${safeFormatCm(d.widthUm)} × ${safeFormatCm(d.heightUm)} ${common.units.cm}`,
+      );
+      if (s.perDesign != null) lines.push(`${builder.multi.perDesign}: ${s.sheets * s.perDesign}`);
+      body = [body, ...lines].join('\n');
+    }
   }
-  // A multi-design order: the size of every design and what each one gets (a single-design text stays as it was).
-  if (s.designs && s.designs.length > 0) {
-    const lines = s.designs.map(
-      (d, i) => `${fill(builder.multi.designN, { n: i + 1 })}: ${safeFormatCm(d.widthUm)} × ${safeFormatCm(d.heightUm)} ${common.units.cm}`,
-    );
-    if (s.perDesign != null) lines.push(`${builder.multi.perDesign}: ${s.sheets * s.perDesign}`);
-    return `${builder.whatsappText.newOrder}\n${body}\n${lines.join('\n')}`;
-  }
-  return `${builder.whatsappText.newOrder}\n${body}`;
+  return [builder.whatsappText.newOrder, body].join('\n');
 }
 
 export function degradedUrl(whatsapp: string, s: SummaryData | null): string | null {

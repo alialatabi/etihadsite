@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
-import { builder, fill } from '@/content/ar';
+import { builder, fill, order } from '@/content/ar';
 import { MultiSheetPreview } from '@/components/builder/MultiSheetPreview';
 import { SummaryCard } from '@/components/builder/SummaryCard';
 import { degradedText } from '@/components/builder/degraded';
@@ -177,8 +177,10 @@ describe('the summary of a multi-design order', () => {
     const single = degradedText({ ...base });
     expect(single).not.toContain(fill(builder.multi.designN, { n: 1 }));
     const multi = degradedText({ ...base, designs: [{ widthUm: 40_000, heightUm: 30_000 }, { widthUm: 30_000, heightUm: 30_000 }], perDesign: 4 });
-    expect(multi.startsWith(single)).toBe(true);
-    expect(multi).toContain(fill(builder.multi.designN, { n: 2 }));
-    expect(multi).toContain(`${builder.multi.perDesign}: 20`);
+    // The shared order text writes the designs block (count, "n) size", copies of each); it is not repeated by the page.
+    expect(multi).toContain(`${order.text.designs}:`);
+    expect(multi).toContain('2) ');
+    expect(multi).toContain(`${order.text.perDesign}:`);
+    expect(multi.split(order.text.perDesign).length).toBe(2);
   });
 });
