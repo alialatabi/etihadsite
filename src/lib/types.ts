@@ -504,7 +504,8 @@ export type OrderResponse =
 
 /* ────────────────────────────── Upload API ─────────────────────────────── */
 
-export type UploadError = 'unsupported_type' | 'too_large' | 'corrupt' | 'rate_limited' | 'server_error';
+/** 'unsafe': a PDF with scripts, embedded files or other active content (HTTP 422). */
+export type UploadError = 'unsupported_type' | 'too_large' | 'corrupt' | 'unsafe' | 'rate_limited' | 'server_error';
 
 export type UploadResponse =
   | { ok: true; uploadId: string; kind: DesignKind; bytes: number }

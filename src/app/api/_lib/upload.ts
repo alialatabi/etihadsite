@@ -21,6 +21,7 @@ const UPLOAD_STATUS: Record<UploadError, number> = {
   unsupported_type: 415,
   too_large: 413,
   corrupt: 400,
+  unsafe: 422,
   rate_limited: 429,
   server_error: 500,
 };
@@ -45,9 +46,12 @@ export function uploadOk(
   return Response.json(body);
 }
 
-/** Stored file name: "design" when the client sent none, control characters removed, at most 200 characters. */
+/** Characters a stored name never keeps: C0 controls, DEL, C1 controls and the bidi controls (U+200E/F, U+202A-E, U+2066-9). */
+const NAME_CONTROLS = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g;
+
+/** Stored file name: "design" when the client sent none, control and bidi-control characters removed, at most 200 characters. */
 export function cleanOriginalName(name: string | undefined): string {
-  return (name || "design").replace(/[\u0000-\u001f]/g, "").slice(0, 200);
+  return (name || "design").replace(NAME_CONTROLS, "").slice(0, 200);
 }
 
 /** Meta stored with a checked upload. */
