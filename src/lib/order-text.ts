@@ -35,6 +35,7 @@ export function orderSummaryText(summary: OrderSummary): string {
     `${T.newOrder} — ${summary.displayNo}`,
     `${T.shape}: ${shapeLabel(summary.shape, summary.corners)}`,
     `${T.size}: ${sizeLabel(summary.widthUm, summary.heightUm)}`,
+    ...designLines(summary),
     `${T.perSheet}: ${countLabel(summary.countPerSheet, common.plural.sticker)}`,
     `${T.material}: ${common.materials[summary.material]}`,
     ...(typeof summary.requestedStickers === 'number'
@@ -52,6 +53,21 @@ export function orderSummaryText(summary: OrderSummary): string {
   lines.push(`${T.delivery}: ${money(summary.deliveryFeeIqd)}`);
   if (summary.totalIqd !== null) lines.push(`${T.total}: ${money(summary.totalIqd)}`);
   return lines.join('\n');
+}
+
+/**
+ * Multi-design orders only (summary.designs): the count, every design's size («مفرغ» when it has a
+ * transparent background) and how many stickers of EACH design the order holds. Empty for a single design.
+ */
+function designLines(summary: OrderSummary): string[] {
+  const designs = summary.designs;
+  if (!designs || designs.length === 0) return [];
+  const T = order.text;
+  return [
+    `${T.designs}: ${countLabel(designs.length, common.plural.design)}`,
+    ...designs.map((d, i) => `${i + 1}) ${sizeLabel(d.widthUm, d.heightUm)}${d.cutOut ? ` — ${T.cutOut}` : ''}`),
+    `${T.perDesign}: ${countLabel(summary.sheets * (summary.perDesign ?? 0), common.plural.sticker)}`,
+  ];
 }
 
 /** Arabic label for a shape (+ corners). 'circle' → "دائري", rect rounded → "مستطيل بزوايا دائرية", … */

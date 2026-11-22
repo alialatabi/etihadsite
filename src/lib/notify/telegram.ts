@@ -1,7 +1,8 @@
 import "server-only";
 import { common, order } from "@/content/ar";
 import { formatIqd } from "@/lib/pricing";
-import { shapeLabel } from "@/lib/order-text";
+import { shapeLabel, sizeLabel } from "@/lib/order-text";
+import { countLabel } from "@/lib/plural";
 import type { NotifyResult, OrderRecord, ShopSettings } from "@/lib/types";
 
 const MAX_CAPTION = 1024;
@@ -30,6 +31,20 @@ function money(v: number | null): string {
   return v === null ? L.priceUnset : `${formatIqd(v)} ${common.units.iqd}`;
 }
 
+/** Multi-design orders only: count, each size («مفرغ» when transparent) and copies received of each design. */
+function designLines(record: OrderRecord): string[] {
+  const designs = record.designs;
+  if (!designs || designs.length === 0) return [];
+  return [
+    `${L.designs}: ${countLabel(designs.length, common.plural.design)}`,
+    ...designs.map(
+      (d, i) =>
+        `${i + 1}) ${escapeHtml(sizeLabel(d.widthUm, d.heightUm))}${d.cutOut ? ` — ${L.cutOut}` : ""}`,
+    ),
+    `${L.perDesign}: ${countLabel(record.price.sheets * (record.layout.perDesign ?? 0), common.plural.sticker)}`,
+  ];
+}
+
 /**
  * HTML caption for Telegram sendDocument (<= 1024 chars). The owner chose these
  * lines (2026-11-15): sheets, material, shape, delivery address, phone, total.
@@ -55,6 +70,9 @@ export function buildCaption(
     )}`,
     `${L.phone}: ${phoneLinks}`,
     `${L.total}: ${money(record.price.totalIqd)}`,
+    // Multi-design orders: the designs block goes LAST so a too-long caption loses it before the
+    // phone and the total (safeTruncate cuts whole lines from the end).
+    ...designLines(record),
   ].join("\n");
   return caption.length <= MAX_CAPTION
     ? caption

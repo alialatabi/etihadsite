@@ -8,11 +8,13 @@ import { Money } from '@/components/Money';
 import { admin, common, fill } from '@/content/ar';
 import { requireAdmin } from '@/lib/auth/guard';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
+import { isCutOutDesign } from '@/lib/order-record';
+import { count } from '@/lib/plural';
 import { whatsappUrl } from '@/lib/parse/phone';
 import { getSettings } from '@/lib/settings';
 import { getStorage } from '@/lib/storage';
 import { ID_RE } from '@/lib/storage/paths';
-import type { OrderRecord } from '@/lib/types';
+import type { OrderDesignRecord, OrderRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from '../../_lib';
 import { StatusForm } from './StatusForm';
@@ -32,6 +34,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="text-[#5a6475]">{label}</dt>
       <dd className="min-w-0 text-end font-medium text-[#121f34]">{children}</dd>
     </div>
+  );
+}
+
+/** The designs of an order as one list: a single-design order is a list of one (its own `design` and size). */
+function designsOf(o: OrderRecord): OrderDesignRecord[] {
+  return (
+    o.designs ?? [{ ...o.design, widthUm: o.spec.widthUm, heightUm: o.spec.heightUm }]
   );
 }
 
@@ -58,6 +67,8 @@ export default async function OrderDetailPage({
   const d = admin.detail;
   const pv = orderPriceView(o);
   const pdfPurged = isPdfPurged(o.createdAt, (await getSettings()).retentionDays);
+  const designs = designsOf(o);
+  const multi = o.designs !== undefined;
 
   return (
     <section>
@@ -100,9 +111,6 @@ export default async function OrderDetailPage({
               <Row label={d.district}>{o.customer.district || admin.orders.missing}</Row>
               <Row label={d.landmark}>{o.customer.landmark}</Row>
               <Row label={d.notes}>{o.customer.notes || admin.orders.missing}</Row>
-              <Row label={d.originalFile}>
-                <Ltr>{o.design.originalName}</Ltr>
-              </Row>
             </dl>
             <a
               href={whatsappUrl(o.customer.phone)}
@@ -118,9 +126,15 @@ export default async function OrderDetailPage({
           <Panel title={d.summary}>
             <dl>
               <Row label={d.shape}>{shapeLabel(o.spec.shape, o.spec.corners)}</Row>
-              <Row label={d.size}>
-                <Ltr>{sizeLabel(o.spec.widthUm, o.spec.heightUm)}</Ltr>
-              </Row>
+              {multi ? (
+                <Row label={d.designs}>
+                  <Ltr>{designs.length}</Ltr> {count(designs.length, common.plural.design)}
+                </Row>
+              ) : (
+                <Row label={d.size}>
+                  <Ltr>{sizeLabel(o.spec.widthUm, o.spec.heightUm)}</Ltr>
+                </Row>
+              )}
               <Row label={d.perSheet}>
                 <Ltr>{o.layout.countPerSheet}</Ltr>
               </Row>
@@ -143,14 +157,43 @@ export default async function OrderDetailPage({
               <Row label={d.totalStickers}>
                 {pv.totalStickers === null ? admin.orders.missing : <Ltr>{pv.totalStickers}</Ltr>}
               </Row>
-              <Row label={d.dpi}>
-                {o.design.effectiveDpi !== undefined ? <Ltr>{Math.round(o.design.effectiveDpi)}</Ltr> : d.vector}
-              </Row>
+              {multi && pv.sheets !== null && o.layout.perDesign ? (
+                <Row label={d.perDesign}>
+                  <Ltr>{pv.sheets * o.layout.perDesign}</Ltr>
+                </Row>
+              ) : null}
+
               <Row label={d.createdAt}>{formatBaghdad(o.createdAt)}</Row>
               <Row label={d.telegram}>
                 <Pill tone={telegramTone[o.notified.telegram]}>{telegramLabel[o.notified.telegram]}</Pill>
               </Row>
             </dl>
+          </Panel>
+
+          <Panel title={d.designs}>
+            <ol className="flex flex-col gap-3">
+              {designs.map((g, i) => (
+                <li key={i} className="border-b border-[#e7dfdf] pb-3 text-[15px] leading-normal last:border-b-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-[#121f34]">{fill(d.designN, { n: i + 1 })}</span>
+                    <Pill tone={isCutOutDesign(g) ? 'ok' : 'neutral'}>{isCutOutDesign(g) ? d.cutOut : d.notCutOut}</Pill>
+                  </div>
+                  <dl className="mt-1">
+                    <Row label={d.originalFile}>
+                      <Ltr>{g.originalName}</Ltr>
+                    </Row>
+                    {multi ? (
+                      <Row label={d.size}>
+                        <Ltr>{sizeLabel(g.widthUm, g.heightUm)}</Ltr>
+                      </Row>
+                    ) : null}
+                    <Row label={d.dpi}>
+                      {g.effectiveDpi !== undefined ? <Ltr>{Math.round(g.effectiveDpi)}</Ltr> : d.vector}
+                    </Row>
+                  </dl>
+                </li>
+              ))}
+            </ol>
           </Panel>
 
           <Panel>
@@ -205,10 +248,19 @@ export default async function OrderDetailPage({
                 {admin.orders.downloadPdf}
               </a>
             )}
-            <a href={`/api/admin/files/${o.orderId}/design`} className={cn(btn.outline, 'w-full')}>
-              <Download aria-hidden className="size-5" />
-              {admin.orders.downloadDesign}
-            </a>
+            {multi ? (
+              designs.map((_, i) => (
+                <a key={i} href={`/api/admin/files/${o.orderId}/design-${i + 1}`} className={cn(btn.outline, 'w-full')}>
+                  <Download aria-hidden className="size-5" />
+                  {fill(d.downloadDesignN, { n: i + 1 })}
+                </a>
+              ))
+            ) : (
+              <a href={`/api/admin/files/${o.orderId}/design`} className={cn(btn.outline, 'w-full')}>
+                <Download aria-hidden className="size-5" />
+                {admin.orders.downloadDesign}
+              </a>
+            )}
           </Panel>
         </div>
       </div>

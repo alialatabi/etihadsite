@@ -499,7 +499,7 @@ export interface OrderSummary {
   /** Sticker count the customer typed (price.requestedStickers). Absent on sheet-count orders. */
   requestedStickers?: number;
   /** Multi-design orders only: every design's size, in upload order (designs[0] === widthUm/heightUm). */
-  designs?: { widthUm: number; heightUm: number }[];
+  designs?: { widthUm: number; heightUm: number; /** True when this design has a transparent background («مفرغ»). */ cutOut?: true }[];
   /** Multi-design orders only: copies of EACH design on one sheet (countPerSheet = designs.length × perDesign). */
   perDesign?: number;
 }

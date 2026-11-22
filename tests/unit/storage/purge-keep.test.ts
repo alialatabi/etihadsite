@@ -243,6 +243,16 @@ function byDesignPath<T extends { files: OrderRecord["files"] }>(rows: T[], url:
   return rows.filter((r) => paths.has(r.files.designPath));
 }
 
+/** `record->files->designPaths=cs.["a"]` (jsonb containment of a one-element list). */
+function byDesignPaths<T extends { files: OrderRecord["files"] }>(rows: T[], url: URL): T[] {
+  const f = url.searchParams.get("record->files->designPaths");
+  if (f === null) return rows;
+  const m = /^cs\.(\[.*\])$/.exec(f);
+  if (!m) throw new Error(`unsupported designPaths filter ${f}`);
+  const wanted = JSON.parse(m[1]) as string[];
+  return rows.filter((r) => wanted.every((w) => r.files.designPaths?.includes(w)));
+}
+
 beforeEach(() => {
   db = { orders: [], ai: [], objects: [] };
   calls = [];
@@ -254,7 +264,7 @@ beforeEach(() => {
       const body = typeof init.body === "string" ? (JSON.parse(init.body) as unknown) : undefined;
       calls.push({ method, url: input.replace(BASE, ""), body });
       const p = url.pathname;
-      if (p === "/rest/v1/orders" && method === "GET") return ok(paged(byDesignPath(byCreatedAt(db.orders, url), url), init));
+      if (p === "/rest/v1/orders" && method === "GET") return ok(paged(byDesignPaths(byDesignPath(byCreatedAt(db.orders, url), url), url), init));
       if (p === "/rest/v1/orders" && method === "DELETE") {
         const gone = new Set(byOrderIds(byCreatedAt(db.orders, url), url));
         db.orders = db.orders.filter((o) => !gone.has(o));
@@ -581,5 +591,128 @@ describe("order page: isPdfPurged", () => {
     expect(isPdfPurged("2026-12-01T11:59:59.999Z", 30, now)).toBe(true);
     expect(isPdfPurged("2026-12-30T00:00:00.000+00:00", 1, now)).toBe(true);
     expect(isPdfPurged("2026-12-31T00:00:00.000Z", 1, now)).toBe(false);
+  });
+});
+
+/* ───────────────────────── multi-design orders: every upload counts as used ───────────────────────── */
+
+const multiFiles = (id: string, uploads: string[]): OrderRecord["files"] => ({
+  designPath: `uploads/${uploads[0]}.bin`,
+  pdfPath: `orders/${id}.pdf`,
+  designPaths: uploads.map((u) => `uploads/${u}.bin`),
+});
+
+describe("LocalStorage purge: multi-design orders", () => {
+  const meta = { mime: "image/png", originalName: "a.png", bytes: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  let dir: string;
+  let s: LocalStorage;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "ep-purge-multi-"));
+    s = new LocalStorage(dir);
+  });
+  const touch = (rel: string, iso: string) => utimesSync(path.join(dir, rel), new Date(iso), new Date(iso));
+  async function multi(id: string, createdAt: string, uploads: string[]) {
+    for (const u of uploads) {
+      await s.saveUpload(u, new Uint8Array([1]), meta);
+      touch(`uploads/${u}.bin`, createdAt);
+      touch(`uploads/${u}.json`, createdAt);
+    }
+    await s.savePdf(id, new Uint8Array([2]));
+    await s.saveOrder({ ...record(id, createdAt, uploads[0]), files: multiFiles(id, uploads) });
+  }
+
+  it("a kept multi order keeps every one of its uploads and its record; only the PDF goes", async () => {
+    await multi("order-multi-keep01", inWindow(NEW_CUTOFF, 5), ["multi-up-aaaaaa1", "multi-up-aaaaaa2", "multi-up-aaaaaa3"]);
+    expect(await s.purgeOlderThan(NEW_CUTOFF, false)).toEqual(["orders/order-multi-keep01.pdf"]);
+    for (const n of [1, 2, 3]) {
+      expect(await s.readFile(`uploads/multi-up-aaaaaa${n}.bin`)).not.toBeNull();
+      expect(await s.readFile(`uploads/multi-up-aaaaaa${n}.json`)).not.toBeNull();
+    }
+    expect(await s.getOrder("order-multi-keep01")).not.toBeNull();
+  });
+
+  it("an old-rule multi order is purged with ALL its uploads, except one a kept order uses as its 2nd design", async () => {
+    const cutoff = new Date(KEEP + 2 * DAY);
+    await multi("order-multi-old001", at(KEEP - DAY), ["multi-old-aaaaa1", "multi-old-aaaaa2", "multi-old-aaaaa3"]);
+    await multi("order-multi-new001", at(KEEP + DAY), ["multi-new-aaaaa1", "multi-old-aaaaa2"]);
+    const removed = await s.purgeOlderThan(cutoff, false);
+    expect(removed.sort()).toEqual(
+      [
+        "orders/order-multi-new001.pdf",
+        "orders/order-multi-old001.json",
+        "orders/order-multi-old001.pdf",
+        "uploads/multi-old-aaaaa1.bin",
+        "uploads/multi-old-aaaaa1.json",
+        "uploads/multi-old-aaaaa3.bin",
+        "uploads/multi-old-aaaaa3.json",
+      ].sort(),
+    );
+    expect(await s.readFile("uploads/multi-old-aaaaa2.bin")).not.toBeNull();
+    expect(await s.readFile("uploads/multi-new-aaaaa1.bin")).not.toBeNull();
+  });
+
+  it("a loose upload nobody references is still deleted next to a multi order", async () => {
+    await multi("order-multi-keep02", inWindow(NEW_CUTOFF, 5), ["multi-up-bbbbbb1", "multi-up-bbbbbb2"]);
+    await s.saveUpload("loose-upload-001", new Uint8Array([1]), meta);
+    touch("uploads/loose-upload-001.bin", inWindow(NEW_CUTOFF, 4));
+    touch("uploads/loose-upload-001.json", inWindow(NEW_CUTOFF, 4));
+    expect((await s.purgeOlderThan(NEW_CUTOFF, false)).sort()).toEqual(
+      ["orders/order-multi-keep02.pdf", "uploads/loose-upload-001.bin", "uploads/loose-upload-001.json"].sort(),
+    );
+  });
+});
+
+describe("SupabaseStorage purge: multi-design orders", () => {
+  function sbMulti(id: string, createdAt: string, uploads: string[], withObjects = true) {
+    db.orders.push({ order_id: id, created_at: createdAt.replace("Z", "+00:00"), files: multiFiles(id, uploads) });
+    if (withObjects) sbObjects(`orders/${id}.pdf`, ...uploads.flatMap((u) => [`uploads/${u}.bin`, `uploads/${u}.json`]))(createdAt);
+  }
+
+  it("a kept multi order keeps every upload (not only the first); only the PDF goes", async () => {
+    sbMulti("order-multi-keep01", inWindow(NEW_CUTOFF, 5), ["multi-up-aaaaaa1", "multi-up-aaaaaa2", "multi-up-aaaaaa3"]);
+    expect(await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).toEqual(["orders/order-multi-keep01.pdf"]);
+    expect(objectNames()).toEqual(
+      [1, 2, 3].flatMap((n) => [`uploads/multi-up-aaaaaa${n}.bin`, `uploads/multi-up-aaaaaa${n}.json`]).sort(),
+    );
+    expect(calls.some((c) => c.method === "DELETE" && c.url.startsWith("/rest/v1/orders"))).toBe(false);
+    // No multi lookup is needed when nothing is unsure.
+    expect(calls.some((c) => c.url.includes("designPaths"))).toBe(false);
+  });
+
+  it("an old-rule multi order is purged with ALL its uploads, except one a recent kept order uses", async () => {
+    const cutoff = new Date(KEEP + 2 * DAY);
+    sbMulti("order-multi-old001", at(KEEP - DAY), ["multi-old-aaaaa1", "multi-old-aaaaa2", "multi-old-aaaaa3"]);
+    sbMulti("order-multi-new001", at(KEEP + DAY), ["multi-new-aaaaa1", "multi-old-aaaaa2"], false);
+    sbObjects("orders/order-multi-new001.pdf", "uploads/multi-new-aaaaa1.bin", "uploads/multi-new-aaaaa1.json")(at(KEEP + DAY));
+    const removed = await sb().purgeOlderThan(cutoff, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(
+      [
+        "order:order-multi-old001",
+        "orders/order-multi-new001.pdf",
+        "orders/order-multi-old001.pdf",
+        "uploads/multi-old-aaaaa1.bin",
+        "uploads/multi-old-aaaaa1.json",
+        "uploads/multi-old-aaaaa3.bin",
+        "uploads/multi-old-aaaaa3.json",
+      ].sort(),
+    );
+    expect(objectNames()).toEqual(["uploads/multi-new-aaaaa1.bin", "uploads/multi-new-aaaaa1.json", "uploads/multi-old-aaaaa2.bin", "uploads/multi-old-aaaaa2.json"]);
+  });
+
+  it("asks by path for an old design that a kept multi order (older than the read) uses as a later design", async () => {
+    // Window [KEEP+10d, KEEP+40d), references read from KEEP+9d: the kept multi order at KEEP+2d is not read,
+    // a recent multi order is (it is what tells the purge that multi orders exist).
+    sbOrder("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    sbMulti("order-multi-aged01", at(KEEP + 2 * DAY), ["multi-aged-aaaa1", "shared-design-x"], false);
+    sbMulti("order-multi-fresh1", inWindow(NEW_CUTOFF, 5), ["multi-fresh-aaaa1", "multi-fresh-aaaa2"]);
+    sbObjects("orders/order-multi-aged01.pdf")(at(KEEP + 2 * DAY));
+    const removed = await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(["order:order-old-share", "orders/order-multi-fresh1.pdf", "orders/order-old-share.pdf"].sort());
+    // The shared upload survives: the kept order that lists it was found by its designPaths.
+    expect(objectNames()).toContain("uploads/shared-design-x.bin");
+    expect(objectNames()).toContain("uploads/shared-design-x.json");
+    const ask = calls.filter((c) => c.url.includes("designPaths=cs."));
+    expect(ask.length).toBeGreaterThanOrEqual(1);
+    expect(decodeURIComponent(ask[0].url)).toContain('record->files->designPaths=cs.["uploads/shared-design-x.bin"]');
   });
 });
