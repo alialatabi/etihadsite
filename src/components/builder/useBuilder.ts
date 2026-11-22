@@ -509,16 +509,19 @@ export function useBuilder(settings: ShopSettings) {
         changeFileId(wantedId);
         void loadDraftFile().then(async (stored) => {
           if (cancelled || restoreCancelled.current) return;
-          const back = Boolean(stored && stored.id === wantedId);
-          if (stored && back) await loadDesign(stored.file, forShape, { restore: true, keepSize });
+          let back = false;
+          if (stored && stored.id === wantedId) back = await loadDesign(stored.file, forShape, { restore: true, keepSize });
           else changeFileId(null);
+          if (cancelled || restoreCancelled.current) return; // the customer started something else meanwhile
           if (savedExtrasList) {
             if (back) await restoreExtras(savedExtrasList);
-            else void clearDraftExtraFiles(); // design 1 is gone: its extras belong to nothing
+            else void clearDraftExtraFiles(); // design 1 is gone or no longer reads: its extras belong to nothing
           }
           if (!cancelled) setDesignRestored(true);
         });
       } else {
+        // A multi-design draft whose design 1 file is not saved: its extras go.
+        if (r.multi) void clearDraftExtraFiles();
         setDesignRestored(true);
       }
     } else {

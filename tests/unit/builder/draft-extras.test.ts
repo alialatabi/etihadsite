@@ -98,13 +98,15 @@ describe('draft files of a multi-design order', () => {
     expect([...data.keys()]).toEqual([]);
   });
 
-  it('clearDraftFile(ifId) leaves another tab\'s files alone, and clears all of this form\'s', async () => {
+  it('clearDraftFile(ifId) clears design 1 only, and only when it is this form\'s: the extras stay', async () => {
     await saveDraftFile(file('one.png'), 'main1');
     await saveDraftExtraFile(file('two.png'), 'x2');
     await clearDraftFile('someone-else');
     expect([...data.keys()].sort()).toEqual(['design', 'design:x2']);
+    // design 1 failed to read: its record goes, the other designs of the form are still saved
     await clearDraftFile('main1');
-    expect([...data.keys()]).toEqual([]);
+    expect([...data.keys()]).toEqual(['design:x2']);
+    expect((await loadDraftExtraFile('x2'))?.file.name).toBe('two.png');
   });
 
   it('clearDraftExtraFile removes one extra; clearDraftExtraFiles all extras but design 1', async () => {

@@ -143,8 +143,9 @@ export function loadDraftFile(key: string = KEY): Promise<DraftFile | null> {
 }
 
 /**
- * Deletes the stored file and the extra designs of a multi-design draft ('design:<id>' keys); with `ifId` only when
- * the stored file is that form's file (another tab's files stay).
+ * Without `ifId`: deletes design 1's stored file AND the extra designs of a multi-design draft ('design:<id>' keys).
+ * With `ifId`: deletes design 1's file only, and only when it is that form's file (another tab's file stays); the extras
+ * stay, they belong to the form that is still open.
  */
 export function clearDraftFile(ifId?: string): Promise<void> {
   return enqueue(async () => {
@@ -154,7 +155,7 @@ export function clearDraftFile(ifId?: string): Promise<void> {
         if (rec && rec.id !== ifId) return;
       }
       await run('readwrite', (s) => s.delete(KEY));
-      await deleteExtras();
+      if (ifId === undefined) await deleteExtras();
     } catch {
       /* ignore */
     }

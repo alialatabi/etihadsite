@@ -132,3 +132,35 @@ test('more than 8 designs: 8 are kept and the customer is told; removing design 
   await next(page).click();
   await expect(page.locator('#size-width-2')).toHaveCount(0);
 });
+
+test('a design 1 that fails to read does not lose the other designs from the draft', async ({ page }) => {
+  const { png } = await makeFixtures();
+  const cutout = await transparentPng();
+  const cards = page.getByRole('heading', { level: 3 }).filter({ hasText: /^تصميم/ });
+
+  await page.goto('/');
+  await chooseShape(page, builder.shape.rect);
+  await readyDesign(page);
+  await page.locator('#multi-designs').check();
+  await page.locator('#design-file').setInputFiles([png, cutout]);
+  await expect(cards).toHaveCount(2);
+
+  // Replace design 1 with a file that cannot be read, then with a good one.
+  await page.locator('#design-replace-file').setInputFiles('tests/fixtures/encrypted-marker.pdf');
+  await expect(page.getByRole('alert').filter({ hasText: builder.upload.errors.corrupt })).toBeVisible();
+  await page.locator('#design-file').setInputFiles([png]);
+  await expect(page.getByText(builder.multi.cutOut, { exact: true })).toHaveCount(1);
+  await expect(cards).toHaveCount(2);
+  await next(page).click();
+  await page.locator('#size-width').fill('4');
+  await page.locator('#size-width-2').fill('6');
+  await expect(page.locator('#size-height-2')).toHaveValue('4');
+
+  // Both designs and both sizes come back after a reload.
+  await page.reload();
+  await expect(page.locator('#size-width')).toHaveValue('4');
+  await expect(page.locator('#size-width-2')).toHaveValue('6');
+  await page.getByRole('button', { name: common.actions.back, exact: true }).click();
+  await expect(cards).toHaveCount(2);
+  await expect(page.getByText(builder.multi.cutOut, { exact: true })).toHaveCount(1);
+});
