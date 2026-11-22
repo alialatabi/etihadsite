@@ -21,6 +21,7 @@ const UPLOAD_STATUS: Record<UploadError, number> = {
   unsupported_type: 415,
   too_large: 413,
   corrupt: 400,
+  unsafe: 422,
   rate_limited: 429,
   server_error: 500,
 };

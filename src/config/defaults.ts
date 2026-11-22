@@ -64,6 +64,12 @@ export const ACCEPTED_MIME = {
 
 export const ACCEPTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf'] as const;
 
+/**
+ * Most designs one order may carry (owner 2026-11-22). 8 fits the 20-uploads-per-hour limit
+ * with room for one retry. A multi-design order has 2..MAX_DESIGNS designs.
+ */
+export const MAX_DESIGNS = 8;
+
 /** Alphabet for the human-friendly order number (no 0/O/1/I). */
 export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 

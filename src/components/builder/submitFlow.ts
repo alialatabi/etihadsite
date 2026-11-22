@@ -56,6 +56,7 @@ const uploadErrorCopy = (maxUploadMb: number): Record<Exclude<UploadError, 'serv
   too_large: fill(builder.upload.errors.too_large, { mb: maxUploadMb }),
   unsupported_type: order.errors.unsupported_type,
   corrupt: order.errors.corrupt,
+  unsafe: order.errors.unsafe,
   rate_limited: common.errors.rateLimited,
 });
 

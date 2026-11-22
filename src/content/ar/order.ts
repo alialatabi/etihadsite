@@ -59,6 +59,7 @@ export const order = {
     too_large: 'حجم الملف أكبر من المسموح.',
     unsupported_type: 'نوع الملف غير مدعوم.',
     corrupt: 'ما قدرنا نقرأ الملف.',
+    unsafe: 'الملف ما اجتاز فحص الأمان. ارفع ملف ثاني.',
     encrypted: 'ملف PDF محمي بكلمة سر.',
     needs_raster: 'راح نحوّل الـPDF لصورة.',
     rate_limited: 'طلبات كثيرة. انتظر شوية.',

@@ -116,6 +116,53 @@ export type LayoutOutcome =
   | { ok: true; layout: LayoutResult }
   | { ok: false; reason: LayoutFailure };
 
+/* ───────────────────── Multi-design layout (one sheet, N designs) ───────────────────── */
+
+/**
+ * One design's cell on a multi-design sheet. `turned: true` = this cell is the design's cell with
+ * width/height swapped and the art turned 90° clockwise.
+ */
+export interface MultiPlacement {
+  /** Index into MultiLayoutResult.designs. */
+  designIndex: number;
+  xUm: number;
+  yUm: number;
+  turned?: true;
+}
+
+/** Size and clip of one design's (unturned) cell. */
+export interface MultiLayoutDesign {
+  cell: { widthUm: number; heightUm: number };
+  clip: ClipShape;
+}
+
+/**
+ * Result of laying out N designs on one A4 sheet, `perDesign` copies of EACH design.
+ * Invariants: countPerSheet === designs.length × perDesign === placements.length;
+ * placements sorted by y then x.
+ */
+export interface MultiLayoutResult {
+  kind: 'multi';
+  page: { widthUm: number; heightUm: number };
+  marginUm: number;
+  usable: { xUm: number; yUm: number; widthUm: number; heightUm: number };
+  gapXUm: number;
+  gapYUm: number;
+  designs: MultiLayoutDesign[];
+  /** Copies of each design on one sheet. */
+  perDesign: number;
+  countPerSheet: number;
+  /** Bounding box of all cells. */
+  block: { xUm: number; yUm: number; widthUm: number; heightUm: number };
+  placements: MultiPlacement[];
+  /** Cutter dots, same meaning as LayoutResult.marks. */
+  marks?: { diameterUm: number; centres: { xUm: number; yUm: number }[] };
+}
+
+export type MultiLayoutOutcome =
+  | { ok: true; layout: MultiLayoutResult }
+  | { ok: false; reason: LayoutFailure; designIndex?: number };
+
 /* ────────────────────────────── Design / artwork ───────────────────────── */
 
 export type DesignKind = 'png' | 'jpeg' | 'pdf';
@@ -213,6 +260,13 @@ export interface PdfReport {
 export interface SheetPdfInput {
   layout: LayoutResult;
   artwork: NormalisedArtwork;
+  meta: SheetPdfMeta;
+}
+
+/** Input of the multi-design sheet builder; artworks[i] belongs to layout.designs[i]. Output: SheetPdfOutput. */
+export interface MultiSheetPdfInput {
+  layout: MultiLayoutResult;
+  artworks: NormalisedArtwork[];
   meta: SheetPdfMeta;
 }
 
@@ -384,6 +438,14 @@ export interface CustomerInfo {
   marketingOptInAt?: string;
 }
 
+/** One design of a multi-design order: its upload and its OWN size (aspect-locked to its artwork). */
+export interface OrderDesignRequest {
+  /** Returned by POST /api/upload (or /api/upload/direct/commit). */
+  uploadId: string;
+  widthUm: number;
+  heightUm: number;
+}
+
 /** Body of POST /api/orders (JSON). The design was uploaded earlier via POST /api/upload. */
 export interface OrderRequest {
   /** Client-generated nanoid(21); idempotency key. */
@@ -406,6 +468,13 @@ export interface OrderRequest {
   customer: CustomerInfo;
   /** Optional Turnstile token (enforced only when the server has a secret configured). */
   turnstileToken?: string;
+  /**
+   * Multi-design orders ONLY: 2..MAX_DESIGNS entries. designs[0].uploadId === uploadId and
+   * designs[0]'s size === spec size; every design shares spec.shape / spec.corners. `stickers` is
+   * the ONE total count (equal split: each sheet holds the same number of each design).
+   * Absent on single-design orders (the request stays byte-identical to before).
+   */
+  designs?: OrderDesignRequest[];
 }
 
 export type OrderStatus = 'new' | 'printing' | 'done' | 'cancelled';
@@ -429,6 +498,25 @@ export interface OrderSummary {
   totalIqd: number | null;
   /** Sticker count the customer typed (price.requestedStickers). Absent on sheet-count orders. */
   requestedStickers?: number;
+  /** Multi-design orders only: every design's size, in upload order (designs[0] === widthUm/heightUm). */
+  designs?: { widthUm: number; heightUm: number }[];
+  /** Multi-design orders only: copies of EACH design on one sheet (countPerSheet = designs.length × perDesign). */
+  perDesign?: number;
+}
+
+/** One design of a multi-design order as stored (designs[0] describes the same file as OrderRecord.design). */
+export interface OrderDesignRecord {
+  kind: DesignKind;
+  originalName: string;
+  bytes: number;
+  pxWidth: number;
+  pxHeight: number;
+  /** Undefined for vector PDFs. */
+  effectiveDpi?: number;
+  widthUm: number;
+  heightUm: number;
+  /** True when the raster has a transparent background («مفرغ»). Added only when true. */
+  cutOut?: boolean;
 }
 
 export interface OrderRecord {
@@ -450,6 +538,14 @@ export interface OrderRecord {
     cellHeightUm: number;
     gapXUm: number;
     gapYUm: number;
+    /**
+     * Multi-design orders only: number of designs on the sheet. Then cols/rows/cellWidthUm/
+     * cellHeightUm/rotated describe design 0's cell with cols = perDesign, rows = 1,
+     * rotated = false and turnedCount omitted (cols = rows = 0 is NOT allowed).
+     */
+    designCount?: number;
+    /** Multi-design orders only: copies of each design per sheet (countPerSheet = designCount × perDesign). */
+    perDesign?: number;
   };
   design: {
     kind: DesignKind;
@@ -459,7 +555,11 @@ export interface OrderRecord {
     pxHeight: number;
     /** Undefined for vector PDFs. */
     effectiveDpi?: number;
+    /** True when the raster has a transparent background («مفرغ»). Added only when true (single and multi). */
+    cutOut?: true;
   };
+  /** Multi-design orders only: every design, in upload order; designs[0] describes the same file as `design`. */
+  designs?: OrderDesignRecord[];
   /** material + sheets live in price (price.material, price.sheets). */
   price: PriceBreakdown;
   customer: CustomerInfo;
@@ -468,6 +568,8 @@ export interface OrderRecord {
     designPath: string;
     /** Storage path of the generated A4 PDF. */
     pdfPath: string;
+    /** Multi-design orders only: storage path of every original upload; [0] === designPath. */
+    designPaths?: string[];
   };
   notified: { telegram: 'sent' | 'failed' | 'skipped' };
 }
@@ -500,11 +602,24 @@ export type OrderResponse =
       whatsappUrl: string;
       notified: OrderRecord['notified'];
     }
-  | { ok: false; error: OrderError; message: string };
+  | {
+      ok: false;
+      error: OrderError;
+      message: string;
+      /** Multi-design orders only: 0-based index of the design the error is about. */
+      designIndex?: number;
+    };
 
 /* ────────────────────────────── Upload API ─────────────────────────────── */
 
-export type UploadError = 'unsupported_type' | 'too_large' | 'corrupt' | 'rate_limited' | 'server_error';
+export type UploadError =
+  | 'unsupported_type'
+  | 'too_large'
+  | 'corrupt'
+  /** The file failed the security check (e.g. a PDF with scripts or embedded files). */
+  | 'unsafe'
+  | 'rate_limited'
+  | 'server_error';
 
 export type UploadResponse =
   | { ok: true; uploadId: string; kind: DesignKind; bytes: number }
