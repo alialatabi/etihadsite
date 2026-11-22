@@ -1,6 +1,7 @@
 'use client';
 
 import { sendTrack } from '@/lib/analytics/client';
+import { MULTI_DESIGN_ENABLED } from '@/config/defaults';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { enabledMaterials, sheetsForStickers, validateStickers } from '@/lib/pricing';
@@ -173,7 +174,7 @@ export function useBuilder(settings: ShopSettings) {
   const slotTokens = useRef(new Map<string, number>());
   /** Picks whose extra files wait for design 1 to finish reading; the extras being dropped cancels them. */
   const pickGate = useRef(new PickGate());
-  const multiActive = isMultiActive(mode, multi, extras.length);
+  const multiActive = MULTI_DESIGN_ENABLED && isMultiActive(mode, multi, extras.length);
 
   const lastFile = useRef<File | null>(null);
   // The file currently kept in IndexedDB, so a re-decode of the same file (shape change) does not save it again.
@@ -500,7 +501,9 @@ export function useBuilder(settings: ShopSettings) {
         const forShape = r.shape;
         const wantedId = r.fileId;
         // Extra designs of a multi-design order come back after design 1 (a file that is gone or no longer decodes is dropped).
-        const savedExtrasList = r.multi?.extras ?? null;
+        // While the feature is switched off a saved multi-design draft comes back as design 1 only.
+        const savedExtrasList = MULTI_DESIGN_ENABLED ? (r.multi?.extras ?? null) : null;
+        if (!MULTI_DESIGN_ENABLED && r.multi) void clearDraftExtraFiles();
         if (savedExtrasList) setMultiState(true);
         const restoreExtras = async (list: SavedExtra[]) => {
           for (const item of list) {

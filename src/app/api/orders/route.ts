@@ -1,6 +1,7 @@
 import { BodyTooLarge, readJsonCapped } from "../_lib/body";
 import { trackServer } from "@/lib/analytics/server";
 import { builder, order } from "@/content/ar";
+import { MULTI_DESIGN_ENABLED } from "@/config/defaults";
 import { getOrderEnv } from "@/lib/env";
 import { makeDisplayNo, multiPdfFileNameFor, pdfFileNameFor } from "@/lib/display-no";
 import { normaliseArtwork } from "@/lib/design/normalise.server";
@@ -510,6 +511,8 @@ export async function POST(request: Request): Promise<Response> {
     const parsed = orderRequestSchema.safeParse(json);
     if (!parsed.success) return send(fail("invalid_request"));
     const req: OrderRequest = parsed.data;
+    // Multi-design orders are switched off (MULTI_DESIGN_ENABLED): refuse them like any other bad request.
+    if (req.designs && !MULTI_DESIGN_ENABLED) return send(fail("invalid_request"));
 
     const settings = await getSettings();
 

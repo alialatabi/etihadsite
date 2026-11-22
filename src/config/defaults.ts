@@ -70,6 +70,13 @@ export const ACCEPTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf'] as const;
  */
 export const MAX_DESIGNS = 8;
 
+/**
+ * Multi-design orders on/off (owner 2026-11-22: «وقف هاذي الميزة لا تمسحها»). While false the
+ * «عندي أكثر من تصميم» checkbox is hidden, a saved multi-design draft comes back as a single design,
+ * and the order route refuses a request carrying `designs`. Set to true to switch the feature back on.
+ */
+export const MULTI_DESIGN_ENABLED: boolean = false;
+
 /** Alphabet for the human-friendly order number (no 0/O/1/I). */
 export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 

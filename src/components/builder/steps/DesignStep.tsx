@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { CloudUpload, FileText, LoaderCircle, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
-import { ACCEPTED_EXTENSIONS, MAX_DESIGNS } from '@/config/defaults';
+import { ACCEPTED_EXTENSIONS, MAX_DESIGNS, MULTI_DESIGN_ENABLED } from '@/config/defaults';
 import { builder, common, fill } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
@@ -216,25 +216,27 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         </div>
       )}
 
-      {/* Upload mode only: several designs in one order (all of the one shape, each with its own size). */}
-      <div className="flex items-start gap-3">
-        <input
-          id="multi-designs"
-          type="checkbox"
-          checked={b.multi}
-          onChange={(ev) => {
-            setCapNotice(false);
-            b.setMulti(ev.target.checked);
-          }}
-          className="mt-0.5 size-5 shrink-0 accent-brand"
-        />
-        <div className="space-y-1">
-          <Label htmlFor="multi-designs" className="font-normal leading-relaxed">
-            {builder.multi.checkbox}
-          </Label>
-          {b.multi && <p className="text-xs text-muted-foreground">{builder.multi.hint}</p>}
+      {/* Upload mode only: several designs in one order (all of the one shape, each with its own size). Hidden while switched off. */}
+      {MULTI_DESIGN_ENABLED && (
+        <div className="flex items-start gap-3">
+          <input
+            id="multi-designs"
+            type="checkbox"
+            checked={b.multi}
+            onChange={(ev) => {
+              setCapNotice(false);
+              b.setMulti(ev.target.checked);
+            }}
+            className="mt-0.5 size-5 shrink-0 accent-brand"
+          />
+          <div className="space-y-1">
+            <Label htmlFor="multi-designs" className="font-normal leading-relaxed">
+              {builder.multi.checkbox}
+            </Label>
+            {b.multi && <p className="text-xs text-muted-foreground">{builder.multi.hint}</p>}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

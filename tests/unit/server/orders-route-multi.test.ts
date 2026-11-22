@@ -23,6 +23,17 @@ vi.mock("@/lib/pdf/build-multi-sheet", () => ({
   buildMultiSheetPdf: (...a: unknown[]) => buildMulti(...a),
 }));
 vi.mock("@/lib/notify", () => ({ notifyShop: (...a: unknown[]) => notifyShop(...a) }));
+// Multi-design orders are switched off on the site (MULTI_DESIGN_ENABLED = false); these tests turn them on.
+const multiSwitch = vi.hoisted(() => ({ on: true }));
+vi.mock("@/config/defaults", async (orig) => {
+  const real = await orig<typeof import("@/config/defaults")>();
+  return {
+    ...real,
+    get MULTI_DESIGN_ENABLED() {
+      return multiSwitch.on;
+    },
+  };
+});
 import { POST } from "@/app/api/orders/route";
 import { computeMultiLayout } from "@/lib/layout";
 import { priceForStickers } from "@/lib/pricing";
@@ -68,6 +79,7 @@ async function artworks(): Promise<NormalisedArtwork[]> {
 
 beforeEach(async () => {
   setupEnv();
+  multiSwitch.on = true;
   vi.spyOn(console, "error").mockImplementation(() => {});
   const arts = await artworks();
   normaliseArtwork.mockReset().mockImplementation(async (_bytes: Uint8Array, opts: { spec: { widthUm: number } }) => {
@@ -347,5 +359,18 @@ describe("POST /api/orders multi-design", () => {
     expect(r.ok).toBe(true);
     expect(buildMulti).toHaveBeenCalledTimes(1);
     expect(normaliseArtwork).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("POST /api/orders multi-design while switched off", () => {
+  it("refuses a request carrying designs, stores nothing and notifies no one", async () => {
+    multiSwitch.on = false;
+    const b = body({ orderId: "order-multi-off-aaaaaa" });
+    const res = await call(b);
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ ok: false, error: "invalid_request" });
+    expect(await getStorage().getOrder(b.orderId)).toBeNull();
+    expect(normaliseArtwork).not.toHaveBeenCalled();
+    expect(notifyShop).not.toHaveBeenCalled();
   });
 });

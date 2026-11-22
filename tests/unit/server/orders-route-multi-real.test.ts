@@ -14,6 +14,17 @@ import { contentOf } from "../pdf/pdf-helpers";
 
 const notifyShop = vi.fn();
 vi.mock("@/lib/notify", () => ({ notifyShop: (...a: unknown[]) => notifyShop(...a) }));
+// Multi-design orders are switched off on the site (MULTI_DESIGN_ENABLED = false); these tests turn them on.
+const multiSwitch = vi.hoisted(() => ({ on: true }));
+vi.mock("@/config/defaults", async (orig) => {
+  const real = await orig<typeof import("@/config/defaults")>();
+  return {
+    ...real,
+    get MULTI_DESIGN_ENABLED() {
+      return multiSwitch.on;
+    },
+  };
+});
 
 import { POST } from "@/app/api/orders/route";
 import { getStorage } from "@/lib/storage";
