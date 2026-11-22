@@ -25,6 +25,7 @@ import { resolveShapeSpacing, shapeKeyOf } from './spacing';
 
 export { SHAPE_KEYS, resolveShapeSpacing, shapeKeyOf } from './spacing';
 export type { ShapeKey, ShapeSpacing } from './spacing';
+export { computeMultiLayout } from './multi';
 import type {
   LayoutOutcome,
   LayoutParams,
