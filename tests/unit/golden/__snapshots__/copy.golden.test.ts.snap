@@ -803,6 +803,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 1`] = `
     "too_large": "حجم الملف أكبر من المسموح.",
     "unsupported_type": "نوع الملف غير مدعوم.",
     "corrupt": "ما قدرنا نقرأ الملف.",
+    "unsafe": "الملف فيه محتوى غير مسموح. صدّره من جديد كـPNG أو PDF عادي.",
     "encrypted": "ملف PDF محمي بكلمة سر.",
     "needs_raster": "راح نحوّل الـPDF لصورة.",
     "rate_limited": "طلبات كثيرة. انتظر شوية.",
@@ -822,13 +823,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "order" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 840,
+  "chars": 899,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 6,
-  "sha256OfRawJson": "4d8160468da9439193a12508b8c8c6daa551bee53f30d02afb3acae386fff607",
-  "strings": 60,
+  "sha256OfRawJson": "293db2b1485b9a116f8644306756f96d951bdc5096cbbaaffb3155dfe113aa21",
+  "strings": 61,
 }
 `;
 
