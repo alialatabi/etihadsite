@@ -1,4 +1,5 @@
-import type { AttemptContext, SubmitInput } from './submitFlow';
+import { MAX_DESIGNS } from '@/config/defaults';
+import type { AttemptContext, ExtraUpload, SubmitInput } from './submitFlow';
 
 /**
  * sessionStorage key of the in-flight order attempt `{ v, orderId, fingerprint, savedAt, uploadId?, rastered? }` (this tab only).
@@ -21,12 +22,28 @@ export interface AttemptFingerprint {
 
 export function attemptFingerprint(input: SubmitInput, seedUploadId?: string): AttemptFingerprint {
   const f = input.design.file;
-  const design = JSON.stringify([f.name, f.size, f.lastModified, seedUploadId ?? null]);
+  // A multi-design order also stands for its extra files and their sizes; a single-design order's strings stay as they were.
+  const extras = input.extras?.length ? input.extras : null;
+  const design = JSON.stringify([
+    f.name,
+    f.size,
+    f.lastModified,
+    seedUploadId ?? null,
+    ...(extras ? [extras.map((e) => [e.design.file.name, e.design.file.size, e.design.file.lastModified])] : []),
+  ]);
   // The WhatsApp-offers box is session-only (never restored after a reload), so it must not decide the order id: a
   // reload that finds it unticked would otherwise get a NEW id and could duplicate an order that already landed.
   // A replayed order keeps the choice it was first saved with.
   const customer = { ...input.customer, marketingOptIn: undefined };
-  const order = JSON.stringify([input.spec, input.material, input.stickers, input.sheets, customer, design]);
+  const order = JSON.stringify([
+    input.spec,
+    input.material,
+    input.stickers,
+    input.sheets,
+    customer,
+    design,
+    ...(extras ? [extras.map((e) => [e.widthUm, e.heightUm])] : []),
+  ]);
   return { order, design };
 }
 
@@ -44,6 +61,8 @@ export interface StoredAttempt {
   uploadId?: string;
   /** `uploadId` is the rasterised JPG of a PDF. */
   rastered?: boolean;
+  /** Multi-design orders only: the finished uploads of designs 2..N, in order (no gaps). */
+  extraUploads?: ExtraUpload[];
 }
 
 /** Parse what sessionStorage holds; anything unreadable, malformed or expired gives null. */
@@ -58,6 +77,8 @@ export function parseStoredAttempt(raw: unknown, now: number): StoredAttempt | n
     if (typeof o.uploadId === 'string' && o.uploadId) {
       stored.uploadId = o.uploadId;
       if (o.rastered === true) stored.rastered = true;
+      const extra = parseExtraUploads(o.extraUploads);
+      if (extra) stored.extraUploads = extra;
     }
     return stored;
   } catch {
@@ -65,13 +86,42 @@ export function parseStoredAttempt(raw: unknown, now: number): StoredAttempt | n
   }
 }
 
-export function serialiseAttempt(orderId: string, fingerprint: string, now: number, upload?: { uploadId?: string; rastered?: boolean }): string {
+/** The saved extra uploads: entries with an id, up to MAX_DESIGNS - 1, cut at the first unusable one. null when none. */
+function parseExtraUploads(raw: unknown): ExtraUpload[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: ExtraUpload[] = [];
+  for (const e of raw.slice(0, MAX_DESIGNS - 1)) {
+    const x = e as { uploadId?: unknown; rastered?: unknown } | null;
+    if (!x || typeof x.uploadId !== 'string' || !x.uploadId) break;
+    out.push({ uploadId: x.uploadId, ...(x.rastered === true ? { rastered: true as const } : {}) });
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** The extra uploads of a context as they are saved: the whole entries up to the first gap. */
+function savableExtraUploads(list: (ExtraUpload | null)[] | undefined): ExtraUpload[] {
+  const out: ExtraUpload[] = [];
+  for (const e of list ?? []) {
+    if (!e) break;
+    out.push(e);
+  }
+  return out;
+}
+
+export function serialiseAttempt(
+  orderId: string,
+  fingerprint: string,
+  now: number,
+  upload?: { uploadId?: string; rastered?: boolean; extraUploads?: (ExtraUpload | null)[] },
+): string {
+  const extra = upload?.uploadId ? savableExtraUploads(upload.extraUploads) : [];
   return JSON.stringify({
     v: 1,
     orderId,
     fingerprint,
     savedAt: now,
     ...(upload?.uploadId ? { uploadId: upload.uploadId, ...(upload.rastered ? { rastered: true } : {}) } : {}),
+    ...(extra.length > 0 ? { extraUploads: extra } : {}),
   });
 }
 
@@ -104,12 +154,24 @@ export function resolveAttempt(args: {
       if (kept.ctx.seeded) next.seeded = true;
       else delete next.seeded;
     }
+    // Multi-design: the same files keep their finished uploads (a rasterised JPG was drawn for the old size: not kept).
+    if (kept.fp.design === fp.design && kept.ctx.extraUploads) {
+      next.extraUploads = kept.ctx.extraUploads.map((e) => (e && !e.rastered ? e : null));
+    }
     return next;
   }
   if (stored && stored.fingerprint === fp.order) {
     // The server may already have saved this order with the stored upload, and it replays only for that same upload id.
     // `seeded` also marks it as "upload the file once if the server no longer has it" (the flow then starts over, not rastered).
-    if (stored.uploadId) return { orderId: stored.orderId, uploadId: stored.uploadId, rastered: stored.rastered === true, seeded: true };
+    if (stored.uploadId) {
+      return {
+        orderId: stored.orderId,
+        uploadId: stored.uploadId,
+        rastered: stored.rastered === true,
+        seeded: true,
+        ...(stored.extraUploads ? { extraUploads: stored.extraUploads } : {}),
+      };
+    }
     return freshContext(stored.orderId, seedUploadId);
   }
   return freshContext(newId(), seedUploadId);
@@ -144,7 +206,7 @@ export function saveStoredAttempt(
   fingerprint: string,
   now: number = Date.now(),
   store: Store | null = defaultStore(),
-  upload?: { uploadId?: string; rastered?: boolean },
+  upload?: { uploadId?: string; rastered?: boolean; extraUploads?: (ExtraUpload | null)[] },
 ): void {
   try {
     store?.setItem(ATTEMPT_KEY, serialiseAttempt(orderId, fingerprint, now, upload));

@@ -12,6 +12,7 @@ import { logClient } from './logClient';
 import { postOrder, uploadWithProgress } from './orderApi';
 import { attemptFingerprint, clearStoredAttempt, keepAttemptAfterError, loadStoredAttempt, rememberUpload, resolveAttempt, saveStoredAttempt, type KeptAttempt } from './submitAttempt';
 import { submitOrderFlow, type SubmitInput } from './submitFlow';
+import { submitMultiFlow } from './submitMultiFlow';
 
 type SubmitPhase = 'idle' | 'uploading' | 'processing' | 'failed' | 'degraded';
 
@@ -40,9 +41,12 @@ export function useSubmitOrder(maxUploadBytes: number) {
       keptRef.current = { ctx, fp };
       saveStoredAttempt(ctx.orderId, fp.order, Date.now(), undefined, ctx);
       setState({ phase: 'uploading', progress: 0, message: null });
-      const result = await submitOrderFlow(input, ctx, {
+      const multi = Boolean(input.extras?.length);
+      const result = await (multi ? submitMultiFlow : submitOrderFlow)(input, ctx, {
         // The finished upload is remembered, so a retry after a reload sends the same upload id (the server replays only for it).
-        upload: rememberUpload(uploadWithProgress, ctx, fp.order),
+        // A multi-design order remembers ALL its uploads at once (`remember`), not just the one that finished last.
+        upload: multi ? uploadWithProgress : rememberUpload(uploadWithProgress, ctx, fp.order),
+        remember: multi ? (c) => saveStoredAttempt(c.orderId, fp.order, Date.now(), undefined, c) : undefined,
         postOrder,
         rasterise: rasterisePdfPage,
         targetDpi: PRINT_DPI,

@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CloudUpload, FileText, LoaderCircle, TriangleAlert } from 'lucide-react';
-import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
-import { builder, common } from '@/content/ar';
+import { CloudUpload, FileText, LoaderCircle, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
+import { ACCEPTED_EXTENSIONS, MAX_DESIGNS } from '@/config/defaults';
+import { builder, common, fill } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { fillLtr } from '@/components/fill-ltr';
 import { cn } from '@/lib/utils';
 import { uploadLimitMb } from '@/lib/upload-limit';
@@ -13,6 +14,7 @@ import { AiResult } from '../ai/AiResult';
 import type { AiDesignApi } from '../ai/useAiDesign';
 import { needsCropNotice, pdfPrefillUm } from '../logic';
 import { safeFormatCm } from '../safe';
+import type { DesignRow } from '../multi-logic';
 import type { BuilderApi } from '../useBuilder';
 
 /** The design step: the AI result when the site designs the sticker, else the upload (unchanged). */
@@ -26,12 +28,36 @@ function UploadDesign({ b }: { b: BuilderApi }) {
   const dropRef = useRef<HTMLButtonElement>(null);
   const replaceRef = useRef<HTMLButtonElement>(null);
   const wasDecoding = useRef(false);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  /** Which design the «غيّر الملف» input of the design cards is for (0 = design 1). */
+  const replaceIndex = useRef(0);
   const [dragging, setDragging] = useState(false);
+  // Files over the cap of a multi-design pick were ignored: the customer is told.
+  const [capNotice, setCapNotice] = useState(false);
   const { design, decoding, designError, shape } = b;
 
   const pick = (files: FileList | null) => {
+    const list = files ? Array.from(files) : [];
+    if (list.length === 0) return;
+    if (b.multi) {
+      setCapNotice(b.addFiles(list) > 0);
+      return;
+    }
+    void b.onFile(list[0]);
+  };
+  const replaceDesign = (files: FileList | null) => {
     const f = files?.[0];
-    if (f) void b.onFile(f);
+    if (!f) return;
+    setCapNotice(false);
+    if (replaceIndex.current === 0) void b.onFile(f);
+    else {
+      const row = b.rows[replaceIndex.current];
+      if (row) b.replaceExtra(row.id, f);
+    }
+  };
+  const openReplace = (index: number) => {
+    replaceIndex.current = index;
+    replaceInputRef.current?.click();
   };
 
   // The control that had focus is disabled (then removed) while the file is read, so focus falls to <body>:
@@ -57,6 +83,7 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         id="design-file"
         type="file"
         accept={ACCEPTED_EXTENSIONS.join(',')}
+        multiple={b.multi}
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
@@ -65,6 +92,21 @@ function UploadDesign({ b }: { b: BuilderApi }) {
           e.target.value = ''; // allow re-picking the same file
         }}
       />
+      {b.multi && (
+        <input
+          ref={replaceInputRef}
+          id="design-replace-file"
+          type="file"
+          accept={ACCEPTED_EXTENSIONS.join(',')}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            replaceDesign(e.target.files);
+            e.target.value = '';
+          }}
+        />
+      )}
 
       {/* Always mounted (a region added together with its text is announced unreliably); empty when idle. */}
       <p role="status" className="sr-only">
@@ -109,7 +151,14 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         </button>
       )}
 
-      {design && (
+      {b.multi && <DesignCards b={b} limitMb={limitMb} onReplace={openReplace} onAdd={() => inputRef.current?.click()} />}
+      {capNotice && (
+        <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {fillLtr(builder.multi.limitNotice, { max: MAX_DESIGNS })}
+        </p>
+      )}
+
+      {design && !b.multi && (
         <div className="rounded-2xl border bg-card p-4">
           <div className="flex items-center gap-4">
             <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
@@ -156,7 +205,116 @@ function UploadDesign({ b }: { b: BuilderApi }) {
           )}
         </div>
       )}
+
+      {/* Upload mode only: several designs in one order (all of the one shape, each with its own size). */}
+      <div className="flex items-start gap-3">
+        <input
+          id="multi-designs"
+          type="checkbox"
+          checked={b.multi}
+          onChange={(ev) => {
+            setCapNotice(false);
+            b.setMulti(ev.target.checked);
+          }}
+          className="mt-0.5 size-5 shrink-0 accent-brand"
+        />
+        <div className="space-y-1">
+          <Label htmlFor="multi-designs" className="font-normal leading-relaxed">
+            {builder.multi.checkbox}
+          </Label>
+          {b.multi && <p className="text-xs text-muted-foreground">{builder.multi.hint}</p>}
+        </div>
+      </div>
     </div>
+  );
+}
+
+/** The design cards of a multi-design order: preview, name, «مفرغ», replace and remove, then «إضافة تصميم». */
+function DesignCards({ b, limitMb, onReplace, onAdd }: { b: BuilderApi; limitMb: number; onReplace: (index: number) => void; onAdd: () => void }) {
+  const cards = b.rows.filter((r) => r.design || r.decoding || (r.index > 0 && r.error));
+  const full = b.designCount >= MAX_DESIGNS;
+  const busy = b.rows.some((r) => r.decoding);
+  return (
+    <div className="space-y-3">
+      {cards.length > 0 && (
+        <ul className="space-y-3">
+          {cards.map((r) => (
+            <DesignCard key={r.id} b={b} r={r} limitMb={limitMb} onReplace={() => onReplace(r.index)} />
+          ))}
+        </ul>
+      )}
+      {(b.design || cards.length > 0) && (
+        <Button type="button" variant="outline" className="h-12 w-full gap-2 px-4 text-base" disabled={full} onClick={onAdd}>
+          <Plus className="size-5" aria-hidden />
+          {builder.multi.add}
+          <Ltr className="text-sm text-muted-foreground">
+            {b.designCount}/{MAX_DESIGNS}
+          </Ltr>
+        </Button>
+      )}
+      <p role="status" className="sr-only">
+        {busy ? common.status.loading : ''}
+      </p>
+    </div>
+  );
+}
+
+function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow; limitMb: number; onReplace: () => void }) {
+  const n = r.index + 1;
+  const d = r.design;
+  return (
+    <li className="rounded-2xl border bg-card p-4">
+      <div className="flex items-center gap-4">
+        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
+          {d ? (
+            // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
+            <img src={d.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+          ) : (
+            <LoaderCircle className="size-7 animate-spin text-brand" aria-hidden />
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-heading text-base font-bold">{fillLtr(builder.multi.designN, { n })}</h3>
+            {d?.hasAlpha && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">{builder.multi.cutOut}</span>}
+          </div>
+          {d && (
+            <>
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <Ltr className="truncate">{d.file.name}</Ltr>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <Ltr>
+                  {d.pxWidth} × {d.pxHeight}
+                </Ltr>{' '}
+                {builder.upload.pixelsUnit}
+              </p>
+              {d.pdf && d.pdf.pageCount > 1 && <p className="text-xs text-muted-foreground">{fillLtr(builder.upload.onlyFirstPage, { pages: d.pdf.pageCount })}</p>}
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col gap-2">
+          <Button type="button" variant="outline" size="icon" className="size-11" disabled={r.decoding} aria-label={fill(builder.multi.replaceN, { n })} onClick={onReplace}>
+            <RefreshCw className="size-4" aria-hidden />
+          </Button>
+          <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(builder.multi.removeN, { n })} onClick={() => b.removeDesign(r.index)}>
+            <Trash2 className="size-4" aria-hidden />
+          </Button>
+        </div>
+      </div>
+      {r.index > 0 && r.error && (
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <TriangleAlert className="size-5 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1">{fillLtr(builder.upload.errors[r.error], { mb: limitMb })}</p>
+          {r.error === 'no_alpha' && (
+            <Button type="button" variant="outline" className="h-11 px-4" onClick={() => b.setShape('rect')}>
+              {builder.upload.errors.switchToRect}
+            </Button>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

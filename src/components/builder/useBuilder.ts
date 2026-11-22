@@ -2,10 +2,18 @@
 
 import { sendTrack } from '@/lib/analytics/client';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { enabledMaterials, sheetsForStickers, validateStickers } from '@/lib/pricing';
 import { decodeDesign } from '@/lib/design/decode.client';
-import { clearDraftFile, loadDraftFile, saveDraftFile } from './draft-store';
+import {
+  clearDraftExtraFile,
+  clearDraftExtraFiles,
+  clearDraftFile,
+  loadDraftExtraFile,
+  loadDraftFile,
+  saveDraftExtraFile,
+  saveDraftFile,
+} from './draft-store';
 import { logClient } from './logClient';
 import {
   EMPTY_FIELDS,
@@ -29,13 +37,67 @@ import {
   type BuilderMode,
   type CustomerErrors,
   type FormFields,
+  type SavedExtra,
   type StepId,
 } from './logic';
-import { maxWidthAtAspect, safeDerive, safeFormatCm, safeLayout, safeParseCm, safePriceForStickers } from './safe';
+import {
+  allDesignsReady,
+  anyDpiBlocked,
+  aspectOf,
+  buildMultiSpecs,
+  designCount,
+  designRows,
+  designSizes,
+  editHeight,
+  editWidth,
+  isMultiActive,
+  maxWidthsFor,
+  perDesignTotal,
+  savedExtras,
+  showSizeEdit,
+  sizeFromTexts,
+  sizeFromWidthUm,
+  slotsReducer,
+  splitPick,
+  type DesignSlot,
+  type SizeEdit,
+} from './multi-logic';
+import { maxWidthAtAspect, safeDerive, safeFormatCm, safeLayout, safeMultiLayout, safeParseCm, safePriceForStickers } from './safe';
 import { useDebounced } from './useDebounced';
 import type { Corners, DesignDecodeError, DesignSource, Material, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
 type SizeUm = { widthUm: number; heightUm: number };
+
+/** Object URL hygiene for the extra designs: revokes the URLs of designs that left, and all of them on unmount. */
+function useRevokeSlotUrls(slots: DesignSlot[]): void {
+  const known = useRef(new Set<string>());
+  useEffect(() => {
+    const now = new Set<string>();
+    for (const s of slots) if (s.design) now.add(s.design.previewUrl);
+    for (const url of [...known.current]) {
+      if (now.has(url)) continue;
+      known.current.delete(url);
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    }
+    for (const url of now) known.current.add(url);
+  }, [slots]);
+  useEffect(() => {
+    const urls = known.current;
+    return () => {
+      for (const url of urls) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, []);
+}
 
 /** A restore that has not finished after this long stops hiding the page; it still completes unless the customer starts something else. */
 const RESTORE_TIMEOUT_MS = 10_000;
@@ -101,6 +163,14 @@ export function useBuilder(settings: ShopSettings) {
   const [aiSizeUm, setAiSizeUm] = useState<{ w: number; h: number } | null>(null);
   // The lines printed on the accepted AI design (saved with the draft: the arrangement step warns about too much text).
   const [aiLines, setAiLines] = useState<string[] | null>(null);
+  // Several designs (upload mode only): the box, and designs 2..N. Design 1 stays in the scalar state above.
+  // The mode is multi only while at least one extra exists (isMultiActive); with none everything behaves as single.
+  const [multi, setMultiState] = useState(false);
+  const [extras, dispatchExtras] = useReducer(slotsReducer, [] as DesignSlot[]);
+  const extrasRef = useRef<DesignSlot[]>([]);
+  /** Decode token of each extra design (a newer read of the same slot, or its removal, drops an older answer). */
+  const slotTokens = useRef(new Map<string, number>());
+  const multiActive = isMultiActive(mode, multi, extras.length);
 
   const lastFile = useRef<File | null>(null);
   // The file currently kept in IndexedDB, so a re-decode of the same file (shape change) does not save it again.
@@ -112,6 +182,10 @@ export function useBuilder(settings: ShopSettings) {
   const restoredStepRef = useRef(false);
 
   useRevokeObjectUrl(design?.previewUrl ?? null);
+  useRevokeSlotUrls(extras);
+  useEffect(() => {
+    extrasRef.current = extras;
+  }, [extras]);
 
   const changeFileId = useCallback((id: string | null) => {
     fileIdRef.current = id;
@@ -126,6 +200,8 @@ export function useBuilder(settings: ShopSettings) {
     if (pendingStepRef.current === null) return;
     restoreCancelled.current = true;
     decodeToken.current++; // a late restore decode is dropped
+    slotTokens.current.clear(); // ... also the extra designs'
+    dispatchExtras({ type: 'dropUndecoded' });
     pendingStepRef.current = null;
     setDecoding(false);
     setDesignRestored(true);
@@ -285,6 +361,104 @@ export function useBuilder(settings: ShopSettings) {
     [settings.maxUploadBytes, widthText, applySizeFromWidth, showSize, changeFileId],
   );
 
+  /* ── extra designs (2..N): the same decoder, one slot each ── */
+  /**
+   * Read one extra design. `restore`: a saved extra coming back (its typed sizes and file id are kept, a file that no
+   * longer decodes is dropped). `reuse`: the same file read again (a shape change): the typed width is kept and the
+   * saved copy stays. `baseWidthUm`: the width to start a fresh design at (design 1's, cut to what this design allows).
+   */
+  const decodeSlot = useCallback(
+    async (
+      id: string,
+      file: File,
+      forShape: Shape,
+      opts: { restore?: { fileId: string; widthText: string; heightText: string }; reuse?: boolean; baseWidthUm?: number | null } = {},
+    ): Promise<boolean> => {
+      const token = (slotTokens.current.get(id) ?? 0) + 1;
+      slotTokens.current.set(id, token);
+      dispatchExtras({ type: 'start', id, file });
+      let error: DesignDecodeError | null = null;
+      let source: DesignSource | null = null;
+      try {
+        const out = await decodeDesign(file, { shape: forShape, maxBytes: settings.maxUploadBytes });
+        if (out.ok) source = out.source;
+        else error = out.error;
+      } catch (e) {
+        error = 'corrupt';
+        logClient(
+          { step: 'decode', message: e instanceof Error ? e.message : 'decode threw', fileType: file.type, fileSize: file.size },
+          { report: { error: e } },
+        );
+      }
+      if (slotTokens.current.get(id) !== token) {
+        // Removed or read again meanwhile: drop this answer and its object URL.
+        if (source) URL.revokeObjectURL(source.previewUrl);
+        return false;
+      }
+      const prev = extrasRef.current.find((s) => s.id === id);
+      if (!source) {
+        if (error && error !== 'no_alpha') logClient({ step: 'decode', message: error, fileType: file.type, fileSize: file.size });
+        if (prev?.fileId) void clearDraftExtraFile(prev.fileId);
+        if (opts.restore) {
+          slotTokens.current.delete(id);
+          dispatchExtras({ type: 'remove', id });
+          void clearDraftExtraFile(opts.restore.fileId);
+        } else {
+          dispatchExtras({ type: 'failed', id, error: error ?? 'corrupt' });
+        }
+        return false;
+      }
+      const aspect = aspectOf(source);
+      let size: SizeEdit;
+      let fileId: string;
+      if (opts.restore) {
+        // The saved texts come back as typed; the size follows from them and the artwork.
+        size = {
+          widthText: opts.restore.widthText,
+          heightText: opts.restore.heightText,
+          sizeUm: sizeFromTexts(forShape, aspect, opts.restore.widthText, opts.restore.heightText),
+        };
+        fileId = opts.restore.fileId;
+      } else if (opts.reuse && prev) {
+        const w = safeParseCm(prev.widthText);
+        size = w ? sizeFromWidthUm(forShape, aspect, w) : { widthText: prev.widthText, heightText: prev.heightText, sizeUm: null };
+        if (prev.fileId) fileId = prev.fileId;
+        else {
+          fileId = nanoid();
+          void saveDraftExtraFile(file, fileId);
+        }
+      } else {
+        const prefill = pdfPrefillUm(source, forShape);
+        if (prefill) size = showSizeEdit(forShape, prefill);
+        else if (opts.baseWidthUm) {
+          const max = maxWidthAtAspect(forShape, corners, forShape === 'circle' ? 1 : aspect, settings.layout);
+          size = sizeFromWidthUm(forShape, aspect, max ? Math.min(opts.baseWidthUm, max) : opts.baseWidthUm);
+        } else size = { widthText: '', heightText: '', sizeUm: null };
+        if (prev?.fileId) void clearDraftExtraFile(prev.fileId);
+        fileId = nanoid();
+        void saveDraftExtraFile(file, fileId);
+      }
+      dispatchExtras({ type: 'decoded', id, design: source, fileId, size });
+      return true;
+    },
+    [settings.maxUploadBytes, settings.layout, corners],
+  );
+
+  /** The box is ticked or unticked. Unticking keeps design 1 and drops the extras (no question asked). */
+  const dropExtras = useCallback(() => {
+    slotTokens.current.clear(); // an extra still being read is dropped when it answers
+    dispatchExtras({ type: 'reset' });
+    void clearDraftExtraFiles();
+  }, []);
+  const setMulti = useCallback(
+    (on: boolean) => {
+      cancelRestore();
+      setMultiState(on);
+      if (!on) dropExtras();
+    },
+    [cancelRestore, dropExtras],
+  );
+
   /* ── restore the saved order once on the client ── */
   useEffect(() => {
     const saved = loadDraft();
@@ -315,11 +489,27 @@ export function useBuilder(settings: ShopSettings) {
         const keepSize = Boolean(r.sizeUm || r.widthText?.trim());
         const forShape = r.shape;
         const wantedId = r.fileId;
+        // Extra designs of a multi-design order come back after design 1 (a file that is gone or no longer decodes is dropped).
+        const savedExtrasList = r.multi?.extras ?? null;
+        if (savedExtrasList) setMultiState(true);
+        const restoreExtras = async (list: SavedExtra[]) => {
+          for (const item of list) {
+            if (cancelled || restoreCancelled.current) return;
+            const stored = await loadDraftExtraFile(item.fileId);
+            if (cancelled || restoreCancelled.current) return;
+            if (stored) await decodeSlot(nanoid(), stored.file, forShape, { restore: item });
+          }
+        };
         changeFileId(wantedId);
         void loadDraftFile().then(async (stored) => {
           if (cancelled || restoreCancelled.current) return;
-          if (stored && stored.id === wantedId) await loadDesign(stored.file, forShape, { restore: true, keepSize });
+          const back = Boolean(stored && stored.id === wantedId);
+          if (stored && back) await loadDesign(stored.file, forShape, { restore: true, keepSize });
           else changeFileId(null);
+          if (savedExtrasList) {
+            if (back) await restoreExtras(savedExtrasList);
+            else void clearDraftExtraFiles(); // design 1 is gone: its extras belong to nothing
+          }
           if (!cancelled) setDesignRestored(true);
         });
       } else {
@@ -357,8 +547,10 @@ export function useBuilder(settings: ShopSettings) {
       ...(aiSizeUm ? { aiSizeUm } : {}),
       ...(aiLines && aiLines.length > 0 ? { aiLines } : {}),
       ...fields,
+      // Only a multi-design order adds this key: a single-design draft is saved exactly as before.
+      ...(multiActive ? { multi: { extras: savedExtras(extras) } } : {}),
     });
-  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId, mode, idea, aiUploadId, aiFileId, aiSizeUm, aiLines]);
+  }, [hydrated, pendingStep, shape, corners, widthText, heightText, sizeUm, materialChoice, typedStickers, fields, step, fileId, mode, idea, aiUploadId, aiFileId, aiSizeUm, aiLines, multiActive, extras]);
 
   const setShape = useCallback(
     (next: Shape) => {
@@ -376,8 +568,15 @@ export function useBuilder(settings: ShopSettings) {
       if ((next === 'custom' || prev === 'custom') && lastFile.current && (design || designError)) {
         void loadDesign(lastFile.current, next);
       }
+      // The extra designs of a multi-design order follow: sizes derive again, and a custom change reads every file again.
+      if (extras.length > 0) {
+        dispatchExtras({ type: 'reshape', shape: next });
+        if (next === 'custom' || prev === 'custom') {
+          for (const s of extras) if (s.file && (s.design || s.error)) void decodeSlot(s.id, s.file, next, { reuse: true });
+        }
+      }
     },
-    [shape, widthText, heightText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore, clearAi, freeRectFor],
+    [shape, widthText, heightText, aspect, applySizeFromWidth, design, designError, loadDesign, cancelRestore, clearAi, freeRectFor, extras, decodeSlot],
   );
 
   const onFile = useCallback(
@@ -388,6 +587,95 @@ export function useBuilder(settings: ShopSettings) {
       return loadDesign(file, shape);
     },
     [shape, loadDesign, cancelRestore, clearAi],
+  );
+
+  /* ── several designs: adding, replacing, removing, sizing ── */
+  /**
+   * Files picked with «إضافة تصميم» or dropped: the first becomes design 1 while that is still empty, the rest are
+   * extra designs up to MAX_DESIGNS. Returns how many files were over the cap and ignored.
+   */
+  const addFiles = useCallback(
+    (files: File[]): number => {
+      if (!shape) return 0;
+      cancelRestore();
+      const pick = splitPick(files, design !== null || decoding, extras.length);
+      if (pick.first) {
+        clearAi();
+        void loadDesign(pick.first, shape);
+      }
+      for (const f of pick.extras) void decodeSlot(nanoid(), f, shape, { baseWidthUm: sizeUm?.widthUm ?? null });
+      return pick.ignored;
+    },
+    [shape, design, decoding, extras.length, sizeUm, cancelRestore, clearAi, loadDesign, decodeSlot],
+  );
+
+  /** A new file for an extra design. */
+  const replaceExtra = useCallback(
+    (id: string, file: File) => {
+      if (!shape) return;
+      cancelRestore();
+      const prev = extrasRef.current.find((s) => s.id === id);
+      void decodeSlot(id, file, shape, { baseWidthUm: prev?.sizeUm?.widthUm ?? sizeUm?.widthUm ?? null });
+    },
+    [shape, sizeUm, cancelRestore, decodeSlot],
+  );
+
+  const removeExtra = useCallback((id: string) => {
+    slotTokens.current.delete(id);
+    const s = extrasRef.current.find((x) => x.id === id);
+    if (s?.fileId) void clearDraftExtraFile(s.fileId);
+    dispatchExtras({ type: 'remove', id });
+  }, []);
+
+  /**
+   * Remove design `index` (0 = design 1). Removing design 1 while extras exist moves the first extra up into design 1
+   * (its file is read again as design 1, its typed size kept); removing the only design leaves the upload area empty.
+   */
+  const removeDesign = useCallback(
+    (index: number) => {
+      cancelRestore();
+      if (index > 0) {
+        const s = extrasRef.current[index - 1];
+        if (s) removeExtra(s.id);
+        return;
+      }
+      decodeToken.current++; // an answer still on its way for the old design 1 is dropped
+      clearAi();
+      const first = extrasRef.current[0];
+      if (first && first.file && shape) {
+        removeExtra(first.id);
+        setWidthText(first.widthText);
+        setHeightText(first.heightText);
+        setSizeUm(first.sizeUm);
+        void loadDesign(first.file, shape, { keepSize: true });
+        return;
+      }
+      setDecoding(false);
+      setDesign(null);
+      setDesignError(null);
+      lastFile.current = null;
+      persistedFile.current = null;
+      if (fileIdRef.current) void clearDraftFile(fileIdRef.current);
+      changeFileId(null);
+    },
+    [shape, cancelRestore, clearAi, removeExtra, loadDesign, changeFileId],
+  );
+
+  const onExtraWidthChange = useCallback(
+    (id: string, text: string) => {
+      const s = extras.find((x) => x.id === id);
+      if (!s || !shape) return;
+      dispatchExtras({ type: 'size', id, size: s.design ? editWidth(shape, aspectOf(s.design), text, s.heightText) : { widthText: text, heightText: s.heightText, sizeUm: null } });
+    },
+    [extras, shape],
+  );
+  const onExtraHeightChange = useCallback(
+    (id: string, text: string) => {
+      const s = extras.find((x) => x.id === id);
+      if (!s || !shape) return;
+      dispatchExtras({ type: 'size', id, size: s.design ? editHeight(shape, aspectOf(s.design), text, s.widthText) : { widthText: s.widthText, heightText: text, sizeUm: null } });
+    },
+    [extras, shape],
   );
 
   /* ── derived: spec, layout, quality ── */
@@ -414,13 +702,42 @@ export function useBuilder(settings: ShopSettings) {
   const dpi = design && spec ? dpiFor(design, spec) : null;
   const dpiState = dpiStatus(dpi, settings.quality);
 
+  /* ── several designs: one layout for all of them (equal copies of each) ── */
+  // The specs are memoised on the sizes as a string, not on `extras`: reading a file or a decode error must not
+  // un-settle the layout (settled compares by reference).
+  const extraSizesKey = JSON.stringify(extras.map((e) => e.sizeUm));
+  const multiSpecs = useMemo(
+    () => (multiActive && shape ? buildMultiSpecs(spec, shape, corners, JSON.parse(extraSizesKey) as (SizeUm | null)[]) : null),
+    [multiActive, shape, corners, spec, extraSizesKey],
+  );
+  const debouncedMultiSpecs = useDebounced(multiSpecs, 100);
+  const multiOutcome = useMemo(
+    () => (debouncedMultiSpecs ? safeMultiLayout(debouncedMultiSpecs, settings.layout) : null),
+    [debouncedMultiSpecs, settings.layout],
+  );
+  const multiSettled = debouncedMultiSpecs === multiSpecs;
+  const multiLayout = multiActive && multiOutcome && multiOutcome.ok ? multiOutcome.layout : null;
+  const allSettled = settled && (!multiActive || multiSettled);
+  const aspectsKey = [design, ...extras.map((e) => e.design)].map((d) => (d ? aspectOf(d) : 0)).join(',');
+  const rowMaxWidths = useMemo(
+    () => (multi && shape ? maxWidthsFor(shape, corners, aspectsKey.split(',').map(Number), settings.layout) : []),
+    [multi, shape, corners, aspectsKey, settings.layout],
+  );
+  const rows = multi && shape ? designRows({ shape, corners, design, decoding, designError, widthText, heightText, spec, extras, maxWidths: rowMaxWidths, quality: settings.quality }) : [];
+  const anyDecoding = decoding || extras.some((e) => e.decoding);
+  // The preview URL of every design (design 1 first), stable while none of them changes (the sheet preview is memoised).
+  const urlsKey = [design, ...extras.map((e) => e.design)].map((d) => d?.previewUrl ?? '').join('\n');
+  const previewUrls = useMemo(() => urlsKey.split('\n').map((u) => u || null), [urlsKey]);
+
   /* ── quantity: material + sticker count (sheets and price are derived, never stored) ── */
   const pricing = settings.pricing;
   const materials = useMemo(() => enabledMaterials(pricing), [pricing]);
   // Chosen material if still enabled; otherwise paper (or the only/first enabled one).
   const material: Material | null =
     materialChoice && materials.includes(materialChoice) ? materialChoice : materials.includes('paper') ? 'paper' : (materials[0] ?? null);
-  const countPerSheet = layout ? layout.countPerSheet : null;
+  // The ONE number every quantity and price rule works with: designs × copies of each on a multi-design sheet.
+  const countPerSheet = multiActive ? (multiLayout ? multiLayout.countPerSheet : null) : layout ? layout.countPerSheet : null;
+  const layoutOk = countPerSheet !== null;
   // What the box shows: the typed text, or (never typed) the minimum for the current layout.
   const stickersText = stickersTextFor(typedStickers, countPerSheet, pricing);
   const stickers = parseStickers(stickersText);
@@ -445,16 +762,30 @@ export function useBuilder(settings: ShopSettings) {
     [countPerSheet, pricing],
   );
 
+  // Each design is received sheets × copies-per-sheet times.
+  const perDesign = multiActive && multiLayout ? multiLayout.perDesign : null;
+  const perDesignCount = perDesignTotal(sheets, multiActive ? multiLayout : null);
+
   const price =
-    material && stickers !== null && !quantityError && layout ? safePriceForStickers(material, stickers, layout.countPerSheet, settings) : null;
-  const summary = spec && layout && price ? buildSummary(spec, layout, price) : null;
+    material && stickers !== null && !quantityError && countPerSheet !== null
+      ? safePriceForStickers(material, stickers, countPerSheet, settings)
+      : null;
+  const summary =
+    spec && countPerSheet !== null && price
+      ? buildSummary(
+          spec,
+          { countPerSheet },
+          price,
+          multiActive && multiLayout && debouncedMultiSpecs ? { designs: designSizes(debouncedMultiSpecs), perDesign: multiLayout.perDesign } : undefined,
+        )
+      : null;
 
   const sizeOk = !!layout && settled;
   const stepOk: Record<StepId, boolean> = {
     shape: shapeStepOk({ shape, mode, sizeOk }),
-    design: design !== null && !decoding,
-    size: !!layout && settled && dpiState !== 'block',
-    quantity: !quantityError && !!layout,
+    design: multiActive ? allDesignsReady(rows) : design !== null && !decoding,
+    size: multiActive ? !!multiLayout && allSettled && !anyDpiBlocked(rows) : !!layout && settled && dpiState !== 'block',
+    quantity: !quantityError && layoutOk,
     details: true,
   };
 
@@ -489,7 +820,7 @@ export function useBuilder(settings: ShopSettings) {
   );
 
   // Finish a restore: once the design is back and the layout has settled, open the saved step (never past what canGoTo allows).
-  const restoreReady = pendingStep !== null && designRestored && !decoding && settled;
+  const restoreReady = pendingStep !== null && designRestored && !anyDecoding && allSettled;
   const furthest = furthestStep(stepOk);
   useEffect(() => {
     if (!restoreReady) return;
@@ -522,6 +853,11 @@ export function useBuilder(settings: ShopSettings) {
   }, [cancelRestore]);
 
   /* ── AI designer ── */
+  /** Leaving the upload mode: the box is cleared and the extra designs go (AI mode is never multi). */
+  const leaveMulti = useCallback(() => {
+    setMultiState(false);
+    if (extrasRef.current.length > 0) dropExtras();
+  }, [dropExtras]);
   const sizeStep = STEPS.indexOf('size');
   const designStep = STEPS.indexOf('design');
   /**
@@ -533,11 +869,12 @@ export function useBuilder(settings: ShopSettings) {
       if (!shape || shape !== madeFor.shape) return false;
       cancelRestore();
       setMode('ai');
+      leaveMulti(); // a site-made design is one design: an AI order never carries extras
       const ok = await loadDesign(file, shape, { ai: { uploadId, typed: { widthUm: madeFor.widthUm, heightUm: madeFor.heightUm }, lines } });
       if (ok) setStep(sizeStep);
       return ok;
     },
-    [shape, loadDesign, cancelRestore, sizeStep],
+    [shape, loadDesign, cancelRestore, sizeStep, leaveMulti],
   );
   /** Open the design step directly (a generation started from a valid first page; no debounce wait). */
   const showDesignStep = useCallback(() => {
@@ -555,7 +892,10 @@ export function useBuilder(settings: ShopSettings) {
     relockToDesign();
     setStep(designStep);
   }, [shape, cancelRestore, designStep, relockToDesign]);
-  const startAi = useCallback(() => setMode('ai'), []);
+  const startAi = useCallback(() => {
+    setMode('ai');
+    leaveMulti();
+  }, [leaveMulti]);
 
   /* ── customer ── */
   const setField = useCallback((key: keyof FormFields, value: string) => setFields((f) => ({ ...f, [key]: value })), []);
@@ -606,10 +946,39 @@ export function useBuilder(settings: ShopSettings) {
     maxWidthUm,
     dpi,
     dpiState,
+    /* ── several designs (upload mode) ── */
+    /** The box «عندي أكثر من تصميم» is ticked. */
+    multi,
+    setMulti,
+    /** Designs 2..N (design 1 is `design` above). */
+    extras,
+    /** Ticked AND at least one extra: price, layout, submit and preview work on all designs. */
+    multiActive,
+    /** Every design as a row (design 1 first); empty while the box is not ticked. */
+    rows,
+    /** Number of design files in the order (design 1 counts once it is read or being read). */
+    designCount: designCount(design !== null || decoding, extras.length),
+    addFiles,
+    replaceExtra,
+    removeDesign,
+    onExtraWidthChange,
+    onExtraHeightChange,
+    /** Preview URL of each design, design 1 first. */
+    previewUrls,
+    /** The layout of all designs together (null while not multi, or while it does not fit). */
+    multiLayout,
+    /** Why the designs do not fit together, once settled (multi only). */
+    multiOutcome: multiActive && allSettled ? multiOutcome : null,
+    /** Copies of EACH design on one sheet (multi only). */
+    perDesign,
+    /** Stickers received of EACH design: sheets × perDesign (multi only). */
+    perDesignCount,
     materials,
     material,
     setMaterial: setMaterialChoice,
     countPerSheet,
+    /** True when a sheet holds a layout (single or multi): the quantity and price rules may run. */
+    layoutOk,
     stickers,
     stickersText,
     setStickersText,

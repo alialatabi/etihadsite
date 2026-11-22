@@ -6,14 +6,18 @@ import { useRouter } from 'next/navigation';
 import { CircleCheck, MessageCircle } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { SummaryCard } from '@/components/builder/SummaryCard';
 import { loadSuccess, type OrderOk } from '@/components/builder/logic';
+import { markOrderNoteSeen, shouldShowOrderNote } from '@/components/builder/order-note';
 import { cn } from '@/lib/utils';
 
 export default function OrderSuccessPage() {
   const router = useRouter();
   const [res, setRes] = useState<OrderOk | null>(null);
+  // Every order, single or multi-design, gets the "we check every design" popup once on arrival.
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     const stored = loadSuccess();
@@ -23,6 +27,7 @@ export default function OrderSuccessPage() {
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage is client-only
     setRes(stored);
+    setNoteOpen(shouldShowOrderNote(stored.displayNo));
   }, [router]);
 
   if (!res) return null;
@@ -47,6 +52,22 @@ export default function OrderSuccessPage() {
       )}
 
       <SummaryCard summary={res.summary} />
+
+      <Dialog
+        open={noteOpen}
+        onOpenChange={(open) => {
+          setNoteOpen(open);
+          if (!open) markOrderNoteSeen(res.displayNo);
+        }}
+      >
+        <DialogContent dir="rtl" showCloseButton={false}>
+          <DialogTitle className="font-heading text-lg font-bold">{builder.success.title}</DialogTitle>
+          <DialogDescription className="text-base leading-relaxed text-foreground">{builder.success.checkNote}</DialogDescription>
+          <DialogClose render={<Button type="button" className="h-12 w-full bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90" />}>
+            {builder.success.checkNoteClose}
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-col gap-3">
         {res.whatsappUrl && (

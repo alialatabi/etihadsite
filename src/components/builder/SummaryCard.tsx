@@ -1,4 +1,4 @@
-import { builder, common } from '@/content/ar';
+import { builder, common, fill } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
 import { safeShapeLabel } from './safe';
@@ -21,9 +21,18 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
       <h3 className="font-heading mb-1 text-base font-bold">{title}</h3>
       <dl className="divide-y">
         <Row label={builder.summary.shape}>{safeShapeLabel(summary.shape, summary.corners)}</Row>
-        <Row label={builder.summary.size}>
-          <SizeLabel widthUm={summary.widthUm} heightUm={summary.heightUm} />
-        </Row>
+        {summary.designs && summary.designs.length > 0 ? (
+          // A multi-design order: one line per design with its own size.
+          summary.designs.map((d, i) => (
+            <Row key={i} label={fill(builder.multi.designN, { n: i + 1 })}>
+              <SizeLabel widthUm={d.widthUm} heightUm={d.heightUm} />
+            </Row>
+          ))
+        ) : (
+          <Row label={builder.summary.size}>
+            <SizeLabel widthUm={summary.widthUm} heightUm={summary.heightUm} />
+          </Row>
+        )}
         <Row label={builder.summary.perSheet}>
           <CountLabel n={summary.countPerSheet} />
         </Row>
@@ -39,6 +48,11 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
         <Row label={builder.summary.totalStickers}>
           <CountLabel n={summary.totalStickers} />
         </Row>
+        {summary.designs && summary.perDesign != null && (
+          <Row label={builder.multi.perDesign}>
+            <CountLabel n={summary.sheets * summary.perDesign} />
+          </Row>
+        )}
         <Row label={builder.summary.unitPrice}>{summary.unitPriceIqd == null ? builder.summary.priceUnset : <Money amount={summary.unitPriceIqd} />}</Row>
         {summary.discountPercent > 0 && (
           <Row label={builder.summary.discount}>

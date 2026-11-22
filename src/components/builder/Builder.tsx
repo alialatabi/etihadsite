@@ -17,6 +17,7 @@ import { StartStep } from './steps/StartStep';
 import { useAiDesign } from './ai/useAiDesign';
 import { aiBusy, showViewResult } from './ai/ai-logic';
 import { CUSTOMER_FIELD_IDS, STEPS, seedUploadId, toCustomerInfo } from './logic';
+import { submitExtras } from './multi-logic';
 import { useBuilder } from './useBuilder';
 import { useSubmitOrder } from './useSubmitOrder';
 
@@ -96,7 +97,11 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
       document.getElementById(CUSTOMER_FIELD_IDS[firstBad])?.focus();
       return;
     }
-    if (!b.design || !b.spec || !b.material || b.stickers === null || b.sheets === null || b.quantityError || !b.layout || !phoneE164) return;
+    if (!b.design || !b.spec || !b.material || b.stickers === null || b.sheets === null || b.quantityError || !b.layoutOk || !phoneE164) return;
+    // Several designs: design 1 stays `design` / `spec`, the others go along with their own sizes. A single-design
+    // order passes no `extras`, so its input (and request) are exactly what they were.
+    const extras = b.multiActive ? submitExtras(b.extras, b.spec.shape) : undefined;
+    if (extras === null) return;
     void sub.submit(
       {
         design: b.design,
@@ -105,6 +110,7 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
         stickers: b.stickers,
         sheets: b.sheets,
         customer: toCustomerInfo(b.fields, phoneE164, b.marketingOptIn),
+        ...(extras ? { extras } : {}),
       },
       // The accepted AI design is already on the server: reuse its upload while it is still the design.
       seedUploadId({ aiUploadId: b.aiUploadId, aiFileId: b.aiFileId, fileId: b.fileId }),

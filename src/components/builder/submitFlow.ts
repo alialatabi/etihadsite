@@ -21,6 +21,24 @@ export interface SubmitInput {
   /** ceil(stickers / countPerSheet) from this page's layout; sent for an older server, which ignores `stickers`. */
   sheets: number;
   customer: CustomerInfo;
+  /**
+   * Multi-design orders only: designs 2..N, each with its own size (design 1 is `design` / `spec`). Absent on a
+   * single-design order, which then runs submitOrderFlow exactly as before; present, submitMultiFlow runs.
+   */
+  extras?: SubmitExtra[];
+}
+
+/** One extra design of a multi-design order: the decoded design and the size ordered for it (µm; a circle has equal sides). */
+export interface SubmitExtra {
+  design: DesignSource;
+  widthUm: number;
+  heightUm: number;
+}
+
+/** The upload of one extra design kept in the attempt (`rastered`: it is the JPG of a PDF). */
+export interface ExtraUpload {
+  uploadId: string;
+  rastered?: true;
 }
 
 /** Mutable per-attempt context: keeps the idempotency key (and finished upload) across retries. */
@@ -30,6 +48,11 @@ export interface AttemptContext {
   rastered: boolean;
   /** `uploadId` came from an accepted AI design (not this attempt's upload): if the server no longer has it, upload the file once. */
   seeded?: boolean;
+  /**
+   * Multi-design orders only: the finished uploads of designs 2..N (index i is design i + 2; null = not uploaded).
+   * `uploadId` / `rastered` above stay design 1's. A retry of the same order reuses every one of them.
+   */
+  extraUploads?: (ExtraUpload | null)[];
 }
 
 export type FlowResult =
@@ -49,10 +72,12 @@ export interface FlowDeps {
   targetDpi: number;
   /** The shop upload limit in whole MB (settings.maxUploadBytes), for the too-large message. */
   maxUploadMb: number;
+  /** Multi-design flow only: called after every finished upload so the attempt (all upload ids) can be saved. */
+  remember?: (ctx: AttemptContext) => void;
 }
 
 /** Copy for an upload the customer can fix ('server_error' degrades instead). */
-const uploadErrorCopy = (maxUploadMb: number): Record<Exclude<UploadError, 'server_error'>, string> => ({
+export const uploadErrorCopy = (maxUploadMb: number): Record<Exclude<UploadError, 'server_error'>, string> => ({
   too_large: fill(builder.upload.errors.too_large, { mb: maxUploadMb }),
   unsupported_type: order.errors.unsupported_type,
   corrupt: order.errors.corrupt,

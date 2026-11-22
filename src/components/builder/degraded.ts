@@ -1,4 +1,4 @@
-import { builder, common } from '@/content/ar';
+import { builder, common, fill } from '@/content/ar';
 import { orderSummaryText } from '@/lib/order-text';
 import { formatIqd } from '@/lib/pricing';
 import { whatsappUrl } from '@/lib/parse/phone';
@@ -31,6 +31,14 @@ export function degradedText(s: SummaryData): string {
     body = orderSummaryText({ ...s, displayNo: '—' });
   } catch {
     body = manualSummaryText(s);
+  }
+  // A multi-design order: the size of every design and what each one gets (a single-design text stays as it was).
+  if (s.designs && s.designs.length > 0) {
+    const lines = s.designs.map(
+      (d, i) => `${fill(builder.multi.designN, { n: i + 1 })}: ${safeFormatCm(d.widthUm)} × ${safeFormatCm(d.heightUm)} ${common.units.cm}`,
+    );
+    if (s.perDesign != null) lines.push(`${builder.multi.perDesign}: ${s.sheets * s.perDesign}`);
+    return `${builder.whatsappText.newOrder}\n${body}\n${lines.join('\n')}`;
   }
   return `${builder.whatsappText.newOrder}\n${body}`;
 }

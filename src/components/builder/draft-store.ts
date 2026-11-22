@@ -9,6 +9,8 @@ import { DRAFT_TTL_MS } from './logic';
 const DB_NAME = 'ub:draft';
 const STORE = 'files';
 const KEY = 'design';
+/** Extra designs of a multi-design draft are stored under 'design:<fileId>'. */
+const EXTRA_PREFIX = 'design:';
 /** An open that has not answered after this long counts as failed (some browsers never answer, e.g. private mode). */
 const OPEN_TIMEOUT_MS = 3000;
 
@@ -114,12 +116,12 @@ export function draftFileFrom(rec: unknown, now: number): DraftFile | null {
   }
 }
 
-/** Stores the original file under `id`, replacing any earlier one. */
-export function saveDraftFile(file: File, id: string): Promise<void> {
+/** Stores the original file under `id`, replacing any earlier one. `key` is the slot (design 1 keeps 'design'). */
+export function saveDraftFile(file: File, id: string, key: string = KEY): Promise<void> {
   return enqueue(async () => {
     try {
       const rec: DraftFileRecord = { id, blob: file, name: file.name, type: file.type, lastModified: file.lastModified, savedAt: Date.now() };
-      await run('readwrite', (s) => s.put(rec, KEY));
+      await run('readwrite', (s) => s.put(rec, key));
     } catch {
       /* ignore */
     }
@@ -127,12 +129,12 @@ export function saveDraftFile(file: File, id: string): Promise<void> {
 }
 
 /** The stored file with its id, or null (nothing stored, a junk or expired record which is deleted, or no IndexedDB). */
-export function loadDraftFile(): Promise<DraftFile | null> {
+export function loadDraftFile(key: string = KEY): Promise<DraftFile | null> {
   return enqueue(async () => {
     try {
-      const rec = await run('readonly', (s) => s.get(KEY));
+      const rec = await run('readonly', (s) => s.get(key));
       const found = draftFileFrom(rec, Date.now());
-      if (rec && !found) await run('readwrite', (s) => s.delete(KEY));
+      if (rec && !found) await run('readwrite', (s) => s.delete(key));
       return found;
     } catch {
       return null;
@@ -140,7 +142,10 @@ export function loadDraftFile(): Promise<DraftFile | null> {
   });
 }
 
-/** Deletes the stored file; with `ifId` only when it is that form's file (another tab's file stays). */
+/**
+ * Deletes the stored file and the extra designs of a multi-design draft ('design:<id>' keys); with `ifId` only when
+ * the stored file is that form's file (another tab's files stay).
+ */
 export function clearDraftFile(ifId?: string): Promise<void> {
   return enqueue(async () => {
     try {
@@ -149,8 +154,48 @@ export function clearDraftFile(ifId?: string): Promise<void> {
         if (rec && rec.id !== ifId) return;
       }
       await run('readwrite', (s) => s.delete(KEY));
+      await deleteExtras();
     } catch {
       /* ignore */
     }
   });
+}
+
+/** Key of the extra design stored for form file id `id` (design 1 keeps the plain key). */
+export const extraDraftKey = (id: string): string => `${EXTRA_PREFIX}${id}`;
+
+/** Stores the original file of an extra design (multi-design orders) under its own key. */
+export function saveDraftExtraFile(file: File, id: string): Promise<void> {
+  return saveDraftFile(file, id, extraDraftKey(id));
+}
+
+/** The stored extra design saved with `id`, or null (missing, expired, junk, or stored under another id). */
+export async function loadDraftExtraFile(id: string): Promise<DraftFile | null> {
+  const found = await loadDraftFile(extraDraftKey(id));
+  return found && found.id === id ? found : null;
+}
+
+/** Deletes one stored extra design. */
+export function clearDraftExtraFile(id: string): Promise<void> {
+  return enqueue(async () => {
+    try {
+      await run('readwrite', (s) => s.delete(extraDraftKey(id)));
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/** Deletes every stored extra design (design 1's file stays). */
+export function clearDraftExtraFiles(): Promise<void> {
+  return enqueue(deleteExtras);
+}
+
+/** One range delete over every 'design:…' key ('design' itself sorts before the range). Best effort. */
+async function deleteExtras(): Promise<void> {
+  try {
+    await run('readwrite', (s) => s.delete(IDBKeyRange.bound(EXTRA_PREFIX, `${EXTRA_PREFIX}￿`)));
+  } catch {
+    /* ignore */
+  }
 }

@@ -10,7 +10,9 @@ import { fillLtr } from '@/components/fill-ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SheetPreview } from './SheetPreview';
+import { MultiSheetPreview } from './MultiSheetPreview';
 import { CountLabel, SizeLabel } from './labels';
+import { hasTurnedCells } from './multi-logic';
 import type { BuilderApi } from './useBuilder';
 import type { LayoutResult } from '@/lib/types';
 
@@ -41,8 +43,10 @@ const marginHintNodes = (b: BuilderApi) => {
 export function PreviewPanel({ b }: { b: BuilderApi }) {
   const { layout, design, spec } = b;
   const previewUrl = design?.previewUrl ?? null;
-  const turnHint = layout ? rotationHint(layout) : null;
+  const multi = b.multiActive;
+  const turnHint = multi ? (b.multiLayout && hasTurnedCells(b.multiLayout) ? builder.preview.mixedHint : null) : layout ? rotationHint(layout) : null;
   const marginHint = marginHintNodes(b);
+  const marks = multi ? b.multiLayout?.marks : layout?.marks;
   return (
     <aside aria-label={builder.preview.title} className="hidden lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:block lg:self-start">
       <div className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -51,16 +55,25 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto max-w-[320px]">
-          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={b.mode === 'ai' ? builder.preview.emptyAi : undefined} />
+          {multi ? (
+            <MultiSheetPreview layout={b.multiLayout} previewUrls={b.previewUrls} />
+          ) : (
+            <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={b.mode === 'ai' ? builder.preview.emptyAi : undefined} />
+          )}
         </div>
-        {spec && layout && (
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
-          </p>
+        {multi ? (
+          b.multiLayout && <MultiSizes b={b} className="mt-4" />
+        ) : (
+          spec &&
+          layout && (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
+            </p>
+          )
         )}
         {turnHint && <p className="mt-2 text-center text-xs text-muted-foreground">{turnHint}</p>}
         <p className="mt-3 text-center text-xs text-muted-foreground">{marginHint}</p>
-        {layout?.marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
+        {marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
       </div>
     </aside>
   );
@@ -76,7 +89,9 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
   const [cardVisible, setCardVisible] = useState(true);
   const cardRef = useRef<HTMLButtonElement>(null);
   const { layout, design, spec } = b;
-  const ready = Boolean(layout && spec);
+  const multi = b.multiActive;
+  const mLayout = b.multiLayout;
+  const ready = multi ? Boolean(mLayout) : Boolean(layout && spec);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -90,12 +105,26 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
     return () => io.disconnect();
   }, [ready]);
 
-  if (!layout || !spec) return null;
+  if (multi ? !mLayout : !layout || !spec) return null;
   const previewUrl = design?.previewUrl ?? null;
   // Same empty-sheet text as the desktop panel.
   const emptyText = b.mode === 'ai' ? builder.preview.emptyAi : undefined;
-  const turnHint = rotationHint(layout);
+  const turnHint = multi ? (mLayout && hasTurnedCells(mLayout) ? builder.preview.mixedHint : null) : layout ? rotationHint(layout) : null;
   const marginHint = marginHintNodes(b);
+  const marks = multi ? mLayout?.marks : layout?.marks;
+  const perSheet = multi ? (mLayout?.countPerSheet ?? 0) : (layout?.countPerSheet ?? 0);
+  // The sheet in one of its three sizes (the card, the pinned strip, the full-screen dialog).
+  const sheet = (extra: { hideBadge?: boolean; className?: string } = {}) =>
+    multi ? (
+      <MultiSheetPreview layout={mLayout} previewUrls={b.previewUrls} emptyText={emptyText} {...extra} />
+    ) : (
+      <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} {...extra} />
+    );
+  const sizes = multi ? (
+    <MultiSizes b={b} />
+  ) : (
+    spec && <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
+  );
   return (
     <>
       <button
@@ -109,13 +138,13 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           <span className="font-heading text-base font-bold">{builder.preview.title}</span>
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
-        <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">
-          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} />
-        </div>
-        <p className="mt-3 text-center text-sm text-muted-foreground">
-          <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
-        </p>
-        {layout.marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
+        <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">{sheet()}</div>
+        {multi ? (
+          <div className="mt-3">{sizes}</div>
+        ) : (
+          <p className="mt-3 text-center text-sm text-muted-foreground">{sizes}</p>
+        )}
+        {marks && <p className="mt-1 text-center text-xs text-muted-foreground">{common.marksHint}</p>}
         <Maximize2 className="absolute end-4 bottom-4 size-5 text-muted-foreground" aria-hidden />
       </button>
 
@@ -131,15 +160,13 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         )}
       >
         <div className="h-[108px] w-[77px] shrink-0">
-          <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} hideBadge className="h-full" />
+          {sheet({ hideBadge: true, className: 'h-full' })}
         </div>
         <div className="min-w-0 flex-1">
           <p className="inline-block rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
-            <CountLabel n={layout.countPerSheet} /> {builder.preview.perSheet}
+            <CountLabel n={perSheet} /> {builder.preview.perSheet}
           </p>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            <SizeLabel widthUm={spec.widthUm} heightUm={spec.heightUm} />
-          </p>
+          {multi ? <div className="mt-1.5">{sizes}</div> : <p className="mt-1.5 text-sm text-muted-foreground">{sizes}</p>}
         </div>
         <Maximize2 className="size-5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
@@ -147,11 +174,10 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         <DialogContent dir="rtl" showCloseButton={false} className="max-h-[94dvh] overflow-y-auto sm:max-w-md">
           <DialogTitle>{builder.preview.title}</DialogTitle>
           <DialogDescription>{marginHint}</DialogDescription>
-          <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">
-            <SheetPreview layout={layout} previewUrl={previewUrl} emptyText={emptyText} />
-          </div>
+          <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">{sheet()}</div>
+          {multi && <div>{sizes}</div>}
           {turnHint && <p className="text-center text-xs text-muted-foreground">{turnHint}</p>}
-          {layout.marks && <p className="text-center text-xs text-muted-foreground">{common.marksHint}</p>}
+          {marks && <p className="text-center text-xs text-muted-foreground">{common.marksHint}</p>}
           <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full text-base" />}>{builder.preview.close}</DialogClose>
         </DialogContent>
       </Dialog>
@@ -163,4 +189,25 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
 function rotationHint(layout: LayoutResult): string | null {
   if (layout.turnedCount > 0) return builder.preview.mixedHint;
   return layout.rotated ? builder.preview.rotatedHint : null;
+}
+
+/** The size of every design on a multi-design sheet, one line each («تصميم 2» … «4 × 6 سم»). */
+function MultiSizes({ b, className }: { b: BuilderApi; className?: string }) {
+  const rows = b.rows.filter((r) => r.spec);
+  if (rows.length === 0) return null;
+  return (
+    <div className={className}>
+      <p className="sr-only">{builder.multi.previewSizes}</p>
+      <ul className="space-y-0.5 text-sm text-muted-foreground">
+        {rows.map((r) => (
+          <li key={r.id} className="flex items-baseline justify-between gap-3">
+            <span>{fillLtr(builder.multi.designN, { n: r.index + 1 })}</span>
+            <span>
+              <SizeLabel widthUm={r.spec!.widthUm} heightUm={r.spec!.heightUm} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
