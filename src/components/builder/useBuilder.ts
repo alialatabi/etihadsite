@@ -186,6 +186,11 @@ export function useBuilder(settings: ShopSettings) {
   useEffect(() => {
     extrasRef.current = extras;
   }, [extras]);
+  // The latest size of design 1 (also set the moment a decode shows one): a design added in the same pick starts at its width.
+  const sizeUmRef = useRef<SizeUm | null>(null);
+  useEffect(() => {
+    sizeUmRef.current = sizeUm;
+  }, [sizeUm]);
 
   const changeFileId = useCallback((id: string | null) => {
     fileIdRef.current = id;
@@ -228,6 +233,7 @@ export function useBuilder(settings: ShopSettings) {
   /* ── size handling ── */
   /** Show a size in both inputs (a circle has no height field). */
   const showSize = useCallback((d: SizeUm, forShape: Shape) => {
+    sizeUmRef.current = d;
     setSizeUm(d);
     setWidthText(safeFormatCm(d.widthUm));
     setHeightText(forShape === 'circle' ? '' : safeFormatCm(d.heightUm));
@@ -599,14 +605,16 @@ export function useBuilder(settings: ShopSettings) {
       if (!shape) return 0;
       cancelRestore();
       const pick = splitPick(files, design !== null || decoding, extras.length);
-      if (pick.first) {
-        clearAi();
-        void loadDesign(pick.first, shape);
-      }
-      for (const f of pick.extras) void decodeSlot(nanoid(), f, shape, { baseWidthUm: sizeUm?.widthUm ?? null });
+      void (async () => {
+        if (pick.first) {
+          clearAi();
+          await loadDesign(pick.first, shape); // the other files start at the width design 1 got
+        }
+        for (const f of pick.extras) void decodeSlot(nanoid(), f, shape, { baseWidthUm: sizeUmRef.current?.widthUm ?? null });
+      })();
       return pick.ignored;
     },
-    [shape, design, decoding, extras.length, sizeUm, cancelRestore, clearAi, loadDesign, decodeSlot],
+    [shape, design, decoding, extras.length, cancelRestore, clearAi, loadDesign, decodeSlot],
   );
 
   /** A new file for an extra design. */
@@ -615,9 +623,9 @@ export function useBuilder(settings: ShopSettings) {
       if (!shape) return;
       cancelRestore();
       const prev = extrasRef.current.find((s) => s.id === id);
-      void decodeSlot(id, file, shape, { baseWidthUm: prev?.sizeUm?.widthUm ?? sizeUm?.widthUm ?? null });
+      void decodeSlot(id, file, shape, { baseWidthUm: prev?.sizeUm?.widthUm ?? sizeUmRef.current?.widthUm ?? null });
     },
-    [shape, sizeUm, cancelRestore, decodeSlot],
+    [shape, cancelRestore, decodeSlot],
   );
 
   const removeExtra = useCallback((id: string) => {

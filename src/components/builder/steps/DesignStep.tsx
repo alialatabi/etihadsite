@@ -269,8 +269,10 @@ function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow;
           {d ? (
             // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
             <img src={d.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
-          ) : (
+          ) : r.decoding ? (
             <LoaderCircle className="size-7 animate-spin text-brand" aria-hidden />
+          ) : (
+            <TriangleAlert className="size-7 text-destructive" aria-hidden />
           )}
         </div>
         <div className="min-w-0 flex-1 space-y-1.5">
