@@ -2,6 +2,7 @@ import "server-only";
 import { common, order } from "@/content/ar";
 import { formatIqd } from "@/lib/pricing";
 import { shapeLabel, sizeLabel } from "@/lib/order-text";
+import { isCutOutDesign } from "@/lib/order-record";
 import { countLabel } from "@/lib/plural";
 import type { NotifyResult, OrderRecord, ShopSettings } from "@/lib/types";
 
@@ -46,6 +47,19 @@ function designLines(record: OrderRecord): string[] {
 }
 
 /**
+ * Single-design orders only: one «القياس: … — مفرغ» line when the design has a transparent background.
+ * A single record never stores `cutOut`; isCutOutDesign() derives it (kind 'png' <=> real transparency).
+ * Empty for an opaque design, so that caption stays byte-identical to before.
+ */
+function singleCutOutLine(record: OrderRecord): string[] {
+  if (record.designs && record.designs.length > 0) return [];
+  if (!isCutOutDesign(record.design)) return [];
+  return [
+    `${L.size}: ${escapeHtml(sizeLabel(record.spec.widthUm, record.spec.heightUm))} — ${L.cutOut}`,
+  ];
+}
+
+/**
  * HTML caption for Telegram sendDocument (<= 1024 chars). The owner chose these
  * lines (2026-11-15): sheets, material, shape, delivery address, phone, total.
  */
@@ -73,6 +87,7 @@ export function buildCaption(
     // Multi-design orders: the designs block goes LAST so a too-long caption loses it before the
     // phone and the total (safeTruncate cuts whole lines from the end).
     ...designLines(record),
+    ...singleCutOutLine(record),
   ].join("\n");
   return caption.length <= MAX_CAPTION
     ? caption

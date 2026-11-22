@@ -13,6 +13,7 @@ vi.mock("@/lib/pricing", () => ({ formatIqd: (n: number) => String(n) }));
 import { notifyShop } from "@/lib/notify";
 import { buildCaption } from "@/lib/notify/telegram";
 
+const NL = String.fromCharCode(10);
 const rec = (over: Partial<OrderRecord["customer"]> = {}): OrderRecord => ({
   orderId: "order-id-1",
   displayNo: "EP-251107-ABCD",
@@ -30,8 +31,8 @@ const rec = (over: Partial<OrderRecord["customer"]> = {}): OrderRecord => ({
     gapYUm: 0,
   },
   design: {
-    kind: "png",
-    originalName: "a.png",
+    kind: "jpeg",
+    originalName: "a.jpg",
     bytes: 3,
     pxWidth: 10,
     pxHeight: 10,
@@ -72,6 +73,44 @@ describe("telegram caption", () => {
     expect(c).toContain("الأوراق: 12");
     expect(c).not.toContain("العدد المطلوب");
     expect(c).not.toContain("مجموع الستيكرات");
+  });
+
+  it("single design: adds one «مفرغ» line only when the design is a transparent PNG; an opaque one is unchanged", () => {
+    const opaque = rec();
+    const cutOut: OrderRecord = {
+      ...opaque,
+      design: { ...opaque.design, kind: "png", originalName: "a.png" },
+    };
+    const base = buildCaption(opaque, DEFAULT_SETTINGS);
+    expect(base).not.toContain("مفرغ");
+    expect(base.split(NL)).toHaveLength(7);
+
+    const withFlag = buildCaption(cutOut, DEFAULT_SETTINGS);
+    // Same lines, in the same order, plus exactly one: the size with the flag, at the end.
+    expect(withFlag.split(NL).slice(0, 7)).toEqual(base.split(NL));
+    expect(withFlag.split(NL)).toHaveLength(8);
+    expect(withFlag.split(NL)[7]).toBe("القياس: 3 × 3 سم — مفرغ");
+    // A stored cutOut flag counts too (a multi record's first design).
+    expect(
+      buildCaption({ ...opaque, design: { ...opaque.design, cutOut: true } }, DEFAULT_SETTINGS),
+    ).toContain("— مفرغ");
+  });
+
+  it("a caption that only just fits loses the single «مفرغ» line first, never the phone or the total", () => {
+    // Grow the escaped landmark until the opaque caption fits but the flagged one would not.
+    for (let k = 1; k <= 120; k++) {
+      const r = rec({ governorate: "&".repeat(30), district: "&".repeat(80), landmark: "&".repeat(k) });
+      const opaque = buildCaption(r, DEFAULT_SETTINGS);
+      const flagged = buildCaption({ ...r, design: { ...r.design, kind: "png" } }, DEFAULT_SETTINGS);
+      expect(flagged.length).toBeLessThanOrEqual(1024);
+      if (opaque.length + 1 + "القياس: 3 × 3 سم — مفرغ".length > 1024 && opaque.length <= 1024) {
+        expect(flagged).toBe(opaque);
+        expect(flagged).toContain("الإجمالي");
+        expect(flagged).toContain("tel:+9647701234567");
+        return;
+      }
+    }
+    throw new Error("no landmark length hit the boundary");
   });
 
   it("stays valid HTML and under 1024 chars when fields are full of < > &", () => {

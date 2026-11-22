@@ -228,6 +228,9 @@ describe("summary, text and file name of a multi-design order", () => {
     const r = multiRecord();
     const single = { ...r };
     delete single.designs;
+    // An opaque single design (a transparent PNG gets its own «مفرغ» line: tests/unit/server/telegram.test.ts).
+    single.design = { ...single.design, kind: 'jpeg' };
+    delete single.design.cutOut;
     expect(buildCaption(single, DEFAULT_SETTINGS)).not.toMatch(/التصاميم|من كل تصميم|مفرغ/);
   });
 

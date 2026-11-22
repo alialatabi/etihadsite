@@ -726,4 +726,59 @@ describe("SupabaseStorage purge: multi-design orders", () => {
     expect(objectNames()).toContain("uploads/shared-design-x.json");
     expect(calls.some((c) => c.url.includes("designPaths=cs."))).toBe(true);
   });
+
+  it("sends one jsonb-containment URL per unsure path (the request the owner checks against real PostgREST)", async () => {
+    sbOrder("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    sbMulti("order-multi-aged01", at(KEEP + 2 * DAY), ["multi-aged-aaaa1", "shared-design-x"], false);
+    await sb().purgeOlderThan(NEW_CUTOFF, true, ORPHAN_FAR);
+    const ask = calls.filter((c) => c.url.includes("designPaths=cs."));
+    // One path = one URL; paged with a Range header until an empty page, so a hit is requested twice.
+    expect(new Set(ask.map((c) => c.url)).size).toBe(1);
+    expect(ask[0].method).toBe("GET");
+    expect(ask[0].url).toBe(
+      `/rest/v1/orders?select=files:record->files&created_at=gte.${encodeURIComponent(new Date(KEEP).toISOString())}` +
+        `&record->files->designPaths=cs.${encodeURIComponent('["uploads/shared-design-x.bin"]')}&order=order_id.asc`,
+    );
+  });
+});
+
+describe("SupabaseStorage purge: the designPaths keep lookup does not fail open", () => {
+  /** An old-rule design shared with a kept multi order that lives in the unread gap: only the lookup can save it. */
+  function seed() {
+    const multiAged = "order-multi-aged01";
+    db.orders.push({ order_id: multiAged, created_at: at(KEEP + 2 * DAY).replace("Z", "+00:00"), files: multiFiles(multiAged, ["multi-aged-aaaa1", "shared-design-x"]) });
+    sbOrder("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    sbObjects("orders/order-multi-aged01.pdf")(at(KEEP + 2 * DAY));
+  }
+  /** Every fetch behaves as the fake database does, except the designPaths lookup, which `answer` replaces. */
+  function breakLookup(answer: () => Promise<Response>) {
+    const real = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => (String(input).includes("designPaths=cs.") ? answer() : real(input, init)));
+  }
+  const cases: [string, () => Promise<Response>, RegExp][] = [
+    ["HTTP 500", async () => new Response("boom", { status: 500 }), /500/],
+    ["HTTP 503", async () => new Response("", { status: 503 }), /503/],
+    ["HTTP 400 (the server rejects the filter)", async () => new Response('{"message":"bad filter"}', { status: 400 }), /400/],
+    [
+      "a network error",
+      async () => {
+        throw new TypeError("fetch failed");
+      },
+      /fetch failed/,
+    ],
+    ["200 with a body that is not JSON", async () => new Response("<html>gateway</html>", { status: 200 }), /JSON|Unexpected|token/i],
+    ["200 with an empty body", async () => new Response("", { status: 200 }), /JSON|Unexpected|end/i],
+    ["200 with JSON that is not a list", async () => ok({ message: "not a list" }), /unexpected answer/],
+  ];
+
+  it.each(cases)("%s: the purge throws and deletes nothing", async (_name, answer, message) => {
+    seed();
+    breakLookup(answer);
+    const before = objectNames();
+    await expect(sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR)).rejects.toThrow(message);
+    expect(calls.every((c) => c.method !== "DELETE")).toBe(true);
+    expect(objectNames()).toEqual(before);
+    expect(objectNames()).toContain("uploads/shared-design-x.bin");
+    expect(db.orders.map((o) => o.order_id).sort()).toEqual(["order-multi-aged01", "order-old-share"]);
+  });
 });

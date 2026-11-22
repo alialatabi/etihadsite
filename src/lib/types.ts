@@ -555,7 +555,11 @@ export interface OrderRecord {
     pxHeight: number;
     /** Undefined for vector PDFs. */
     effectiveDpi?: number;
-    /** True when the raster has a transparent background («مفرغ»). Added only when true (single and multi). */
+    /**
+     * True when the raster has a transparent background («مفرغ»). Stored by multi-design orders only
+     * (copied from designs[0]); a single-design record never stores it. Admin and Telegram derive «مفرغ» via
+     * isCutOutDesign() (kind 'png' <=> real transparency: normaliseArtwork returns kind hasAlpha ? 'png' : 'jpeg').
+     */
     cutOut?: true;
   };
   /** Multi-design orders only: every design, in upload order; designs[0] describes the same file as `design`. */
