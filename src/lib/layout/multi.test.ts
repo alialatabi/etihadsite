@@ -145,6 +145,7 @@ describe('computeMultiLayout: properties', { timeout: 30_000 }, () => {
     it(`random sets keep every invariant (${name})`, () => {
       const sets = randomSets(80, name === 'no rotation' ? 1234 : 98765);
       let okCount = 0;
+      let turnedSets = 0;
       for (const set of sets) {
         const out = computeMultiLayout(set, settings);
         if (!out.ok) {
@@ -152,6 +153,7 @@ describe('computeMultiLayout: properties', { timeout: 30_000 }, () => {
           continue;
         }
         okCount++;
+        if (out.layout.placements.some((p) => p.turned)) turnedSets++;
         assertValid(out.layout, settings);
         // designs echo the specs
         expect(out.layout.designs.map((d) => d.cell)).toEqual(set.map((s) => ({ widthUm: s.widthUm, heightUm: s.heightUm })));
@@ -160,6 +162,8 @@ describe('computeMultiLayout: properties', { timeout: 30_000 }, () => {
       }
       // the test must not pass vacuously
       expect(okCount).toBeGreaterThanOrEqual(sets.length * 0.4);
+      if (settings.allowRotate) expect(turnedSets).toBeGreaterThan(0);
+      else expect(turnedSets).toBe(0);
     });
   }
 
@@ -242,9 +246,22 @@ describe('computeMultiLayout: hand-checked examples', () => {
     const set = [rect(20, 150)];
     const off = layoutOf(computeMultiLayout(set, SETTINGS));
     const on = layoutOf(computeMultiLayout(set, ROTATE));
-    expect(on.perDesign).toBeGreaterThanOrEqual(off.perDesign);
+    expect(off.perDesign).toBeLessThanOrEqual(10);
+    expect(on.perDesign).toBeGreaterThan(off.perDesign);
+    expect(on.placements.some((p) => p.turned === true)).toBe(true);
     assertValid(off, SETTINGS);
     assertValid(on, ROTATE);
+  });
+
+  it('turns only the design that needs it (a tall strip next to a wide strip)', () => {
+    const set = [rect(190, 20), rect(20, 190)];
+    const l = layoutOf(computeMultiLayout(set, ROTATE));
+    assertValid(l, ROTATE);
+    const turned = l.placements.filter((p) => p.turned === true);
+    expect(turned.length).toBeGreaterThan(0);
+    // Every turned cell is the tall design (index 1), laid down as 190x20 like the wide one.
+    expect(turned.every((p) => p.designIndex === 1)).toBe(true);
+    expect(l.placements.filter((p) => p.designIndex === 0).every((p) => p.turned === undefined)).toBe(true);
   });
 
   it('output carries no stray keys on a placement', () => {
