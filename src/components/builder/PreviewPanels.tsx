@@ -7,6 +7,7 @@ import { builder, common } from '@/content/ar';
 import { umToMm } from '@/lib/units';
 import { resolveShapeSpacing, shapeKeyOf } from '@/lib/layout/spacing';
 import { fillLtr } from '@/components/fill-ltr';
+import { Ltr } from '@/components/Ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SheetPreview } from './SheetPreview';
@@ -18,6 +19,8 @@ import type { LayoutResult } from '@/lib/types';
 
 /** Top inset for the mobile card's IntersectionObserver: about the height of the sticky header. */
 const STRIP_REVEAL_ROOT_MARGIN = '-64px 0px 0px 0px';
+/** Size lines the pinned strip of a multi-design order shows before «+N» (so it never grows past its single-design height). */
+const STRIP_SIZE_LINES = 2;
 
 /** The page-margin hint shown under the sheet (panel) and in the full-screen dialog. */
 const marginHintNodes = (b: BuilderApi) => {
@@ -166,7 +169,14 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           <p className="inline-block rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
             <CountLabel n={perSheet} /> {builder.preview.perSheet}
           </p>
-          {multi ? <div className="mt-1.5">{sizes}</div> : <p className="mt-1.5 text-sm text-muted-foreground">{sizes}</p>}
+          {multi ? (
+            // The pinned strip keeps the height it has with one design: the first lines, then «+N» (the card and the dialog list them all).
+            <div className="mt-1.5">
+              <MultiSizes b={b} limit={STRIP_SIZE_LINES} />
+            </div>
+          ) : (
+            <p className="mt-1.5 text-sm text-muted-foreground">{sizes}</p>
+          )}
         </div>
         <Maximize2 className="size-5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
@@ -192,9 +202,11 @@ function rotationHint(layout: LayoutResult): string | null {
 }
 
 /** The size of every design on a multi-design sheet, one line each («تصميم 2» … «4 × 6 سم»). */
-function MultiSizes({ b, className }: { b: BuilderApi; className?: string }) {
-  const rows = b.rows.filter((r) => r.spec);
-  if (rows.length === 0) return null;
+export function MultiSizes({ b, className, limit }: { b: BuilderApi; className?: string; limit?: number }) {
+  const all = b.rows.filter((r) => r.spec);
+  if (all.length === 0) return null;
+  const rows = limit !== undefined && all.length > limit ? all.slice(0, limit) : all;
+  const hidden = all.length - rows.length;
   return (
     <div className={className}>
       <p className="sr-only">{builder.multi.previewSizes}</p>
@@ -207,6 +219,11 @@ function MultiSizes({ b, className }: { b: BuilderApi; className?: string }) {
             </span>
           </li>
         ))}
+        {hidden > 0 && (
+          <li>
+            <Ltr>+{hidden}</Ltr>
+          </li>
+        )}
       </ul>
     </div>
   );

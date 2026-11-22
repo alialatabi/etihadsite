@@ -42,6 +42,7 @@ export function SizeInputs({
   onWidth,
   onHeight,
   invalid,
+  labelledBy,
 }: {
   ids: SizeIds;
   isCircle: boolean;
@@ -50,9 +51,11 @@ export function SizeInputs({
   onWidth: (v: string) => void;
   onHeight: (v: string) => void;
   invalid: boolean;
+  /** Id of the heading that names this design (multi-design rows): the inputs then form a labelled group, so a screen reader hears which design «العرض» belongs to. */
+  labelledBy?: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row">
+    <div className="flex flex-col gap-4 sm:flex-row" {...(labelledBy ? { role: 'group', 'aria-labelledby': labelledBy } : {})}>
       {isCircle ? (
         <SizeField id={ids.width} label={builder.size.diameter} value={widthText} onChange={onWidth} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 text-center text-lg md:text-lg" />
       ) : (

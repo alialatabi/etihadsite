@@ -720,11 +720,12 @@ export class SupabaseStorage implements StorageAdapter {
       for (const k of keptUses) if (k.files?.designPath) used.add(k.files.designPath);
     }
     // A kept MULTI-design order may use a path as one of its other designs (files.designPaths), which the
-    // designPath lookup above cannot see. Asked only when a multi-design order exists among the orders read
-    // (so a store without any keeps the exact requests it always made): one request per still-unsure path,
-    // jsonb containment on the list, and the match is tested here too (a row that does not list the path
-    // proves nothing, so it is ignored).
-    if (unsure.length > 0 && orders.some((o) => o.files?.designPaths)) {
+    // designPath lookup above cannot see. The kept orders that matter are exactly the ones the read above
+    // did NOT return (created in [oldRuleEnd, refFrom)), so whether a multi-design order exists among the
+    // orders read says nothing about them: asked for every still-unsure path (only non-empty in that gap),
+    // one request per path, jsonb containment on the list, and the match is tested here too (a row that does
+    // not list the path proves nothing, so it is ignored).
+    if (unsure.length > 0) {
       for (const d of unsure) {
         if (used.has(d)) continue;
         const holders = (await this.selectAllPaged(

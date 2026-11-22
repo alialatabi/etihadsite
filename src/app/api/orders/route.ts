@@ -67,6 +67,8 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 /** The sheet PDF must fit the storage bucket (15 MiB, migration 20261111000000); a little headroom. */
 const MAX_SHEET_PDF_BYTES = 14 * 1024 * 1024;
+/** A multi sheet is not even built when its raster artwork alone is this many times the limit (see processMultiOrder). */
+const SKIP_BUILD_FACTOR = 3;
 /** Lower resolutions tried, in order, when the 1200 DPI sheet PDF is over the limit. */
 const FALLBACK_DPI = [600, 300] as const;
 
@@ -419,15 +421,41 @@ async function processMultiOrder(
       artworks,
       meta: { displayNo, description: `multi ${designs.length} designs x${layout.countPerSheet}` },
     });
-  let pdf = await buildPdf(norms.map((n) => n.artwork));
+  // The raster artwork bytes are a rough floor for the sheet (a JPEG is embedded as it is; a PNG is
+  // re-deflated, which usually gives about as many bytes or more, but can come out smaller on synthetic
+  // images, so only a wide margin counts). When they are far over the cap, building this pass is wasted
+  // work (14 s of PDF build for 8 big PNGs at 1200 DPI): skip straight to the next DPI. A vector PDF's file
+  // size is NOT such a floor (only page 1 is drawn), so vectors are always built and judged by the real sheet.
+  const rasterBytes = (ns: typeof norms) =>
+    ns.reduce((sum, n) => sum + (n.artwork.kind === "raster" ? n.artwork.bytes.length : 0), 0);
+  const hopeless = (ns: typeof norms) => rasterBytes(ns) > SKIP_BUILD_FACTOR * MAX_SHEET_PDF_BYTES;
+  const hasRaster = (ns: typeof norms) => ns.some((n) => n.artwork.kind === "raster");
+  let pdf: Awaited<ReturnType<typeof buildPdf>> | null =
+    hopeless(norms) ? null : await buildPdf(norms.map((n) => n.artwork));
   // Same size cap as a single order: when over it, ALL raster designs are re-normalised at a lower DPI
-  // (the whole set or nothing: a failed pass keeps the last set that built). Vector PDFs do not grow with it.
+  // (the whole set or nothing: a failed pass keeps the last set that built). Vector PDFs do not grow with
+  // it, so with no raster design there is nothing to lower; a mix lowers the pictures, then names the PDF.
   for (const dpi of FALLBACK_DPI) {
-    if (pdf.bytes.length <= MAX_SHEET_PDF_BYTES || !norms.some((n) => n.artwork.kind === "raster")) break;
+    if (pdf && pdf.bytes.length <= MAX_SHEET_PDF_BYTES) break;
+    if (!hasRaster(norms)) break;
     const again = await normalised(dpi);
     if (!again.ok) break;
     norms = again.norms;
-    pdf = await buildPdf(norms.map((n) => n.artwork));
+    pdf =
+      !hopeless(norms) || dpi === FALLBACK_DPI[FALLBACK_DPI.length - 1]
+        ? await buildPdf(norms.map((n) => n.artwork))
+        : null;
+  }
+  pdf ??= await buildPdf(norms.map((n) => n.artwork));
+  if (pdf.bytes.length > MAX_SHEET_PDF_BYTES) {
+    // Still over what the bucket takes. Only a vector PDF can be shrunk by the customer's browser: name the
+    // biggest upload among them, the client turns it into a picture (the needs_raster path) and retries.
+    let biggest = -1;
+    norms.forEach((n, i) => {
+      if (n.artwork.kind === "pdf" && (biggest < 0 || uploads[i].bytes.length > uploads[biggest].bytes.length)) biggest = i;
+    });
+    if (biggest >= 0) return fail("needs_raster", biggest);
+    // (No vector design left and already at the lowest DPI: nothing more to shrink; storage decides.)
   }
 
   const price = priceForStickers(req.material, stickers, layout.countPerSheet, settings);

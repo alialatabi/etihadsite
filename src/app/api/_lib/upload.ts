@@ -46,8 +46,8 @@ export function uploadOk(
   return Response.json(body);
 }
 
-/** Characters a stored name never keeps: C0 controls, DEL, C1 controls and the bidi controls (U+200E/F, U+202A-E, U+2066-9). */
-const NAME_CONTROLS = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g;
+/** Characters a stored name never keeps: C0 controls, DEL, C1 controls and the bidi controls (U+061C, U+200E/F, U+202A-E, U+2066-9). */
+const NAME_CONTROLS = /[\u0000-\u001f\u007f-\u009f؜‎‏‪-‮⁦-⁩]/g;
 
 /** Stored file name: "design" when the client sent none, control and bidi-control characters removed, at most 200 characters. */
 export function cleanOriginalName(name: string | undefined): string {

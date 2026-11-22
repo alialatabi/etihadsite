@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { builder, fill, order } from '@/content/ar';
 import { MultiSheetPreview } from '@/components/builder/MultiSheetPreview';
+import { MultiSizes } from '@/components/builder/PreviewPanels';
 import { SummaryCard } from '@/components/builder/SummaryCard';
 import { degradedText } from '@/components/builder/degraded';
 import { FIRST_SIZE_IDS, SizeInputs, sizeIdsFor } from '@/components/builder/steps/SizeFields';
@@ -130,6 +131,17 @@ describe('size inputs of each design', () => {
     expect(render(sizeIdsFor(3))).toContain('id="size-width-3"');
   });
 
+  it('a multi-design row names its group after the design heading; design 1 alone has no group', () => {
+    const grouped = renderToStaticMarkup(
+      createElement(SizeInputs, { ids: sizeIdsFor(2), isCircle: false, widthText: '3', heightText: '4', onWidth: () => {}, onHeight: () => {}, invalid: false, labelledBy: 'size-title-2' }),
+    );
+    expect(grouped).toContain('role="group"');
+    expect(grouped).toContain('aria-labelledby="size-title-2"');
+    const plain = render(sizeIdsFor(1));
+    expect(plain).not.toContain('role="group"');
+    expect(plain).not.toContain('aria-labelledby');
+  });
+
   it('a circle has the diameter only', () => {
     const html = render(sizeIdsFor(2), true);
     expect(html).toContain('id="size-width-2"');
@@ -182,5 +194,23 @@ describe('the summary of a multi-design order', () => {
     expect(multi).toContain('2) ');
     expect(multi).toContain(`${order.text.perDesign}:`);
     expect(multi.split(order.text.perDesign).length).toBe(2);
+  });
+});
+
+describe('MultiSizes in the pinned strip', () => {
+  const rows = Array.from({ length: 8 }, (_, i) => ({ index: i, id: i === 0 ? 'main' : `s${i}`, spec: rect(30_000 + i * 1000, 30_000) }));
+  const b = { rows } as unknown as Parameters<typeof MultiSizes>[0]['b'];
+
+  it('lists every design in the card and the dialog', () => {
+    expect(tagsOf(renderToStaticMarkup(createElement(MultiSizes, { b })), 'li')).toHaveLength(8);
+  });
+
+  it('shows only the first lines and «+N» in the strip, so it does not grow with the designs', () => {
+    const html = renderToStaticMarkup(createElement(MultiSizes, { b, limit: 2 }));
+    expect(tagsOf(html, 'li')).toHaveLength(3);
+    expect(html).toContain('+6');
+    const few = renderToStaticMarkup(createElement(MultiSizes, { b: { rows: rows.slice(0, 2) } as never, limit: 2 }));
+    expect(tagsOf(few, 'li')).toHaveLength(2);
+    expect(few).not.toContain('+');
   });
 });

@@ -255,7 +255,12 @@ export function computeMultiLayout(specs: StickerSpec[], settings: LayoutSetting
 
   // Area bound: every cell plus its gap owns (w + gapX) × (h + gapY) of the usable area plus one gap.
   let perCopyArea = 0;
-  for (const s of sizes) perCopyArea += (s.w + ctx.gapX) * (s.h + ctx.gapY);
+  // A turned cell swaps its sides, so with rotation allowed a copy owns the smaller of the two footprints
+  // (they differ when the horizontal and vertical gaps differ).
+  for (const s of sizes) {
+    const upright = (s.w + ctx.gapX) * (s.h + ctx.gapY);
+    perCopyArea += p0.allowRotate ? Math.min(upright, (s.h + ctx.gapX) * (s.w + ctx.gapY)) : upright;
+  }
   const areaBound = Math.floor(((usable.widthUm + ctx.gapX) * (usable.heightUm + ctx.gapY)) / perCopyArea);
   ub = Math.max(1, Math.min(ub, areaBound));
 

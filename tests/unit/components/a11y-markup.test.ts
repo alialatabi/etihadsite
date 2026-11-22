@@ -63,6 +63,38 @@ describe('DesignStep upload', () => {
   });
 });
 
+describe('DesignStep multi-design', () => {
+  const pdfDesign = {
+    kind: 'pdf',
+    file: { name: 'a.pdf' },
+    pxWidth: 600,
+    pxHeight: 400,
+    hasAlpha: false,
+    previewUrl: 'blob:a',
+    pdf: { pageCount: 3, pageWidthPt: 283.46, pageHeightPt: 170.08 },
+  };
+  const row = { index: 0, id: 'main', design: pdfDesign, decoding: false, error: null };
+  const multiB = { ...baseB, shape: 'rect', multi: true, design: pdfDesign, designCount: 1, rows: [row], addFiles: () => 0 };
+
+  it('says «only the first page is used» once, inside the design card, and the size found there too', () => {
+    const html = render(DesignStep as never, { b: multiB, ai: {} });
+    const first = builder.upload.onlyFirstPage.replace(/\{pages\}.*$/, '').trim();
+    expect(html.split(first).length - 1).toBe(1);
+    expect(html).toContain(builder.upload.detectedSize.split('{size}')[0].trim());
+  });
+
+  it('keeps an always-present status region for the cap notice (multi only); single mode has none extra', () => {
+    const html = render(DesignStep as never, { b: multiB, ai: {} });
+    // the loading region, the card list region, and the cap notice region
+    expect(html.match(/role="status"/g)).toHaveLength(3);
+    expect(render(DesignStep as never, { b: baseB, ai: {} }).match(/role="status"/g)).toHaveLength(1);
+  });
+
+  it('gives the add button a ref target (focus goes back to it) and renders it', () => {
+    expect(render(DesignStep as never, { b: multiB, ai: {} })).toContain(builder.multi.add);
+  });
+});
+
 describe('DetailsStep', () => {
   const idle = { phase: 'idle', progress: 0, message: null };
   it('marks the required delivery fields and keeps an empty status region while idle', () => {

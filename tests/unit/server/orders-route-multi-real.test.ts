@@ -5,7 +5,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
-import { PDFDocument } from "pdf-lib";
+import { randomBytes } from "node:crypto";
+import { PDFDocument, PDFName } from "pdf-lib";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import type { OrderResponse } from "@/lib/types";
 import { setupEnv } from "./helpers";
@@ -88,5 +89,75 @@ describe("POST /api/orders multi-design, real files", () => {
     // Telegram got the same bytes under an ASCII name.
     expect(notifyShop.mock.calls[0][2]).toMatch(/^EP-\d{6}-[A-Z2-9]{4}_multi-3designs_x\d+\.pdf$/);
     expect(notifyShop.mock.calls[0][1]).toBeInstanceOf(Uint8Array);
+  });
+
+  it("asks for the biggest vector PDF as a picture when the sheet would not fit the bucket (two 8 MiB PDFs)", async () => {
+    // Two vector PDFs of about 8 MiB each: below the upload limit, but the one sheet holds both whole (over 14 MiB).
+    async function bigPdf(): Promise<Uint8Array> {
+      const doc = await PDFDocument.create();
+      const page = doc.addPage([100, 100]);
+      page.drawRectangle({ x: 10, y: 10, width: 80, height: 80 });
+      // Incompressible bytes in a resource the page carries: embedPage copies the page with everything on it.
+      page.node.Resources()?.set(PDFName.of("Extra"), doc.context.register(doc.context.stream(randomBytes(8 * 1024 * 1024))));
+      return doc.save({ useObjectStreams: false });
+    }
+    const storage = getStorage();
+    const ids = ["upload-big-aaaaaaaa1", "upload-big-aaaaaaaa2"];
+    for (const id of ids) {
+      const bytes = await bigPdf();
+      await storage.saveUpload(id, bytes, { mime: "application/pdf", originalName: "big.pdf", bytes: bytes.length, createdAt: new Date().toISOString() });
+    }
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "7.7.7.8" },
+        body: JSON.stringify({
+          orderId: "order-bigpdf-aaaaaaaaa",
+          uploadId: ids[0],
+          spec: { shape: "rect", corners: "sharp", widthUm: 50_000, heightUm: 50_000 },
+          material: "paper",
+          stickers: 1000,
+          designs: ids.map((uploadId) => ({ uploadId, widthUm: 50_000, heightUm: 50_000 })),
+          customer: { phone: "07701234567", governorate: "بغداد", district: "الكرادة", landmark: "x" },
+        }),
+      }),
+    );
+    const r = (await res.json()) as OrderResponse;
+    expect(res.status).toBe(400);
+    expect(r).toMatchObject({ ok: false, error: "needs_raster", designIndex: 0 });
+    expect(await storage.getOrder("order-bigpdf-aaaaaaaaa")).toBeNull();
+    expect(notifyShop).not.toHaveBeenCalled();
+  });
+
+  it("accepts two big PDFs whose bulk sits on a page that is not drawn (the sheet is small)", async () => {
+    async function bulkyPage2(): Promise<Uint8Array> {
+      const doc = await PDFDocument.create();
+      const pages = [doc.addPage([100, 100]), doc.addPage([100, 100])];
+      for (const p of pages) p.drawRectangle({ x: 10, y: 10, width: 80, height: 80 });
+      pages[1].node.Resources()?.set(PDFName.of("Extra"), doc.context.register(doc.context.stream(randomBytes(8 * 1024 * 1024))));
+      return doc.save({ useObjectStreams: false });
+    }
+    const storage = getStorage();
+    const ids = ["upload-bulk-aaaaaaa1", "upload-bulk-aaaaaaa2"];
+    for (const id of ids) {
+      const bytes = await bulkyPage2();
+      await storage.saveUpload(id, bytes, { mime: "application/pdf", originalName: "bulk.pdf", bytes: bytes.length, createdAt: new Date().toISOString() });
+    }
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "7.7.7.9" },
+        body: JSON.stringify({
+          orderId: "order-bulkpdf-aaaaaaaa",
+          uploadId: ids[0],
+          spec: { shape: "rect", corners: "sharp", widthUm: 50_000, heightUm: 50_000 },
+          material: "paper",
+          stickers: 1000,
+          designs: ids.map((uploadId) => ({ uploadId, widthUm: 50_000, heightUm: 50_000 })),
+          customer: { phone: "07701234567", governorate: "بغداد", district: "الكرادة", landmark: "x" },
+        }),
+      }),
+    );
+    expect(((await res.json()) as OrderResponse).ok).toBe(true);
   });
 });

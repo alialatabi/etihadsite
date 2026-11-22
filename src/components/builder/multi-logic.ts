@@ -278,6 +278,34 @@ export function splitPick(files: File[], firstTaken: boolean, extraCount: number
   return { first, extras, ignored: rest.length - extras.length };
 }
 
+/**
+ * Book-keeping for picks whose extra files wait until design 1 has been read. `begin` reserves room for a pick's
+ * extras (so a second pick sees them against the cap), `settle` says whether they may start now, and `reset` (the
+ * box unticked, AI mode started) cancels every pick still waiting.
+ */
+export class PickGate {
+  private epoch = 0;
+  private held = 0;
+  /** Extras of picks that are still waiting for design 1. */
+  get pending(): number {
+    return this.held;
+  }
+  begin(extraCount: number): number {
+    this.held += extraCount;
+    return this.epoch;
+  }
+  /** True when the pick that began in `epoch` may start its `extraCount` extras; false when it was cancelled. */
+  settle(epoch: number, extraCount: number): boolean {
+    if (epoch !== this.epoch) return false;
+    this.held = Math.max(0, this.held - extraCount);
+    return true;
+  }
+  reset(): void {
+    this.epoch++;
+    this.held = 0;
+  }
+}
+
 /* ───────────────────────── quantity and submit ───────────────────────── */
 
 /** Stickers received of EACH design: whole sheets × copies of that design on a sheet. null while unknown. */

@@ -15,6 +15,9 @@ import {
   pdfWithLaunch,
   pdfWithOpenActionJs,
   pdfWithRichMedia,
+  pdfWithDuplicateObject,
+  pdfWithNestedJs,
+  pdfWithPaddingBeforeJs,
   pdfWithTooDeepJs,
   pdfWithXfa,
 } from '../unsafe-pdf';
@@ -61,8 +64,30 @@ describe('PDF active-content scan', () => {
     expect(await checkUploadBytes(bare)).toEqual({ ok: true, kind: 'pdf' });
   });
 
-  it('stops at the depth bound and accepts instead of blocking', async () => {
-    expect(await pdfHasActiveContent(await pdfWithTooDeepJs())).toBe(false);
+  it('finds a script nested 70 levels deep (inside the depth bound)', async () => {
+    expect(await pdfHasActiveContent(await pdfWithNestedJs(70))).toBe(true);
+  });
+
+  it('refuses a file nested past the depth bound instead of skipping the rest', async () => {
+    expect(await pdfHasActiveContent(await pdfWithTooDeepJs())).toBe(true);
+    expect(await checkUploadBytes(await pdfWithTooDeepJs())).toEqual({ ok: false, error: 'unsafe' });
+  });
+
+  it('finds a script in an earlier definition of an object number that a later one shadows', async () => {
+    const bytes = pdfWithDuplicateObject();
+    expect(await pdfHasActiveContent(bytes)).toBe(true);
+    expect(await checkUploadBytes(bytes)).toEqual({ ok: false, error: 'unsafe' });
+  });
+
+  it('refuses a file with more nodes than the scan bound instead of accepting it unscanned', async () => {
+    const padded = pdfWithPaddingBeforeJs(2000);
+    expect(await pdfHasActiveContent(padded, 1000)).toBe(true); // the bound is reached before the script object
+    expect(await pdfHasActiveContent(padded)).toBe(true); // well inside the default bound: the script is found
+    // A padded but clean file inside the bound is accepted.
+    const clean = new TextEncoder().encode(
+      ['%PDF-1.7', `1 0 obj\n[${'[]'.repeat(2000)}]\nendobj`, '2 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj', '3 0 obj\n<< /Type /Pages /Kids [4 0 R] /Count 1 >>\nendobj', '4 0 obj\n<< /Type /Page /Parent 3 0 R /MediaBox [0 0 200 200] >>\nendobj', 'trailer\n<< /Size 5 /Root 2 0 R >>', '%%EOF', ''].join('\n'),
+    );
+    expect(await pdfHasActiveContent(clean)).toBe(false);
   });
 });
 
@@ -117,6 +142,10 @@ describe('raster checks', () => {
 });
 
 describe('cleanOriginalName', () => {
+  it('strips the Arabic letter mark (U+061C) too', () => {
+    expect(cleanOriginalName('a؜b.png')).toBe('ab.png');
+  });
+
   it('removes C0, DEL, C1 and bidi controls but keeps ZWJ/ZWNJ and Arabic', () => {
     const dirty = `a\u0000b\u007fc\u0085d\u009fe‎f‏g‪h‮i⁦j⁩k‍l‌m تصميم.png`;
     expect(cleanOriginalName(dirty)).toBe('abcdefghijk‍l‌m تصميم.png');

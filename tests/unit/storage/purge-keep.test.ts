@@ -715,4 +715,15 @@ describe("SupabaseStorage purge: multi-design orders", () => {
     expect(ask.length).toBeGreaterThanOrEqual(1);
     expect(decodeURIComponent(ask[0].url)).toContain('record->files->designPaths=cs.["uploads/shared-design-x.bin"]');
   });
+
+  it("asks by path even when NO multi order is among the orders read (the kept one lives in the unread gap)", async () => {
+    sbOrder("order-old-share", at(KEEP - 60 * DAY), "shared-design-x");
+    sbMulti("order-multi-aged01", at(KEEP + 2 * DAY), ["multi-aged-aaaa1", "shared-design-x"], false);
+    sbObjects("orders/order-multi-aged01.pdf")(at(KEEP + 2 * DAY));
+    const removed = await sb().purgeOlderThan(NEW_CUTOFF, false, ORPHAN_FAR);
+    expect(removed.sort()).toEqual(["order:order-old-share", "orders/order-old-share.pdf"].sort());
+    expect(objectNames()).toContain("uploads/shared-design-x.bin");
+    expect(objectNames()).toContain("uploads/shared-design-x.json");
+    expect(calls.some((c) => c.url.includes("designPaths=cs."))).toBe(true);
+  });
 });

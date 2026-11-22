@@ -51,6 +51,7 @@ import {
   editHeight,
   editWidth,
   isMultiActive,
+  PickGate,
   maxWidthsFor,
   perDesignTotal,
   savedExtras,
@@ -170,6 +171,8 @@ export function useBuilder(settings: ShopSettings) {
   const extrasRef = useRef<DesignSlot[]>([]);
   /** Decode token of each extra design (a newer read of the same slot, or its removal, drops an older answer). */
   const slotTokens = useRef(new Map<string, number>());
+  /** Picks whose extra files wait for design 1 to finish reading; the extras being dropped cancels them. */
+  const pickGate = useRef(new PickGate());
   const multiActive = isMultiActive(mode, multi, extras.length);
 
   const lastFile = useRef<File | null>(null);
@@ -453,6 +456,7 @@ export function useBuilder(settings: ShopSettings) {
   /** The box is ticked or unticked. Unticking keeps design 1 and drops the extras (no question asked). */
   const dropExtras = useCallback(() => {
     slotTokens.current.clear(); // an extra still being read is dropped when it answers
+    pickGate.current.reset(); // and so are the extras of a pick that is still waiting for design 1
     dispatchExtras({ type: 'reset' });
     void clearDraftExtraFiles();
   }, []);
@@ -607,12 +611,16 @@ export function useBuilder(settings: ShopSettings) {
     (files: File[]): number => {
       if (!shape) return 0;
       cancelRestore();
-      const pick = splitPick(files, design !== null || decoding, extras.length);
+      // Extras of an earlier pick that still waits for design 1 count against the cap too.
+      const pick = splitPick(files, design !== null || decoding, extras.length + pickGate.current.pending);
+      const epoch = pickGate.current.begin(pick.extras.length);
       void (async () => {
         if (pick.first) {
           clearAi();
           await loadDesign(pick.first, shape); // the other files start at the width design 1 got
         }
+        // The box was unticked (or AI mode started) while design 1 was being read: nothing is started.
+        if (!pickGate.current.settle(epoch, pick.extras.length)) return;
         for (const f of pick.extras) void decodeSlot(nanoid(), f, shape, { baseWidthUm: sizeUmRef.current?.widthUm ?? null });
       })();
       return pick.ignored;
@@ -867,7 +875,8 @@ export function useBuilder(settings: ShopSettings) {
   /** Leaving the upload mode: the box is cleared and the extra designs go (AI mode is never multi). */
   const leaveMulti = useCallback(() => {
     setMultiState(false);
-    if (extrasRef.current.length > 0) dropExtras();
+    // Also with no extra yet: a pick waiting for design 1 must not add its extras afterwards.
+    if (extrasRef.current.length > 0 || pickGate.current.pending > 0) dropExtras();
   }, [dropExtras]);
   const sizeStep = STEPS.indexOf('size');
   const designStep = STEPS.indexOf('design');

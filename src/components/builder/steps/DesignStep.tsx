@@ -27,7 +27,9 @@ function UploadDesign({ b }: { b: BuilderApi }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLButtonElement>(null);
   const replaceRef = useRef<HTMLButtonElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
   const wasDecoding = useRef(false);
+  const prevCount = useRef(b.designCount);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   /** Which design the «غيّر الملف» input of the design cards is for (0 = design 1). */
   const replaceIndex = useRef(0);
@@ -60,16 +62,22 @@ function UploadDesign({ b }: { b: BuilderApi }) {
     replaceInputRef.current?.click();
   };
 
-  // The control that had focus is disabled (then removed) while the file is read, so focus falls to <body>:
-  // when reading ends and nothing else has focus, put it back on the control that now stands in its place.
+  // The control that had focus is disabled (then removed) while the file is read, or removed with its design card,
+  // so focus falls to <body>: when that happens and nothing else has focus, put it back on the control that now
+  // stands in its place («إضافة تصميم» in a multi-design order, else the replace or upload button).
+  const multi = b.multi;
+  const designCount = b.designCount;
   useEffect(() => {
     const done = wasDecoding.current && !decoding;
+    const removed = designCount < prevCount.current;
     wasDecoding.current = decoding;
-    if (!done) return;
+    prevCount.current = designCount;
+    if (!done && !removed) return;
     const active = document.activeElement;
     if (active && active !== document.body) return;
-    (design ? replaceRef.current : dropRef.current)?.focus();
-  }, [decoding, design]);
+    const add = addRef.current && !addRef.current.disabled ? addRef.current : null;
+    (multi ? (add ?? dropRef.current) : design ? replaceRef.current : dropRef.current)?.focus();
+  }, [decoding, design, multi, designCount]);
 
   const prefill = design && shape ? pdfPrefillUm(design, shape) : null;
   const acceptedCopy = shape === 'custom' ? builder.upload.acceptedCustom : builder.upload.accepted;
@@ -151,10 +159,11 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         </button>
       )}
 
-      {b.multi && <DesignCards b={b} limitMb={limitMb} onReplace={openReplace} onAdd={() => inputRef.current?.click()} />}
-      {capNotice && (
-        <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-          {fillLtr(builder.multi.limitNotice, { max: MAX_DESIGNS })}
+      {b.multi && <DesignCards b={b} limitMb={limitMb} addRef={addRef} onReplace={openReplace} onAdd={() => inputRef.current?.click()} />}
+      {/* Mounted as soon as the box is ticked (like the status above), so the notice is read aloud when its text appears. */}
+      {b.multi && (
+        <p role="status" className={capNotice ? 'rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground' : 'sr-only'}>
+          {capNotice ? fillLtr(builder.multi.limitNotice, { max: MAX_DESIGNS }) : ''}
         </p>
       )}
 
@@ -184,13 +193,14 @@ function UploadDesign({ b }: { b: BuilderApi }) {
         </div>
       )}
 
-      {design?.pdf && design.pdf.pageCount > 1 && (
+      {/* In a multi-design order these notes sit inside each design's card (they name the design they are about). */}
+      {!b.multi && design?.pdf && design.pdf.pageCount > 1 && (
         <Notice>{fillLtr(builder.upload.onlyFirstPage, { pages: design.pdf.pageCount })}</Notice>
       )}
-      {prefill && (
+      {!b.multi && prefill && (
         <Notice>{fillLtr(builder.upload.detectedSize, { size: `${safeFormatCm(prefill.widthUm)} × ${safeFormatCm(prefill.heightUm)}` })}</Notice>
       )}
-      {needsCropNotice(shape ?? 'rect', design) && <Notice>{builder.upload.cropNotice}</Notice>}
+      {!b.multi && needsCropNotice(shape ?? 'rect', design) && <Notice>{builder.upload.cropNotice}</Notice>}
       {shape === 'circle' && !design && <p className="text-sm text-muted-foreground">{builder.upload.squareHint}</p>}
       {shape === 'custom' && !design && <p className="text-sm text-muted-foreground">{builder.upload.transparentHint}</p>}
 
@@ -230,7 +240,19 @@ function UploadDesign({ b }: { b: BuilderApi }) {
 }
 
 /** The design cards of a multi-design order: preview, name, «مفرغ», replace and remove, then «إضافة تصميم». */
-function DesignCards({ b, limitMb, onReplace, onAdd }: { b: BuilderApi; limitMb: number; onReplace: (index: number) => void; onAdd: () => void }) {
+function DesignCards({
+  b,
+  limitMb,
+  addRef,
+  onReplace,
+  onAdd,
+}: {
+  b: BuilderApi;
+  limitMb: number;
+  addRef: React.Ref<HTMLButtonElement>;
+  onReplace: (index: number) => void;
+  onAdd: () => void;
+}) {
   const cards = b.rows.filter((r) => r.design || r.decoding || (r.index > 0 && r.error));
   const full = b.designCount >= MAX_DESIGNS;
   const busy = b.rows.some((r) => r.decoding);
@@ -244,7 +266,7 @@ function DesignCards({ b, limitMb, onReplace, onAdd }: { b: BuilderApi; limitMb:
         </ul>
       )}
       {(b.design || cards.length > 0) && (
-        <Button type="button" variant="outline" className="h-12 w-full gap-2 px-4 text-base" disabled={full} onClick={onAdd}>
+        <Button ref={addRef} type="button" variant="outline" className="h-12 w-full gap-2 px-4 text-base" disabled={full} onClick={onAdd}>
           <Plus className="size-5" aria-hidden />
           {builder.multi.add}
           <Ltr className="text-sm text-muted-foreground">
@@ -262,6 +284,7 @@ function DesignCards({ b, limitMb, onReplace, onAdd }: { b: BuilderApi; limitMb:
 function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow; limitMb: number; onReplace: () => void }) {
   const n = r.index + 1;
   const d = r.design;
+  const prefill = d && b.shape ? pdfPrefillUm(d, b.shape) : null;
   return (
     <li className="rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-4">
@@ -293,6 +316,12 @@ function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow;
                 {builder.upload.pixelsUnit}
               </p>
               {d.pdf && d.pdf.pageCount > 1 && <p className="text-xs text-muted-foreground">{fillLtr(builder.upload.onlyFirstPage, { pages: d.pdf.pageCount })}</p>}
+              {prefill && (
+                <p className="text-xs text-muted-foreground">
+                  {fillLtr(builder.upload.detectedSize, { size: `${safeFormatCm(prefill.widthUm)} × ${safeFormatCm(prefill.heightUm)}` })}
+                </p>
+              )}
+              {needsCropNotice(b.shape ?? 'rect', d) && <p className="text-xs text-muted-foreground">{builder.upload.cropNotice}</p>}
             </>
           )}
         </div>

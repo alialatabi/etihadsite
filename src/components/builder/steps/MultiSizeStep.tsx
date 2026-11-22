@@ -82,7 +82,7 @@ function DesignSizeRow({ b, r, isCircle }: { b: BuilderApi; r: DesignRow; isCirc
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h3 className="font-heading text-base font-bold">{fillLtr(builder.multi.designN, { n })}</h3>
+          <h3 id={`size-title-${n}`} className="font-heading text-base font-bold">{fillLtr(builder.multi.designN, { n })}</h3>
           {r.design ? (
             <Ltr className="block truncate text-xs text-muted-foreground">{r.design.file.name}</Ltr>
           ) : (
@@ -95,6 +95,7 @@ function DesignSizeRow({ b, r, isCircle }: { b: BuilderApi; r: DesignRow; isCirc
         <>
           <SizeInputs
             ids={ids}
+            labelledBy={`size-title-${n}`}
             isCircle={isCircle}
             widthText={r.widthText}
             heightText={r.heightText}

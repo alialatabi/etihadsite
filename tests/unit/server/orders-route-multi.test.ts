@@ -248,23 +248,104 @@ describe("POST /api/orders multi-design", () => {
     expect(r2.ok).toBe(true);
   });
 
-  it("does not lower the DPI for vector PDFs only", async () => {
-    const big = new Uint8Array(15 * 1024 * 1024);
-    const real = await vi.importActual<typeof import("@/lib/pdf/build-multi-sheet")>("@/lib/pdf/build-multi-sheet");
-    buildMulti.mockImplementation(async (input: MultiSheetPdfInput) => ({ ...(await real.buildMultiSheetPdf(input)), bytes: big }));
-    normaliseArtwork.mockReset().mockImplementation(async () => ({
+  /** The first mock artwork becomes a vector PDF (its normalised bytes are the upload's). */
+  const asPdfs = () =>
+    normaliseArtwork.mockReset().mockImplementation(async (bytes: Uint8Array) => ({
       ok: true,
       kind: "pdf",
       pxWidth: 100,
       pxHeight: 100,
-      artwork: { kind: "pdf", bytes: PNG, box: { x: 0, y: 0, width: 100, height: 100 }, rotate: 0, pageCount: 1 },
+      artwork: { kind: "pdf", bytes, box: { x: 0, y: 0, width: 100, height: 100 }, rotate: 0, pageCount: 1 },
     }));
-    // The bytes are not a PDF: only the call pattern matters, so stub the builder fully.
-    buildMulti.mockReset().mockResolvedValue({ bytes: big, report: { drawCount: 0 } });
-    const r = await json(await call(body({ orderId: "order-multi-vector0001" })));
-    expect(r.ok).toBe(true);
+  const OVER = 15 * 1024 * 1024;
+
+  it("asks the browser to turn the largest vector PDF into a picture when the sheet is over the limit (no pass at lower DPI)", async () => {
+    // Only the PDFs' bytes matter here, and no lower DPI can shrink them: the builder is stubbed.
+    asPdfs();
+    buildMulti.mockReset().mockResolvedValue({ bytes: new Uint8Array(OVER), report: { drawCount: 0 } });
+    await getStorage().saveUpload(UP[2], new Uint8Array(PNG.length + 500), meta("big.pdf"));
+    const res = await call(body({ orderId: "order-multi-vector0001" }));
+    expect(res.status).toBe(400);
+    expect(await json(res)).toMatchObject({ ok: false, error: "needs_raster", designIndex: 2 });
     expect(normaliseArtwork).toHaveBeenCalledTimes(3);
-    const stored = await getStorage().getOrder("order-multi-vector0001");
-    expect(stored?.designs?.every((d) => d.cutOut === undefined)).toBe(true);
+    expect(await getStorage().getOrder("order-multi-vector0001")).toBeNull();
+  });
+
+  it("does not store an oversized sheet: the retry with the PDF as a picture goes through", async () => {
+    // First request: three PDFs over the limit. Then design 2 is a small picture and the sheet fits.
+    asPdfs();
+    buildMulti.mockReset().mockResolvedValue({ bytes: new Uint8Array(OVER), report: { drawCount: 0 } });
+    const first = await json(await call(body({ orderId: "order-multi-vector0002" })));
+    expect(first).toMatchObject({ ok: false, error: "needs_raster", designIndex: 0 });
+    const arts = await artworks();
+    normaliseArtwork.mockReset().mockImplementation(async (_b: Uint8Array, opts: { spec: { widthUm: number } }) => ({
+      ok: true,
+      kind: "png",
+      pxWidth: 9,
+      pxHeight: 9,
+      artwork: arts[SIZES.indexOf(opts.spec.widthUm)],
+    }));
+    const real = await vi.importActual<typeof import("@/lib/pdf/build-multi-sheet")>("@/lib/pdf/build-multi-sheet");
+    buildMulti.mockReset().mockImplementation((input: MultiSheetPdfInput) => real.buildMultiSheetPdf(input));
+    expect((await json(await call(body({ orderId: "order-multi-vector0002" })))).ok).toBe(true);
+  });
+
+  it("a picture next to over-sized PDFs: the picture goes down in DPI, then the biggest PDF is named", async () => {
+    const arts = await artworks();
+    // A PDF's file size says nothing about the sheet (only page 1 is drawn), so the sheet is built once and judged by its size.
+    normaliseArtwork.mockReset().mockImplementation(async (_b: Uint8Array, opts: { spec: { widthUm: number } }) =>
+      opts.spec.widthUm === SIZES[0]
+        ? { ok: true, kind: "png", pxWidth: 9, pxHeight: 9, artwork: arts[0] }
+        : { ok: true, kind: "pdf", pxWidth: 9, pxHeight: 9, artwork: { kind: "pdf", bytes: new Uint8Array(OVER), box: { x: 0, y: 0, width: 100, height: 100 }, rotate: 0, pageCount: 1 } },
+    );
+    buildMulti.mockReset().mockResolvedValue({ bytes: new Uint8Array(OVER), report: { drawCount: 0 } });
+    await getStorage().saveUpload(UP[1], new Uint8Array(PNG.length + 900), meta("big1.pdf"));
+    const res = await json(await call(body({ orderId: "order-multi-vector0003" })));
+    expect(res).toMatchObject({ ok: false, error: "needs_raster", designIndex: 1 });
+    expect(normaliseArtwork).toHaveBeenCalledTimes(9); // 1200, 600 and 300 DPI
+    expect(buildMulti).toHaveBeenCalledTimes(3);
+  });
+
+  it("accepts vector PDFs whose file size is large but whose sheet fits (only page 1 is drawn)", async () => {
+    // The artwork bytes of each PDF are over the cap, the built sheet is small: the order goes through.
+    normaliseArtwork.mockReset().mockImplementation(async () => ({
+      ok: true,
+      kind: "pdf",
+      pxWidth: 9,
+      pxHeight: 9,
+      artwork: { kind: "pdf", bytes: new Uint8Array(OVER), box: { x: 0, y: 0, width: 100, height: 100 }, rotate: 0, pageCount: 2 },
+    }));
+    buildMulti.mockReset().mockResolvedValue({ bytes: new Uint8Array(1000), report: { drawCount: 0 } });
+    expect((await json(await call(body({ orderId: "order-multi-vector0004" })))).ok).toBe(true);
+    expect(buildMulti).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips building a pass whose raster artwork is far over the limit and goes to the next DPI", async () => {
+    const arts = await artworks();
+    const HUGE = 3 * OVER; // more than 3 x the 14 MiB cap
+    normaliseArtwork.mockReset().mockImplementation(async (_b: Uint8Array, opts: { spec: { widthUm: number }; targetDpi: number }) => {
+      const a = arts[SIZES.indexOf(opts.spec.widthUm)];
+      const artwork = opts.targetDpi === 1200 && a.kind === "raster" ? { ...a, bytes: new Uint8Array(HUGE / 3 + 1) } : a;
+      return { ok: true, kind: "png", pxWidth: 9, pxHeight: 9, artwork };
+    });
+    const r = await json(await call(body({ orderId: "order-multi-floor000001" })));
+    expect(r.ok).toBe(true);
+    const dpis = normaliseArtwork.mock.calls.map((c) => (c[1] as { targetDpi: number }).targetDpi);
+    expect(dpis).toEqual([1200, 1200, 1200, 600, 600, 600]);
+    expect(buildMulti).toHaveBeenCalledTimes(1); // the 1200 DPI sheet was never built
+  });
+
+  it("still builds a pass whose raster artwork is only a little over the limit (the sheet may be smaller)", async () => {
+    const arts = await artworks();
+    normaliseArtwork.mockReset().mockImplementation(async (_b: Uint8Array, opts: { spec: { widthUm: number } }) => {
+      const a = arts[SIZES.indexOf(opts.spec.widthUm)];
+      return { ok: true, kind: "png", pxWidth: 9, pxHeight: 9, artwork: a.kind === "raster" ? { ...a, bytes: new Uint8Array(6 * 1024 * 1024) } : a };
+    });
+    // 18 MiB of artwork, but the (stubbed) sheet is small: built once, accepted at 1200 DPI.
+    buildMulti.mockReset().mockResolvedValue({ bytes: new Uint8Array(1000), report: { drawCount: 0 } });
+    const r = await json(await call(body({ orderId: "order-multi-floor000002" })));
+    expect(r.ok).toBe(true);
+    expect(buildMulti).toHaveBeenCalledTimes(1);
+    expect(normaliseArtwork).toHaveBeenCalledTimes(3);
   });
 });

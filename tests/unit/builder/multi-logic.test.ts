@@ -24,6 +24,7 @@ import {
   editHeight,
   editWidth,
   isMultiActive,
+  PickGate,
   perDesignTotal,
   roomLeft,
   savedExtras,
@@ -305,6 +306,34 @@ describe('picking files', () => {
     const full = splitPick(f(2), true, MAX_DESIGNS - 1);
     expect(full.extras).toEqual([]);
     expect(full.ignored).toBe(2);
+  });
+
+  it('a second pick while design 1 still reads counts the extras of the first pick against the cap, and the overflow is reported', () => {
+    const gate = new PickGate();
+    const a = splitPick(f(6), false, gate.pending); // design 1 + 5 extras, all waiting for design 1
+    expect(a.extras).toHaveLength(5);
+    gate.begin(a.extras.length);
+    expect(gate.pending).toBe(5);
+    const b = splitPick(f(5), true, 0 + gate.pending); // only 2 places are left
+    expect(b.extras).toHaveLength(MAX_DESIGNS - 1 - 5);
+    expect(b.ignored).toBe(5 - b.extras.length);
+  });
+
+  it('PickGate: a pick that waited is allowed once, and reset (box unticked, AI started) cancels it', () => {
+    const gate = new PickGate();
+    const epoch = gate.begin(3);
+    expect(gate.pending).toBe(3);
+    expect(gate.settle(epoch, 3)).toBe(true);
+    expect(gate.pending).toBe(0);
+
+    const slow = gate.begin(2); // design 1 still reading ...
+    gate.reset(); // ... the box is unticked
+    expect(gate.pending).toBe(0);
+    expect(gate.settle(slow, 2)).toBe(false); // design 1 finished: its extras are not started
+    expect(gate.pending).toBe(0);
+
+    const fresh = gate.begin(1); // a pick after the reset works as usual
+    expect(gate.settle(fresh, 1)).toBe(true);
   });
 
   it('designCount / roomLeft', () => {
