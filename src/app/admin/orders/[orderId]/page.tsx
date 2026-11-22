@@ -138,6 +138,8 @@ export default async function OrderDetailPage({
               <Row label={d.perSheet}>
                 <Ltr>{o.layout.countPerSheet}</Ltr>
               </Row>
+              {/* A multi-design sheet has no cols x rows grid: its sizes and counts are in the designs panel. */}
+              {multi ? null : (
               <Row label={d.layout}>
                 {o.layout.turnedCount
                   ? fill(d.mixedValue, {
@@ -149,6 +151,7 @@ export default async function OrderDetailPage({
                   : fill(d.layoutValue, { cols: o.layout.cols, rows: o.layout.rows })}
                 {o.layout.rotated && !o.layout.turnedCount ? ` · ${d.rotated}` : ''}
               </Row>
+              )}
               <Row label={d.material}>{pv.material ? common.materials[pv.material] : admin.orders.missing}</Row>
               <Row label={d.requestedStickers}>
                 {pv.requestedStickers === null ? admin.orders.missing : <Ltr>{pv.requestedStickers}</Ltr>}

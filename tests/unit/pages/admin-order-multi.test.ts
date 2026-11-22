@@ -76,6 +76,8 @@ describe('admin order detail', () => {
     expect(html).toContain('2.5 × 2.5 سم');
     expect(html).toContain('410');
     expect(html).toContain(admin.detail.perDesign);
+    // No "k columns x 1 rows" grid line for a multi sheet.
+    expect(html).not.toContain(admin.detail.layout);
     // design 1 «مفرغ», 2 and 3 «غير مفرغ»
     expect((html.match(new RegExp(`>${admin.detail.cutOut}<`, 'g')) ?? []).length).toBe(1);
     expect((html.match(new RegExp(`>${admin.detail.notCutOut}<`, 'g')) ?? []).length).toBe(2);
@@ -86,6 +88,7 @@ describe('admin order detail', () => {
     expect(png).toContain('/api/admin/files/order-single-00001/design"');
     expect(png).not.toContain('design-1');
     expect(png).toContain('single.png');
+    expect(png).toContain(admin.detail.layout);
     expect((png.match(new RegExp(`>${admin.detail.cutOut}<`, 'g')) ?? []).length).toBe(1);
     const jpg = await detail(single('jpeg'));
     expect((jpg.match(new RegExp(`>${admin.detail.notCutOut}<`, 'g')) ?? []).length).toBe(1);
