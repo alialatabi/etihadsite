@@ -1,0 +1,184 @@
+import 'server-only';
+/**
+ * Per-file security rules of an upload, applied by `checkUploadBytes` (./image-header) before a file is
+ * stored, so all three upload routes share them:
+ *  - `hasPngSignature`: the full 8-byte PNG signature (sniffKind only reads the first 4 bytes).
+ *  - `rasterDecodeOk`: a memory-safe full decode of a PNG/JPEG (per-side cap, then a decode of a 256 px thumbnail).
+ *  - `pdfHasActiveContent`: a PDF that pdf-lib can read must not carry scripts, launch/submit actions, embedded
+ *    files, rich media or XFA forms.
+ * Nothing here ever rejects a PDF that cannot be parsed: those go through the existing order flow
+ * (needs_raster / encrypted), and a bound that is exceeded accepts the file rather than block a real order.
+ */
+import sharp from 'sharp';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFStream, ParseSpeeds } from 'pdf-lib';
+import type { PDFObject } from 'pdf-lib';
+import { MAX_INPUT_PIXELS } from '@/lib/design/pixel-cap';
+import type { DesignKind } from '@/lib/types';
+
+/** Largest width or height (px) a raster upload may declare; no print case comes near it. */
+export const MAX_SIDE_PX = 60_000;
+/** The decode test shrinks to fit this box, so memory stays small whatever the file's size. */
+const DECODE_BOX_PX = 256;
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** True when the first 8 bytes are the PNG signature. */
+export function hasPngSignature(bytes: Uint8Array): boolean {
+  if (bytes.length < PNG_SIGNATURE.length) return false;
+  for (let i = 0; i < PNG_SIGNATURE.length; i++) if (bytes[i] !== PNG_SIGNATURE[i]) return false;
+  return true;
+}
+
+let crcTable: Uint32Array | null = null;
+function crc32(bytes: Uint8Array, start: number, end: number): number {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      crcTable[n] = c >>> 0;
+    }
+  }
+  let crc = 0xffffffff;
+  for (let i = start; i < end; i++) crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * True when a PNG's chunk stream is whole: IHDR first, every chunk inside the file with a matching CRC,
+ * an IEND at the end of the stream (bytes after IEND are ignored). A file cut in the middle fails.
+ */
+export function pngChunksComplete(bytes: Uint8Array): boolean {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let pos = PNG_SIGNATURE.length;
+  let first = true;
+  while (pos + 12 <= bytes.length) {
+    const len = view.getUint32(pos);
+    const end = pos + 12 + len; // length + type + data + crc
+    if (end > bytes.length) return false;
+    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    if (first && type !== 'IHDR') return false;
+    first = false;
+    if (view.getUint32(end - 4) !== crc32(bytes, pos + 4, end - 4)) return false;
+    if (type === 'IEND') return true;
+    pos = end;
+  }
+  return false;
+}
+
+/**
+ * True when a PNG/JPEG decodes. Declared size first (a side over MAX_SIDE_PX is refused), then a full decode
+ * shrunk to a 256 px box to a raw buffer (`failOn: 'error'`, the pixel cap still applies). A JPEG that fails
+ * to decode is corrupt. A PNG that fails is corrupt only when its chunk stream is not whole (cut, damaged
+ * CRC, no IEND): a whole stream with too little pixel data is let through exactly as before this check
+ * existed (the order flow still rejects it as 'corrupt' later), because the golden route fixtures are such files.
+ */
+export async function rasterDecodeOk(bytes: Uint8Array, kind: DesignKind): Promise<boolean> {
+  if (kind === 'pdf') return true;
+  try {
+    const meta = await sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
+    if (!meta.width || !meta.height || meta.width > MAX_SIDE_PX || meta.height > MAX_SIDE_PX) return false;
+  } catch {
+    return false;
+  }
+  try {
+    await sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' })
+      .resize(DECODE_BOX_PX, DECODE_BOX_PX, { fit: 'inside', withoutEnlargement: true })
+      .raw()
+      .toBuffer();
+    return true;
+  } catch {
+    return kind === 'png' && pngChunksComplete(bytes);
+  }
+}
+
+/* ─────────────────────────────── PDF active content ─────────────────────────────── */
+
+/** Most dictionaries/arrays/streams visited in one scan; past it the file is accepted. */
+const MAX_VISITED = 200_000;
+/** Deepest nesting followed inside one indirect object. */
+const MAX_DEPTH = 64;
+
+/** A dictionary key that makes a PDF unsafe whatever its value. */
+const BAD_KEYS = new Set(['JS', 'JavaScript', 'EmbeddedFiles', 'XFA']);
+/** An /S (action type) value that makes a PDF unsafe. */
+const BAD_ACTIONS = new Set(['JavaScript', 'Launch', 'ImportData', 'SubmitForm']);
+/** A /Subtype (annotation type) value that makes a PDF unsafe. */
+const BAD_SUBTYPES = new Set(['RichMedia', 'FileAttachment', 'Movie', 'Sound', 'Screen']);
+
+/** The name's text without the slash, with #xx escapes decoded; null for a non-name. */
+function nameText(o: PDFObject | undefined): string | null {
+  if (o instanceof PDFName) {
+    try {
+      return o.decodeText();
+    } catch {
+      return o.asString().replace(/^\//, '');
+    }
+  }
+  return null;
+}
+
+type Work = { obj: PDFObject; depth: number };
+
+/**
+ * True when `root` (an indirect object's value) holds an unsafe dictionary: itself, one nested in a
+ * dictionary, an array or a stream's dictionary. References are not followed (every indirect object is
+ * scanned on its own). `budget.left` is shared across the whole scan; null means the bound was reached.
+ */
+function unsafeIn(root: PDFObject, budget: { left: number }): boolean | null {
+  const stack: Work[] = [{ obj: root, depth: 0 }];
+  while (stack.length) {
+    const { obj, depth } = stack.pop() as Work;
+    if (budget.left-- <= 0) return null;
+    if (depth > MAX_DEPTH) continue;
+    let dict: PDFDict | null = null;
+    if (obj instanceof PDFStream) dict = obj.dict;
+    else if (obj instanceof PDFDict) dict = obj;
+    else if (obj instanceof PDFArray) {
+      for (let i = 0; i < obj.size(); i++) stack.push({ obj: obj.get(i), depth: depth + 1 });
+      continue;
+    }
+    if (!dict) continue;
+    for (const [key, value] of dict.entries()) {
+      const k = nameText(key);
+      if (k !== null && BAD_KEYS.has(k)) return true;
+      if (k === 'S') {
+        const v = nameText(value);
+        if (v !== null && BAD_ACTIONS.has(v)) return true;
+      } else if (k === 'Subtype') {
+        const v = nameText(value);
+        if (v !== null && BAD_SUBTYPES.has(v)) return true;
+      }
+      if (value instanceof PDFDict || value instanceof PDFArray || value instanceof PDFStream) {
+        stack.push({ obj: value, depth: depth + 1 });
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * True when a PDF that pdf-lib can load has scripts (/JS, /JavaScript, an /S of JavaScript, Launch,
+ * ImportData or SubmitForm), embedded files, rich media, file attachments, movies, sounds, screens or an
+ * XFA form. False for a clean PDF, for one pdf-lib cannot load (the order flow handles those) and when a
+ * bound is exceeded. Never throws.
+ */
+export async function pdfHasActiveContent(bytes: Uint8Array): Promise<boolean> {
+  try {
+    const doc = await PDFDocument.load(bytes, {
+      updateMetadata: false,
+      ignoreEncryption: true,
+      throwOnInvalidObject: false,
+      parseSpeed: ParseSpeeds.Fastest,
+    });
+    const budget = { left: MAX_VISITED };
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      const verdict = unsafeIn(obj, budget);
+      if (verdict === true) return true;
+      if (verdict === null) return false;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}

@@ -44,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     if (file.size === 0) return uploadFail("corrupt");
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    // Magic bytes alone prove nothing: a PNG/JPEG must have a readable header within the pixel cap (PDFs are never judged).
+    // Magic bytes alone prove nothing: a PNG/JPEG must have a readable header within the pixel cap and decode, a PDF must carry no active content (see _lib/file-safety).
     const checked = await checkUploadBytes(bytes);
     if (!checked.ok) return uploadFail(checked.error);
     const { kind } = checked;

@@ -10,6 +10,7 @@ import type {
   UploadResponse,
 } from "@/lib/types";
 import { pngWithDeclaredSize } from "../png-header";
+import { pdfWithOpenActionJs, pdfWithRichMedia } from "../unsafe-pdf";
 import { setupEnv } from "./helpers";
 
 /**
@@ -270,6 +271,31 @@ describe("POST /api/upload/direct/commit", () => {
     expect(f.deleteFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
     expect(f.saveUploadMeta).not.toHaveBeenCalled();
     expect(f.files.has(`uploads/${ID}.bin`)).toBe(false);
+  });
+
+  it.each([
+    ["a JavaScript OpenAction", pdfWithOpenActionJs],
+    ["a RichMedia annotation", pdfWithRichMedia],
+  ])("rejects a PDF with %s with 422 unsafe and deletes it", async (_label, make) => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, await make());
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "a.pdf" }));
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ ok: false, error: "unsafe", message: "الملف فيه محتوى غير مسموح. صدّره من جديد كـPNG أو PDF عادي." });
+    expect(f.deleteFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.files.has(`uploads/${ID}.bin`)).toBe(false);
+  });
+
+  it("rejects a PNG cut in the middle with 400 corrupt and deletes it", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png").slice(0, 600));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID, name: "a.png" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.deleteFile).toHaveBeenCalledWith(`uploads/${ID}.bin`);
   });
 
   it("without saveUploadMeta, a real PNG is committed through saveUpload (bytes + meta)", async () => {
