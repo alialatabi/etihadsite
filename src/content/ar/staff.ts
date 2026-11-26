@@ -64,5 +64,23 @@ export const staff = {
     summary: '{receipts}، يعني {files}.',
     /** {percent} = the print scale. */
     printHint: 'اطبع الملف بحجم {percent}% (Actual size) على ورق A4.',
+    /** The white around and between the receipts of one file (millimetres, physical sides of the paper). */
+    spacing: {
+      title: 'المسافات (ملم)',
+      top: 'فوق',
+      bottom: 'تحت',
+      right: 'يمين',
+      left: 'يسار',
+      /** One gap: between the receipts (A5, DL). */
+      gap: 'بين التصاميم',
+      gapX: 'بين الأعمدة',
+      gapY: 'بين الصفوف',
+      reset: 'رجّع المسافات الافتراضية',
+      /** {lowMm} and {highMm} = the limits in mm. */
+      invalid: 'اكتب رقم من {lowMm} إلى {highMm} ملم.',
+      noRoom: 'المسافات كبيرة وما يبقى مكان كافي للتصميم. صغّر المسافات.',
+      /** {formatName} = A6. */
+      a6Hint: 'بالـ {formatName} المسافة بين الصفوف هي بياض الصف الثاني.',
+    },
   },
 } as const;

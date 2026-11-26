@@ -5,6 +5,7 @@ import {
   RECEIPT_FORMAT_IDS,
   autoTurn,
   autoWhite,
+  defaultSpacing,
   guessReceiptFormat,
   nextTurn,
   receiptSlots,
@@ -19,20 +20,20 @@ const rect = (xUm: number, yUm: number, widthUm: number, heightUm: number): Rece
 
 describe('slot table (spec B1)', () => {
   it('a4: one 21 x 28.5 slot, 12 mm of white at the top', () => {
-    expect(receiptSlots('a4')).toEqual([rect(0, 12_000, 210_000, 285_000)]);
+    expect(receiptSlots('a4', defaultSpacing('a4'))).toEqual([rect(0, 12_000, 210_000, 285_000)]);
   });
   it('a5: two 15 x 19.5 slots, 15 mm white on the left, 8 mm between', () => {
-    expect(receiptSlots('a5')).toEqual([rect(15_000, 0, 195_000, 144_500), rect(15_000, 152_500, 195_000, 144_500)]);
+    expect(receiptSlots('a5', defaultSpacing('a5'))).toEqual([rect(15_000, 0, 195_000, 144_500), rect(15_000, 152_500, 195_000, 144_500)]);
   });
   it('dl: three 19.5 x 10 slots, 15 mm white on the left', () => {
-    expect(receiptSlots('dl')).toEqual([
+    expect(receiptSlots('dl', defaultSpacing('dl'))).toEqual([
       rect(15_000, 0, 195_000, 93_666),
       rect(15_000, 101_667, 195_000, 93_666),
       rect(15_000, 203_334, 195_000, 93_666),
     ]);
   });
   it('a6, white at the top: 4 quarters from y 7000 and 155680, columns at 0 and 108610', () => {
-    expect(receiptSlots('a6', 'top')).toEqual([
+    expect(receiptSlots('a6', defaultSpacing('a6', 'top'))).toEqual([
       rect(0, 7_000, 101_390, 141_320),
       rect(108_610, 7_000, 101_390, 141_320),
       rect(0, 155_680, 101_390, 141_320),
@@ -40,7 +41,7 @@ describe('slot table (spec B1)', () => {
     ]);
   });
   it('a6, white at the bottom: the mirrored rows 0 and 148680', () => {
-    expect(receiptSlots('a6', 'bottom')).toEqual([
+    expect(receiptSlots('a6', defaultSpacing('a6', 'bottom'))).toEqual([
       rect(0, 0, 101_390, 141_320),
       rect(108_610, 0, 101_390, 141_320),
       rect(0, 148_680, 101_390, 141_320),
@@ -48,11 +49,11 @@ describe('slot table (spec B1)', () => {
     ]);
   });
   it('the other formats ignore the white side', () => {
-    for (const f of ['a4', 'a5', 'dl'] as const) expect(receiptSlots(f, 'bottom')).toEqual(receiptSlots(f, 'top'));
+    for (const f of ['a4', 'a5', 'dl'] as const) expect(receiptSlots(f, defaultSpacing(f, 'bottom'))).toEqual(receiptSlots(f, defaultSpacing(f, 'top')));
   });
   it('per-sheet counts match the slot lists, and the table sizes match the slots', () => {
     for (const f of RECEIPT_FORMAT_IDS) {
-      const slots = receiptSlots(f);
+      const slots = receiptSlots(f, defaultSpacing(f));
       expect(slots).toHaveLength(RECEIPT_FORMATS[f].perSheet);
       for (const s of slots) expect([s.widthUm, s.heightUm]).toEqual([RECEIPT_FORMATS[f].widthUm, RECEIPT_FORMATS[f].heightUm]);
     }
@@ -64,7 +65,7 @@ describe('slot table (spec B1)', () => {
   it('every slot is inside the page, none overlap, whole numbers only', () => {
     for (const f of RECEIPT_FORMAT_IDS) {
       for (const white of ['top', 'bottom'] as const) {
-        const slots = receiptSlots(f, white);
+        const slots = receiptSlots(f, defaultSpacing(f, white));
         for (const s of slots) {
           expect(Object.values(s).every(Number.isInteger)).toBe(true);
           expect(s.xUm).toBeGreaterThanOrEqual(0);
@@ -82,25 +83,25 @@ describe('slot table (spec B1)', () => {
     }
   });
   it('white and gaps as the owner wrote them', () => {
-    const a4 = receiptSlots('a4')[0];
+    const a4 = receiptSlots('a4', defaultSpacing('a4'))[0];
     expect(a4.yUm).toBe(12_000); // white at the top
     expect(A4_UM.heightUm - (a4.yUm + a4.heightUm)).toBe(0);
-    const a5 = receiptSlots('a5');
+    const a5 = receiptSlots('a5', defaultSpacing('a5'));
     expect(a5[0].xUm).toBe(15_000); // white on the left
     expect(a5[1].yUm - (a5[0].yUm + a5[0].heightUm)).toBe(8_000); // 8 mm between
     expect(a5[1].yUm + a5[1].heightUm).toBe(A4_UM.heightUm);
-    const dl = receiptSlots('dl');
+    const dl = receiptSlots('dl', defaultSpacing('dl'));
     expect(dl[0].xUm).toBe(15_000);
     expect(dl[1].yUm - (dl[0].yUm + dl[0].heightUm)).toBe(8_001);
     expect(dl[2].yUm - (dl[1].yUm + dl[1].heightUm)).toBe(8_001);
     expect(dl[2].yUm + dl[2].heightUm).toBe(A4_UM.heightUm);
-    const top = receiptSlots('a6', 'top');
+    const top = receiptSlots('a6', defaultSpacing('a6', 'top'));
     expect(top[0].yUm).toBe(7_000); // 7 mm of white per quarter
     expect(top[2].yUm - (top[0].yUm + top[0].heightUm)).toBe(7_360); // between the rows
     expect(top[2].yUm + top[2].heightUm).toBe(A4_UM.heightUm);
     expect(top[1].xUm - (top[0].xUm + top[0].widthUm)).toBe(7_220); // 7.22 mm between the columns
     expect(top[1].xUm + top[1].widthUm).toBe(A4_UM.widthUm);
-    const bottom = receiptSlots('a6', 'bottom');
+    const bottom = receiptSlots('a6', defaultSpacing('a6', 'bottom'));
     expect(bottom[0].yUm).toBe(0);
     expect(A4_UM.heightUm - (bottom[2].yUm + bottom[2].heightUm)).toBe(7_000);
   });

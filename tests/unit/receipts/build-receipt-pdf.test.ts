@@ -9,7 +9,7 @@ import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { describe, expect, it } from 'vitest';
 import { buildReceiptPdf } from '@/lib/pdf/build-receipt-pdf';
-import { RECEIPT_FORMAT_IDS, receiptSlots, type ReceiptFormat, type ReceiptSlot, type ReceiptWhite } from '@/lib/receipts/formats';
+import { RECEIPT_FORMAT_IDS, defaultSpacing, receiptSlots, type ReceiptFormat, type ReceiptSlot, type ReceiptSpacing, type ReceiptWhite } from '@/lib/receipts/formats';
 import { A4_PT, umToPt } from '@/lib/units';
 import type { NormalisedArtwork } from '@/lib/types';
 
@@ -104,7 +104,7 @@ async function vectorArt(rotate: 0 | 90 | 180 | 270 = 0): Promise<Extract<Normal
 }
 
 function expectCoversSlots(d: { drawn: Drawn[]; pageH: number }, format: ReceiptFormat, white: ReceiptWhite) {
-  const slots = receiptSlots(format, white);
+  const slots = receiptSlots(format, defaultSpacing(format, white));
   expect(d.drawn).toHaveLength(slots.length);
   slots.forEach((slot, i) => {
     const want = rectPt(slot, d.pageH);
@@ -131,7 +131,7 @@ describe('buildReceiptPdf: clip rectangles and coverage', () => {
   for (const { format, white } of CASES) {
     for (const turnCw of [0, 270]) {
       it(`${format}${format === 'a6' ? ` (white ${white})` : ''}, turn ${turnCw}: raster fills every slot exactly`, async () => {
-        const bytes = await buildReceiptPdf({ format, white, turnCw, artwork: await rasterArt(40, 20) }, NOW);
+        const bytes = await buildReceiptPdf({ format, spacing: defaultSpacing(format, white), turnCw, artwork: await rasterArt(40, 20) }, NOW);
         const d = await dump(bytes);
         expect(d.pageW).toBeCloseTo(A4_PT.widthPt, 3);
         expect(d.pageH).toBeCloseTo(A4_PT.heightPt, 3);
@@ -139,7 +139,7 @@ describe('buildReceiptPdf: clip rectangles and coverage', () => {
         expectCoversSlots(d, format, white);
       });
       it(`${format}${format === 'a6' ? ` (white ${white})` : ''}, turn ${turnCw}: vector page fills every slot exactly`, async () => {
-        const bytes = await buildReceiptPdf({ format, white, turnCw, artwork: await vectorArt() }, NOW);
+        const bytes = await buildReceiptPdf({ format, spacing: defaultSpacing(format, white), turnCw, artwork: await vectorArt() }, NOW);
         const d = await dump(bytes);
         expect(d.drawn.every((x) => x.kind === 'form')).toBe(true);
         expectCoversSlots(d, format, white);
@@ -148,22 +148,22 @@ describe('buildReceiptPdf: clip rectangles and coverage', () => {
   }
 
   it('a PNG artwork works the same way', async () => {
-    const bytes = await buildReceiptPdf({ format: 'dl', white: 'top', turnCw: 0, artwork: await rasterArt(60, 30, 'image/png') }, NOW);
+    const bytes = await buildReceiptPdf({ format: 'dl', spacing: defaultSpacing('dl', 'top'), turnCw: 0, artwork: await rasterArt(60, 30, 'image/png') }, NOW);
     expectCoversSlots(await dump(bytes), 'dl', 'top');
   });
 
   it('stretches to fill: a 4:1 design in a 1.35:1 slot is not proportion-kept', async () => {
-    const bytes = await buildReceiptPdf({ format: 'a4', white: 'top', turnCw: 0, artwork: await rasterArt(400, 100) }, NOW);
+    const bytes = await buildReceiptPdf({ format: 'a4', spacing: defaultSpacing('a4', 'top'), turnCw: 0, artwork: await rasterArt(400, 100) }, NOW);
     expectCoversSlots(await dump(bytes), 'a4', 'top');
   });
 });
 
 describe('buildReceiptPdf: turns', () => {
-  const slot = receiptSlots('a5')[0];
+  const slot = receiptSlots('a5', defaultSpacing('a5'))[0];
   const sheet = () => rectPt(slot, A4_PT.heightPt);
 
   async function one(artwork: NormalisedArtwork, turnCw: number) {
-    const d = await dump(await buildReceiptPdf({ format: 'a5', white: 'top', turnCw, artwork }, NOW));
+    const d = await dump(await buildReceiptPdf({ format: 'a5', spacing: defaultSpacing('a5', 'top'), turnCw, artwork }, NOW));
     return d.drawn[0];
   }
   /** Where the design's top edge ended up: the x / y shared by both top corners. */
@@ -209,6 +209,56 @@ describe('buildReceiptPdf: turns', () => {
   });
 });
 
+describe('buildReceiptPdf: custom spacing', () => {
+  const CUSTOM: { name: string; format: ReceiptFormat; spacing: ReceiptSpacing }[] = [
+    { name: 'a5, left 10 mm, gap 5 mm', format: 'a5', spacing: { ...defaultSpacing('a5'), leftUm: 10_000, gapYUm: 5_000 } },
+    { name: 'a6, no gaps', format: 'a6', spacing: { ...defaultSpacing('a6'), gapXUm: 0, gapYUm: 0 } },
+    { name: 'a6, odd margins on every side', format: 'a6', spacing: { topUm: 3_500, rightUm: 2_250, bottomUm: 11_000, leftUm: 4_001, gapXUm: 1_234, gapYUm: 5_678 } },
+    { name: 'dl, 5 mm top and bottom', format: 'dl', spacing: { ...defaultSpacing('dl'), topUm: 5_000, bottomUm: 5_000 } },
+    { name: 'a4, margins on all four sides', format: 'a4', spacing: { topUm: 8_000, rightUm: 6_000, bottomUm: 9_000, leftUm: 7_000, gapXUm: 0, gapYUm: 0 } },
+  ];
+  for (const { name, format, spacing } of CUSTOM) {
+    for (const turnCw of [0, 270]) {
+      it(`${name}, turn ${turnCw}: clip rects and the drawn art equal the slots (raster and vector)`, async () => {
+        for (const artwork of [await rasterArt(40, 20), await vectorArt()]) {
+          const d = await dump(await buildReceiptPdf({ format, spacing, turnCw, artwork }, NOW));
+          const slots = receiptSlots(format, spacing);
+          expect(d.drawn).toHaveLength(slots.length);
+          slots.forEach((slot, i) => {
+            const want = rectPt(slot, d.pageH);
+            const got = d.drawn[i];
+            expect(Math.abs(got.clip[0] - want.x0)).toBeLessThan(TOL_PT);
+            expect(Math.abs(got.clip[1] - want.y0)).toBeLessThan(TOL_PT);
+            expect(Math.abs(got.clip[2] - want.x1)).toBeLessThan(TOL_PT);
+            expect(Math.abs(got.clip[3] - want.y1)).toBeLessThan(TOL_PT);
+            const b = bounds(got.corners);
+            expect(Math.abs(b.x0 - want.x0)).toBeLessThan(TOL_PT);
+            expect(Math.abs(b.y0 - want.y0)).toBeLessThan(TOL_PT);
+            expect(Math.abs(b.x1 - want.x1)).toBeLessThan(TOL_PT);
+            expect(Math.abs(b.y1 - want.y1)).toBeLessThan(TOL_PT);
+          });
+        }
+      });
+    }
+  }
+
+  it('the default spacing gives the live numbers (a6, white bottom)', async () => {
+    const d = await dump(await buildReceiptPdf({ format: 'a6', spacing: defaultSpacing('a6', 'bottom'), turnCw: 0, artwork: await rasterArt(40, 20) }, NOW));
+    expect(d.drawn).toHaveLength(4);
+    const want = receiptSlots('a6', defaultSpacing('a6', 'bottom'));
+    expect(want.map((s) => s.yUm)).toEqual([0, 0, 148_680, 148_680]);
+    d.drawn.forEach((x, i) => expect(Math.abs(x.clip[3] - rectPt(want[i], d.pageH).y1)).toBeLessThan(TOL_PT));
+  });
+
+  it('spacing that does not fit is refused, not printed', async () => {
+    const artwork = await rasterArt(40, 20);
+    const noRoom: ReceiptSpacing = { ...defaultSpacing('a4'), leftUm: 100_000, rightUm: 95_000 };
+    await expect(buildReceiptPdf({ format: 'a4', spacing: noRoom, turnCw: 0, artwork }, NOW)).rejects.toThrow();
+    await expect(buildReceiptPdf({ format: 'a4', spacing: { ...defaultSpacing('a4'), topUm: -1 }, turnCw: 0, artwork }, NOW)).rejects.toThrow();
+    await expect(buildReceiptPdf({ format: 'a4', spacing: { ...defaultSpacing('a4'), topUm: 100_001 }, turnCw: 0, artwork }, NOW)).rejects.toThrow();
+  });
+});
+
 describe('buildReceiptPdf: one embedded object, metadata', () => {
   async function objects(bytes: Uint8Array, subtype: string) {
     const doc = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -220,7 +270,7 @@ describe('buildReceiptPdf: one embedded object, metadata', () => {
 
   it('the raster is embedded once for 4 slots, with the uploaded bytes (DCT) and size', async () => {
     const art = await rasterArt(40, 20);
-    const bytes = await buildReceiptPdf({ format: 'a6', white: 'top', turnCw: 0, artwork: art }, NOW);
+    const bytes = await buildReceiptPdf({ format: 'a6', spacing: defaultSpacing('a6', 'top'), turnCw: 0, artwork: art }, NOW);
     const images = await objects(bytes, '/Image');
     expect(images).toHaveLength(1);
     expect(images[0].dict.get(PDFName.of('Filter'))?.toString()).toBe('/DCTDecode');
@@ -232,12 +282,12 @@ describe('buildReceiptPdf: one embedded object, metadata', () => {
     expect(xo.keys()).toHaveLength(1);
   });
   it('the vector page is embedded once for 3 slots', async () => {
-    const bytes = await buildReceiptPdf({ format: 'dl', white: 'top', turnCw: 0, artwork: await vectorArt() }, NOW);
+    const bytes = await buildReceiptPdf({ format: 'dl', spacing: defaultSpacing('dl', 'top'), turnCw: 0, artwork: await vectorArt() }, NOW);
     expect(await objects(bytes, '/Form')).toHaveLength(1);
     expect(await objects(bytes, '/Image')).toHaveLength(0);
   });
   it('one A4 page, title, producer and creator, dated now, print at actual size', async () => {
-    const bytes = await buildReceiptPdf({ format: 'a5', white: 'top', turnCw: 0, artwork: await rasterArt(40, 20) }, NOW);
+    const bytes = await buildReceiptPdf({ format: 'a5', spacing: defaultSpacing('a5', 'top'), turnCw: 0, artwork: await rasterArt(40, 20) }, NOW);
     const doc = await PDFDocument.load(bytes, { updateMetadata: false });
     expect(doc.getPageCount()).toBe(1);
     expect(doc.getTitle()).toBe('Softy receipts');
@@ -249,8 +299,8 @@ describe('buildReceiptPdf: one embedded object, metadata', () => {
   });
   it('is deterministic for the same input and date', async () => {
     const artwork = await rasterArt(40, 20);
-    const a = await buildReceiptPdf({ format: 'a6', white: 'bottom', turnCw: 270, artwork }, NOW);
-    const b = await buildReceiptPdf({ format: 'a6', white: 'bottom', turnCw: 270, artwork }, NOW);
+    const a = await buildReceiptPdf({ format: 'a6', spacing: defaultSpacing('a6', 'bottom'), turnCw: 270, artwork }, NOW);
+    const b = await buildReceiptPdf({ format: 'a6', spacing: defaultSpacing('a6', 'bottom'), turnCw: 270, artwork }, NOW);
     expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
   });
 });

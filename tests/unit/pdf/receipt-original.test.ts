@@ -11,7 +11,7 @@ import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream } from
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { prepareOriginalArtwork } from '@/lib/design/original.client';
 import { buildReceiptPdf } from '@/lib/pdf/build-receipt-pdf';
-import { autoTurn, autoWhite, receiptSlots, type ReceiptFormat, type ReceiptTurn } from '@/lib/receipts/formats';
+import { autoTurn, autoWhite, defaultSpacing, receiptSlots, type ReceiptFormat, type ReceiptTurn } from '@/lib/receipts/formats';
 import { designSpec } from '@/components/staff/receipts/receipt-logic';
 import { A4_PT, umToPt } from '@/lib/units';
 import type { DesignSource } from '@/lib/types';
@@ -37,9 +37,9 @@ function jpegSource(bytes: Uint8Array, px: [number, number]): DesignSource {
 /** What the receipts download does for one card: auto turn, spec, prepare the original, build the sheet. */
 async function receiptSheet(src: DesignSource, format: ReceiptFormat, turn: ReceiptTurn = autoTurn(format, src)) {
   const white = autoWhite(turn);
-  const prepared = await prepareOriginalArtwork(src, designSpec(format, turn));
+  const prepared = await prepareOriginalArtwork(src, designSpec(format, defaultSpacing(format, white), turn));
   if (!prepared.ok) throw new Error(prepared.error);
-  const out = await buildReceiptPdf({ format, white, turnCw: turn, artwork: prepared.artwork }, NOW);
+  const out = await buildReceiptPdf({ format, spacing: defaultSpacing(format, white), turnCw: turn, artwork: prepared.artwork }, NOW);
   const doc = await PDFDocument.load(out, { updateMetadata: false });
   const page = doc.getPage(0);
   const xo = (page.node.Resources() as PDFDict).lookup(PDFName.of('XObject'), PDFDict);
@@ -48,7 +48,7 @@ async function receiptSheet(src: DesignSource, format: ReceiptFormat, turn: Rece
   const image = xo.lookup(names[0]) as PDFRawStream;
   const num = '(-?[\\d.]+(?:e-?\\d+)?)';
   const draws = [...contentOf(page).matchAll(new RegExp(`${num} ${num} ${num} ${num} ${num} ${num} cm\\s+/${names[0].decodeText()} Do`, 'g'))].map((m) => m.slice(1, 7).map(Number));
-  return { image, draws, slots: receiptSlots(format, white), prepared: prepared.artwork, pageH: page.getHeight(), pageW: page.getWidth() };
+  return { image, draws, slots: receiptSlots(format, defaultSpacing(format, white)), prepared: prepared.artwork, pageH: page.getHeight(), pageW: page.getWidth() };
 }
 
 const nameOf = (d: PDFDict, key: string) => d.get(PDFName.of(key))?.toString();

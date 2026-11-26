@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { decodeDesign } from '@/lib/design/decode.client';
 import { reportClientError } from '@/lib/monitoring/report.client';
-import type { ReceiptFormat, ReceiptWhite } from '@/lib/receipts/formats';
+import type { ReceiptFormat, ReceiptSpacingKey, ReceiptWhite } from '@/lib/receipts/formats';
 import type { QualitySettings } from '@/lib/types';
 import { MAX_RECEIPT_FILES, MAX_RECEIPT_FILE_BYTES, canDownload, createViewCache, receiptReducer } from './receipt-logic';
 
@@ -88,9 +88,11 @@ export function useReceiptItems(quality: QualitySettings) {
   const setFormat = useCallback((id: string, format: ReceiptFormat) => dispatch({ type: 'format', id, format }), []);
   const turn = useCallback((id: string) => dispatch({ type: 'turn', id }), []);
   const setWhite = useCallback((id: string, white: ReceiptWhite) => dispatch({ type: 'white', id, white }), []);
+  const setSpacing = useCallback((id: string, key: ReceiptSpacingKey, text: string) => dispatch({ type: 'spacing', id, key, text }), []);
+  const resetSpacing = useCallback((id: string) => dispatch({ type: 'spacingReset', id }), []);
 
   const viewOf = useMemo(() => createViewCache(quality), [quality]);
   const views = cards.map(viewOf);
 
-  return { cards, views, ready: canDownload(views), tooMany, add, remove, setFormat, turn, setWhite };
+  return { cards, views, ready: canDownload(views), tooMany, add, remove, setFormat, turn, setWhite, setSpacing, resetSpacing };
 }

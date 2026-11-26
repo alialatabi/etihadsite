@@ -5,11 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { defaultSpacing, type ReceiptSpacing } from '@/lib/receipts/formats';
 import type { DesignSource, StickerSpec } from '@/lib/types';
 
 const calls = vi.hoisted(() => ({
   prepared: [] as { name: string; spec: StickerSpec }[],
-  built: [] as { input: { format: string; white: string; turnCw: number; artwork: unknown }; now: Date }[],
+  built: [] as { input: { format: string; spacing: ReceiptSpacing; turnCw: number; artwork: unknown }; now: Date }[],
 }));
 vi.mock('@/lib/design/original.client', () => ({
   prepareOriginalArtwork: async (source: DesignSource, spec: StickerSpec): Promise<unknown> => {
@@ -20,7 +21,7 @@ vi.mock('@/lib/design/original.client', () => ({
   },
 }));
 vi.mock('@/lib/pdf/build-receipt-pdf', () => ({
-  buildReceiptPdf: async (input: { format: string; white: string; turnCw: number; artwork: unknown }, now: Date) => {
+  buildReceiptPdf: async (input: { format: string; spacing: ReceiptSpacing; turnCw: number; artwork: unknown }, now: Date) => {
     if (input.artwork && (input.artwork as { pxWidth: number }).pxWidth === 666) throw new Error('boom');
     calls.built.push({ input, now });
     return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
@@ -186,10 +187,10 @@ describe('receipt cards: reducer', () => {
 
 describe('receipt cards: what a card shows', () => {
   it('designSpec: the slot in the design\'s own orientation (sides swapped for a quarter turn)', () => {
-    expect(designSpec('a5', 0)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 195_000, heightUm: 144_500 });
-    expect(designSpec('a5', 270)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 144_500, heightUm: 195_000 });
-    expect(designSpec('a6', 90)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 141_320, heightUm: 101_390 });
-    expect(designSpec('a6', 180)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 101_390, heightUm: 141_320 });
+    expect(designSpec('a5', defaultSpacing('a5'), 0)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 195_000, heightUm: 144_500 });
+    expect(designSpec('a5', defaultSpacing('a5'), 270)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 144_500, heightUm: 195_000 });
+    expect(designSpec('a6', defaultSpacing('a6'), 90)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 141_320, heightUm: 101_390 });
+    expect(designSpec('a6', defaultSpacing('a6'), 180)).toEqual({ shape: 'rect', corners: 'sharp', widthUm: 101_390, heightUm: 141_320 });
   });
 
   it('resolution is the poorer axis over the slot after the card turn', () => {
@@ -288,10 +289,10 @@ describe('download', () => {
     expect(saved.map((f) => f.name)).toEqual(['a a5-A5.pdf', 'b a6-A6.pdf', 'c dl-DL.pdf']);
     expect(out.saved).toEqual(saved.map((f) => f.name));
     expect(progress).toEqual([1, 2, 3]);
-    expect(calls.built.map((c) => [c.input.format, c.input.white, c.input.turnCw])).toEqual([
-      ['a5', 'bottom', 270],
-      ['a6', 'top', 0],
-      ['dl', 'top', 0],
+    expect(calls.built.map((c) => [c.input.format, c.input.spacing, c.input.turnCw])).toEqual([
+      ['a5', defaultSpacing('a5'), 270],
+      ['a6', defaultSpacing('a6', 'top'), 0],
+      ['dl', defaultSpacing('dl'), 0],
     ]);
     for (const c of calls.built) expect(c.now).toBe(now);
     expect(calls.prepared.map((p) => p.spec)).toEqual([

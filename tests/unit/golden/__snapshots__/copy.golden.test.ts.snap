@@ -10,11 +10,14 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{dpi} x1",
   "{fee} x1",
   "{files} x2",
+  "{formatName} x1",
   "{from} x2",
   "{gap} x3",
   "{gapX} x1",
   "{gapY} x1",
   "{h} x3",
+  "{highMm} x1",
+  "{lowMm} x1",
   "{margin} x1",
   "{max} x7",
   "{mb} x4",
@@ -1180,7 +1183,21 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
     "multiPage": "الملف بيه أكثر من صفحة. نستخدم الصفحة الأولى بس.",
     "previewAria": "معاينة ورقة A4",
     "summary": "{receipts}، يعني {files}.",
-    "printHint": "اطبع الملف بحجم {percent}% (Actual size) على ورق A4."
+    "printHint": "اطبع الملف بحجم {percent}% (Actual size) على ورق A4.",
+    "spacing": {
+      "title": "المسافات (ملم)",
+      "top": "فوق",
+      "bottom": "تحت",
+      "right": "يمين",
+      "left": "يسار",
+      "gap": "بين التصاميم",
+      "gapX": "بين الأعمدة",
+      "gapY": "بين الصفوف",
+      "reset": "رجّع المسافات الافتراضية",
+      "invalid": "اكتب رقم من {lowMm} إلى {highMm} ملم.",
+      "noRoom": "المسافات كبيرة وما يبقى مكان كافي للتصميم. صغّر المسافات.",
+      "a6Hint": "بالـ {formatName} المسافة بين الصفوف هي بياض الصف الثاني."
+    }
   }
 }"
 `;
@@ -1189,13 +1206,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 1197,
+  "chars": 1433,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 6,
-  "sha256OfRawJson": "ae9212b4d50f7050c9e0a75e50174e9d1d4e9c9b6251e3d118e6ac19f8aacc7b",
-  "strings": 46,
+  "objects": 7,
+  "sha256OfRawJson": "630737a25c265225dba8674271508e039295014fcc0d2970a785090d1f51b08f",
+  "strings": 58,
 }
 `;
 

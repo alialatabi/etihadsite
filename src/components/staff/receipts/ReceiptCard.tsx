@@ -6,9 +6,22 @@ import { builder, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RECEIPT_FORMATS, RECEIPT_FORMAT_IDS, receiptSlots, type ReceiptFormat, type ReceiptTurn, type ReceiptWhite } from '@/lib/receipts/formats';
+import {
+  MAX_SPACING_UM,
+  RECEIPT_FORMATS,
+  RECEIPT_FORMAT_IDS,
+  RECEIPT_GRID,
+  receiptSlots,
+  spacingFits,
+  type ReceiptFormat,
+  type ReceiptSpacing,
+  type ReceiptSpacingKey,
+  type ReceiptTurn,
+  type ReceiptWhite,
+} from '@/lib/receipts/formats';
 import { UM_PER_MM, A4_UM } from '@/lib/units';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { MAX_RECEIPT_FILE_BYTES, type ReceiptCardState, type ReceiptCardView } from './receipt-logic';
@@ -19,6 +32,8 @@ interface Props {
   onFormat: (id: string, format: ReceiptFormat) => void;
   onTurn: (id: string) => void;
   onWhite: (id: string, white: ReceiptWhite) => void;
+  onSpacing: (id: string, key: ReceiptSpacingKey, text: string) => void;
+  onSpacingReset: (id: string) => void;
   onRemove: (id: string) => void;
   onDownload: (id: string) => void;
   /** A download is running: the per-card buttons wait. */
@@ -43,13 +58,58 @@ function FormatLine({ format, inline }: { format: ReceiptFormat; inline?: boolea
   );
 }
 
+/** One millimetre field of the spacing section. The text is the card's own, so text that is not a number stays visible and blocks the download. */
+function SpacingField({
+  card,
+  view,
+  field,
+  label,
+  disabled,
+  onSpacing,
+}: {
+  card: ReceiptCardState;
+  view: ReceiptCardView;
+  field: ReceiptSpacingKey;
+  label: string;
+  disabled: boolean;
+  onSpacing: Props['onSpacing'];
+}) {
+  const id = `receipt-sp-${field}-${card.id}`;
+  const invalid = view.invalidSpacing.includes(field);
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        dir="ltr"
+        autoComplete="off"
+        className="h-11 text-start"
+        value={card.spacingText[field]}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        onChange={(e) => onSpacing(card.id, field, e.target.value)}
+      />
+      {invalid && (
+        <p id={`${id}-error`} className="text-xs text-destructive">
+          {fillLtr(r.spacing.invalid, { lowMm: 0, highMm: MAX_SPACING_UM / UM_PER_MM })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * The A4 sheet as the PDF will print it: the preview image stretched into every slot and turned
  * by the card's turn about the slot centre (the preview is already upright, so only the card's
  * turn applies). A quarter turn draws the image with its sides swapped first.
  */
-function SheetSketch({ format, white, turn, previewUrl }: { format: ReceiptFormat; white: ReceiptWhite; turn: ReceiptTurn; previewUrl: string | null }) {
+function SheetSketch({ format, spacing, turn, previewUrl }: { format: ReceiptFormat; spacing: ReceiptSpacing; turn: ReceiptTurn; previewUrl: string | null }) {
   const swap = turn === 90 || turn === 270;
+  // No room: nothing to draw (the slot sizes would be zero or negative).
+  const slots = spacingFits(format, spacing) ? receiptSlots(format, spacing) : [];
   return (
     <svg
       viewBox={`0 0 ${mm(A4_UM.widthUm)} ${mm(A4_UM.heightUm)}`}
@@ -58,7 +118,7 @@ function SheetSketch({ format, white, turn, previewUrl }: { format: ReceiptForma
       aria-label={r.previewAria}
       preserveAspectRatio="xMidYMid meet"
     >
-      {receiptSlots(format, white).map((s, i) => {
+      {slots.map((s, i) => {
         const x = mm(s.xUm);
         const y = mm(s.yUm);
         const w = mm(s.widthUm);
@@ -89,9 +149,11 @@ function SheetSketch({ format, white, turn, previewUrl }: { format: ReceiptForma
 }
 
 /** One receipt design: thumbnail, name, format, turn, the A4 sheet preview and its messages. */
-export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onTurn, onWhite, onRemove, onDownload, busy }: Props) {
+export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onTurn, onWhite, onSpacing, onSpacingReset, onRemove, onDownload, busy }: Props) {
   const msgId = `receipt-msg-${card.id}`;
   const previewUrl = card.design?.previewUrl ?? null;
+  const grid = RECEIPT_GRID[card.format];
+  const spacingOff = busy || card.status !== 'ready';
 
   return (
     <li className="rounded-2xl border bg-card p-4" data-receipt-card={card.id}>
@@ -165,16 +227,43 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
             )}
           </div>
 
+          {card.design && (
+            <fieldset className="space-y-3" data-receipt-spacing={card.id}>
+              <legend className="text-sm font-medium">{r.spacing.title}</legend>
+              {/* The four PHYSICAL sides of the paper. In RTL the first cell of a row is on the right. */}
+              <div className="grid grid-cols-2 gap-3">
+                <SpacingField card={card} view={view} field="topUm" label={r.spacing.top} disabled={spacingOff} onSpacing={onSpacing} />
+                <SpacingField card={card} view={view} field="bottomUm" label={r.spacing.bottom} disabled={spacingOff} onSpacing={onSpacing} />
+                <SpacingField card={card} view={view} field="rightUm" label={r.spacing.right} disabled={spacingOff} onSpacing={onSpacing} />
+                <SpacingField card={card} view={view} field="leftUm" label={r.spacing.left} disabled={spacingOff} onSpacing={onSpacing} />
+                {grid.cols > 1 && <SpacingField card={card} view={view} field="gapXUm" label={r.spacing.gapX} disabled={spacingOff} onSpacing={onSpacing} />}
+                {grid.rows > 1 && (
+                  <SpacingField card={card} view={view} field="gapYUm" label={grid.cols > 1 ? r.spacing.gapY : r.spacing.gap} disabled={spacingOff} onSpacing={onSpacing} />
+                )}
+              </div>
+              {card.format === 'a6' && <p className="text-xs text-muted-foreground">{fillLtr(r.spacing.a6Hint, { formatName: r.formats.a6 })}</p>}
+              <Button type="button" variant="outline" className="h-11 px-4" disabled={spacingOff} onClick={() => onSpacingReset(card.id)}>
+                {r.spacing.reset}
+              </Button>
+            </fieldset>
+          )}
+
           <div id={msgId} aria-live="polite" className="space-y-2">
-            {view.problem && (
+            {view.problem?.kind === 'decode' && (
               <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>{fillLtr(builder.upload.errors[view.problem.error], { mb: uploadLimitMb(MAX_RECEIPT_FILE_BYTES) })}</span>
               </p>
             )}
+            {view.problem?.kind === 'spacing' && view.problem.reason === 'noRoom' && (
+              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{r.spacing.noRoom}</span>
+              </p>
+            )}
             {view.multiPage && <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">{r.multiPage}</p>}
-            {view.dpi !== null && !view.problem && <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: view.dpi })}</p>}
-            {view.lowDpi && !view.problem && (
+            {view.dpi !== null && view.problem?.kind !== 'decode' && <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: view.dpi })}</p>}
+            {view.lowDpi && view.problem?.kind !== 'decode' && (
               <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
                 {staff.lowDpi}
               </p>
@@ -183,7 +272,7 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
         </div>
 
         <div className="mx-auto w-full max-w-44 shrink-0 sm:mx-0 sm:w-44">
-          <SheetSketch format={card.format} white={card.white} turn={card.turn} previewUrl={previewUrl} />
+          <SheetSketch format={card.format} spacing={card.spacing} turn={card.turn} previewUrl={previewUrl} />
         </div>
       </div>
     </li>

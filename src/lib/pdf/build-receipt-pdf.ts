@@ -6,7 +6,7 @@
  * no proportion keeping, no cutter dots, no margin (receipts are cut by guillotine).
  */
 import { PDFDocument, clip, concatTransformationMatrix, drawObject, endPath, popGraphicsState, pushGraphicsState, type PDFOperator, type PDFPage } from 'pdf-lib';
-import { receiptSlots, type ReceiptFormat, type ReceiptWhite } from '@/lib/receipts/formats';
+import { receiptSlots, spacingFits, type ReceiptFormat, type ReceiptSpacing } from '@/lib/receipts/formats';
 import { A4_PT, umToPt } from '@/lib/units';
 import type { NormalisedArtwork } from '@/lib/types';
 import { PDF_PRODUCER, embedArtwork, rectPath, setPrintAtActualSize } from './sheet-page';
@@ -15,14 +15,15 @@ export const RECEIPT_PDF_TITLE = 'Softy receipts';
 
 export interface ReceiptPdfInput {
   format: ReceiptFormat;
-  /** Only used by A6. */
-  white: ReceiptWhite;
+  /** The white around and between the receipts (it already encodes an A6 card's white side). Must fit: see `spacingFits`. */
+  spacing: ReceiptSpacing;
   /** The employee's turn, clockwise degrees (a multiple of 90). Added to the artwork's own turn (PDF /Rotate, EXIF). */
   turnCw: number;
   artwork: NormalisedArtwork;
 }
 
 export async function buildReceiptPdf(input: ReceiptPdfInput, now: Date): Promise<Uint8Array> {
+  if (!spacingFits(input.format, input.spacing)) throw new Error('receipt spacing does not fit the page');
   const doc = await PDFDocument.create();
   const pageH = A4_PT.heightPt;
   const page: PDFPage = doc.addPage([A4_PT.widthPt, pageH]);
@@ -37,7 +38,7 @@ export async function buildReceiptPdf(input: ReceiptPdfInput, now: Date): Promis
   const dispW = swap ? bh : bw;
   const dispH = swap ? bw : bh;
 
-  for (const slot of receiptSlots(input.format, input.white)) {
+  for (const slot of receiptSlots(input.format, input.spacing)) {
     const w = umToPt(slot.widthUm);
     const h = umToPt(slot.heightUm);
     const x = umToPt(slot.xUm);

@@ -9,13 +9,21 @@ import { MAX_STAFF_FILES, MAX_STAFF_FILE_BYTES, SAVE_GAP_MS, fileBaseName, type 
 import { prepareOriginalArtwork } from '@/lib/design/original.client';
 import type { PrepareError } from '@/lib/design/prepare.client';
 import { reportClientError } from '@/lib/monitoring/report.client';
+import { formatMm, parseMm } from '@/lib/parse/mm';
 import {
-  RECEIPT_FORMATS,
+  MAX_SPACING_UM,
+  RECEIPT_SPACING_KEYS,
   autoTurn,
   autoWhite,
+  defaultSpacing,
   guessReceiptFormat,
   nextTurn,
+  receiptSlots,
+  spacingFits,
+  swapWhiteSpacing,
   type ReceiptFormat,
+  type ReceiptSpacing,
+  type ReceiptSpacingKey,
   type ReceiptTurn,
   type ReceiptWhite,
 } from '@/lib/receipts/formats';
@@ -37,6 +45,10 @@ export interface ReceiptCardState {
   turn: ReceiptTurn;
   /** A6 only: where the white strip of each quarter is. */
   white: ReceiptWhite;
+  /** The white around and between the receipts on the page: the last VALID numbers (what the preview and the PDF use). */
+  spacing: ReceiptSpacing;
+  /** What each spacing field shows. May hold text that is not a valid number: then the card cannot be printed. */
+  spacingText: Record<ReceiptSpacingKey, string>;
 }
 
 export type ReceiptAction =
@@ -45,6 +57,8 @@ export type ReceiptAction =
   | { type: 'format'; id: string; format: ReceiptFormat }
   | { type: 'turn'; id: string }
   | { type: 'white'; id: string; white: ReceiptWhite }
+  | { type: 'spacing'; id: string; key: ReceiptSpacingKey; text: string }
+  | { type: 'spacingReset'; id: string }
   | { type: 'remove'; id: string };
 
 function update(state: ReceiptCardState[], id: string, fn: (c: ReceiptCardState) => ReceiptCardState): ReceiptCardState[] {
@@ -57,10 +71,35 @@ function update(state: ReceiptCardState[], id: string, fn: (c: ReceiptCardState)
   return copy;
 }
 
-/** The format's own rules for a design: the turn that matches the slot, and the white that goes with that turn. */
+function textsOf(s: ReceiptSpacing): Record<ReceiptSpacingKey, string> {
+  const t = {} as Record<ReceiptSpacingKey, string>;
+  for (const k of RECEIPT_SPACING_KEYS) t[k] = formatMm(s[k]);
+  return t;
+}
+
+/** The card with exactly these numbers committed and shown. */
+function withSpacing(card: ReceiptCardState, spacing: ReceiptSpacing): ReceiptCardState {
+  return { ...card, spacing, spacingText: textsOf(spacing) };
+}
+
+/** The A6 white strip moved to the other side: top and bottom swap, numbers and the text of both fields. */
+function swapWhite(card: ReceiptCardState): ReceiptCardState {
+  const { topUm, bottomUm } = card.spacingText;
+  return { ...card, spacing: swapWhiteSpacing(card.spacing), spacingText: { ...card.spacingText, topUm: bottomUm, bottomUm: topUm } };
+}
+
+/** Sets the white side; only an A6 card moves its margins (the other formats keep the field and nothing else). */
+function setWhite(card: ReceiptCardState, white: ReceiptWhite): ReceiptCardState {
+  if (card.white === white) return card;
+  const next = { ...card, white };
+  return card.format === 'a6' ? swapWhite(next) : next;
+}
+
+/** The format's own rules for a design: the turn that matches the slot, the white that goes with that turn, and the format's default spacing. */
 function applyAuto(card: ReceiptCardState, format: ReceiptFormat, design: DesignSource): ReceiptCardState {
   const turn = autoTurn(format, design);
-  return { ...card, format, turn, white: autoWhite(turn) };
+  const white = autoWhite(turn);
+  return withSpacing({ ...card, format, turn, white }, defaultSpacing(format, white));
 }
 
 export function receiptReducer(state: ReceiptCardState[], action: ReceiptAction): ReceiptCardState[] {
@@ -78,6 +117,8 @@ export function receiptReducer(state: ReceiptCardState[], action: ReceiptAction)
           formatPicked: false,
           turn: 0,
           white: 'top',
+          spacing: defaultSpacing('a4'),
+          spacingText: textsOf(defaultSpacing('a4')),
         }),
       );
       return added.length ? [...state, ...added] : state;
@@ -96,26 +137,47 @@ export function receiptReducer(state: ReceiptCardState[], action: ReceiptAction)
       return update(state, action.id, (card) => {
         if (card.format === action.format) return card.formatPicked ? card : { ...card, formatPicked: true };
         const picked: ReceiptCardState = { ...card, formatPicked: true };
-        return card.design ? applyAuto(picked, action.format, card.design) : { ...picked, format: action.format };
+        return card.design ? applyAuto(picked, action.format, card.design) : withSpacing({ ...picked, format: action.format }, defaultSpacing(action.format, card.white));
       });
     case 'turn':
       return update(state, action.id, (card) => {
         if (!card.design) return card;
         const turn = nextTurn(card.turn);
-        return { ...card, turn, white: autoWhite(turn) };
+        return setWhite({ ...card, turn }, autoWhite(turn));
       });
     case 'white':
-      return update(state, action.id, (card) => (card.white === action.white ? card : { ...card, white: action.white }));
+      return update(state, action.id, (card) => setWhite(card, action.white));
+    case 'spacing':
+      return update(state, action.id, (card) => {
+        // The inputs are disabled until the card is ready; a stray action before that changes nothing.
+        if (card.status !== 'ready' || card.spacingText[action.key] === action.text) return card;
+        const um = parseMm(action.text);
+        // Only a valid number is committed; any other text stays in the field and blocks the card (cardView).
+        const spacing = um !== null && um <= MAX_SPACING_UM ? { ...card.spacing, [action.key]: um } : card.spacing;
+        return { ...card, spacing, spacingText: { ...card.spacingText, [action.key]: action.text } };
+      });
+    case 'spacingReset':
+      return update(state, action.id, (card) => (card.status === 'ready' ? withSpacing(card, defaultSpacing(card.format, card.white)) : card));
   }
 }
 
 /* ───────────────────────────────── what a card shows ───────────────────────────────── */
 
-export type ReceiptProblem = { kind: 'decode'; error: DesignDecodeError };
+export type ReceiptProblem = { kind: 'decode'; error: DesignDecodeError } | { kind: 'spacing'; reason: 'invalid' | 'noRoom' };
+
+/** The spacing fields whose text is not a number from 0 to 100 mm that matches what is committed. */
+function invalidSpacingKeys(card: ReceiptCardState): ReceiptSpacingKey[] {
+  return RECEIPT_SPACING_KEYS.filter((k) => {
+    const um = parseMm(card.spacingText[k]);
+    return um === null || um > MAX_SPACING_UM || um !== card.spacing[k];
+  });
+}
 
 export interface ReceiptCardView {
   /** Why the card cannot be printed yet; null while it is fine or still decoding. */
   problem: ReceiptProblem | null;
+  /** With a spacing problem 'invalid': the fields whose text is not a valid number. */
+  invalidSpacing: readonly ReceiptSpacingKey[];
   /** The poorer of the two axes' resolution over the slot (after the card's turn); null for vector PDFs. */
   dpi: number | null;
   /** Below the website's warning DPI. A warning only: it never blocks. */
@@ -127,22 +189,28 @@ export interface ReceiptCardView {
 }
 
 /**
- * The spec the design is printed at, in the DESIGN's own orientation: the slot, with its sides
- * swapped when the card turns the design a quarter. (The design is stretched, so width and
- * height are measured separately.)
+ * The spec the design is printed at, in the DESIGN's own orientation: the card's real slot (the
+ * format's grid with the card's spacing), with its sides swapped when the card turns the design a
+ * quarter. (The design is stretched, so width and height are measured separately.)
  */
-export function designSpec(format: ReceiptFormat, turn: ReceiptTurn): StickerSpec {
-  const { widthUm, heightUm } = RECEIPT_FORMATS[format];
+export function designSpec(format: ReceiptFormat, spacing: ReceiptSpacing, turn: ReceiptTurn): StickerSpec {
+  const { widthUm, heightUm } = receiptSlots(format, spacing)[0];
   const swap = turn === 90 || turn === 270;
   return { shape: 'rect', corners: 'sharp', widthUm: swap ? heightUm : widthUm, heightUm: swap ? widthUm : heightUm };
 }
 
 export function cardView(card: ReceiptCardState, quality: QualitySettings): ReceiptCardView {
-  const empty: ReceiptCardView = { problem: null, dpi: null, lowDpi: false, multiPage: false, valid: false };
+  const empty: ReceiptCardView = { problem: null, invalidSpacing: [], dpi: null, lowDpi: false, multiPage: false, valid: false };
   if (card.status === 'error' && card.error) return { ...empty, problem: { kind: 'decode', error: card.error } };
   const design = card.design;
   if (!design) return empty;
-  const spec = designSpec(card.format, card.turn);
+  const multiPage = (design.pdf?.pageCount ?? 1) > 1;
+  const invalid = invalidSpacingKeys(card);
+  // A spacing that leaves no room never reaches the slot maths below (its sizes could be zero or negative).
+  if (!spacingFits(card.format, card.spacing)) {
+    return { ...empty, multiPage, invalidSpacing: invalid, problem: { kind: 'spacing', reason: invalid.length ? 'invalid' : 'noRoom' } };
+  }
+  const spec = designSpec(card.format, card.spacing, card.turn);
   const across = dpiFor(design, spec);
   const down = dpiFor({ kind: design.kind, pxWidth: design.pxHeight, pxHeight: design.pxWidth }, { ...spec, widthUm: spec.heightUm });
   const dpi = across === null || down === null ? null : Math.min(across, down);
@@ -150,8 +218,10 @@ export function cardView(card: ReceiptCardState, quality: QualitySettings): Rece
     ...empty,
     dpi,
     lowDpi: dpiStatus(dpi, quality) !== 'ok',
-    multiPage: (design.pdf?.pageCount ?? 1) > 1,
-    valid: card.status === 'ready',
+    multiPage,
+    invalidSpacing: invalid,
+    problem: invalid.length ? { kind: 'spacing', reason: 'invalid' } : null,
+    valid: card.status === 'ready' && invalid.length === 0,
   };
 }
 
@@ -201,7 +271,9 @@ export async function buildReceiptFile(card: ReceiptCardState, fileName: string,
   const failed = { cardId: card.id, fileName: card.file.name } as const;
   try {
     if (!card.design || card.status !== 'ready') return { ok: false, reason: 'build', ...failed };
-    const prepared = await prepareOriginalArtwork(card.design, designSpec(card.format, card.turn));
+    // Text that is not a valid number, or no room: the UI blocks the download, and so does this.
+    if (invalidSpacingKeys(card).length || !spacingFits(card.format, card.spacing)) return { ok: false, reason: 'build', ...failed };
+    const prepared = await prepareOriginalArtwork(card.design, designSpec(card.format, card.spacing, card.turn));
     if (!prepared.ok) {
       if (prepared.error === 'corrupt') {
         reportClientError(new Error('receipt prepare failed: corrupt'), {
@@ -212,7 +284,7 @@ export async function buildReceiptFile(card: ReceiptCardState, fileName: string,
       return { ok: false, reason: 'prepare', ...failed, error: prepared.error };
     }
     const { buildReceiptPdf } = await import('@/lib/pdf/build-receipt-pdf');
-    const bytes = await buildReceiptPdf({ format: card.format, white: card.white, turnCw: card.turn, artwork: prepared.artwork }, now);
+    const bytes = await buildReceiptPdf({ format: card.format, spacing: card.spacing, turnCw: card.turn, artwork: prepared.artwork }, now);
     return { ok: true, bytes, fileName };
   } catch (e) {
     // No file name or design data goes along.

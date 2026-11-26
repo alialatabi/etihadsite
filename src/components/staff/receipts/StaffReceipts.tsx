@@ -120,7 +120,7 @@ export function StaffReceipts({ quality }: { quality: QualitySettings }) {
       {n > 0 && (
         <ul className="space-y-4">
           {s.cards.map((card, i) => (
-            <ReceiptCard key={card.id} card={card} view={s.views[i]} onFormat={s.setFormat} onTurn={s.turn} onWhite={s.setWhite} onRemove={s.remove} onDownload={downloadOne} busy={busy} />
+            <ReceiptCard key={card.id} card={card} view={s.views[i]} onFormat={s.setFormat} onTurn={s.turn} onWhite={s.setWhite} onSpacing={s.setSpacing} onSpacingReset={s.resetSpacing} onRemove={s.remove} onDownload={downloadOne} busy={busy} />
           ))}
         </ul>
       )}

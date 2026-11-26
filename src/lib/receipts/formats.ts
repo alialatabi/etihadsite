@@ -5,7 +5,7 @@
  * B1/B2); every length is an integer number of micrometres, page origin TOP-LEFT, A4 portrait
  * 210 000 x 297 000 µm (A4_UM). A test pins every number.
  */
-import { ptToUm } from '@/lib/units';
+import { A4_UM, ptToUm } from '@/lib/units';
 import type { DesignSource } from '@/lib/types';
 
 export type ReceiptFormat = 'a4' | 'a5' | 'a6' | 'dl';
@@ -40,24 +40,80 @@ export const RECEIPT_FORMATS: Readonly<Record<ReceiptFormat, ReceiptFormatInfo>>
   a6: { perSheet: 4, widthUm: 101_390, heightUm: 141_320 },
 };
 
-/** The slots of one sheet, in reading order (top to bottom; A6 row by row). `white` only matters for A6. */
-export function receiptSlots(format: ReceiptFormat, white: ReceiptWhite = 'top'): ReceiptSlot[] {
-  const { widthUm, heightUm } = RECEIPT_FORMATS[format];
+/** The grid of one sheet: columns x rows of receipts. */
+export const RECEIPT_GRID: Readonly<Record<ReceiptFormat, { cols: number; rows: number }>> = {
+  a4: { cols: 1, rows: 1 },
+  a5: { cols: 1, rows: 2 },
+  dl: { cols: 1, rows: 3 },
+  a6: { cols: 2, rows: 2 },
+};
+
+/**
+ * The white around and between the receipts on the A4 page, in integer µm. top / right / bottom /
+ * left are the PHYSICAL sides of the page (page origin top-left, whatever the reading direction).
+ * `gapXUm` only applies with more than one column (A6), `gapYUm` with more than one row (A5, DL, A6);
+ * a gap that does not apply is ignored by `receiptSlots` but kept in the object.
+ */
+export interface ReceiptSpacing {
+  topUm: number;
+  rightUm: number;
+  bottomUm: number;
+  leftUm: number;
+  gapXUm: number;
+  gapYUm: number;
+}
+export type ReceiptSpacingKey = keyof ReceiptSpacing;
+export const RECEIPT_SPACING_KEYS: readonly ReceiptSpacingKey[] = ['topUm', 'bottomUm', 'rightUm', 'leftUm', 'gapXUm', 'gapYUm'];
+
+/** Each spacing value is 0..100 mm. */
+export const MAX_SPACING_UM = 100_000;
+/** A slot narrower or shorter than 20 mm means there is no room for the design. */
+export const MIN_SLOT_UM = 20_000;
+
+/** The owner's written spacing (spec B1/B2). `white` only matters for A6 (which side the 7 mm strip is on). */
+export function defaultSpacing(format: ReceiptFormat, white: ReceiptWhite = 'top'): ReceiptSpacing {
   switch (format) {
     case 'a4':
-      return [{ xUm: 0, yUm: 12_000, widthUm, heightUm }];
+      return { topUm: 12_000, rightUm: 0, bottomUm: 0, leftUm: 0, gapXUm: 0, gapYUm: 0 };
     case 'a5':
-      // 15 mm white on the left, 8 mm between the two.
-      return [0, 152_500].map((yUm) => ({ xUm: 15_000, yUm, widthUm, heightUm }));
     case 'dl':
-      // 15 mm white on the left, about 8 mm between the three.
-      return [0, 101_667, 203_334].map((yUm) => ({ xUm: 15_000, yUm, widthUm, heightUm }));
-    case 'a6': {
-      // 7 mm of white per quarter at the top or the bottom, 7.22 mm between the two columns.
-      const rows = white === 'top' ? [7_000, 155_680] : [0, 148_680];
-      return rows.flatMap((yUm) => [0, 108_610].map((xUm) => ({ xUm, yUm, widthUm, heightUm })));
-    }
+      // 15 mm white on the left, 8 mm between the receipts (DL: the 2 leftover µm go to the first gaps).
+      return { topUm: 0, rightUm: 0, bottomUm: 0, leftUm: 15_000, gapXUm: 0, gapYUm: 8_000 };
+    case 'a6':
+      // 7 mm of white per quarter at the top or the bottom, 7.22 mm between the columns, 7.36 mm between the rows.
+      return { topUm: white === 'top' ? 7_000 : 0, rightUm: 0, bottomUm: white === 'top' ? 0 : 7_000, leftUm: 0, gapXUm: 7_220, gapYUm: 7_360 };
   }
+}
+
+/** Top and bottom margins swapped: the A6 white strip moved to the other side. */
+export function swapWhiteSpacing(s: ReceiptSpacing): ReceiptSpacing {
+  return { ...s, topUm: s.bottomUm, bottomUm: s.topUm };
+}
+
+/** Start of each of `n` cells along an axis of length `length`, and the cell size (the leftover µm go to the first gaps). */
+function axis(n: number, length: number, start: number, end: number, gap: number): { cell: number; starts: number[] } {
+  const avail = length - start - end - (n - 1) * gap;
+  const cell = Math.floor(avail / n);
+  const left = avail - n * cell; // 0 <= left < n
+  return { cell, starts: Array.from({ length: n }, (_, i) => start + i * cell + i * gap + Math.min(i, left)) };
+}
+
+/** The slots of one sheet, in reading order (top to bottom; A6 row by row). */
+export function receiptSlots(format: ReceiptFormat, spacing: ReceiptSpacing): ReceiptSlot[] {
+  const { cols, rows } = RECEIPT_GRID[format];
+  const x = axis(cols, A4_UM.widthUm, spacing.leftUm, spacing.rightUm, spacing.gapXUm);
+  const y = axis(rows, A4_UM.heightUm, spacing.topUm, spacing.bottomUm, spacing.gapYUm);
+  return y.starts.flatMap((yUm) => x.starts.map((xUm) => ({ xUm, yUm, widthUm: x.cell, heightUm: y.cell })));
+}
+
+/** Every value a whole number of µm in 0..100 mm, and every slot at least 20 mm wide and tall. */
+export function spacingFits(format: ReceiptFormat, spacing: ReceiptSpacing): boolean {
+  for (const k of RECEIPT_SPACING_KEYS) {
+    const v = spacing[k];
+    if (!Number.isInteger(v) || v < 0 || v > MAX_SPACING_UM) return false;
+  }
+  const [slot] = receiptSlots(format, spacing);
+  return slot.widthUm >= MIN_SLOT_UM && slot.heightUm >= MIN_SLOT_UM;
 }
 
 /** A slot wider than tall (a5, dl); a4 and a6 are portrait. */

@@ -19,7 +19,7 @@ import type { DesignSource } from '@/lib/types';
 const QUALITY = DEFAULT_SETTINGS.quality;
 const LAYOUT = DEFAULT_SETTINGS.layout;
 const noop = () => {};
-const handlers = { onFormat: noop, onTurn: noop, onWhite: noop, onRemove: noop, onDownload: noop, busy: false };
+const handlers = { onFormat: noop, onTurn: noop, onWhite: noop, onSpacing: noop, onSpacingReset: noop, onRemove: noop, onDownload: noop, busy: false };
 
 function card(name: string, w: number, h: number, actions: ReceiptAction[] = [], extra: Partial<DesignSource> = {}): ReceiptCardState {
   const file = new File([new Uint8Array([1])], name);
@@ -65,8 +65,8 @@ describe('ReceiptCard', () => {
         expect(html).toContain(staff.receipts.whiteBottom);
         expect(countOf(html, 'aria-pressed=')).toBe(2);
       } else {
-        expect(html).not.toContain(staff.receipts.whiteTop);
-        expect(html).not.toContain(staff.receipts.whiteBottom);
+        // «فوق» and «تحت» are also the labels of the spacing fields, so look for the white group itself.
+        expect(html).not.toContain(`aria-label="${staff.receipts.whiteLabel}"`);
         expect(html).not.toContain('aria-pressed');
       }
     }
@@ -86,6 +86,116 @@ describe('ReceiptCard', () => {
     const rows = (html: string) => [...html.matchAll(/<rect x="0" y="([\d.]+)"/g)].map((m) => m[1]);
     expect(rows(render(card('x a6.png', 1000, 1400)))).toEqual(['7', '155.68']);
     expect(rows(render(card('x a6.png', 1000, 1400, [{ type: 'white', id: 'r1', white: 'bottom' }])))).toEqual(['0', '148.68']);
+  });
+
+  describe('spacing section', () => {
+    const sp = staff.receipts.spacing;
+    const inputs = (html: string) => [...html.matchAll(/<input id="receipt-sp-(\w+)-r1"[^>]*>/g)].map((m) => ({ key: m[1], tag: m[0] }));
+    const value = (tag: string) => /value="([^"]*)"/.exec(tag)?.[1];
+
+    it('a4: four margin fields and no gap; a5 and dl: one gap; a6: both gaps and the hint', () => {
+      const keys = (f: ReceiptFormat) => inputs(render(card(`x ${f}.png`, 1000, 1400, [{ type: 'format', id: 'r1', format: f }]))).map((i) => i.key);
+      expect(keys('a4')).toEqual(['topUm', 'bottomUm', 'rightUm', 'leftUm']);
+      expect(keys('a5')).toEqual(['topUm', 'bottomUm', 'rightUm', 'leftUm', 'gapYUm']);
+      expect(keys('dl')).toEqual(['topUm', 'bottomUm', 'rightUm', 'leftUm', 'gapYUm']);
+      expect(keys('a6')).toEqual(['topUm', 'bottomUm', 'rightUm', 'leftUm', 'gapXUm', 'gapYUm']);
+    });
+
+    it('title, labels, reset button; the gap is named by the format', () => {
+      const a5 = render(card('x a5.png', 1950, 1000));
+      expect(a5).toContain(sp.title);
+      for (const label of [sp.top, sp.bottom, sp.right, sp.left, sp.gap, sp.reset]) expect(a5).toContain(label);
+      expect(a5).not.toContain(sp.gapX);
+      expect(a5).not.toContain(sp.a6Hint.slice(0, 8));
+      const a6 = render(card('x a6.png', 1000, 1400));
+      for (const label of [sp.gapX, sp.gapY]) expect(a6).toContain(label);
+      expect(a6).not.toContain(`>${sp.gap}<`);
+      expect(a6).toContain('بالـ <bdi dir="ltr" class="tabular-nums">A6</bdi> المسافة بين الصفوف هي بياض الصف الثاني.');
+      expect(render(card('x a4.png', 1000, 1400))).not.toContain(sp.gap);
+    });
+
+    it('the labels point at their inputs; the fields are numeric, left-to-right, tall enough to touch', () => {
+      for (const i of inputs(render(card('x a6.png', 1000, 1400)))) {
+        expect(i.tag).toContain('type="text"');
+        expect(i.tag).toContain('inputMode="decimal"');
+        expect(i.tag).toContain('dir="ltr"');
+        expect(i.tag).toContain('h-11');
+      }
+      expect(render(card('x a4.png', 1000, 1400))).toContain('for="receipt-sp-topUm-r1"');
+    });
+
+    it('shows the card\'s numbers in millimetres with Western digits', () => {
+      const v = (f: ReceiptFormat) => Object.fromEntries(inputs(render(card(`x ${f}.png`, 1000, 1400, [{ type: 'format', id: 'r1', format: f }]))).map((i) => [i.key, value(i.tag)]));
+      expect(v('a4')).toEqual({ topUm: '12', bottomUm: '0', rightUm: '0', leftUm: '0' });
+      expect(v('a5')).toEqual({ topUm: '0', bottomUm: '0', rightUm: '0', leftUm: '15', gapYUm: '8' });
+      expect(v('a6')).toMatchObject({ topUm: '7', gapXUm: '7.22', gapYUm: '7.36' });
+    });
+
+    it('right comes before left, so the physical sides are on the right place in RTL', () => {
+      const html = render(card('x a4.png', 1000, 1400));
+      expect(html.indexOf('receipt-sp-rightUm-r1')).toBeLessThan(html.indexOf('receipt-sp-leftUm-r1'));
+    });
+
+    it('a decoding card has no spacing section; a card with a design has it enabled', () => {
+      const file = new File([new Uint8Array([1])], 'x.png');
+      const decoding = receiptReducer([], { type: 'add', items: [{ id: 'r1', file }] })[0];
+      expect(render(decoding)).not.toContain('receipt-sp-');
+      const html = render(card('x a4.png', 1000, 1400));
+      expect(inputs(html).every((i) => !i.tag.includes('disabled=""'))).toBe(true);
+    });
+
+    it('while a download runs the fields and the reset button wait', () => {
+      const c = card('x a4.png', 1000, 1400);
+      const html = renderToStaticMarkup(createElement(ReceiptCard, { card: c, view: cardView(c, QUALITY), ...handlers, busy: true }));
+      expect(inputs(html).every((i) => i.tag.includes('disabled=""'))).toBe(true);
+      const reset = [...html.matchAll(/<button[^>]*>(?:(?!<\/button>).)*<\/button>/g)].map((m) => m[0]).find((b) => b.includes(sp.reset));
+      expect(reset).toContain('disabled=""');
+    });
+
+    it('text that is not a number: the field is marked, the message is under it, no download button', () => {
+      const html = render(card('x a5.png', 1950, 1000, [{ type: 'spacing', id: 'r1', key: 'leftUm', text: '1x' }]));
+      const left = inputs(html).find((i) => i.key === 'leftUm');
+      expect(left?.tag).toContain('aria-invalid="true"');
+      expect(left?.tag).toContain('aria-describedby="receipt-sp-leftUm-r1-error"');
+      expect(value(left?.tag ?? '')).toBe('1x');
+      expect(html).toContain('id="receipt-sp-leftUm-r1-error"');
+      expect(html).toContain('اكتب رقم من <bdi dir="ltr" class="tabular-nums">0</bdi> إلى <bdi dir="ltr" class="tabular-nums">100</bdi> ملم.');
+      expect(inputs(html).filter((i) => i.tag.includes('aria-invalid="true"'))).toHaveLength(1);
+      expect(html).not.toContain('نزّل PDF لـ');
+      expect(countOf(html, 'role="alert"')).toBe(0); // the message is on the field, not in the card's alert
+    });
+
+    it('valid text: no error, the download button is there', () => {
+      const html = render(card('x a5.png', 1950, 1000, [{ type: 'spacing', id: 'r1', key: 'leftUm', text: '10' }]));
+      expect(html).not.toContain('aria-invalid="true"');
+      expect(html).toContain('نزّل PDF لـ');
+    });
+
+    it('no room: the alert in the card, no preview slots, no resolution, no download button', () => {
+      const html = render(
+        card('x a4.png', 1000, 1400, [
+          { type: 'spacing', id: 'r1', key: 'leftUm', text: '100' },
+          { type: 'spacing', id: 'r1', key: 'rightUm', text: '95' },
+        ]),
+      );
+      expect(html).toContain(sp.noRoom);
+      expect(html).toContain('role="alert"');
+      expect(countOf(html, 'data-receipt-slot=')).toBe(0);
+      expect(html).not.toContain('جودة الطباعة');
+      expect(html).not.toContain('نزّل PDF لـ');
+      expect(html).not.toContain('aria-invalid="true"');
+    });
+
+    it('the A4 sketch follows the spacing', () => {
+      const rects = (html: string) => [...html.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map((m) => m.slice(1, 5).join(' '));
+      const edited = card('x a5.png', 1950, 1000, [
+        { type: 'spacing', id: 'r1', key: 'leftUm', text: '10' },
+        { type: 'spacing', id: 'r1', key: 'gapYUm', text: '5' },
+      ]);
+      expect(rects(render(edited))).toEqual(['10 0 200 146', '10 151 200 146']);
+      const reset = receiptReducer([edited], { type: 'spacingReset', id: 'r1' })[0];
+      expect(rects(render(reset))).toEqual(['15 0 195 144.5', '15 152.5 195 144.5']);
+    });
   });
 
   it('a turned design is rotated about each slot centre; an upright one is not', () => {
