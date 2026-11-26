@@ -3,11 +3,15 @@
 import { useState, useTransition } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { btn, field } from '@/components/admin/kit';
 import { admin } from '@/content/ar';
-import { cardBtn } from './card-styles';
+import { cn } from '@/lib/utils';
 import { deleteDesignAction, type DeleteDesignResult } from './actions';
 
 const d = admin.designs;
+
+/** A design card is narrow (two per row on a phone): the kit button may wrap its text, still at least 44px tall. */
+const CARD_BTN = 'h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-center text-[14px] leading-snug';
 
 const MESSAGE: Record<Exclude<DeleteDesignResult['status'], 'deleted' | 'missing'>, string> = {
   refused: d.delete.refused,
@@ -45,23 +49,23 @@ export function DeleteDesignButton({ uploadId }: { uploadId: string }) {
         if (!next) setMessage(null);
       }}
     >
-      <DialogTrigger className={cardBtn.danger}>
+      <DialogTrigger className={cn(btn.danger, CARD_BTN)}>
         <Trash2 aria-hidden className="size-4 shrink-0" />
         {d.card.delete}
       </DialogTrigger>
-      <DialogContent dir="rtl" showCloseButton={false}>
-        <DialogTitle>{d.delete.title}</DialogTitle>
+      <DialogContent dir="rtl" showCloseButton={false} className="rounded-[2px] shadow-paper ring-0">
+        <DialogTitle className="text-lg font-bold leading-snug text-ink">{d.delete.title}</DialogTitle>
         <DialogDescription>{d.delete.body}</DialogDescription>
         {message ? (
-          <p role="alert" className="text-[14px] font-medium leading-normal text-[#b8163f]">
+          <p role="alert" className={cn(field.error, 'font-medium leading-normal')}>
             {message}
           </p>
         ) : null}
         <div className="flex flex-col gap-2">
-          <button type="button" onClick={confirm} disabled={pending} className={cardBtn.danger}>
+          <button type="button" onClick={confirm} disabled={pending} className={cn(btn.primary, CARD_BTN)}>
             {pending ? d.delete.deleting : d.delete.confirm}
           </button>
-          <DialogClose disabled={pending} className={cardBtn.outline}>
+          <DialogClose disabled={pending} className={cn(btn.outline, CARD_BTN)}>
             {d.delete.cancel}
           </DialogClose>
         </div>
