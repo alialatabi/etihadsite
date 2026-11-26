@@ -8,10 +8,10 @@
  *  - JPEG: the ORIGINAL bytes go into the PDF (a DCTDecode stream, CMYK kept as CMYK) when the
  *    header says pdf-lib embeds them faithfully (baseline/progressive, 8 bit, gray/RGB/CMYK with an
  *    Adobe marker, a non-mirrored EXIF turn that the drawer applies as `rotate`).
- *    Not for an RGB file with a non-sRGB ICC profile (pdf-lib would drop it) or one pdf-lib cannot parse.
+ *    Not for an RGB file with a wide-gamut ICC profile (Display P3, Adobe RGB, ...: pdf-lib would drop it) or one pdf-lib cannot parse.
  *  - PNG: the original bytes (pdf-lib re-compresses the pixels losslessly) unless a custom-shape
- *    crop is needed, an `eXIf` turn is present, it is animated (acTL), it has a non-sRGB iCCP profile, or the image is too big for pdf-lib's in-memory decode.
- *  - Anything else falls back to the canvas path with a dpi high enough that nothing is downscaled.
+ *    crop is needed, an `eXIf` turn is present, it is animated (acTL), it has a wide-gamut iCCP profile (judged by its name), or the image is too big for pdf-lib's in-memory decode.
+ *  - Anything else falls back to the canvas path with a dpi high enough that nothing is downscaled and JPEG quality 1.
  */
 import { PDFDocument } from 'pdf-lib';
 import { PRINT_DPI } from '@/lib/print-dpi';
@@ -39,7 +39,7 @@ export async function prepareOriginalArtwork(source: DesignSource, spec: Sticker
   } catch {
     // unreadable header or file: the canvas path below decides (and reports 'corrupt' when it must)
   }
-  return prepareArtwork(source, spec, noDownscaleDpi(source.pxWidth, source.pxHeight, spec));
+  return prepareArtwork(source, spec, noDownscaleDpi(source.pxWidth, source.pxHeight, spec), { jpegQuality: 1 });
 }
 
 /**
@@ -71,7 +71,7 @@ async function originalBytes(source: DesignSource, spec: StickerSpec): Promise<P
     const info = readJpegInfo(bytes);
     if (!info || info.bits !== 8 || (info.sof !== 0xc0 && info.sof !== 0xc1 && info.sof !== 0xc2)) return null;
     if (info.components === 4 ? !info.adobe : info.components !== 1 && info.components !== 3) return null;
-    if (info.components === 3 && info.icc === 'other') return null; // pdf-lib drops the profile: the canvas path colour-manages to sRGB
+    if (info.components === 3 && info.icc === 'wide') return null; // pdf-lib drops a wide-gamut profile: the canvas path colour-manages to sRGB
     const turn = exifTurnCw(info.orientation);
     if (turn === null) return null;
     const swap = turn === 90 || turn === 270;
@@ -96,7 +96,7 @@ async function originalBytes(source: DesignSource, spec: StickerSpec): Promise<P
   }
 
   const info = readPngInfo(bytes);
-  if (!info || info.hasExif || info.animated || info.icc === 'other') return null;
+  if (!info || info.hasExif || info.animated || info.icc === 'wide') return null;
   if (info.width !== source.pxWidth || info.height !== source.pxHeight || info.width * info.height > MAX_CANVAS_PIXELS) return null;
   if (spec.shape === 'custom' && !source.hasAlpha) return null; // 'no_alpha' comes from the canvas path
   const dpi = dpiOf(widthPixelsFor(spec.shape, info.width, info.height), spec.widthUm);

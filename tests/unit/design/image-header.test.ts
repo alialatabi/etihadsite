@@ -9,6 +9,24 @@ const fx = (n: string) => new Uint8Array(readFileSync(join(__dirname, '..', '..'
 const solid = { create: { width: 64, height: 48, channels: 3 as const, background: { r: 200, g: 40, b: 40 } } };
 const bytesOf = async (s: Sharp) => new Uint8Array(await s.toBuffer());
 
+/** `jpg` with one APP2 `ICC_PROFILE` segment right after SOI whose profile bytes are `payload` (text only: enough for the header reader and for pdf-lib / sharp to carry on). */
+function withIccText(jpg: Uint8Array, payload: Uint8Array): Uint8Array {
+  const body = Buffer.concat([Buffer.from('ICC_PROFILE\0'), Buffer.from([1, 1]), Buffer.from(payload)]);
+  const head = Buffer.from([0xff, 0xe2, (body.length + 2) >> 8, (body.length + 2) & 0xff]);
+  return new Uint8Array(Buffer.concat([Buffer.from(jpg.subarray(0, 2)), head, body, Buffer.from(jpg.subarray(2))]));
+}
+const latin1 = (t: string) => new Uint8Array(Buffer.from(t, 'latin1'));
+/** ICC v4 `mluc` text: UTF-16 big endian. */
+const utf16be = (t: string) => new Uint8Array(Buffer.from(t, 'utf16le').swap16());
+/** `png` with an `iCCP` chunk named `name` (name, NUL, method 0, a zlib header: the header reader never inflates it). */
+function withPngProfile(png: Uint8Array, name: string): Uint8Array {
+  const data = Buffer.concat([Buffer.from(name, 'latin1'), Buffer.from([0, 0, 0x78, 0x9c])]);
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(data.length, 0);
+  head.write('iCCP', 4, 'ascii');
+  return new Uint8Array(Buffer.concat([Buffer.from(png.subarray(0, 33)), head, data, Buffer.alloc(4), Buffer.from(png.subarray(33))]));
+}
+
 /** The orientation byte of the fixture's EXIF block set to `v` (little or big endian, entry 0x0112). */
 function withOrientation(src: Uint8Array, v: number): Uint8Array {
   const b = new Uint8Array(src);
@@ -60,6 +78,29 @@ describe('readJpegInfo', () => {
     expect(readJpegInfo(jpg)?.components).toBe(1);
   });
 
+  it('ICC: none without a profile; sRGB, unknown and generic profiles are not wide; only a wide-gamut name is', async () => {
+    const plain = await bytesOf(sharp(solid).jpeg());
+    expect(readJpegInfo(plain)?.icc).toBe('none');
+    expect(readJpegInfo(await bytesOf(sharp(solid).withIccProfile('srgb').jpeg()))?.icc).toBe('srgb');
+    expect(readJpegInfo(withIccText(plain, latin1('Some Vendor Monitor Profile')))?.icc).toBe('srgb');
+    expect(readJpegInfo(withIccText(plain, utf16be('Calibrated Studio Display')))?.icc).toBe('srgb');
+    expect(readJpegInfo(withIccText(plain, latin1('sRGB IEC61966-2.1')))?.icc).toBe('srgb');
+    // sharp's own compact Display P3 profile (description "sP3C")
+    expect(readJpegInfo(await bytesOf(sharp(solid).withIccProfile('p3').jpeg()))?.icc).toBe('wide');
+    for (const name of ['Display P3', 'DISPLAY P3', 'DCI-P3 D65', 'Adobe RGB (1998)', 'ProPhoto RGB', 'ROMM RGB', 'Rec. 2020', 'ITU-R BT.2020', 'Wide Gamut RGB']) {
+      expect(readJpegInfo(withIccText(plain, latin1(name)))?.icc, `latin1 ${name}`).toBe('wide');
+      expect(readJpegInfo(withIccText(plain, utf16be(name)))?.icc, `utf16 ${name}`).toBe('wide');
+    }
+  });
+
+  it('a CMYK JPEG carrying an ICC profile: 4 components, Adobe marker and an APP2 profile', async () => {
+    const jpg = await bytesOf(sharp(solid).toColourspace('cmyk').withIccProfile('cmyk').jpeg());
+    const info = readJpegInfo(jpg);
+    expect(info).toMatchObject({ components: 4, adobe: true });
+    expect(info?.icc).not.toBe('none');
+    expect(Buffer.from(jpg).includes('ICC_PROFILE')).toBe(true);
+  });
+
   it('truncated inside the headers, garbage, empty and a PNG all give null', async () => {
     const src = fx('exif6-600x400.jpg');
     expect(readJpegInfo(src.subarray(0, 3))).toBeNull();
@@ -95,6 +136,16 @@ describe('readPngInfo', () => {
   it('an eXIf chunk is found', async () => {
     const png = await bytesOf(sharp(solid).withExif({ IFD0: { Copyright: 'x' } }).png());
     expect(readPngInfo(png)?.hasExif).toBe(true);
+  });
+
+  it('iCCP: judged by the profile name; only a wide-gamut name is wide', async () => {
+    const png = await bytesOf(sharp(solid).png());
+    for (const name of ['sRGB IEC61966-2.1', 'Photoshop ICC profile', 'icc', 'ICC Profile', 'Some Vendor Monitor Profile']) {
+      expect(readPngInfo(withPngProfile(png, name))?.icc, name).toBe('srgb');
+    }
+    for (const name of ['Display P3', 'display p3', 'DCI-P3', 'Adobe RGB (1998)', 'ProPhoto RGB', 'Rec.2020', 'BT.2020', 'ITU-R BT.2020', 'Wide Gamut RGB', 'ROMM RGB']) {
+      expect(readPngInfo(withPngProfile(png, name))?.icc, name).toBe('wide');
+    }
   });
 
   it('truncated, garbage and a JPEG give null', async () => {

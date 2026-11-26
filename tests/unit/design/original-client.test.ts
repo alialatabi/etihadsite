@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp, { type Sharp } from 'sharp';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readJpegInfo } from '@/lib/design/image-header';
 import { prepareOriginalArtwork } from '@/lib/design/original.client';
 import { prepareArtwork } from '@/lib/design/prepare.client';
 import { PRINT_DPI } from '@/lib/print-dpi';
@@ -55,6 +56,24 @@ function withOrientation(src: Uint8Array, v: number): Uint8Array {
     }
   }
   throw new Error('no orientation entry');
+}
+
+/** `jpg` with one APP2 `ICC_PROFILE` segment right after SOI whose profile bytes are `payload` (text only: enough for the header reader and for pdf-lib / sharp to carry on). */
+function withIccText(jpg: Uint8Array, payload: Uint8Array): Uint8Array {
+  const body = Buffer.concat([Buffer.from('ICC_PROFILE\0'), Buffer.from([1, 1]), Buffer.from(payload)]);
+  const head = Buffer.from([0xff, 0xe2, (body.length + 2) >> 8, (body.length + 2) & 0xff]);
+  return new Uint8Array(Buffer.concat([Buffer.from(jpg.subarray(0, 2)), head, body, Buffer.from(jpg.subarray(2))]));
+}
+const latin1 = (t: string) => new Uint8Array(Buffer.from(t, 'latin1'));
+/** ICC v4 `mluc` text: UTF-16 big endian. */
+const utf16be = (t: string) => new Uint8Array(Buffer.from(t, 'utf16le').swap16());
+/** `png` with an `iCCP` chunk named `name` (name, NUL, method 0, a zlib header: the header reader never inflates it). */
+function withPngProfile(png: Uint8Array, name: string): Uint8Array {
+  const data = Buffer.concat([Buffer.from(name, 'latin1'), Buffer.from([0, 0, 0x78, 0x9c])]);
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(data.length, 0);
+  head.write('iCCP', 4, 'ascii');
+  return new Uint8Array(Buffer.concat([Buffer.from(png.subarray(0, 33)), head, data, Buffer.alloc(4), Buffer.from(png.subarray(33))]));
 }
 
 let mock: BrowserMock;
@@ -184,6 +203,49 @@ describe('prepareOriginalArtwork JPEG', () => {
     expect(same(raster(b.artwork).bytes, srgb)).toBe(true);
   });
 
+  it('JPEG ICC: an unknown or generic description keeps the bytes; Display P3 and Adobe RGB (1998) fall back', async () => {
+    const plain = await jpegOf(sharp(solid(40, 20)));
+    const keep = [withIccText(plain, utf16be('Calibrated Studio Display')), withIccText(plain, latin1('ICC Profile'))];
+    const fall = [withIccText(plain, utf16be('Display P3')), withIccText(plain, latin1('Adobe RGB (1998)'))];
+    for (const bytes of keep) {
+      const r = await prepareOriginalArtwork(source(bytes, 'jpeg', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+      if (!r.ok) throw new Error(r.error);
+      expect(same(raster(r.artwork).bytes, bytes)).toBe(true);
+    }
+    expect(mock.canvases).toHaveLength(0);
+    for (const bytes of fall) {
+      const r = await prepareOriginalArtwork(source(bytes, 'jpeg', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+      if (!r.ok) throw new Error(r.error);
+      expect(same(raster(r.artwork).bytes, bytes)).toBe(false);
+    }
+  });
+
+  it('a CMYK Adobe JPEG that carries an ICC profile keeps its original bytes (whatever the profile says)', async () => {
+    const bytes = new Uint8Array(await sharp(solid(120, 80)).toColourspace('cmyk').withIccProfile('cmyk').jpeg().toBuffer());
+    expect(Buffer.from(bytes).includes('ICC_PROFILE')).toBe(true);
+    expect(readJpegInfo(bytes)).toMatchObject({ components: 4, adobe: true });
+    const wide = withIccText(bytes, latin1('Adobe RGB (1998)')); // even a wide-gamut-looking name does not matter for CMYK
+    for (const b of [bytes, wide]) {
+      const r = await prepareOriginalArtwork(source(b, 'jpeg', { px: [120, 80], hasAlpha: false }), rect(60, 40));
+      if (!r.ok) throw new Error(r.error);
+      expect(same(raster(r.artwork).bytes, b)).toBe(true);
+    }
+    expect(mock.canvases).toHaveLength(0);
+  });
+
+  it('the fallback re-encodes an opaque image at JPEG quality 1 (prepareArtwork alone keeps 0.92)', async () => {
+    const wide = withIccText(await jpegOf(sharp(solid(40, 20))), latin1('Display P3'));
+    const s = source(wide, 'jpeg', { px: [40, 20], hasAlpha: false });
+    const r = await prepareOriginalArtwork(s, rect(40, 20));
+    if (!r.ok) throw new Error(r.error);
+    expect(raster(r.artwork).mime).toBe('image/jpeg');
+    const jpegQualities = (m: BrowserMock) => m.canvases.flatMap((c) => c.blobs).filter((b) => b.type === 'image/jpeg').map((b) => b.quality);
+    expect(jpegQualities(mock)).toEqual([1]);
+    mock.canvases.length = 0;
+    await prepareArtwork(s, rect(40, 20), PRINT_DPI);
+    expect(jpegQualities(mock)).toEqual([0.92]);
+  });
+
   it('a file that is not a JPEG at all: corrupt (from the canvas path)', async () => {
     const r = await prepareOriginalArtwork(source(new Uint8Array(64).fill(9), 'jpeg', { px: [10, 10], hasAlpha: false }), rect(10, 10));
     expect(r).toEqual({ ok: false, error: 'corrupt' });
@@ -236,22 +298,21 @@ describe('prepareOriginalArtwork PNG', () => {
     expect(same(raster(r.artwork).bytes, apng)).toBe(false);
   });
 
-  it('a PNG with a non-sRGB iCCP profile falls back; one named sRGB keeps the bytes', async () => {
+  it('a PNG with a wide-gamut iCCP name falls back; sRGB, Photoshop and libvips generic names keep the bytes', async () => {
     const plain = new Uint8Array(await sharp(solid(40, 20)).png().toBuffer());
-    const withProfile = (name: string) => {
-      const data = Buffer.concat([Buffer.from(name, 'latin1'), Buffer.from([0, 0, 0x78, 0x9c])]); // name, NUL, method 0, a zlib header (not inflated by the header reader)
-      const head = Buffer.alloc(8);
-      head.writeUInt32BE(data.length, 0);
-      head.write('iCCP', 4, 'ascii');
-      return new Uint8Array(Buffer.concat([Buffer.from(plain.subarray(0, 33)), head, data, Buffer.alloc(4), Buffer.from(plain.subarray(33))]));
-    };
-    const p3 = withProfile('Display P3');
-    const srgb = withProfile('sRGB IEC61966-2.1');
+    const p3 = withPngProfile(plain, 'Display P3');
     const a = await prepareOriginalArtwork(source(p3, 'png', { px: [40, 20], hasAlpha: false }), rect(40, 20));
-    const b = await prepareOriginalArtwork(source(srgb, 'png', { px: [40, 20], hasAlpha: false }), rect(40, 20));
-    if (!a.ok || !b.ok) throw new Error('prepare failed');
+    if (!a.ok) throw new Error(a.error);
     expect(same(raster(a.artwork).bytes, p3)).toBe(false);
-    expect(same(raster(b.artwork).bytes, srgb)).toBe(true);
+    expect(mock.canvases.length).toBeGreaterThan(0);
+    for (const name of ['sRGB IEC61966-2.1', 'Photoshop ICC profile', 'icc']) {
+      mock.canvases.length = 0;
+      const bytes = withPngProfile(plain, name);
+      const r = await prepareOriginalArtwork(source(bytes, 'png', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+      if (!r.ok) throw new Error(r.error);
+      expect(same(raster(r.artwork).bytes, bytes), name).toBe(true);
+      expect(mock.canvases, name).toHaveLength(0);
+    }
   });
 
   it('custom shape with a trim box: canvas crop at native resolution (crop size == trim size, above 1200 dpi)', async () => {
