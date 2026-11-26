@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from '
 import { CloudUpload, FileDown, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common, staff } from '@/content/ar';
+import { ctaCls, fieldCls } from '@/components/collage';
 import { Button } from '@/components/ui/button';
 import { fillLtr } from '@/components/fill-ltr';
 import { uploadLimitMb } from '@/lib/upload-limit';
@@ -99,18 +100,18 @@ export function StaffReceipts({ quality }: { quality: QualitySettings }) {
           pick(e.dataTransfer.files);
         }}
         className={cn(
-          'flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed bg-card p-6 text-center outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          'grid-paper flex w-full flex-col items-center justify-center gap-2 rounded-[2px] border-[3px] border-dashed p-6 text-center outline-none transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
           n === 0 ? 'min-h-44' : 'min-h-28',
-          dragging ? 'border-brand bg-brand/5' : 'border-border hover:border-foreground/40',
+          dragging ? 'border-brand bg-brand-tint' : 'border-ink/45 bg-white hover:border-ink',
         )}
       >
         <CloudUpload className="size-9 text-brand" aria-hidden />
-        <span className="text-base font-bold">{n === 0 ? staff.drop : staff.dropMore}</span>
-        <span className="text-sm text-muted-foreground">{accepted}</span>
+        <span className="text-base font-bold text-ink">{n === 0 ? staff.drop : staff.dropMore}</span>
+        <span className={fieldCls.hint}>{accepted}</span>
       </button>
 
       {s.tooMany && (
-        <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+        <p role="status" className="rounded-[2px] bg-news px-4 py-3 text-sm text-ink-soft">
           {fillLtr(staff.tooMany, { max: MAX_RECEIPT_FILES })}
         </p>
       )}
@@ -125,7 +126,7 @@ export function StaffReceipts({ quality }: { quality: QualitySettings }) {
         </ul>
       )}
 
-      <div className="space-y-3 rounded-2xl border bg-card p-4">
+      <div className="paper-card space-y-3 p-4">
         {n > 0 && (
           <p className="text-sm font-medium">
             {fillLtr(staff.receipts.summary, {
@@ -134,14 +135,14 @@ export function StaffReceipts({ quality }: { quality: QualitySettings }) {
             })}
           </p>
         )}
-        <Button type="button" className="h-12 w-full px-6 text-base sm:w-auto" disabled={!s.ready || busy} onClick={download}>
+        <Button type="button" className={cn(ctaCls('md'), 'w-full sm:w-auto')} disabled={!s.ready || busy} onClick={download}>
           {busy ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <FileDown className="size-5" aria-hidden />}
           {busy ? fillLtr(staff.preparing, { n: progress?.n ?? 1, total: progress?.total ?? 1 }) : staff.download}
         </Button>
         {n > 1 && <p className="text-sm text-muted-foreground">{staff.multiHint}</p>}
         {n > 0 && !s.ready && !busy && <p className="text-sm text-muted-foreground">{staff.needValid}</p>}
         {failure && (
-          <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>{failure}</span>
           </p>

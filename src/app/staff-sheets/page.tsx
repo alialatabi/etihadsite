@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { staff } from '@/content/ar';
+import { SectionTitle } from '@/components/collage';
 import { StaffTabs } from '@/components/staff/StaffTabs';
 import { getSettings } from '@/lib/settings';
 import { STAFF_KEY_HEADER } from '@/lib/staff-gate';
@@ -23,7 +24,9 @@ export default async function StaffPage() {
   const settings = await getSettings();
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8">
-      <h1 className="text-2xl font-bold">{staff.title}</h1>
+      <SectionTitle as="h1" className="block w-fit">
+        {staff.title}
+      </SectionTitle>
       <StaffTabs layoutSettings={settings.layout} quality={settings.quality} />
     </section>
   );
