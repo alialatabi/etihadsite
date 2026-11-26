@@ -19,7 +19,7 @@ function Row({ label, children, strong }: { label: string; children: React.React
 function TotalAmount({ children }: { children: React.ReactNode }) {
   return (
     <MarkerCircle>
-      <span className="font-lalezar text-2xl font-normal">{children}</span>
+      <span className="font-lalezar text-xl font-normal whitespace-nowrap sm:text-2xl">{children}</span>
     </MarkerCircle>
   );
 }
