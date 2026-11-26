@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, ImageOff } from 'lucide-react';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
-import { AdminPageHeader, EmptyState, InfoStrip, Panel, Pill, StatTile, btn } from '@/components/admin/kit';
+import { AdminPageHeader, EmptyState, InfoStrip, Panel, Pill, StatTile, btn, segment } from '@/components/admin/kit';
 import { ORDERS_LIST_CAP, UNORDERED_DESIGN_DAYS } from '@/config/defaults';
 import { admin, common } from '@/content/ar';
 import { count } from '@/lib/plural';
@@ -146,14 +146,14 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
       {summary.alerts.length > 0 ? (
         <Panel title={d.alerts} bodyClassName="!p-0 pt-3">
-          <ul className="divide-y divide-[#e7dfdf]">
+          <ul className="divide-y divide-line">
             {summary.alerts.map((a) => (
               <li key={`${a.ipKey}-${a.day}`} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-                <Ltr className="text-[16px] font-bold text-[#121f34]">{a.ip}</Ltr>
+                <Ltr className="text-[16px] font-bold text-ink">{a.ip}</Ltr>
                 <Pill tone="warn">
                   <Ltr>{a.count}</Ltr> {count(a.count, common.plural.design)}
                 </Pill>
-                <span className="text-[14px] font-medium text-[#5a6475]">{formatBaghdad(a.lastAt)}</span>
+                <span className="text-[14px] font-medium text-ink-muted">{formatBaghdad(a.lastAt)}</span>
                 <div className="ms-auto flex flex-wrap items-center gap-2">
                   <Link href={`/admin/designs?ip=${a.ipKey}`} className={btn.outline}>
                     {d.view}
@@ -174,11 +174,11 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
       {blocks.length > 0 ? (
         <Panel title={d.blocked} bodyClassName="!p-0 pt-3">
-          <ul className="divide-y divide-[#e7dfdf]">
+          <ul className="divide-y divide-line">
             {blocks.map((b) => (
               <li key={b.ipKey} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-                <Ltr className="text-[16px] font-bold text-[#121f34]">{b.ip}</Ltr>
-                <span className="text-[14px] font-medium text-[#5a6475]">{formatBaghdad(b.createdAt)}</span>
+                <Ltr className="text-[16px] font-bold text-ink">{b.ip}</Ltr>
+                <span className="text-[14px] font-medium text-ink-muted">{formatBaghdad(b.createdAt)}</span>
                 <div className="ms-auto flex flex-wrap items-center gap-2">
                   <Link href={`/admin/designs?ip=${b.ipKey}`} className={btn.outline}>
                     {d.view}
@@ -213,7 +213,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
       ) : null}
 
       {active ? (
-        <p role="status" className="text-[15px] font-medium text-[#5a6475]">
+        <p role="status" className="text-[15px] font-medium text-ink-muted">
           {fillLtr(d.filters.found, { n: generations.total, unit: <>{count(generations.total, common.plural.design)}</> })}
         </p>
       ) : null}
@@ -227,18 +227,18 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
       {pages > 1 ? (
         <nav className="flex items-center justify-between gap-4">
           {pageNo > 1 ? (
-            <Link href={href(pageNo - 1)} className={btn.outline}>
+            <Link href={href(pageNo - 1)} className={segment(false)}>
               <ArrowRight aria-hidden className="size-5" />
               {d.prev}
             </Link>
           ) : (
             <span />
           )}
-          <Ltr className="text-[15px] font-medium tabular-nums text-[#5a6475]">
+          <Ltr className="text-[15px] font-medium tabular-nums text-ink-muted">
             {pageNo} / {pages}
           </Ltr>
           {pageNo < pages ? (
-            <Link href={href(pageNo + 1)} className={btn.outline}>
+            <Link href={href(pageNo + 1)} className={segment(false)}>
               {d.next}
               <ArrowLeft aria-hidden className="size-5" />
             </Link>
