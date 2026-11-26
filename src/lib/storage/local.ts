@@ -12,9 +12,10 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DEFAULT_SETTINGS } from "../../config/defaults";
+import { DEFAULT_SETTINGS, PURGE_WINDOW_DAYS } from "../../config/defaults";
 import type {
   AiBlock,
+  AiGenerationFilter,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -36,9 +37,11 @@ import {
   uploadMetaPath,
   uploadPath,
 } from "./paths";
+import { matchesGenerationFilter, resolveGenerationFilter } from "./generation-filter";
 import { purgeBounds } from "./purge-rules";
 import { parseStoredSettings } from "./settings-schema";
 import { StaffStorageError } from "./staff-errors";
+import { allDesignPaths, assertUnorderedCutoff } from "./unordered-rules";
 
 export { deepMerge } from "./settings-schema";
 
@@ -452,17 +455,83 @@ export class LocalStorage implements StorageAdapter {
     });
   }
 
-  async aiListGenerations(q: {
-    limit: number;
-    offset: number;
-    ipKey?: string;
-  }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
-    const list = (await this.readAiList<AiGenerationRecord>("generations"))
-      .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)
-      .sort((x, y) => cmp(y.createdAt, x.createdAt) || cmp(y.id, x.id));
-    const from = Math.max(0, Math.floor(q.offset));
-    const limit = Math.floor(q.limit);
+  async aiListGenerations(
+    q: { limit: number; offset: number } & AiGenerationFilter,
+  ): Promise<{ rows: AiGenerationRecord[]; total: number }> {
+    const { limit: rawLimit, offset } = q;
+    const resolved = resolveGenerationFilter(q); // reads only the filter keys
+    const all = await this.readAiList<AiGenerationRecord>("generations");
+    // An invalid filter value (or a search that can match nothing) is no rows, like the Supabase adapter.
+    const list = (resolved ? all.filter((g) => matchesGenerationFilter(g, resolved)) : []).sort(
+      (x, y) => cmp(y.createdAt, x.createdAt) || cmp(y.id, x.id),
+    );
+    const from = Math.max(0, Math.floor(offset));
+    const limit = Math.floor(rawLimit);
     return { rows: limit >= 1 ? list.slice(from, from + limit) : [], total: list.length };
+  }
+
+  async aiGetGeneration(uploadId: string): Promise<AiGenerationRecord | null> {
+    if (!ID_RE.test(uploadId)) return null;
+    const list = await this.readAiList<AiGenerationRecord>("generations");
+    return list.find((g) => g.uploadId === uploadId) ?? null;
+  }
+
+  /** By exact id only; the upload files are not touched (the caller deletes them). */
+  aiDeleteGeneration(id: string): Promise<AiGenerationRecord | null> {
+    if (!ID_RE.test(id)) return Promise.resolve(null);
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiGenerationRecord>("generations");
+      const at = list.findIndex((g) => g.id === id);
+      if (at < 0) return null;
+      const [gone] = list.splice(at, 1);
+      await this.writeAiList("generations", list);
+      return gone;
+    });
+  }
+
+  /**
+   * Every order file, strictly: an unreadable order file throws (listOrders skips it silently, which would be
+   * "not used" for a safety check). A file that vanishes between the listing and the read is skipped.
+   */
+  private async readOrdersStrict(): Promise<OrderRecord[]> {
+    let names: string[];
+    try {
+      names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "orders"));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+    const out: OrderRecord[] = [];
+    for (const n of names) {
+      if (!n.endsWith(".json")) continue;
+      const raw = await this.readOptional(`orders/${n}`);
+      if (!raw) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw.toString("utf8"));
+      } catch {
+        throw new Error(`orders/${n} is unreadable`);
+      }
+      if (typeof parsed !== "object" || parsed === null || typeof (parsed as OrderRecord).files !== "object") {
+        throw new Error(`orders/${n} is unreadable`);
+      }
+      out.push(parsed as OrderRecord);
+    }
+    return out.sort((a, b) => cmp(a.createdAt, b.createdAt) || cmp(a.orderId, b.orderId));
+  }
+
+  /** Upload path → id of the (earliest) order that uses it; any order, any age. Throws when an order file is unreadable. */
+  private async orderUsesByPath(): Promise<Map<string, string>> {
+    const used = new Map<string, string>();
+    for (const o of await this.readOrdersStrict()) {
+      for (const p of allDesignPaths(o.files)) if (!used.has(p)) used.set(p, o.orderId);
+    }
+    return used;
+  }
+
+  async orderUsingUpload(uploadId: string): Promise<string | null> {
+    if (!ID_RE.test(uploadId)) return null;
+    return (await this.orderUsesByPath()).get(uploadPath(uploadId)) ?? null;
   }
 
   /** Already blocked = kept as is (first block time stays). */
@@ -653,6 +722,118 @@ export class LocalStorage implements StorageAdapter {
       if (inWindow(stat.mtime)) {
         await drop(`uploads/${name}`);
         await drop(metaPathForDesign(`uploads/${name}`));
+      }
+    }
+    return removed;
+  }
+
+  /**
+   * 7-day rule for designs (owner 2026-11-26), same behaviour as the Supabase adapter: every generation with
+   * orderId null created before `cutoff` is removed (upload .bin + .json, then the row). Orders are read first
+   * (strictly: an unreadable order file aborts, nothing is deleted); a generation an order uses is healed
+   * (orderId set) and kept. A row whose file could not be deleted is kept for the next run, and the call throws
+   * at the end. dryRun changes nothing (no healing either).
+   */
+  async aiPurgeUnordered(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    assertUnorderedCutoff(cutoff);
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<AiGenerationRecord>("generations");
+      const candidates = list
+        .filter(
+          (g) =>
+            (g.orderId === null || g.orderId === undefined) &&
+            ID_RE.test(g.id) &&
+            ID_RE.test(g.uploadId) &&
+            new Date(g.createdAt) < cutoff, // an invalid date compares false: never a candidate
+        )
+        .sort((x, y) => cmp(x.createdAt, y.createdAt) || cmp(x.id, y.id));
+      if (candidates.length === 0) return [];
+      const usedBy = await this.orderUsesByPath();
+      const removed: string[] = [];
+      const gone = new Set<string>();
+      let healed = false;
+      let failures = 0;
+      for (const g of candidates) {
+        const orderId = usedBy.get(uploadPath(g.uploadId));
+        if (orderId !== undefined) {
+          if (!dryRun) {
+            g.orderId = orderId;
+            healed = true;
+          }
+          continue;
+        }
+        const files: string[] = [];
+        try {
+          for (const rel of [uploadPath(g.uploadId), uploadMetaPath(g.uploadId)]) {
+            if (!(await this.exists(rel))) continue;
+            if (!dryRun) await this.deleteFile(rel);
+            files.push(rel);
+          }
+        } catch (e) {
+          failures++;
+          console.error("[storage] design file not deleted, row kept for the next run", g.id, (e as Error).message);
+          removed.push(...files);
+          continue;
+        }
+        removed.push(...files, `ai_generation:${g.id}`);
+        gone.add(g.id);
+      }
+      if (!dryRun && (healed || gone.size > 0)) {
+        await this.writeAiList("generations", list.filter((g) => !gone.has(g.id)));
+      }
+      if (failures > 0) throw new Error(`${failures} design(s) could not be deleted; they stay for the next run`);
+      return removed;
+    });
+  }
+
+  /**
+   * 7-day rule for plain uploads (owner 2026-11-26): an upload (by mtime) in [cutoff − PURGE_WINDOW_DAYS, cutoff)
+   * that no order and no remaining generation uses is removed (.bin + .json; a leftover .json without its .bin too).
+   * Orders are read strictly and directory errors (other than "missing") throw: nothing is deleted on doubt.
+   */
+  async purgeUnusedUploads(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    assertUnorderedCutoff(cutoff);
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
+    const inWindow = (d: Date) => d >= windowStart && d < cutoff;
+    const used = new Set((await this.orderUsesByPath()).keys());
+    for (const g of await this.readAiList<AiGenerationRecord>("generations")) {
+      if (typeof g.uploadId === "string" && ID_RE.test(g.uploadId)) used.add(uploadPath(g.uploadId));
+    }
+    let names: string[];
+    try {
+      names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads"));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+    const have = new Set(names);
+    const mtime = async (name: string): Promise<Date | null> => {
+      try {
+        return (await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads", name))).mtime;
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw e;
+      }
+    };
+    const removed: string[] = [];
+    const drop = async (rel: string) => {
+      if (!(await this.exists(rel))) return;
+      if (!dryRun) await this.deleteFile(rel);
+      removed.push(rel);
+    };
+    for (const name of [...names].sort()) {
+      const rel = `uploads/${name}`;
+      if (name.endsWith(".bin")) {
+        if (used.has(rel)) continue;
+        const t = await mtime(name);
+        if (!t || !inWindow(t)) continue;
+        await drop(rel);
+        await drop(metaPathForDesign(rel));
+      } else if (name.endsWith(".json")) {
+        const stem = name.slice(0, -".json".length);
+        if (have.has(`${stem}.bin`) || used.has(`uploads/${stem}.bin`)) continue;
+        const t = await mtime(name);
+        if (t && inWindow(t)) await drop(rel);
       }
     }
     return removed;

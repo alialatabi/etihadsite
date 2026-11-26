@@ -83,7 +83,9 @@ export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 /**
  * Retention rule switch (owner decision D10). Orders created BEFORE this instant keep the old
  * rule (record, print PDF and design deleted after retentionDays, as those customers were told).
- * Orders from it on are kept forever with their design; only their print PDF is purged.
+ * Orders from it on are kept forever with the design they used; only their print PDF is purged.
+ * Designs no order used (AI or staff designs, plain uploads) are NOT kept forever: they are deleted
+ * UNORDERED_DESIGN_DAYS (7) after they were made (owner 2026-11-26; cron aiPurgeUnordered + purgeUnusedUploads).
  * Set it to the real deploy date in the deploy commit.
  */
 export const KEEP_DESIGNS_FROM = '2026-11-21T00:00:00+03:00';
