@@ -166,6 +166,8 @@ Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `
 3. Set `KEEP_DESIGNS_FROM` in `src/config/defaults.ts` to the deploy instant or slightly **earlier**, never later (orders before it keep the old delete rule), and commit it with the deploy.
 4. Rollback warning: before rolling back to a deployment older than the AI designer, set `retentionDays` to 3650 in `/admin/settings` first (the old purge deletes orders and designs, which are now kept forever).
 
+**Before deploying the staff designer (AI designer v2, `/team`):** apply `supabase/migrations/20261126000000_staff_designer.sql` on the production Supabase project FIRST. It adds the `staff_accounts` table, widens the `ai_usage` kind check to the staff kinds and adds `instructions` and `staff_id` to `ai_generations`. Customers keep working without it (a generation insert that fails on the new columns is retried without them), but `/team/login` and `/admin/staff` then say the feature is not ready. No new environment variable is needed (the session uses `SESSION_SECRET`). After the deploy open `/admin/staff`, add the staff accounts and give them the `/team/login` link.
+
 Still open: Vercel **Pro** (Hobby forbids commercial use), `ORDER_TRANSPORT=telegram`, a Turnstile client widget (until one exists keep `TURNSTILE_SECRET_KEY` unset, see the table above), and a cross-instance rate limiter (the in-memory one is per serverless instance; a Vercel Firewall rate-limit rule on `/api/upload/direct` and `/api/orders` covers it).
 
 ### Copy
