@@ -6,7 +6,8 @@
  *   uploads/<uploadId>.bin + .json, orders/<orderId>.json + .pdf, settings.json,
  *   analytics/events-YYYY-MM.jsonl (one JSON event per line, UTC month),
  *   customers.json (CustomerRecord[] keyed by phone; never purged),
- *   ai/usage.json (AiUsageRow[]), ai/generations.json (AiGenerationRecord[]), ai/blocks.json (AiBlock[])
+ *   ai/usage.json (AiUsageRow[]), ai/generations.json (AiGenerationRecord[]), ai/blocks.json (AiBlock[]),
+ *   ai/staff.json (StaffAccountRecord[]; created on the first staff write only)
  * All paths in the public API are relative to `root` and traversal-checked.
  */
 import { promises as fs } from "node:fs";
@@ -22,6 +23,7 @@ import type {
   CustomerRecord,
   OrderRecord,
   ShopSettings,
+  StaffAccountRecord,
   StorageAdapter,
   StoredFileMeta,
 } from "../types";
@@ -36,6 +38,7 @@ import {
 } from "./paths";
 import { purgeBounds } from "./purge-rules";
 import { parseStoredSettings } from "./settings-schema";
+import { StaffStorageError } from "./staff-errors";
 
 export { deepMerge } from "./settings-schema";
 
@@ -358,7 +361,7 @@ export class LocalStorage implements StorageAdapter {
     return next;
   }
 
-  private async readAiList<T>(name: "usage" | "generations" | "blocks"): Promise<T[]> {
+  private async readAiList<T>(name: "usage" | "generations" | "blocks" | "staff"): Promise<T[]> {
     const raw = await this.readOptional(`ai/${name}.json`);
     if (!raw) return [];
     try {
@@ -372,7 +375,7 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  private writeAiList(name: "usage" | "generations" | "blocks", list: unknown[]): Promise<void> {
+  private writeAiList(name: "usage" | "generations" | "blocks" | "staff", list: unknown[]): Promise<void> {
     return this.writeAtomic(`ai/${name}.json`, JSON.stringify(list, null, 2));
   }
 
@@ -496,6 +499,63 @@ export class LocalStorage implements StorageAdapter {
       const n = rows.length - keep.length;
       if (n > 0 && !dryRun) await this.writeAiList("usage", keep);
       return n > 0 ? [`ai_usage:${n}`] : [];
+    });
+  }
+
+  /* ───────────── Staff designer accounts (dev only; ai/staff.json) ───────────── */
+
+  /** Oldest first, then by id: the same order as the Supabase adapter. Copies, never the stored objects. */
+  async staffList(): Promise<StaffAccountRecord[]> {
+    const list = await this.readAiList<StaffAccountRecord>("staff");
+    return list.map((r) => ({ ...r })).sort((x, y) => cmp(x.createdAt, y.createdAt) || cmp(x.id, y.id));
+  }
+
+  async staffGet(id: string): Promise<StaffAccountRecord | null> {
+    const rec = (await this.readAiList<StaffAccountRecord>("staff")).find((r) => r.id === id);
+    return rec ? { ...rec } : null;
+  }
+
+  async staffByPhone(phone: string): Promise<StaffAccountRecord | null> {
+    const rec = (await this.readAiList<StaffAccountRecord>("staff")).find((r) => r.phone === phone);
+    return rec ? { ...rec } : null;
+  }
+
+  /** Like the table's constraints: a duplicate id is refused, a duplicate phone is `phone_taken`. */
+  staffCreate(rec: StaffAccountRecord): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<StaffAccountRecord>("staff");
+      if (list.some((r) => r.id === rec.id)) throw new Error("Duplicate staff account");
+      if (list.some((r) => r.phone === rec.phone)) throw new StaffStorageError("phone_taken");
+      list.push({ ...rec });
+      await this.writeAiList("staff", list);
+    });
+  }
+
+  staffUpdate(
+    id: string,
+    patch: Partial<Pick<StaffAccountRecord, "name" | "active" | "passwordHash" | "passwordChangedAt">>,
+  ): Promise<StaffAccountRecord | null> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<StaffAccountRecord>("staff");
+      const rec = list.find((r) => r.id === id);
+      if (!rec) return null;
+      if (patch.name !== undefined) rec.name = patch.name;
+      if (patch.active !== undefined) rec.active = patch.active;
+      if (patch.passwordHash !== undefined) rec.passwordHash = patch.passwordHash;
+      if (patch.passwordChangedAt !== undefined) rec.passwordChangedAt = patch.passwordChangedAt;
+      await this.writeAiList("staff", list);
+      return { ...rec };
+    });
+  }
+
+  /** A missing id is a no-op. */
+  staffTouchLogin(id: string, at: string): Promise<void> {
+    return this.withAiLock(async () => {
+      const list = await this.readAiList<StaffAccountRecord>("staff");
+      const rec = list.find((r) => r.id === id);
+      if (!rec) return;
+      rec.lastLoginAt = at;
+      await this.writeAiList("staff", list);
     });
   }
 
