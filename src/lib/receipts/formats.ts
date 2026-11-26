@@ -5,6 +5,7 @@
  * B1/B2); every length is an integer number of micrometres, page origin TOP-LEFT, A4 portrait
  * 210 000 x 297 000 µm (A4_UM). A test pins every number.
  */
+import { ptToUm } from '@/lib/units';
 import type { DesignSource } from '@/lib/types';
 
 export type ReceiptFormat = 'a4' | 'a5' | 'a6' | 'dl';
@@ -92,13 +93,13 @@ export function nextTurn(turn: ReceiptTurn): ReceiptTurn {
 /** A format token standing alone in the name: not inside a longer Latin word or number (`a55`, `data5`). */
 const NAME_TOKEN = /(?<![A-Za-z0-9])(a4|a5|a6|dl)(?![A-Za-z0-9])/i;
 
-/** Nominal physical sizes in mm, short side first. A4 appears twice (21 x 28.5 and 21 x 29.7). */
-const NOMINAL_MM: readonly { format: ReceiptFormat; short: number; long: number }[] = [
-  { format: 'a4', short: 210, long: 285 },
-  { format: 'a4', short: 210, long: 297 },
-  { format: 'a5', short: 150, long: 195 },
-  { format: 'a6', short: 100, long: 150 },
-  { format: 'dl', short: 100, long: 195 },
+/** Nominal physical sizes in µm, short side first. A4 appears twice (21 x 28.5 and 21 x 29.7). */
+const NOMINAL_UM: readonly { format: ReceiptFormat; short: number; long: number }[] = [
+  { format: 'a4', short: 210_000, long: 285_000 },
+  { format: 'a4', short: 210_000, long: 297_000 },
+  { format: 'a5', short: 150_000, long: 195_000 },
+  { format: 'a6', short: 100_000, long: 150_000 },
+  { format: 'dl', short: 100_000, long: 195_000 },
 ];
 const PDF_TOLERANCE = 0.15;
 const NOMINAL_ASPECT: readonly { format: ReceiptFormat; aspect: number }[] = [
@@ -107,7 +108,6 @@ const NOMINAL_ASPECT: readonly { format: ReceiptFormat; aspect: number }[] = [
   { format: 'a6', aspect: 1.5 },
   { format: 'dl', aspect: 1.95 },
 ];
-const MM_PER_PT = 25.4 / 72;
 
 /**
  * The format a file most likely is: (1) a format token in the file name, else (2) a PDF's physical
@@ -119,13 +119,13 @@ export function guessReceiptFormat(fileName: string, design: Pick<DesignSource, 
   if (m) return m[1].toLowerCase() as ReceiptFormat;
 
   if (design.pdf) {
-    const a = design.pdf.pageWidthPt * MM_PER_PT;
-    const b = design.pdf.pageHeightPt * MM_PER_PT;
+    const a = ptToUm(design.pdf.pageWidthPt);
+    const b = ptToUm(design.pdf.pageHeightPt);
     const short = Math.min(a, b);
     const long = Math.max(a, b);
     if (short > 0 && long > 0) {
       let best: { format: ReceiptFormat; off: number } | null = null;
-      for (const n of NOMINAL_MM) {
+      for (const n of NOMINAL_UM) {
         const off = Math.max(Math.abs(short - n.short) / n.short, Math.abs(long - n.long) / n.long);
         if (off <= PDF_TOLERANCE && (!best || off < best.off)) best = { format: n.format, off };
       }
