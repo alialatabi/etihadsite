@@ -18,10 +18,11 @@ import 'server-only';
  * Paths match the local adapter (relative, `uploads/…` / `orders/…`) and are validated
  * against a strict pattern before any request, so a stored path can never escape the bucket.
  */
-import { DEFAULT_SETTINGS } from '@/config/defaults';
+import { DEFAULT_SETTINGS, PURGE_WINDOW_DAYS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
 import type {
   AiBlock,
+  AiGenerationFilter,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -35,9 +36,11 @@ import type {
   StoredFileMeta,
 } from '@/lib/types';
 import { ID_RE, designPathsOf, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
+import { generationFilterQuery, resolveGenerationFilter } from './generation-filter';
 import { purgeBounds } from './purge-rules';
 import { parseStoredSettings } from './settings-schema';
 import { STAFF_PHONE_RE, StaffStorageError } from './staff-errors';
+import { allDesignPaths, assertUnorderedCutoff } from './unordered-rules';
 
 const BUCKET = 'etihad';
 const PATH_RE = /^(uploads|orders)\/[A-Za-z0-9_-]{8,64}\.(bin|json|pdf)$/;
@@ -60,6 +63,12 @@ const DRY_RUN_COUNT_LIMIT = 100_000;
 /** A direct upload that was never committed (.bin without .json) is removed once it is this old. */
 const ORPHAN_UPLOAD_MAX_AGE_MS = 3 * 3600_000;
 const DAY_MS = 86_400_000;
+/** Unordered designs removed per purge run (oldest first); the rest follows the next day (keeps the run inside the cron time limit). */
+const MAX_UNORDERED_PER_RUN = 1000;
+/** Generations per delete request of the 7-day purge (explicit ids: at most 100 x 64 characters in the URL). */
+const GENERATION_DELETE_CHUNK = 100;
+/** The re-read of orders just before the deletes starts this long before the run did (clocks that disagree). */
+const RECHECK_OVERLAP_MS = 60_000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AI_RESERVE_RESULTS: readonly AiReserveResult[] = ['ok', 'ip_limit', 'site_limit', 'blocked'];
 const AI_KINDS: readonly AiKind[] = ['image', 'brief', 'staff_image', 'staff_brief'];
@@ -626,10 +635,13 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   /** Newest first. One Range page with an exact total; a page past the end (416) is empty. */
-  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string }) {
+  async aiListGenerations(q: { limit: number; offset: number } & AiGenerationFilter) {
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);
-    const filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
+    const resolved = resolveGenerationFilter(q); // reads only the filter keys
+    // An invalid filter value, or a search that can match nothing, is an empty page with no request at all.
+    if (!resolved) return { rows: [], total: 0 };
+    const filter = generationFilterQuery(resolved);
     if (!(limit >= 1)) {
       // An empty page, but still with the exact total (PostgREST `limit=0` answers `[]` with Content-Range */total).
       const res = await this.req(`/rest/v1/ai_generations?select=id&limit=0${filter}`, {
@@ -651,6 +663,48 @@ export class SupabaseStorage implements StorageAdapter {
     }
     const rows = (await res.json()) as Record<string, unknown>[];
     return { rows: rows.map(rowToGeneration), total };
+  }
+
+  /** An invalid id is null without a request. Throws on an outage (never null for an error). */
+  async aiGetGeneration(uploadId: string): Promise<AiGenerationRecord | null> {
+    if (!ID_RE.test(uploadId)) return null;
+    const res = await this.req(`/rest/v1/ai_generations?select=*&upload_id=eq.${encodeURIComponent(uploadId)}&limit=1`);
+    const rows = (await res.json()) as Record<string, unknown>[];
+    return Array.isArray(rows) && rows[0] ? rowToGeneration(rows[0]) : null;
+  }
+
+  /**
+   * Deletes the one row with this exact id (never a range, never an unfiltered delete): an id that is not a plain
+   * id string never reaches the network. Returns the deleted row, or null when there was none.
+   */
+  async aiDeleteGeneration(id: string): Promise<AiGenerationRecord | null> {
+    if (typeof id !== 'string' || !ID_RE.test(id)) return null;
+    const res = await this.req(`/rest/v1/ai_generations?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    const rows = (await res.json().catch(() => [])) as Record<string, unknown>[];
+    return Array.isArray(rows) && rows[0] ? rowToGeneration(rows[0]) : null;
+  }
+
+  /**
+   * The id of an order that uses this upload as its design (files.designPath, or one entry of files.designPaths),
+   * whatever the order's age. Any failure THROWS: null always means "no order uses it".
+   */
+  async orderUsingUpload(uploadId: string): Promise<string | null> {
+    if (!ID_RE.test(uploadId)) return null;
+    const p = uploadPath(uploadId);
+    const pick = async (filter: string): Promise<string | null> => {
+      const res = await this.req(`/rest/v1/orders?select=order_id&${filter}&order=created_at.asc,order_id.asc&limit=1`);
+      const rows = (await res.json()) as { order_id?: unknown }[];
+      if (!Array.isArray(rows)) throw new Error('[supabase] orderUsingUpload: unexpected answer');
+      return typeof rows[0]?.order_id === 'string' ? rows[0].order_id : null;
+    };
+    // Same encodings as purgeOlderThan: the text operator for designPath, jsonb containment for the list.
+    return (
+      (await pick(`record->files->>designPath=eq.${encodeURIComponent(p)}`)) ??
+      (await pick(`record->files->designPaths=cs.${encodeURIComponent(JSON.stringify([p]))}`))
+    );
   }
 
   async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
@@ -935,5 +989,134 @@ export class SupabaseStorage implements StorageAdapter {
       }
     }
     return removed;
+  }
+
+  /* ───────────── 7-day rule for unordered designs (owner 2026-11-26) ───────────── */
+
+  /**
+   * Upload path → id of an order that uses it, from every order created since `from` (no upper bound), read strictly
+   * (until-empty paging; any failure throws). Both `designPath` and every `designPaths` entry count. An order is
+   * always created after the upload it uses, so `from` = (oldest candidate − 1 day) is enough.
+   */
+  private async orderUsesSince(from: Date): Promise<Map<string, string>> {
+    const rows = (await this.selectAllPaged(
+      `/rest/v1/orders?select=order_id,created_at,files:record->files&created_at=gte.${encodeURIComponent(from.toISOString())}&order=created_at.asc,order_id.asc`,
+      { untilEmpty: true },
+    )) as { order_id: unknown; files: OrderRecord['files'] | null }[];
+    const used = new Map<string, string>();
+    for (const o of rows) for (const p of allDesignPaths(o.files)) if (!used.has(p)) used.set(p, String(o.order_id));
+    return used;
+  }
+
+  /**
+   * Removes the designs no order used, seven days after they were made (owner 2026-11-26). IRREVERSIBLE, so:
+   *   - the cutoff is guarded (a valid date, not newer than now − UNORDERED_DESIGN_DAYS);
+   *   - candidates are read with order_id null and created_at < cutoff (no lower bound) and every one is verified
+   *     again here (order_id null, date before the cutoff, plain ids), whatever the server answered;
+   *   - the orders created since (oldest candidate − 1 day) are read BEFORE anything is deleted (any read failure
+   *     throws and nothing is deleted); a candidate whose upload an order uses is healed (aiMarkOrdered) and is
+   *     never deleted, even if the heal itself does nothing;
+   *   - orders are read once more right before the deletes (closes most of the gap of a long run);
+   *   - deleted in chunks, files first (explicit paths) and then the rows by explicit id list, with order_id is null
+   *     and the cutoff as backstops. A chunk whose files could not be deleted keeps its rows and the run stops by
+   *     throwing, so tomorrow retries (deleting a missing object is fine).
+   * At most MAX_UNORDERED_PER_RUN designs (oldest first) per run; the rest follows the next day.
+   * Returns the removed paths and `ai_generation:<id>` rows (what would be when dryRun; a dry run changes nothing).
+   */
+  async aiPurgeUnordered(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    assertUnorderedCutoff(cutoff);
+    const startedAt = Date.now();
+    const cutoffIso = cutoff.toISOString();
+    const cutoffQ = encodeURIComponent(cutoffIso);
+    const rows = (await this.selectAllPaged(
+      `/rest/v1/ai_generations?select=id,upload_id,created_at,order_id&order_id=is.null&created_at=lt.${cutoffQ}&order=created_at.asc,id.asc`,
+      { untilEmpty: true },
+    )) as { id: unknown; upload_id: unknown; created_at: unknown; order_id: unknown }[];
+    const candidates: { id: string; uploadId: string; createdAt: Date }[] = [];
+    for (const r of rows) {
+      if (r.order_id !== null) continue;
+      if (typeof r.id !== 'string' || !ID_RE.test(r.id) || typeof r.upload_id !== 'string' || !ID_RE.test(r.upload_id)) continue;
+      const createdAt = new Date(String(r.created_at));
+      if (Number.isNaN(createdAt.getTime()) || createdAt >= cutoff) continue;
+      candidates.push({ id: r.id, uploadId: r.upload_id, createdAt });
+    }
+    candidates.splice(MAX_UNORDERED_PER_RUN);
+    if (candidates.length === 0) return [];
+
+    const used = await this.orderUsesSince(new Date(candidates[0].createdAt.getTime() - DAY_MS));
+    // A used candidate is never deleted: "used" decides that, not whether the heal worked (aiMarkOrdered is a silent no-op on a bad id).
+    const healed = new Set<string>();
+    const heal = async () => {
+      for (const c of candidates) {
+        const orderId = used.get(uploadPath(c.uploadId));
+        if (orderId === undefined || healed.has(c.id)) continue;
+        if (!dryRun) await this.aiMarkOrdered(c.uploadId, orderId);
+        healed.add(c.id);
+      }
+    };
+    await heal();
+    // Orders placed while the reads and heals above ran.
+    for (const [p, o] of await this.orderUsesSince(new Date(startedAt - RECHECK_OVERLAP_MS))) if (!used.has(p)) used.set(p, o);
+    await heal();
+    const gone = candidates.filter((c) => !used.has(uploadPath(c.uploadId)));
+
+    const removed: string[] = [];
+    for (let i = 0; i < gone.length; i += GENERATION_DELETE_CHUNK) {
+      const chunk = gone.slice(i, i + GENERATION_DELETE_CHUNK);
+      const files = chunk.flatMap((c) => [uploadPath(c.uploadId), uploadMetaPath(c.uploadId)]);
+      if (dryRun) {
+        removed.push(...files, ...chunk.map((c) => `ai_generation:${c.id}`));
+        continue;
+      }
+      await this.deleteMany(files); // throws: this chunk's rows stay, the run stops
+      const ids = chunk.map((c) => c.id).join(',');
+      const res = await this.req(`/rest/v1/ai_generations?select=id&id=in.(${ids})&order_id=is.null&created_at=lt.${cutoffQ}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=representation' },
+      });
+      const deleted = (await res.json().catch(() => [])) as { id?: unknown }[];
+      removed.push(...files, ...(Array.isArray(deleted) ? deleted : []).filter((d) => typeof d.id === 'string').map((d) => `ai_generation:${d.id}`));
+    }
+    return removed;
+  }
+
+  /**
+   * Removes plain uploads no order used, seven days after they were made (owner 2026-11-26): an upload created in
+   * [cutoff − PURGE_WINDOW_DAYS, cutoff) that no order and no remaining ai_generations row uses loses its .bin and
+   * .json (a leftover .json without its .bin too). Same guard on the cutoff; the references are read like
+   * purgeOlderThan does (orders and generations created since one day before the window start, no upper bound) and
+   * any read failure throws before anything is deleted. Run it AFTER aiPurgeUnordered.
+   */
+  async purgeUnusedUploads(cutoff: Date, dryRun: boolean): Promise<string[]> {
+    assertUnorderedCutoff(cutoff);
+    const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
+    const refFromDate = new Date(windowStart.getTime() - DAY_MS);
+    const used = new Set((await this.orderUsesSince(refFromDate)).keys());
+    const ai = (await this.selectAllPaged(
+      `/rest/v1/ai_generations?select=upload_id&created_at=gte.${encodeURIComponent(refFromDate.toISOString())}&order=created_at.asc,id.asc`,
+      { untilEmpty: true },
+    )) as { upload_id: unknown }[];
+    for (const g of ai) if (typeof g.upload_id === 'string' && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
+    const uploads = await this.listPrefixSince('uploads', windowStart);
+    const names = new Set(uploads.map((u) => u.name));
+    const inWindow = (iso: string | undefined) => {
+      const d = iso ? new Date(iso) : null;
+      return d !== null && d >= windowStart && d < cutoff;
+    };
+    const files = new Set<string>();
+    for (const u of uploads) {
+      const rel = `uploads/${u.name}`;
+      if (!PATH_RE.test(rel) || !inWindow(u.created_at)) continue;
+      if (u.name.endsWith('.bin')) {
+        if (used.has(rel)) continue;
+        files.add(rel);
+        if (names.has(metaPathForDesign(u.name))) files.add(metaPathForDesign(rel));
+      } else if (u.name.endsWith('.json')) {
+        const bin = u.name.replace(/\.json$/, '.bin');
+        if (!names.has(bin) && !used.has(`uploads/${bin}`)) files.add(rel);
+      }
+    }
+    if (!dryRun && files.size > 0) await this.deleteMany([...files]);
+    return [...files];
   }
 }

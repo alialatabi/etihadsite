@@ -48,7 +48,7 @@ apply and the results look good and print well.
 | D7 | The "review the text" box (approved): before generating, the customer sees the corrected text lines, can edit/delete/add, and is warned (and blocked) when the text is too much for the chosen size. |
 | D8 | Model: **`gpt-image-2.6-flare`**, **1024 px** on the long side. |
 | D9 | **The full IP is stored** (owner's explicit decision, overriding the "never store the IP" rule of ARCHITECTURE §5 for the new AI tables only; analytics events still never carry an IP — invariant 8 unchanged). Stored in the AI tables next to a keyed hash used as the limit/block key. |
-| D10 | **Designs are never deleted**: every generated design (ordered or not) and the design file + order record of **every** order (uploaded or generated) are kept forever, so a future "order again" feature can reuse them. Only the print-sheet PDF keeps the `retentionDays` purge (it can be rebuilt). Uploads that never became an order are still purged as today. |
+| D10 | **Designs are never deleted** (changed 2026-11-26: designs no order used are deleted after 7 days; see §5.6): every generated design (ordered or not) and the design file + order record of **every** order (uploaded or generated) are kept forever, so a future "order again" feature can reuse them. Only the print-sheet PDF keeps the `retentionDays` purge (it can be rebuilt). Uploads that never became an order are still purged as today. |
 | D11 | The sentence promising deletion of design files is **removed from the site** (`builder.details.consent` first sentence, `common.filesNotice` first sentence); the rest of those texts stays. |
 | D12 | No bot check (no Turnstile) on generation for now; the 5/IP and 300/site limits are the guard. |
 | D13 | Approved 2026-11-21: "اي موافق بلش ببناء الكود". |
@@ -267,6 +267,13 @@ appended after `retentionDays` (key order matters to the settings golden test); 
 - Block/unblock are server actions starting with `requireAdmin()`.
 
 ### 5.6 Retention (D10, D11)
+
+> **Update 2026-11-26 (owner request): designs no order used are now deleted 7 days after they were
+> created.** This supersedes "kept forever" below for every generated design (customer or staff) whose
+> `ai_generations.order_id` is null and every plain upload no order uses: the daily cron runs
+> `aiPurgeUnordered(now − 7 days)` (upload files, then the row; a design an order does use is healed, not
+> deleted) and then `purgeUnusedUploads(now − 7 days)` (`UNORDERED_DESIGN_DAYS` in `src/config/defaults.ts`).
+> Designs an order used, and the orders themselves, are still kept forever. See ARCHITECTURE §5.
 
 - Generated PNGs are stored as `uploads/<id>.bin` + `.json` (full PNG, used by the order). The
   purge must **skip any upload referenced by an `ai_generations` row** and **any upload referenced
