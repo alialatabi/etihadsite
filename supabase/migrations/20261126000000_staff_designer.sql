@@ -23,7 +23,21 @@ revoke all on public.staff_accounts from anon, authenticated;
 
 -- The inline check of 20261121000000_ai_designer.sql is named ai_usage_kind_check by Postgres.
 -- Staff use is counted under its own kinds, so a staff flood never uses up the customers' daily budget.
-alter table public.ai_usage drop constraint if exists ai_usage_kind_check;
+-- Defensive: drop EVERY check constraint on ai_usage that mentions `kind`, whatever its real name, so the old
+-- 2-value check can never survive next to the new one (it would reject every staff row).
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+      from pg_constraint con
+     where con.conrelid = 'public.ai_usage'::regclass
+       and con.contype = 'c'
+       and pg_get_constraintdef(con.oid) ilike '%kind%'
+  loop
+    execute format('alter table public.ai_usage drop constraint %I', c.conname);
+  end loop;
+end $$;
 alter table public.ai_usage add constraint ai_usage_kind_check
   check (kind in ('image', 'brief', 'staff_image', 'staff_brief'));
 
