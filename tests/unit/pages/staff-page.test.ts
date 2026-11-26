@@ -55,6 +55,15 @@ describe('staff page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
+  it('right key: the title, then the stickers and receipts tabs with both panels', async () => {
+    const html = renderToStaticMarkup(await call(KEY));
+    expect(html.indexOf(staff.title)).toBeLessThan(html.indexOf(staff.tabs.stickers));
+    expect(html).toContain(`>${staff.tabs.stickers}</button>`);
+    expect(html).toContain(`>${staff.tabs.receipts}</button>`);
+    expect(html).toContain(staff.intro);
+    expect(html).toContain(staff.receipts.intro);
+  });
+
   it('metadata: noindex, nofollow, no referrer', () => {
     const m = generateMetadata();
     expect(m.title).toBe(staff.title);

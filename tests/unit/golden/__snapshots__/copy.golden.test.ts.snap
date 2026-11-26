@@ -9,7 +9,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
-  "{files} x1",
+  "{files} x2",
   "{from} x2",
   "{gap} x3",
   "{gapX} x1",
@@ -19,16 +19,17 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{max} x7",
   "{mb} x4",
   "{min} x1",
-  "{n} x14",
+  "{n} x15",
   "{name} x6",
   "{no} x2",
   "{pages} x1",
-  "{percent} x4",
+  "{percent} x5",
   "{price} x1",
+  "{receipts} x1",
   "{rotated} x1",
   "{rows} x1",
   "{shop} x1",
-  "{size} x5",
+  "{size} x6",
   "{step} x1",
   "{to} x1",
   "{total} x1",
@@ -807,6 +808,14 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 1`] = `
       "few": "صفحات",
       "many": "صفحة",
       "other": "صفحة"
+    },
+    "receipt": {
+      "zero": "وصولات",
+      "one": "وصل",
+      "two": "وصلين",
+      "few": "وصولات",
+      "many": "وصل",
+      "other": "وصل"
     }
   }
 }"
@@ -816,13 +825,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "common" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 536,
+  "chars": 562,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 14,
-  "sha256OfRawJson": "42465b9a603c269c74d773c6cf94b6705121ab435b6ee05ce534b87aa96d14c2",
-  "strings": 54,
+  "objects": 15,
+  "sha256OfRawJson": "07351ca5e262785bdd70af90d828a04ba43f75b3c5b05c26e950812c45ecf0cc",
+  "strings": 60,
 }
 `;
 
@@ -1141,7 +1150,38 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
   "preparing": "جاري تجهيز الملف {n} من {total}…",
   "needValid": "لازم كل تصميم يكون جاهز وقياسه صحيح حتى ينزل الملف.",
   "prepareFailed": "تعذر تجهيز «{name}».",
-  "printActualSize": "اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها."
+  "printActualSize": "اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها.",
+  "tabs": {
+    "label": "نوع الشغل",
+    "stickers": "الستيكرات",
+    "receipts": "الوصولات"
+  },
+  "receipts": {
+    "intro": "ارفع تصميم الوصل واختار قياسه، ونطلعلك ملف PDF على ورقة A4 جاهز للطباعة. البياض يبقى بمكان التخريم والكبس.",
+    "empty": "ما أضفت أي وصل بعد.",
+    "formatLabel": "قياس الوصل",
+    "formats": {
+      "a4": "A4",
+      "a5": "A5",
+      "a6": "A6",
+      "dl": "DL"
+    },
+    "sizes": {
+      "a4": "21 × 28.5",
+      "a5": "15 × 19.5",
+      "a6": "10 × 15",
+      "dl": "19.5 × 10"
+    },
+    "formatDetail": "{size} سم، {n} بالورقة",
+    "turn": "لف التصميم",
+    "whiteLabel": "مكان البياض",
+    "whiteTop": "فوق",
+    "whiteBottom": "تحت",
+    "multiPage": "الملف بيه أكثر من صفحة. نستخدم الصفحة الأولى بس.",
+    "previewAria": "معاينة ورقة A4",
+    "summary": "{receipts}، يعني {files}.",
+    "printHint": "اطبع الملف بحجم {percent}% (Actual size) على ورق A4."
+  }
 }"
 `;
 
@@ -1149,13 +1189,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 806,
+  "chars": 1197,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 2,
-  "sha256OfRawJson": "2cd43d3ca11dffa6e20df8e634034172088b49a70bf24310c49e626fe1b5c92f",
-  "strings": 23,
+  "objects": 6,
+  "sha256OfRawJson": "ae9212b4d50f7050c9e0a75e50174e9d1d4e9c9b6251e3d118e6ac19f8aacc7b",
+  "strings": 46,
 }
 `;
 

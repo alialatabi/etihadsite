@@ -223,6 +223,13 @@ export type NormalisedArtwork =
       hasAlpha: boolean;
       /** Resolution of the ORIGINAL upload over the ordered size (quality signal). */
       effectiveDpi: number;
+      /**
+       * Clockwise turn (degrees) the drawer applies so the image prints upright: the staff page
+       * embeds a JPEG's original bytes (stored, unrotated pixels) and passes its EXIF turn here;
+       * `pxWidth`/`pxHeight` are then the STORED size. Absent = 0 (the website's artwork is
+       * already upright).
+       */
+      rotate?: 0 | 90 | 180 | 270;
     }
   | {
       kind: 'pdf';
