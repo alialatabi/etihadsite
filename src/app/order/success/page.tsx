@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { CircleCheck, MessageCircle } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { MarkerCircle, ScrapHeadline, Tape, btnCls, ctaCls } from '@/components/collage';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { SummaryCard } from '@/components/builder/SummaryCard';
 import { loadSuccess, type OrderOk } from '@/components/builder/logic';
@@ -35,18 +36,21 @@ export default function OrderSuccessPage() {
 
   return (
     <section className="mx-auto max-w-xl space-y-6 px-4 py-10">
-      <div className="glass rounded-3xl p-6 text-center">
+      <div className="paper-card relative p-6 text-center">
+        <Tape strip="orange" className="absolute -top-3 start-8 -rotate-6" />
         <CircleCheck className="mx-auto size-14 text-brand" aria-hidden />
-        <h1 className="font-heading mt-3 text-3xl font-bold">{builder.success.title}</h1>
-        <p className="mt-4 text-sm text-muted-foreground">{builder.success.subtitle}</p>
-        <p className="mt-1 text-3xl font-bold tracking-wide">
-          <Ltr>{res.displayNo}</Ltr>
+        <ScrapHeadline as="h1" text={builder.success.title} size="lg" animate className="mt-3" />
+        <p className="mt-5 text-sm text-ink-muted">{builder.success.subtitle}</p>
+        <p className="mt-3 font-lalezar text-[34px] font-normal leading-tight tracking-wide">
+          <MarkerCircle>
+            <Ltr>{res.displayNo}</Ltr>
+          </MarkerCircle>
         </p>
-        <p className="mt-4 text-muted-foreground">{builder.success.body}</p>
+        <p className="mt-4 text-ink-muted">{builder.success.body}</p>
       </div>
 
       {waRequired && (
-        <p role="alert" className="rounded-xl border-2 border-brand bg-brand/10 p-4 text-sm font-medium">
+        <p role="alert" className="rounded-[2px] border-2 border-brand bg-brand-tint p-4 text-sm font-medium text-brand-ink">
           {builder.success.whatsappRequired}
         </p>
       )}
@@ -61,9 +65,9 @@ export default function OrderSuccessPage() {
         }}
       >
         <DialogContent dir="rtl" showCloseButton={false}>
-          <DialogTitle className="font-heading text-lg font-bold">{builder.success.title}</DialogTitle>
-          <DialogDescription className="text-base leading-relaxed text-foreground">{builder.success.checkNote}</DialogDescription>
-          <DialogClose render={<Button type="button" className="h-12 w-full bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90" />}>
+          <DialogTitle className="text-lg font-bold text-ink">{builder.success.title}</DialogTitle>
+          <DialogDescription className="text-base leading-relaxed text-ink">{builder.success.checkNote}</DialogDescription>
+          <DialogClose render={<Button type="button" className={cn(ctaCls('md'), 'w-full')} />}>
             {builder.success.checkNoteClose}
           </DialogClose>
         </DialogContent>
@@ -76,15 +80,15 @@ export default function OrderSuccessPage() {
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
-              'inline-flex items-center justify-center gap-2 rounded-lg font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              waRequired ? 'h-14 bg-brand text-lg text-brand-foreground' : 'h-12 border border-border bg-background text-base',
+              'inline-flex items-center justify-center gap-2 rounded-[2px] bg-[#25d366] font-bold text-[#052e16] transition-colors hover:bg-[#20bd5a] focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
+              waRequired ? 'min-h-14 text-lg' : 'min-h-12 text-base',
             )}
           >
             <MessageCircle className="size-5" aria-hidden />
             {builder.success.whatsapp}
           </a>
         )}
-        <Link href="/" className={cn(buttonVariants({ variant: 'outline' }), 'h-12 text-base')}>
+        <Link href="/" className={cn(btnCls('outline'), 'min-h-12')}>
           {builder.success.newOrder}
         </Link>
       </div>
