@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { STAFF_PASSWORD_MAX, dummyHash, verifyPassword } from '@/lib/auth/password';
-import { createStaffSession, destroyStaffSession } from '@/lib/auth/staff-session';
+import { createStaffSession, currentStaff, destroyStaffSession } from '@/lib/auth/staff-session';
 import { normalisePhone } from '@/lib/parse/phone';
 import { clientIpFromHeaders, limiters } from '@/lib/rate-limit';
 import { getStorage } from '@/lib/storage';
@@ -61,6 +61,15 @@ export async function staffLoginAction(formData: FormData): Promise<void> {
 }
 
 export async function staffLogoutAction(): Promise<void> {
+  // Move the session cutoff so a copy of this cookie stops working too (this ends the account's sessions on every device).
+  const me = await currentStaff();
+  if (me) {
+    try {
+      await getStorage().staffUpdate?.(me.id, { passwordChangedAt: new Date().toISOString() });
+    } catch {
+      // Best effort: the cookie is still deleted.
+    }
+  }
   await destroyStaffSession();
   redirect(LOGIN);
 }

@@ -60,7 +60,7 @@ import {
   STAFF_SITE_CAP,
 } from './config';
 import { translateInstructions } from './instructions';
-import { aiIpKey } from './ip';
+import { aiIpKey, aiLimitAddress } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, type ImageRef } from './openai';
 import { aiReady, aiSetup, secretReady, type AiStorage } from './ready';
@@ -231,7 +231,7 @@ export interface AiLimits {
  * actor counts per account under its own usage kinds, so staff use never touches the customer limits.
  */
 export interface AiActor {
-  /** `ip` is the full address ('' without a trusted proxy); `ipKey` is the usage key: customer = aiIpKey(ip), staff = 'staff:<id>'. */
+  /** `ip` is the full address ('' without a trusted proxy); `ipKey` is the usage key: customer = aiIpKey(aiLimitAddress(ip)), staff = 'staff:<id>'. */
   identify(request: Request): { ip: string; ipKey: string };
   briefKind: AiKind;
   imageKind: AiKind;
@@ -247,7 +247,8 @@ export interface AiActor {
 /** The limit key: '' (site-only) when there is no trusted proxy and clientIp() is 'global'. */
 function identify(request: Request): { ip: string; ipKey: string } {
   const ip = clientIp(request);
-  return ip === 'global' ? { ip: '', ipKey: '' } : { ip, ipKey: aiIpKey(ip) };
+  // `ip` stays the full address; the key groups an IPv6 client by its /64 (aiLimitAddress).
+  return ip === 'global' ? { ip: '', ipKey: '' } : { ip, ipKey: aiIpKey(aiLimitAddress(ip)) };
 }
 
 /** The site's visitors: per-IP daily limits from the admin settings, the fixed brief limits. */
@@ -261,7 +262,7 @@ export const customerActor: AiActor = {
     imagePerKey: settings.ai.perIpDailyLimit,
     imageSite: settings.ai.siteDailyLimit,
   }),
-  limiterKey: (ip) => ip || 'global',
+  limiterKey: (ip) => (ip ? aiLimitAddress(ip) : 'global'),
   guard: 'customer',
   staffId: null,
 };

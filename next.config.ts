@@ -13,6 +13,8 @@ export const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   // frame-ancestors only: no script-src or other directive (Next inline scripts, Sentry and the PDF worker would break).
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  // The site never uses these browser features; deny them so injected script cannot ask for them.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
 ];
 
 const nextConfig: NextConfig = {

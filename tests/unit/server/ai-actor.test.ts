@@ -72,6 +72,20 @@ describe("customerActor (today's behaviour)", () => {
     expect(customerActor.limiterKey("")).toBe("global");
   });
 
+  it("groups an IPv6 client by its /64 (key and in-memory guard) but keeps IPv4 per address", () => {
+    const a = customerActor.identify(req("2001:db8:1:2::1"));
+    const b = customerActor.identify(req("2001:db8:1:2:ffff::abcd"));
+    expect(a.ipKey).toBe(b.ipKey);
+    // the stored address stays the full one
+    expect(a.ip).toBe("2001:db8:1:2::1");
+    expect(b.ip).toBe("2001:db8:1:2:ffff::abcd");
+    expect(customerActor.limiterKey(a.ip)).toBe(customerActor.limiterKey(b.ip));
+    // another /64 and two IPv4 addresses stay separate
+    expect(customerActor.identify(req("2001:db8:1:3::1")).ipKey).not.toBe(a.ipKey);
+    expect(customerActor.identify(req("10.9.0.1")).ipKey).not.toBe(customerActor.identify(req("10.9.0.2")).ipKey);
+    expect(customerActor.limiterKey("10.9.0.1")).not.toBe(customerActor.limiterKey("10.9.0.2"));
+  });
+
   it("a default runGenerate counts the 'image' kind and writes no staffId", async () => {
     const png = await opaquePng();
     stubOpenAi(() => imageResponse(png));
