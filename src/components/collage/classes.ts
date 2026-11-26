@@ -55,14 +55,17 @@ const SIZE: Record<ScrapSize, string> = {
   xl: 'px-4 pt-1 pb-3.5 text-[38px] sm:px-6 sm:text-[52px] md:text-[60px] leading-[1.2]',
 };
 
-/** Class string of one torn paper scrap: tone, font, edge and size. Never add `bg-*` or filter utilities to it. */
+/**
+ * Class string of one torn paper scrap: tone, font, edge and size. Includes `inline-block` (override with `block`/`inline-flex` through cn).
+ * Never add `bg-*` or filter utilities to it.
+ */
 export function scrapCls({
   tone = 'white',
   font = 'lalezar',
   edge = 'torn',
   size = 'md',
 }: { tone?: ScrapTone; font?: ScrapFont; edge?: ScrapEdge; size?: ScrapSize } = {}): string {
-  return cn('scrap', TONE[tone], EDGE[edge], FONT[font], SIZE[size]);
+  return cn('scrap inline-block', TONE[tone], EDGE[edge], FONT[font], SIZE[size]);
 }
 
 const CTA_SIZE = {
@@ -83,6 +86,39 @@ export function ctaCls(size: keyof typeof CTA_SIZE = 'md'): string {
 export function tagCls(tone: ScrapTone = 'navy'): string {
   return cn(scrapCls({ tone, font: 'body', size: 'tag' }), 'inline-flex items-center gap-1');
 }
+
+/* Buttons and form fields for forms, dialogs and admin pages. Flat, square, 44px, navy focus outline. */
+const BTN_BASE =
+  'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[2px] px-5 text-[16px] font-bold transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-60';
+
+/** Shared base of every flat button (h-11, square, navy focus outline). `outline-solid` is needed when the element is a shadcn Button, whose `outline-none` would otherwise hide the outline. */
+export { BTN_BASE };
+
+const BTN_VARIANT = {
+  ink: 'bg-ink text-paper hover:bg-ink-hover',
+  outline: 'border border-ink/30 bg-white text-ink hover:bg-news',
+  danger: 'border border-brand-ink/40 bg-white text-brand-ink hover:bg-brand-tint',
+} as const;
+
+/**
+ * Secondary and form buttons (NOT the main CTA, that is `ctaCls`): `ink` solid navy, `outline` white with a hairline,
+ * `danger` an outline in red text (never a filled red). For `<button>`, `<Link>`, `<a>` and the shadcn `<Button className>`.
+ */
+export function btnCls(variant: keyof typeof BTN_VARIANT = 'ink'): string {
+  return `${BTN_BASE} ${BTN_VARIANT[variant]}`;
+}
+
+/**
+ * Class strings for form pieces. `input` on Input/Textarea, `select` on SelectTrigger (it overrides the frozen `h-8`),
+ * `label` on `<label>`, `hint` for helper text, `error` for error text (keep `role="alert"` / `aria-live` where it exists).
+ */
+export const fieldCls = {
+  input: 'h-11 rounded-[2px] border-input bg-white px-3 text-[16px] md:text-[16px] focus-visible:border-brand focus-visible:ring-brand/30',
+  select: 'w-full rounded-[2px] border-input bg-white text-[16px] data-[size=default]:h-11 focus-visible:border-brand focus-visible:ring-brand/30',
+  label: 'text-[15px] font-bold leading-normal text-ink',
+  hint: 'text-[14px] leading-[1.4] text-ink-muted',
+  error: 'text-[14px] leading-[1.4] text-brand-ink',
+} as const;
 
 /** Class string of a flat card for forms and data: white, square, paper shadow. `grid` = squared paper, `news` = newsprint. */
 export function paperCardCls(tone: 'white' | 'grid' | 'news' = 'white'): string {

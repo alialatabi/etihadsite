@@ -63,7 +63,7 @@ export function ScrapHeadline({
           <Fragment key={i}>
             {i > 0 && ' '}
             <span
-              className={cn(scrapCls({ ...look, size }), 'my-1 inline-block align-middle', TILT[TILTS[i % TILTS.length]], animate && 'anim-slap')}
+              className={cn(scrapCls({ ...look, size }), 'my-1 align-middle', TILT[TILTS[i % TILTS.length]], animate && 'anim-slap')}
               style={animate ? { animationDelay: `${i * 120}ms` } : undefined}
             >
               {c}

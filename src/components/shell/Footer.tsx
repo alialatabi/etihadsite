@@ -6,7 +6,7 @@ import { Ltr } from '@/components/Ltr';
 import type { ShopSettings } from '@/lib/types';
 
 const LINK =
-  'rounded-[2px] underline-offset-4 hover:text-paper hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper';
+  'inline-flex min-h-11 items-center rounded-[2px] underline-offset-4 hover:text-paper hover:underline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-paper';
 
 /**
  * Site footer (Server Component): a navy torn scrap. Brand, hours, contact, links, files notice.
@@ -19,7 +19,7 @@ export function Footer({ settings }: { settings: ShopSettings }) {
         <div className="sm:col-span-2 lg:col-span-1">
           <Link
             href="/"
-            className="inline-flex items-center gap-3 rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper"
+            className="inline-flex items-center gap-3 rounded-[2px] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-paper"
           >
             <StickerMark size={44} tilt={-8} />
             <span className="font-lalezar text-2xl font-normal leading-tight">{settings.shopName}</span>
@@ -35,7 +35,7 @@ export function Footer({ settings }: { settings: ShopSettings }) {
 
         <div>
           <h2 className="font-lalezar text-xl font-normal leading-tight text-paper">{common.footer.contact}</h2>
-          <ul className="mt-3 space-y-2 text-paper/80">
+          <ul className="mt-3 text-paper/80">
             {settings.phone ? (
               <li className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0" aria-hidden />
@@ -49,7 +49,7 @@ export function Footer({ settings }: { settings: ShopSettings }) {
 
         <div>
           <h2 className="font-lalezar text-xl font-normal leading-tight text-paper">{pages.shell.footerLinks}</h2>
-          <ul className="mt-3 space-y-2 text-paper/80">
+          <ul className="mt-3 text-paper/80">
             <li>
               <Link href="/" className={LINK}>
                 {common.nav.home}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { common, pages } from '@/content/ar';
 import { ctaCls, StickerMark } from '@/components/collage';
+import { cn } from '@/lib/utils';
 import type { ShopSettings } from '@/lib/types';
 import { NavLink } from './NavLink';
 
@@ -15,17 +16,17 @@ export function Header({ settings }: { settings: ShopSettings }) {
         <Link
           href="/"
           aria-label={pages.shell.homeAria}
-          className="flex shrink-0 items-center gap-2 rounded-[2px] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink sm:gap-3"
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-[2px] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink sm:gap-3"
         >
           <StickerMark size={36} tilt={-6} priority className="size-8 sm:size-9" />
-          <span className="font-lalezar text-lg font-normal leading-none text-ink sm:text-xl">{settings.shopName}</span>
+          <span className="font-lalezar text-base font-normal leading-none text-ink sm:text-xl">{settings.shopName}</span>
         </Link>
 
-        <nav aria-label={pages.shell.menuLabel} className="flex items-center gap-1 text-sm sm:gap-3">
+        <nav aria-label={pages.shell.menuLabel} className="flex items-center gap-1 text-xs sm:gap-3 sm:text-sm">
           <NavLink href="/how-it-works" className="whitespace-nowrap">
             {common.nav.howItWorks}
           </NavLink>
-          <Link href="/#builder" className={ctaCls('sm')}>
+          <Link href="/#builder" className={cn(ctaCls('sm'), 'px-3 text-base sm:px-4 sm:text-lg')}>
             {common.nav.start}
           </Link>
         </nav>

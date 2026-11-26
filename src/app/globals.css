@@ -36,6 +36,7 @@
   --color-ground: var(--ground);
   --color-news: var(--news);
   --color-news-light: var(--news-light);
+  --color-news-dark: var(--news-dark);
   --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
   --color-ink-hover: var(--ink-hover);
@@ -70,10 +71,12 @@
 }
 
 :root {
-  --header-h: 3.5rem;
+  /* = the header row (h-14) + its torn-edge padding (pb-2); keep in step with Header.tsx */
+  --header-h: 4rem;
   --ground: #ece6da;
   --news: #f4efe4;
   --news-light: #f7f3ea;
+  --news-dark: #e2dccf;
   --paper: #fdfbfa;
   --ink: #121f34;
   --ink-soft: #3d4659;
@@ -128,7 +131,7 @@
 
 @media (min-width: 640px) {
   :root {
-    --header-h: 4rem;
+    --header-h: 4.5rem;
   }
 }
 
@@ -149,7 +152,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
@@ -187,10 +190,16 @@
 @layer components {
   /* A torn paper piece. The torn background lives on ::before, so the element itself is never clipped. */
   .scrap {
+    /* Defaults live here, so a scrap nested in another scrap never inherits the parent's tone or edge. */
+    --scrap-bg: #fff;
+    --scrap-fg: var(--ink);
+    --scrap-img: none;
+    --scrap-img-size: auto;
+    --scrap-clip: var(--torn-edge);
     position: relative;
     isolation: isolate;
     filter: var(--paper-drop);
-    color: var(--scrap-fg, var(--ink));
+    color: var(--scrap-fg);
   }
   .scrap::before {
     content: "";
@@ -198,10 +207,10 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background-color: var(--scrap-bg, #fff);
-    background-image: var(--scrap-img, none);
-    background-size: var(--scrap-img-size, auto);
-    clip-path: var(--scrap-clip, var(--torn-edge));
+    background-color: var(--scrap-bg);
+    background-image: var(--scrap-img);
+    background-size: var(--scrap-img-size);
+    clip-path: var(--scrap-clip);
   }
   .scrap-flat { filter: none; }
   .scrap-torn4 { --scrap-clip: var(--torn-four); }
@@ -291,4 +300,15 @@
  */
 [data-slot]:focus-visible {
   --tw-ring-color: var(--ring);
+}
+
+/*
+ * A CTA built on the shadcn Button: Button has `outline-none` and a red focus ring, which blends into the red scrap.
+ * Unlayered, so it beats both: an explicit navy outline (outline-style is set here, so `outline-none` no longer hides it)
+ * and no ring.
+ */
+.cta:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+  --tw-ring-shadow: 0 0 #0000;
 }

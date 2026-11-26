@@ -47,7 +47,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
               >
                 {item.label}
                 {item.badge && item.badge > 0 ? (
-                  <span className="rounded-[2px] bg-brand px-2 text-[14px] font-bold leading-6 text-white">
+                  <span className="rounded-[2px] bg-brand-tint px-2 text-[14px] font-bold leading-6 text-brand-ink">
                     <Ltr>{item.badge}</Ltr>
                   </span>
                 ) : null}

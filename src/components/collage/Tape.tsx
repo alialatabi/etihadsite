@@ -20,5 +20,5 @@ export function Tape({
   if (children) {
     return <span className={cn('inline-block bg-tape px-4 py-1.5 text-[15px] font-bold leading-snug text-ink', TILT[tilt], className)}>{children}</span>;
   }
-  return <span aria-hidden className={cn('pointer-events-none block h-6 w-20', strip === 'clear' ? 'tape-clear' : 'tape-strip', className)} />;
+  return <span aria-hidden className={cn('pointer-events-none block h-6 w-20', strip === 'clear' ? 'tape-clear' : 'tape-strip', TILT[tilt], className)} />;
 }

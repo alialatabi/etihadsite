@@ -8,5 +8,5 @@ export { StepNumber } from './StepNumber';
 export { StickerMark } from './StickerMark';
 export { Tag } from './Tag';
 export { Tape } from './Tape';
-export { ctaCls, paperCardCls, scrapCls, tagCls, TILT } from './classes';
+export { BTN_BASE, btnCls, ctaCls, fieldCls, paperCardCls, scrapCls, tagCls, TILT } from './classes';
 export type { ScrapEdge, ScrapFont, ScrapSize, ScrapTone, Tilt } from './classes';

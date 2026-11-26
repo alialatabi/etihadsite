@@ -17,7 +17,7 @@ type ScrapProps = {
 export function Scrap({ as = 'span', tone, font, edge, size, tilt = 0, className, children, ...rest }: ScrapProps) {
   const Comp = as as ElementType;
   return (
-    <Comp className={cn(scrapCls({ tone, font, edge, size }), 'inline-block', TILT[tilt], className)} {...rest}>
+    <Comp className={cn(scrapCls({ tone, font, edge, size }), TILT[tilt], className)} {...rest}>
       {children}
     </Comp>
   );

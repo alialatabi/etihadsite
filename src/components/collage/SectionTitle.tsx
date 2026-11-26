@@ -26,7 +26,7 @@ export function SectionTitle({
 }) {
   const Comp = as as ElementType;
   return (
-    <Comp ref={ref} id={id} tabIndex={tabIndex} className={cn(scrapCls({ tone, font: 'lalezar', size }), 'inline-block', TILT[tilt], className)}>
+    <Comp ref={ref} id={id} tabIndex={tabIndex} className={cn(scrapCls({ tone, font: 'lalezar', size }), TILT[tilt], className)}>
       {children}
     </Comp>
   );

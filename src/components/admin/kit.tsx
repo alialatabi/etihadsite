@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { Check, Inbox } from 'lucide-react';
 import { order } from '@/content/ar';
+import { BTN_BASE, btnCls, fieldCls } from '@/components/collage';
 import type { OrderStatus } from '@/lib/types';
 
 /**
@@ -149,7 +150,7 @@ export function StatTile({
 export function TableFrame({ children, label, className }: { children: ReactNode; label?: string; className?: string }) {
   return (
     <div
-      className={cx('overflow-x-auto rounded-[2px] bg-white shadow-paper', className)}
+      className={cx('overflow-x-auto rounded-[2px] bg-white shadow-paper focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink', className)}
       {...(label ? { role: 'region', 'aria-label': label, tabIndex: 0 } : {})}
     >
       {children}
@@ -174,10 +175,10 @@ export const tableCls = {
 /* -------------------------------------------------------------------------- */
 
 const STATUS_TONE: Record<OrderStatus, { box: string; dot: string }> = {
-  new: { box: 'bg-brand text-white', dot: 'bg-white' },
+  new: { box: 'bg-brand-tint text-brand-ink', dot: 'bg-brand' },
   printing: { box: 'bg-tape text-ink', dot: 'bg-ink' },
   done: { box: 'bg-ink text-paper', dot: 'bg-paper' },
-  cancelled: { box: 'bg-[#e2dccf] text-ink-soft', dot: 'bg-ink/40' },
+  cancelled: { box: 'bg-news-dark text-ink-soft', dot: 'bg-ink/40' },
 };
 
 /** Order status pill: coloured dot + the `order.status[status]` label. */
@@ -260,9 +261,6 @@ export function EmptyState({
 /* Buttons                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const BTN_BASE =
-  'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[2px] px-5 text-[16px] font-bold transition-colors focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-60';
-
 /**
  * Class strings for buttons, usable on the shadcn `Button` (`className={btn.primary}`),
  * on `<a>`/`<Link>`, or on a plain `<button>`. All are h-11, square corners.
@@ -271,9 +269,9 @@ const BTN_BASE =
  */
 export const btn = {
   primary: `${BTN_BASE} bg-brand text-white hover:bg-brand-ink`,
-  ink: `${BTN_BASE} bg-ink text-paper hover:bg-ink-hover`,
-  outline: `${BTN_BASE} border border-ink/30 bg-white text-ink hover:bg-news`,
-  danger: `${BTN_BASE} border border-brand-ink/40 bg-white text-brand-ink hover:bg-brand-tint`,
+  ink: btnCls('ink'),
+  outline: btnCls('outline'),
+  danger: btnCls('danger'),
   whatsapp: `${BTN_BASE} bg-[#25d366] text-[#052e16] hover:bg-[#20bd5a]`,
 } as const;
 
@@ -283,7 +281,7 @@ export const btn = {
  */
 export function segment(selected: boolean): string {
   return cx(
-    'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
+    'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
     selected
       ? 'bg-ink font-bold text-paper'
       : 'border border-ink/25 bg-white font-medium text-ink-soft hover:bg-news',
@@ -299,13 +297,7 @@ export function segment(selected: boolean): string {
  * `field.label` on `<label>`, `field.hint` for helper text, `field.error` for error text
  * (keep `role="alert"` / `aria-live` where it already exists).
  */
-export const field = {
-  input:
-    'h-11 rounded-[2px] border-input bg-white px-3 text-[16px] focus-visible:border-brand focus-visible:ring-brand/30',
-  label: 'text-[15px] font-bold leading-normal text-ink',
-  hint: 'text-[14px] leading-[1.4] text-ink-muted',
-  error: 'text-[14px] leading-[1.4] text-brand-ink',
-} as const;
+export const field = fieldCls;
 
 /** Panel-style info strip (surface background) for notices such as "list capped". */
 export function InfoStrip({ children, className }: { children: ReactNode; className?: string }) {

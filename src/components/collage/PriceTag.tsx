@@ -6,6 +6,7 @@ import { TILT, type Tilt } from './classes';
 /** A price on a white card: label in Plex bold, amount in Lalezar, optional marker circle and tape on the corner. */
 export function PriceTag({
   label,
+  was,
   children,
   marker,
   tape,
@@ -13,6 +14,8 @@ export function PriceTag({
   className,
 }: {
   label?: ReactNode;
+  /** The old price when a discount applies: struck through above the amount (put the saving on a discount Tag). */
+  was?: ReactNode;
   /** The amount, e.g. `<Money/>`. */
   children: ReactNode;
   marker?: boolean;
@@ -25,6 +28,7 @@ export function PriceTag({
     <div className={cn('paper-card relative inline-block px-5 pt-3 pb-4', TILT[tilt], className)}>
       {tape ? <span aria-hidden className="tape-strip pointer-events-none absolute -top-3 start-1/3 h-6 w-20 -rotate-6" /> : null}
       {label ? <span className="block text-[15px] font-bold text-ink">{label}</span> : null}
+      {was ? <s className="block text-[15px] font-bold text-ink-muted">{was}</s> : null}
       {marker ? <MarkerCircle>{amount}</MarkerCircle> : amount}
     </div>
   );

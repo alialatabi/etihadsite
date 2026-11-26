@@ -43,7 +43,7 @@ export default async function HomePage() {
                 href={TO_SHAPE}
                 tabIndex={-1}
                 className={cn(
-                  'anim-slap flex h-full min-h-16 items-center gap-3 px-3 py-3 transition-[rotate,translate] hover:-translate-y-0.5 hover:rotate-0 md:px-4',
+                  'anim-slap flex h-full min-h-16 items-center gap-3 px-3 py-3 transition-[rotate,translate] motion-reduce:transition-none hover:-translate-y-0.5 hover:rotate-0 md:px-4',
                   CARD[i],
                 )}
                 style={{ animationDelay: `${i * 120}ms` }}
