@@ -162,6 +162,28 @@ describe('prepareOriginalArtwork JPEG', () => {
     expect(r).toEqual({ ok: false, error: 'no_alpha' });
   });
 
+  it('a JPEG with a 0xFF fill byte after SOI (pdf-lib cannot parse it) falls back to the canvas path', async () => {
+    const plain = await jpegOf(sharp(solid(40, 20)));
+    const filled = new Uint8Array(plain.length + 1);
+    filled.set(plain.subarray(0, 2), 0);
+    filled[2] = 0xff;
+    filled.set(plain.subarray(2), 3);
+    const r = await prepareOriginalArtwork(source(filled, 'jpeg', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+    if (!r.ok) throw new Error(r.error);
+    expect(same(raster(r.artwork).bytes, filled)).toBe(false);
+    expect(mock.canvases.length).toBeGreaterThan(0);
+  });
+
+  it('an RGB JPEG with a wide-gamut ICC profile falls back (pdf-lib would drop the profile); an sRGB profile keeps the bytes', async () => {
+    const p3 = new Uint8Array(await sharp(solid(40, 20)).withIccProfile('p3').jpeg().toBuffer());
+    const srgb = new Uint8Array(await sharp(solid(40, 20)).withIccProfile('srgb').jpeg().toBuffer());
+    const a = await prepareOriginalArtwork(source(p3, 'jpeg', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+    const b = await prepareOriginalArtwork(source(srgb, 'jpeg', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+    if (!a.ok || !b.ok) throw new Error('prepare failed');
+    expect(same(raster(a.artwork).bytes, p3)).toBe(false);
+    expect(same(raster(b.artwork).bytes, srgb)).toBe(true);
+  });
+
   it('a file that is not a JPEG at all: corrupt (from the canvas path)', async () => {
     const r = await prepareOriginalArtwork(source(new Uint8Array(64).fill(9), 'jpeg', { px: [10, 10], hasAlpha: false }), rect(10, 10));
     expect(r).toEqual({ ok: false, error: 'corrupt' });
@@ -200,6 +222,36 @@ describe('prepareOriginalArtwork PNG', () => {
     const r = await prepareOriginalArtwork(source(bytes, 'png', { px: [50, 40], hasAlpha: false }), rect(50, 40));
     if (!r.ok) throw new Error(r.error);
     expect(same(raster(r.artwork).bytes, bytes)).toBe(false);
+  });
+
+  it('an animated PNG (acTL chunk) falls back: pdf-lib refuses to embed it', async () => {
+    const plain = new Uint8Array(await sharp(solid(4, 4)).png().toBuffer());
+    const actl = Buffer.alloc(20); // length 8, 'acTL', frames 2, plays 0, crc (not checked by the header reader)
+    actl.writeUInt32BE(8, 0);
+    actl.write('acTL', 4, 'ascii');
+    actl.writeUInt32BE(2, 8);
+    const apng = new Uint8Array(Buffer.concat([Buffer.from(plain.subarray(0, 33)), actl, Buffer.from(plain.subarray(33))]));
+    const r = await prepareOriginalArtwork(source(apng, 'png', { px: [4, 4], hasAlpha: false }), rect(4, 4));
+    if (!r.ok) throw new Error(r.error);
+    expect(same(raster(r.artwork).bytes, apng)).toBe(false);
+  });
+
+  it('a PNG with a non-sRGB iCCP profile falls back; one named sRGB keeps the bytes', async () => {
+    const plain = new Uint8Array(await sharp(solid(40, 20)).png().toBuffer());
+    const withProfile = (name: string) => {
+      const data = Buffer.concat([Buffer.from(name, 'latin1'), Buffer.from([0, 0, 0x78, 0x9c])]); // name, NUL, method 0, a zlib header (not inflated by the header reader)
+      const head = Buffer.alloc(8);
+      head.writeUInt32BE(data.length, 0);
+      head.write('iCCP', 4, 'ascii');
+      return new Uint8Array(Buffer.concat([Buffer.from(plain.subarray(0, 33)), head, data, Buffer.alloc(4), Buffer.from(plain.subarray(33))]));
+    };
+    const p3 = withProfile('Display P3');
+    const srgb = withProfile('sRGB IEC61966-2.1');
+    const a = await prepareOriginalArtwork(source(p3, 'png', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+    const b = await prepareOriginalArtwork(source(srgb, 'png', { px: [40, 20], hasAlpha: false }), rect(40, 20));
+    if (!a.ok || !b.ok) throw new Error('prepare failed');
+    expect(same(raster(a.artwork).bytes, p3)).toBe(false);
+    expect(same(raster(b.artwork).bytes, srgb)).toBe(true);
   });
 
   it('custom shape with a trim box: canvas crop at native resolution (crop size == trim size, above 1200 dpi)', async () => {

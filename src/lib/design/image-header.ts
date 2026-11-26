@@ -19,7 +19,12 @@ export interface JpegInfo {
   adobe: boolean;
   /** EXIF orientation 1..8; 1 when absent or invalid. */
   orientation: number;
+  /** Embedded ICC profile: none, one whose description says sRGB, or anything else (wide gamut, Adobe RGB, ...). */
+  icc: IccKind;
 }
+
+/** What an embedded colour profile means for a pdf-lib embed (pdf-lib writes bare /DeviceRGB and drops the profile). */
+export type IccKind = 'none' | 'srgb' | 'other';
 
 export interface PngInfo {
   width: number;
@@ -28,6 +33,10 @@ export interface PngInfo {
   colorType: number;
   /** An `eXIf` chunk is present (an orientation the browser may apply and pdf-lib would not). */
   hasExif: boolean;
+  /** An `acTL` chunk is present: an animated PNG, which pdf-lib refuses to embed. */
+  animated: boolean;
+  /** Embedded `iCCP` profile, by its name. */
+  icc: IccKind;
 }
 
 const u16be = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
@@ -56,6 +65,20 @@ function tiffOrientation(b: Uint8Array, start: number, end: number): number {
   return 1;
 }
 
+const asciiAt = (b: Uint8Array, o: number, text: string) => {
+  if (o + text.length > b.length) return false;
+  for (let i = 0; i < text.length; i++) if (b[o + i] !== text.charCodeAt(i)) return false;
+  return true;
+};
+const asciiIncludes = (b: Uint8Array, from: number, to: number, text: string) => {
+  for (let i = from; i + text.length <= to; i++) if (asciiAt(b, i, text)) return true;
+  return false;
+};
+
+/** 'sRGB' as Latin-1 text (ICC v2 descriptions, PNG profile names) or UTF-16 (ICC v4 `mluc` descriptions, either byte order). */
+const mentionsSrgb = (b: Uint8Array, from: number, to: number) =>
+  asciiIncludes(b, from, to, 'sRGB') || asciiIncludes(b, from, to, 's\0R\0G\0B');
+
 /** Start-of-frame markers that carry the size (every 0xC0-0xCF except DHT 0xC4, JPG 0xC8, DAC 0xCC). */
 const isSof = (m: number) => m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc;
 
@@ -67,6 +90,7 @@ export function readJpegInfo(bytes: Uint8Array): JpegInfo | null {
     let adobe = false;
     let orientation = 1;
     let sawExif = false;
+    let icc: IccKind = 'none';
     let p = 2;
     while (p < n) {
       if (bytes[p] !== 0xff) return null; // lost sync: not a header we can trust
@@ -88,6 +112,10 @@ export function readJpegInfo(bytes: Uint8Array): JpegInfo | null {
       } else if (marker === 0xe1 && !sawExif && len >= 8 && bytes[body] === 0x45 && bytes[body + 1] === 0x78 && bytes[body + 2] === 0x69 && bytes[body + 3] === 0x66 && bytes[body + 4] === 0 && bytes[body + 5] === 0) {
         sawExif = true;
         orientation = tiffOrientation(bytes, body + 6, bodyEnd);
+      } else if (marker === 0xe2 && len >= 16 && asciiAt(bytes, body, 'ICC_PROFILE\0')) {
+        // An 'sRGB' in any chunk of the profile (its description) counts as sRGB; otherwise it is some other profile.
+        if (mentionsSrgb(bytes, body + 14, bodyEnd)) icc = 'srgb';
+        else if (icc === 'none') icc = 'other';
       } else if (marker === 0xee && len >= 7 && bytes[body] === 0x41 && bytes[body + 1] === 0x64 && bytes[body + 2] === 0x6f && bytes[body + 3] === 0x62 && bytes[body + 4] === 0x65) {
         adobe = true;
       }
@@ -95,7 +123,7 @@ export function readJpegInfo(bytes: Uint8Array): JpegInfo | null {
       if (marker === 0xda) break; // SOS: the headers are done
     }
     if (!sof || sof.width < 1 || sof.height < 1) return null;
-    return { width: sof.width, height: sof.height, components: sof.components, bits: sof.bits, sof: sof.marker, adobe, orientation };
+    return { width: sof.width, height: sof.height, components: sof.components, bits: sof.bits, sof: sof.marker, adobe, orientation, icc };
   } catch {
     return null;
   }
@@ -116,18 +144,19 @@ export function readPngInfo(bytes: Uint8Array): PngInfo | null {
     const bitDepth = bytes[24];
     const colorType = bytes[25];
     let hasExif = false;
+    let animated = false;
+    let icc: IccKind = 'none';
     let p = 33; // after IHDR + its CRC
     while (p + 8 <= n) {
       const len = u32be(bytes, p);
       const type = String.fromCharCode(bytes[p + 4], bytes[p + 5], bytes[p + 6], bytes[p + 7]);
-      if (type === 'eXIf') {
-        hasExif = true;
-        break;
-      }
-      if (type === 'IEND') break;
+      if (type === 'eXIf') hasExif = true;
+      else if (type === 'acTL') animated = true;
+      else if (type === 'iCCP') icc = mentionsSrgb(bytes, p + 8, Math.min(p + 8 + 80, n)) ? 'srgb' : 'other';
+      else if (type === 'IEND') break;
       p += 12 + len;
     }
-    return { width, height, bitDepth, colorType, hasExif };
+    return { width, height, bitDepth, colorType, hasExif, animated, icc };
   } catch {
     return null;
   }

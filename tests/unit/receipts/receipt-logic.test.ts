@@ -138,6 +138,15 @@ describe('receipt cards: reducer', () => {
     expect(run([{ type: 'format', id: 'plain.png-0', format: 'a6' }], cards)).toBe(cards);
   });
 
+  it('picking the guessed format again keeps the employee turn and white, and marks the format as picked', () => {
+    let cards = ready('menu a5.png', 1000, 1400);
+    expect(cards[0]).toMatchObject({ format: 'a5', formatPicked: false, turn: 270, white: 'bottom' });
+    cards = run([{ type: 'turn', id: 'menu a5.png-0' }, { type: 'turn', id: 'menu a5.png-0' }], cards);
+    const turned = cards[0];
+    cards = run([{ type: 'format', id: 'menu a5.png-0', format: 'a5' }], cards);
+    expect(cards[0]).toMatchObject({ format: 'a5', formatPicked: true, turn: turned.turn, white: turned.white });
+  });
+
   it('turn adds 90 clockwise per press and re-applies the white (top for 0/180, bottom for 90/270)', () => {
     let cards = ready('x a6.png', 1000, 1400);
     const turns: number[] = [];

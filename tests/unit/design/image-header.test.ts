@@ -80,7 +80,7 @@ describe('readJpegInfo', () => {
 describe('readPngInfo', () => {
   it('RGB without alpha: colour type 2', async () => {
     const png = await bytesOf(sharp(solid).png());
-    expect(readPngInfo(png)).toEqual({ width: 64, height: 48, bitDepth: 8, colorType: 2, hasExif: false });
+    expect(readPngInfo(png)).toEqual({ width: 64, height: 48, bitDepth: 8, colorType: 2, hasExif: false, animated: false, icc: 'none' });
   });
 
   it('RGBA: colour type 6', async () => {

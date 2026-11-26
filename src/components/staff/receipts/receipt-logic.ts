@@ -94,7 +94,7 @@ export function receiptReducer(state: ReceiptCardState[], action: ReceiptAction)
       });
     case 'format':
       return update(state, action.id, (card) => {
-        if (card.format === action.format && card.formatPicked) return card;
+        if (card.format === action.format) return card.formatPicked ? card : { ...card, formatPicked: true };
         const picked: ReceiptCardState = { ...card, formatPicked: true };
         return card.design ? applyAuto(picked, action.format, card.design) : { ...picked, format: action.format };
       });
