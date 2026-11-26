@@ -159,6 +159,19 @@ describe("aiListGenerations filters (exact URLs)", () => {
     expect(many).not.toContain("q\\");
   });
 
+  it("an emoji at the 100-character cut is not split, and a lone surrogate never throws", async () => {
+    const edge = "a".repeat(99) + "😀" + "zzz";
+    const t = q((await list({ search: { text: edge, orderIds: [] } }))[0]).searchParams.get("or") ?? "";
+    expect(t).toBe(`(idea.ilike."*${"a".repeat(99)}😀*",instructions.ilike."*${"a".repeat(99)}😀*")`);
+    // A lone surrogate is replaced by a space; a text of nothing else matches nothing and sends no request.
+    const lone = q((await list({ search: { text: "ab\uD800cd", orderIds: [] } }))[0]).searchParams.get("or") ?? "";
+    expect(lone).toBe('(idea.ilike."*ab cd*",instructions.ilike."*ab cd*")');
+    calls = [];
+    await expect(store().aiListGenerations({ limit: 10, offset: 0, search: { text: "\uD800", orderIds: [] } })).resolves.toEqual({ rows: [], total: 0 });
+    await expect(store().aiListGenerations({ limit: 10, offset: 0, ipKey: "k\uDC00" })).resolves.toEqual({ rows: [], total: 0 });
+    expect(calls).toHaveLength(0);
+  });
+
   it("filters combine; the count request (limit 0) carries them too", async () => {
     const c = (await list({ limit: 0, ordered: false, maker: "staff", shape: "custom" }))[0];
     expect(rest(c)).toBe("/rest/v1/ai_generations?select=id&limit=0&order_id=is.null&staff_id=not.is.null&shape=eq.custom");

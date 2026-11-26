@@ -25,9 +25,25 @@ export interface ResolvedGenerationFilter {
   search?: { text: string; orderIds: string[] };
 }
 
-/** Control characters become spaces; trimmed and cut to SEARCH_TEXT_MAX. */
+/** A lone UTF-16 surrogate (cannot be percent-encoded: encodeURIComponent throws on it). */
+const LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Control characters and lone surrogates become spaces; trimmed and cut to SEARCH_TEXT_MAX CHARACTERS (code points,
+ * so an emoji is never cut in half).
+ */
 function cleanSearchText(raw: unknown): string {
-  return String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, SEARCH_TEXT_MAX).trim();
+  const clean = String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(LONE_SURROGATE_RE, " ");
+  return Array.from(clean.trim()).slice(0, SEARCH_TEXT_MAX).join("").trim();
+}
+
+function encodable(s: string): boolean {
+  try {
+    encodeURIComponent(s);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseDate(v: unknown): Date | null | undefined {
@@ -41,7 +57,7 @@ function parseDate(v: unknown): Date | null | undefined {
 export function resolveGenerationFilter(f: AiGenerationFilter): ResolvedGenerationFilter | null {
   const out: ResolvedGenerationFilter = {};
   if (f.ipKey !== undefined) {
-    if (typeof f.ipKey !== "string") return null;
+    if (typeof f.ipKey !== "string" || !encodable(f.ipKey)) return null;
     out.ipKey = f.ipKey;
   }
   if (f.ordered !== undefined) {
