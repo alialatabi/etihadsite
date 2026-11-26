@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Ltr } from '@/components/Ltr';
+import { fillLtr } from '@/components/fill-ltr';
 import { Pill } from '@/components/admin/kit';
-import { admin } from '@/content/ar';
+import { admin, fill } from '@/content/ar';
 import { shapeLabel, sizeLabel } from '@/lib/order-text';
 import type { AiGenerationRecord } from '@/lib/types';
 import { formatBaghdad } from '../_lib';
@@ -9,7 +10,7 @@ import { formatBaghdad } from '../_lib';
 const d = admin.designs;
 
 /** Cards of generated designs, newest first. Server component: no state. */
-export function DesignGrid({ rows }: { rows: AiGenerationRecord[] }) {
+export function DesignGrid({ rows, staffNames }: { rows: AiGenerationRecord[]; staffNames?: Record<string, string> }) {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
       {rows.map((g) => (
@@ -27,6 +28,13 @@ export function DesignGrid({ rows }: { rows: AiGenerationRecord[] }) {
           <div className="flex flex-col gap-2 px-1 pb-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[14px] font-medium leading-[1.4] text-[#5a6475]">{formatBaghdad(g.createdAt)}</span>
+              {g.staffId ? (
+                <Pill tone="info">
+                  {staffNames?.[g.staffId]
+                    ? fill(d.staffBadge, { name: staffNames[g.staffId] })
+                    : fillLtr(d.staffBadge, { name: g.staffId })}
+                </Pill>
+              ) : null}
               {g.orderId ? (
                 <Link
                   href={`/admin/orders/${g.orderId}`}

@@ -87,6 +87,7 @@ const SCALED = {
   order: { limit: 5, windowMs: HOUR },
   log: { limit: 60, windowMs: HOUR },
   login: { limit: 10, windowMs: 15 * 60 * 1000 },
+  staffLogin: { limit: 10, windowMs: 15 * 60 * 1000 },
   brief: { limit: 30, windowMs: HOUR },
   generate: { limit: 15, windowMs: HOUR },
 } as const;
@@ -97,10 +98,15 @@ const scaled = (name: ScaledName, k: number) =>
 const trackLimiter = () => createRateLimiter({ limit: 300, windowMs: HOUR });
 // Keyed by the staff account ('staff:<id>'), never by IP: no shared bucket, so no x20. Bounds a stolen session per hour;
 // the stored daily limit (50 images per account) is the real cap.
-const STAFF = { staffBrief: { limit: 120, windowMs: HOUR }, staffGenerate: { limit: 60, windowMs: HOUR } } as const;
+const STAFF = {
+  staffBrief: { limit: 120, windowMs: HOUR },
+  staffGenerate: { limit: 60, windowMs: HOUR },
+  // Keyed by the normalised phone (not an IP): no shared bucket, so no x20. Ten wrong tries per phone per 15 minutes.
+  staffLoginPhone: { limit: 10, windowMs: 15 * 60 * 1000 },
+} as const;
 const staffLimiter = (name: keyof typeof STAFF) => createRateLimiter(STAFF[name]);
 // Added after the first limiter set (2026-11-21): a set that survived a dev hot reload gets them without resetting the others.
-const BACKFILLED = ['brief', 'generate', 'commit', 'trackIp'] as const satisfies readonly ScaledName[];
+const BACKFILLED = ['brief', 'generate', 'commit', 'trackIp', 'staffLogin'] as const satisfies readonly ScaledName[];
 type Limiters = {
   upload: RateLimiter;
   /** POST /api/upload/direct/commit: kept apart from `upload`, so the start and the commit of one real upload do not use two hits of the same allowance. */
@@ -119,6 +125,10 @@ type Limiters = {
   staffBrief: RateLimiter;
   /** POST /api/team/design/generate, keyed by the staff account (every attempt counts, like `generate`). */
   staffGenerate: RateLimiter;
+  /** The /team/login server action, per IP. Separate from the admin `login`, so staff guessing never locks the admin out. */
+  staffLogin: RateLimiter;
+  /** The same action, per normalised phone (a second guard: a botnet changes IPs, the phone stays). */
+  staffLoginPhone: RateLimiter;
   mode: number;
 };
 const g = globalThis as unknown as { __epLimiters?: Limiters };
@@ -141,16 +151,19 @@ export function limiters(): Limiters {
       order: scaled('order', k),
       log: scaled('log', k),
       login: scaled('login', k),
+      staffLogin: scaled('staffLogin', k),
       brief: scaled('brief', k),
       generate: scaled('generate', k),
       track: prevTrack ?? trackLimiter(),
       staffBrief: g.__epLimiters?.staffBrief ?? staffLimiter('staffBrief'),
       staffGenerate: g.__epLimiters?.staffGenerate ?? staffLimiter('staffGenerate'),
+      staffLoginPhone: g.__epLimiters?.staffLoginPhone ?? staffLimiter('staffLoginPhone'),
     };
   }
   g.__epLimiters.track ??= trackLimiter();
   for (const name of BACKFILLED) g.__epLimiters[name] ??= scaled(name, k);
   g.__epLimiters.staffBrief ??= staffLimiter('staffBrief');
   g.__epLimiters.staffGenerate ??= staffLimiter('staffGenerate');
+  g.__epLimiters.staffLoginPhone ??= staffLimiter('staffLoginPhone');
   return g.__epLimiters;
 }

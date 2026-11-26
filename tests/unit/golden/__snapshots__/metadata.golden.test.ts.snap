@@ -52,7 +52,8 @@ exports[`golden: static metadata functions > robots() 1`] = `
     "allow": "/",
     "disallow": [
       "/admin",
-      "/api"
+      "/api",
+      "/team"
     ]
   }
 }"

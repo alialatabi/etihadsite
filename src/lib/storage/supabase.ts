@@ -30,12 +30,14 @@ import type {
   CustomerRecord,
   OrderRecord,
   ShopSettings,
+  StaffAccountRecord,
   StorageAdapter,
   StoredFileMeta,
 } from '@/lib/types';
 import { ID_RE, designPathsOf, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { purgeBounds } from './purge-rules';
 import { parseStoredSettings } from './settings-schema';
+import { STAFF_PHONE_RE, StaffStorageError } from './staff-errors';
 
 const BUCKET = 'etihad';
 const PATH_RE = /^(uploads|orders)\/[A-Za-z0-9_-]{8,64}\.(bin|json|pdf)$/;
@@ -60,6 +62,7 @@ const ORPHAN_UPLOAD_MAX_AGE_MS = 3 * 3600_000;
 const DAY_MS = 86_400_000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AI_RESERVE_RESULTS: readonly AiReserveResult[] = ['ok', 'ip_limit', 'site_limit', 'blocked'];
+const AI_KINDS: readonly AiKind[] = ['image', 'brief', 'staff_image', 'staff_brief'];
 
 function safePath(rel: string): string {
   if (typeof rel !== 'string' || !PATH_RE.test(rel)) throw new Error('Invalid storage path');
@@ -131,7 +134,21 @@ function rowToCustomer(r: Record<string, unknown>): CustomerRecord {
   return out;
 }
 
-/** AiGenerationRecord → public.ai_generations row. */
+/**
+ * PostgREST answered 400 because a column of the body does not exist (the staff migration has not run yet):
+ * PGRST204 (column not in the schema cache) or Postgres 42703 (undefined_column).
+ */
+async function isUnknownColumn(res: Response): Promise<boolean> {
+  if (res.status !== 400) return false;
+  try {
+    const body = (await res.clone().json()) as { code?: unknown };
+    return body.code === 'PGRST204' || body.code === '42703';
+  } catch {
+    return false;
+  }
+}
+
+/** AiGenerationRecord → public.ai_generations row. The v2 columns are written only when set (never a null for a customer). */
 function generationToRow(g: AiGenerationRecord) {
   return {
     id: g.id,
@@ -149,12 +166,15 @@ function generationToRow(g: AiGenerationRecord) {
     model: g.model,
     upload_id: g.uploadId,
     order_id: g.orderId,
+    // A null or absent value adds no key (the column defaults to null): a customer row never trips the pre-migration retry.
+    ...(g.instructions != null ? { instructions: g.instructions } : {}),
+    ...(g.staffId != null ? { staff_id: g.staffId } : {}),
   };
 }
 
 /** public.ai_generations row → AiGenerationRecord. */
 function rowToGeneration(r: Record<string, unknown>): AiGenerationRecord {
-  return {
+  const out: AiGenerationRecord = {
     id: String(r.id),
     createdAt: String(r.created_at),
     day: String(r.day),
@@ -171,6 +191,39 @@ function rowToGeneration(r: Record<string, unknown>): AiGenerationRecord {
     uploadId: String(r.upload_id),
     orderId: typeof r.order_id === 'string' ? r.order_id : null,
   };
+  // Present once migration 20261126000000 is applied and the row has a value; null columns add no key.
+  if (typeof r.instructions === 'string') out.instructions = r.instructions;
+  if (typeof r.staff_id === 'string') out.staffId = r.staff_id;
+  return out;
+}
+
+/** StaffAccountRecord → public.staff_accounts row. */
+function staffToRow(rec: StaffAccountRecord) {
+  return {
+    id: rec.id,
+    name: rec.name,
+    phone: rec.phone,
+    password_hash: rec.passwordHash,
+    active: rec.active,
+    created_at: rec.createdAt,
+    last_login_at: rec.lastLoginAt ?? null,
+    password_changed_at: rec.passwordChangedAt,
+  };
+}
+
+/** public.staff_accounts row → StaffAccountRecord. */
+function rowToStaff(r: Record<string, unknown>): StaffAccountRecord {
+  const out: StaffAccountRecord = {
+    id: String(r.id),
+    name: String(r.name),
+    phone: String(r.phone),
+    active: r.active === true,
+    createdAt: String(r.created_at),
+    passwordChangedAt: String(r.password_changed_at),
+    passwordHash: String(r.password_hash),
+  };
+  if (typeof r.last_login_at === 'string') out.lastLoginAt = r.last_login_at;
+  return out;
 }
 
 /** PostgREST `Content-Range: 0-47/123` (or a star before the slash on an empty page) → 123; 0 when absent. */
@@ -184,6 +237,8 @@ export class SupabaseStorage implements StorageAdapter {
   readonly directUploadMaxBytes = SUPABASE_MAX_UPLOAD_BYTES;
   /** The v1 fallback of upsertCustomerFromOrder logs once per instance. */
   private warnedNoCustomerV2 = false;
+  /** The ai_generations retry (staff migration not applied) logs once per instance. */
+  private warnedNoGenerationV2 = false;
 
   constructor(
     url: string,
@@ -538,8 +593,27 @@ export class SupabaseStorage implements StorageAdapter {
     await this.req('/rest/v1/rpc/release_ai', { method: 'POST', ...this.json({ p_day: a.day, p_ip_key: a.ipKey, p_kind: a.kind }) });
   }
 
+  /**
+   * When the row carries instructions / staff_id and the columns do not exist yet (migration not applied), the insert
+   * is retried ONCE without them, so the customer flow keeps working. The warning is logged once; the retry itself is not sticky.
+   */
   async aiRecordGeneration(rec: AiGenerationRecord): Promise<void> {
-    await this.req('/rest/v1/ai_generations', { method: 'POST', ...this.json(generationToRow(rec), 'return=minimal') });
+    const row = generationToRow(rec);
+    const res = await this.req('/rest/v1/ai_generations', { method: 'POST', anyStatus: true, ...this.json(row, 'return=minimal') });
+    if (res.ok) return;
+    if (('instructions' in row || 'staff_id' in row) && (await isUnknownColumn(res))) {
+      if (!this.warnedNoGenerationV2) {
+        this.warnedNoGenerationV2 = true;
+        console.warn('[supabase] ai_generations lacks instructions/staff_id: apply migration 20261126000000_staff_designer.sql');
+      }
+      const old: Record<string, unknown> = { ...row };
+      delete old.instructions;
+      delete old.staff_id;
+      await this.req('/rest/v1/ai_generations', { method: 'POST', ...this.json(old, 'return=minimal') });
+      return;
+    }
+    const text = await res.text().catch(() => '');
+    throw new Error(`[supabase] POST /rest/v1/ai_generations -> ${res.status} ${text.slice(0, 200)}`);
   }
 
   /** No matching row = no-op. Invalid ids never reach the network. */
@@ -581,7 +655,7 @@ export class SupabaseStorage implements StorageAdapter {
 
   async aiUsage(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]> {
     if (!DAY_RE.test(sinceDay)) throw new Error('Invalid day');
-    if (kind !== undefined && kind !== 'image' && kind !== 'brief') throw new Error('Invalid kind');
+    if (kind !== undefined && !AI_KINDS.includes(kind)) throw new Error('Invalid kind');
     const byKind = kind ? `&kind=eq.${kind}` : '';
     const rows = await this.selectAllPaged(
       `/rest/v1/ai_usage?select=day,ip_key,ip,kind,count,last_at&day=gte.${sinceDay}${byKind}&order=day.asc,ip_key.asc,kind.asc`,
@@ -619,6 +693,81 @@ export class SupabaseStorage implements StorageAdapter {
   async aiPurgeUsageBefore(day: string, dryRun: boolean): Promise<string[]> {
     if (!DAY_RE.test(day)) throw new Error('Invalid day');
     return this.countOrDelete('ai_usage', 'day', `day=lt.${day}`, dryRun);
+  }
+
+  /* ───────────── Staff designer accounts ───────────── */
+
+  /**
+   * One staff_accounts request. A missing table / column (migration not applied) throws StaffStorageError('not_ready'),
+   * a unique violation 'phone_taken'. The error text never carries the response body (a unique violation echoes the phone).
+   */
+  private async staffReq(path: string, init: RequestInit = {}): Promise<Response> {
+    const res = await this.req(path, { ...init, anyStatus: true });
+    if (res.ok) return res;
+    let code: unknown;
+    try {
+      code = ((await res.clone().json()) as { code?: unknown } | null)?.code;
+    } catch {
+      code = undefined;
+    }
+    if (res.status === 404 || code === 'PGRST205' || code === '42P01' || code === 'PGRST204' || code === '42703') {
+      throw new StaffStorageError('not_ready');
+    }
+    if (res.status === 409 || code === '23505') throw new StaffStorageError('phone_taken');
+    throw new Error(`[supabase] ${init.method ?? 'GET'} /rest/v1/staff_accounts -> ${res.status}`);
+  }
+
+  async staffList(): Promise<StaffAccountRecord[]> {
+    const res = await this.staffReq('/rest/v1/staff_accounts?select=*&order=created_at.asc,id.asc');
+    const rows = (await res.json()) as Record<string, unknown>[];
+    if (!Array.isArray(rows)) throw new Error('[supabase] staff_accounts: unexpected answer');
+    return rows.map(rowToStaff);
+  }
+
+  async staffGet(id: string): Promise<StaffAccountRecord | null> {
+    if (!ID_RE.test(id)) return null;
+    const res = await this.staffReq(`/rest/v1/staff_accounts?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
+    const rows = (await res.json()) as Record<string, unknown>[];
+    return Array.isArray(rows) && rows[0] ? rowToStaff(rows[0]) : null;
+  }
+
+  async staffByPhone(phone: string): Promise<StaffAccountRecord | null> {
+    if (!STAFF_PHONE_RE.test(phone)) return null;
+    const res = await this.staffReq(`/rest/v1/staff_accounts?select=*&phone=eq.${phone}&limit=1`);
+    const rows = (await res.json()) as Record<string, unknown>[];
+    return Array.isArray(rows) && rows[0] ? rowToStaff(rows[0]) : null;
+  }
+
+  async staffCreate(rec: StaffAccountRecord): Promise<void> {
+    if (!ID_RE.test(rec.id) || !STAFF_PHONE_RE.test(rec.phone)) throw new Error('Invalid staff account');
+    await this.staffReq('/rest/v1/staff_accounts', { method: 'POST', ...this.json(staffToRow(rec), 'return=minimal') });
+  }
+
+  async staffUpdate(
+    id: string,
+    patch: Partial<Pick<StaffAccountRecord, 'name' | 'active' | 'passwordHash' | 'passwordChangedAt'>>,
+  ): Promise<StaffAccountRecord | null> {
+    if (!ID_RE.test(id)) return null;
+    const row: Record<string, unknown> = {};
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.active !== undefined) row.active = patch.active;
+    if (patch.passwordHash !== undefined) row.password_hash = patch.passwordHash;
+    if (patch.passwordChangedAt !== undefined) row.password_changed_at = patch.passwordChangedAt;
+    if (Object.keys(row).length === 0) return this.staffGet(id);
+    const res = await this.staffReq(`/rest/v1/staff_accounts?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      ...this.json(row, 'return=representation'),
+    });
+    const rows = (await res.json()) as Record<string, unknown>[];
+    return Array.isArray(rows) && rows[0] ? rowToStaff(rows[0]) : null;
+  }
+
+  async staffTouchLogin(id: string, at: string): Promise<void> {
+    if (!ID_RE.test(id)) return;
+    await this.staffReq(`/rest/v1/staff_accounts?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      ...this.json({ last_login_at: at }, 'return=minimal'),
+    });
   }
 
   /* ───────────── retention ───────────── */
