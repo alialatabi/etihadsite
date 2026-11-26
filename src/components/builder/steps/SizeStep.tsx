@@ -26,14 +26,14 @@ export function SizeStep({ b }: { b: BuilderApi }) {
   return (
     <div className="space-y-4">
       <SizeFields b={b}>
-        {!isCircle && <p className="text-sm text-muted-foreground">{builder.size.lockedHint}</p>}
-        {max && <p className="text-sm text-muted-foreground">{fillLtr(builder.size.maxHint, { max })}</p>}
+        {!isCircle && <p className="text-sm text-ink-muted">{builder.size.lockedHint}</p>}
+        {max && <p className="text-sm text-ink-muted">{fillLtr(builder.size.maxHint, { max })}</p>}
       </SizeFields>
 
       <TextWarningNote warning={textWarn} />
 
       {shrunk && !error && (
-        <p role="status" className="flex items-start gap-2 rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+        <p role="status" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>{builder.ai.shrinkWarning}</span>
         </p>
@@ -41,14 +41,14 @@ export function SizeStep({ b }: { b: BuilderApi }) {
 
       {b.dpi !== null && !error && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: b.dpi })}</p>
+          <p className="text-sm font-medium text-ink">{fillLtr(builder.size.dpiLabel, { dpi: b.dpi })}</p>
           {b.dpiState === 'warn' && (
-            <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+            <p role="status" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
               {builder.size.dpiWarn}
             </p>
           )}
           {b.dpiState === 'block' && (
-            <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <p role="alert" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
               {builder.size.dpiBlock}
             </p>
           )}

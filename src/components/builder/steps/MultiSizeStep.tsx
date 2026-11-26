@@ -38,8 +38,8 @@ export function MultiSizeStep({ b }: { b: BuilderApi }) {
 
   return (
     <div className="space-y-4">
-      {!isCircle && <p className="text-sm text-muted-foreground">{builder.size.lockedHint}</p>}
-      <p className="text-sm font-medium">{builder.multi.sizesTitle}</p>
+      {!isCircle && <p className="text-sm text-ink-muted">{builder.size.lockedHint}</p>}
+      <p className="text-sm font-medium text-ink">{builder.multi.sizesTitle}</p>
       <ul className="space-y-4">
         {b.rows.map((r) => (
           <DesignSizeRow key={r.id} b={b} r={r} isCircle={isCircle} />
@@ -48,7 +48,7 @@ export function MultiSizeStep({ b }: { b: BuilderApi }) {
 
       <div id="size-multi-msg" aria-live="polite">
         {combined && (
-          <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>{combined}</span>
           </p>
@@ -73,20 +73,20 @@ function DesignSizeRow({ b, r, isCircle }: { b: BuilderApi; r: DesignRow; isCirc
   const onHeight = r.index === 0 ? b.onHeightChange : (v: string) => b.onExtraHeightChange(r.id, v);
 
   return (
-    <li className="space-y-3 rounded-2xl border bg-card p-4">
+    <li className="paper-card space-y-3 p-4">
       <div className="flex items-center gap-3">
         {r.design ? (
-          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
+          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
             {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL preview */}
             <img src={r.design.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h3 id={`size-title-${n}`} className="font-heading text-base font-bold">{fillLtr(builder.multi.designN, { n })}</h3>
+          <h3 id={`size-title-${n}`} className="font-heading text-base font-bold text-ink">{fillLtr(builder.multi.designN, { n })}</h3>
           {r.design ? (
-            <Ltr className="block truncate text-xs text-muted-foreground">{r.design.file.name}</Ltr>
+            <Ltr className="block truncate text-xs text-ink-muted">{r.design.file.name}</Ltr>
           ) : (
-            <p className="text-xs text-muted-foreground">{builder.multi.waitingDesign}</p>
+            <p className="text-xs text-ink-muted">{builder.multi.waitingDesign}</p>
           )}
         </div>
       </div>
@@ -103,10 +103,10 @@ function DesignSizeRow({ b, r, isCircle }: { b: BuilderApi; r: DesignRow; isCirc
             onHeight={onHeight}
             invalid={!!error}
           />
-          {max && <p className="text-sm text-muted-foreground">{fillLtr(builder.size.maxHint, { max })}</p>}
+          {max && <p className="text-sm text-ink-muted">{fillLtr(builder.size.maxHint, { max })}</p>}
           <div id={ids.msg} aria-live="polite">
             {error && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>{error}</span>
               </p>
@@ -114,14 +114,14 @@ function DesignSizeRow({ b, r, isCircle }: { b: BuilderApi; r: DesignRow; isCirc
           </div>
           {r.dpi !== null && !error && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: r.dpi })}</p>
+              <p className="text-sm font-medium text-ink">{fillLtr(builder.size.dpiLabel, { dpi: r.dpi })}</p>
               {r.dpiState === 'warn' && (
-                <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+                <p role="status" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
                   {builder.size.dpiWarn}
                 </p>
               )}
               {r.dpiState === 'block' && (
-                <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <p role="alert" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                   {builder.size.dpiBlock}
                 </p>
               )}
