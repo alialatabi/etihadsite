@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { common, fill, pages } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { CtaLink } from '@/components/shell/CtaLink';
+import { ScrapHeadline, SectionTitle, StepNumber, Tape } from '@/components/collage';
 import { getSettings } from '@/lib/settings';
 import { SHAPE_KEYS, resolveShapeSpacing, type ShapeKey, type ShapeSpacing } from '@/lib/layout/spacing';
 import { count, countLabel } from '@/lib/plural';
@@ -10,6 +11,7 @@ import { enabledMaterials, formatIqd } from '@/lib/pricing';
 import { A4_UM, umToMm, umToCm } from '@/lib/units';
 import { computeExamples, discountRows, illustrationLayout, priceExample } from './examples';
 import { fillLtr } from '@/components/fill-ltr';
+import { cn } from '@/lib/utils';
 import { SheetIllustration } from './SheetIllustration';
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +24,12 @@ export const metadata: Metadata = {
   alternates: { canonical: '/how-it-works' },
 };
 
-/** The glass title + intro block that opens a section. */
+/** The section title scrap + intro paragraph that open a section. */
 function SectionIntro({ title, intro }: { title: string; intro: string }) {
   return (
-    <div className="glass rounded-2xl px-5 py-4">
-      <h2 className="text-2xl font-bold">{title}</h2>
-      <p className="mt-2 text-muted-foreground">{intro}</p>
+    <div>
+      <SectionTitle>{title}</SectionTitle>
+      <p className="mt-4 text-ink-muted">{intro}</p>
     </div>
   );
 }
@@ -36,7 +38,7 @@ function SectionIntro({ title, intro }: { title: string; intro: string }) {
 function SpecRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <dt className="text-muted-foreground">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className="font-bold">{children}</dd>
     </div>
   );
@@ -45,9 +47,9 @@ function SpecRow({ label, children }: { label: string; children: ReactNode }) {
 /** One card of the shape-rules grid. */
 function RuleCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h3 className="font-bold">{title}</h3>
-      <p className="mt-2 leading-7 text-muted-foreground">{children}</p>
+    <div className="paper-card p-5">
+      <h3 className="font-bold text-ink">{title}</h3>
+      <p className="mt-2 leading-7 text-ink-muted">{children}</p>
     </div>
   );
 }
@@ -93,57 +95,55 @@ export default async function HowItWorksPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="border-b border-border/60 bg-primary text-primary-foreground">
-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-12 md:grid-cols-[1.2fr_1fr] md:py-16">
-          <div>
-            <p className="mb-3 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-brand-foreground">{common.nav.howItWorks}</p>
-            <h1 className="text-3xl font-bold leading-tight md:text-5xl">{t.hero}</h1>
-            <p className="mt-4 max-w-xl text-base leading-8 text-primary-foreground/80 md:text-lg">{t.heroSub}</p>
-            <CtaLink href="/#builder" className="text-base mt-8">
-              {t.cta}
-            </CtaLink>
-          </div>
-          {sheet ? (
-            <div className="mx-auto w-full max-w-[16rem] md:max-w-xs">
-              <SheetIllustration
-                layout={sheet}
-                label={sheetLabel}
-                className="h-auto w-full -rotate-2 rounded-md shadow-2xl"
-              />
-            </div>
-          ) : null}
+      <section className="relative isolate mx-auto max-w-6xl overflow-x-clip px-4 py-10 md:grid md:grid-cols-[1.2fr_1fr] md:items-center md:gap-8 md:py-14">
+        <div aria-hidden className="pointer-events-none absolute -z-10 top-4 start-1/2 hidden h-32 w-64 md:block">
+          <div className="news-lines torn4 absolute inset-0 bg-news rotate-3" />
         </div>
+        <div>
+          <Tape>{common.nav.howItWorks}</Tape>
+          <ScrapHeadline as="h1" text={t.hero} size="xl" animate className="mt-5" />
+          <p className="mt-6 max-w-xl leading-8 text-ink-soft md:text-lg">{t.heroSub}</p>
+          <CtaLink href="/#builder" className="mt-8">
+            {t.cta}
+          </CtaLink>
+        </div>
+        {sheet ? (
+          <div className="mx-auto mt-10 w-full max-w-[16rem] md:mt-0 md:max-w-xs">
+            <div className="paper-card relative -rotate-2 p-3">
+              <span aria-hidden className="tape-strip pointer-events-none absolute -top-3 start-6 h-6 w-20 -rotate-6" />
+              <SheetIllustration layout={sheet} label={sheetLabel} className="h-auto w-full" />
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* Steps */}
       <section className="mx-auto max-w-6xl px-4 py-12">
-        <h2 className="glass w-fit max-w-full rounded-2xl px-5 py-3 text-2xl font-bold">{t.stepsTitle}</h2>
-        <ol className="mt-6 grid gap-4 md:grid-cols-3">
+        <SectionTitle>{t.stepsTitle}</SectionTitle>
+        <ol className="mt-8 grid gap-5 md:grid-cols-3">
           {t.steps.map((s, i) => (
-            <li key={s.title} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <span className="flex size-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-                <Ltr>{i + 1}</Ltr>
-              </span>
-              <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">{s.body}</p>
+            <li key={s.title} className={cn('paper-card p-5', i % 2 === 1 ? 'grid-paper md:rotate-1' : 'md:-rotate-1')}>
+              <StepNumber n={i + 1} tone={i % 2 ? 'navy' : 'red'} size="md" />
+              <h3 className="mt-4 text-lg font-bold text-ink">{s.title}</h3>
+              <p className="mt-2 leading-7 text-ink-muted">{s.body}</p>
             </li>
           ))}
         </ol>
       </section>
 
-      <div className="cut-line mx-auto h-px max-w-6xl text-border" aria-hidden />
+      <div className="dashed-divider mx-auto max-w-6xl" aria-hidden />
 
       {/* A4 spec + illustration */}
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-2">
         <div>
           <SectionIntro title={t.specTitle} intro={t.specIntro} />
-          <dl className="mt-5 divide-y divide-border rounded-2xl border border-border bg-card">
+          <dl className="paper-card mt-6 divide-y divide-dashed divide-line">
             <SpecRow label={t.spec.size}>
               <Ltr>
                 {pageW} × {pageH}
               </Ltr>{' '}
               {common.units.cm}
-              <span className="ms-2 text-sm font-normal text-muted-foreground">
+              <span className="ms-2 text-sm font-normal text-ink-muted">
                 (<Ltr>{common.units.a4}</Ltr>)
               </span>
             </SpecRow>
@@ -157,19 +157,19 @@ export default async function HowItWorksPage() {
               {common.units.cm}
             </SpecRow>
           </dl>
-          <p className="mt-3 text-sm leading-7 text-muted-foreground">{t.specNote}</p>
-          {sheet?.marks && <p className="mt-1 text-sm leading-7 text-muted-foreground">{common.marksHint}</p>}
+          <p className="mt-3 text-sm leading-7 text-ink-muted">{t.specNote}</p>
+          {sheet?.marks && <p className="mt-1 text-sm leading-7 text-ink-muted">{common.marksHint}</p>}
         </div>
 
         {sheet ? (
-          <figure className="rounded-2xl border border-border bg-muted/50 p-5">
+          <figure className="paper-card grid-paper p-5">
             <SheetIllustration
               layout={sheet}
               label={sheetLabel}
               className="mx-auto h-auto w-full max-w-[14rem]"
             />
-            <figcaption className="mt-4 text-center text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{t.illustrationTitle}</span>
+            <figcaption className="mt-4 text-center text-sm text-ink-muted">
+              <span className="font-medium text-ink">{t.illustrationTitle}</span>
               <br />
               {fillLtr(t.illustrationCaption, { size: umToCm(sheet.cell.widthUm), n: sheet.countPerSheet })}
             </figcaption>
@@ -178,11 +178,10 @@ export default async function HowItWorksPage() {
       </section>
 
       {/* Shape rules */}
-      <section className="border-y border-border/60 bg-muted/40">
+      <section className="bg-news">
         <div className="mx-auto max-w-6xl px-4 py-12">
-          <h2 className="text-2xl font-bold">{t.rulesTitle}</h2>
-          <p className="mt-2 text-muted-foreground">{t.rulesIntro}</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SectionIntro title={t.rulesTitle} intro={t.rulesIntro} />
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <RuleCard title={t.rules.circle.title}>{columnsAndRows(spacing.circle)}</RuleCard>
             <RuleCard title={t.rules.rounded.title}>
               {spacing.rounded.gapXUm === spacing.rounded.gapYUm
@@ -211,9 +210,9 @@ export default async function HowItWorksPage() {
       {/* Live examples */}
       <section className="mx-auto max-w-3xl px-4 py-12">
         <SectionIntro title={t.examplesTitle} intro={t.examplesIntro} />
-        <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="paper-card mt-6 overflow-x-auto">
           <table className="w-full text-start">
-            <thead className="bg-muted/60 text-sm text-muted-foreground">
+            <thead className="bg-news text-sm text-ink-soft">
               <tr>
                 <th scope="col" className="px-5 py-3 text-start font-medium">
                   {t.examplesHeaders.sticker}
@@ -223,7 +222,7 @@ export default async function HowItWorksPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-line">
               {examples.map((e) => (
                 <tr key={e.key}>
                   <th scope="row" className="px-5 py-4 text-start font-medium">
@@ -244,12 +243,12 @@ export default async function HowItWorksPage() {
         <SectionIntro title={t.pricingTitle} intro={t.pricingIntro} />
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {mats.map((m) => (
-            <li key={m} className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-xl font-bold">{common.materials[m]}</p>
-              <p className="mt-2 text-muted-foreground">
+            <li key={m} className="paper-card p-5">
+              <p className="text-xl font-bold text-ink">{common.materials[m]}</p>
+              <p className="mt-2 text-ink-muted">
                 {settings.pricesPublished ? (
                   <>
-                    <Ltr className="font-bold text-foreground">{formatIqd(pricing.materials[m].pricePerSheetIqd)}</Ltr>{' '}
+                    <Ltr className="font-lalezar text-xl font-normal text-ink">{formatIqd(pricing.materials[m].pricePerSheetIqd)}</Ltr>{' '}
                     {common.units.iqd} {t.perSheet}
                   </>
                 ) : (
@@ -260,16 +259,16 @@ export default async function HowItWorksPage() {
           ))}
         </ul>
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card sm:max-w-md">
+        <div className="paper-card mt-6 overflow-x-auto sm:max-w-md">
           <table className="w-full text-start">
-            <caption className="bg-muted/60 px-5 py-3 text-start text-sm font-medium text-muted-foreground">{t.discountTitle}</caption>
+            <caption className="bg-news px-5 py-3 text-start text-sm font-medium text-ink-soft">{t.discountTitle}</caption>
             <thead className="sr-only">
               <tr>
                 <th scope="col">{t.discountHeaders.sheets}</th>
                 <th scope="col">{t.discountHeaders.discount}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.from}>
                   <th scope="row" className="px-5 py-3 text-start font-medium">
@@ -279,7 +278,7 @@ export default async function HowItWorksPage() {
                     {r.percent === 0 ? (
                       t.noDiscount
                     ) : (
-                      <span className="inline-block rounded-full bg-discount px-3 py-0.5 text-discount-foreground">
+                      <span className="inline-block rounded-[2px] bg-discount px-3 py-0.5 text-discount-foreground">
                         {fillLtr(t.percentOff, { percent: r.percent })}
                       </span>
                     )}
@@ -290,17 +289,17 @@ export default async function HowItWorksPage() {
           </table>
         </div>
 
-        <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
+        <ul className="mt-4 space-y-1 text-sm text-ink-muted">
           <li>
             {t.minOrder} <Ltr>{pricing.minSheets}</Ltr> {count(pricing.minSheets, common.plural.sheet)}. {t.minOrderNote}
           </li>
           <li>
-            {t.deliveryLabel}: <span className="font-bold text-foreground">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>
+            {t.deliveryLabel}: <span className="font-bold text-ink">{fillLtr(t.deliveryValue, { fee: formatIqd(settings.deliveryFeeIqd) })}</span>
           </li>
           {example ? (
             <li>
               {t.exampleLabel}: <Ltr>{example.sheets}</Ltr> {count(example.sheets, common.plural.sheet)} {common.materials[example.material]} ={' '}
-              <Ltr className="font-bold text-foreground">{formatIqd(example.price)}</Ltr> {common.units.iqd} {t.exampleAnd}{' '}
+              <Ltr className="font-bold text-ink">{formatIqd(example.price)}</Ltr> {common.units.iqd} {t.exampleAnd}{' '}
               {t.exampleEquals}
             </li>
           ) : null}
@@ -309,10 +308,11 @@ export default async function HowItWorksPage() {
 
       {/* CTA */}
       <section className="mx-auto max-w-6xl px-4 pb-4">
-        <div className="rounded-3xl bg-primary px-6 py-10 text-center text-primary-foreground md:py-14">
-          <h2 className="text-2xl font-bold md:text-3xl">{t.ctaTitle}</h2>
-          <p className="mx-auto mt-3 max-w-md text-primary-foreground/80">{t.ctaBody}</p>
-          <CtaLink href="/#builder" className="text-base mt-6">
+        <div className="paper-card relative px-6 py-10 text-center md:py-14">
+          <span aria-hidden className="tape-strip pointer-events-none absolute -top-3 start-8 h-6 w-20 -rotate-6" />
+          <SectionTitle>{t.ctaTitle}</SectionTitle>
+          <p className="mx-auto mt-5 max-w-md text-ink-muted">{t.ctaBody}</p>
+          <CtaLink href="/#builder" className="mt-6">
             {t.cta}
           </CtaLink>
         </div>
