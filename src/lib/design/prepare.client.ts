@@ -1,7 +1,9 @@
 'use client';
 /**
- * Print-ready artwork made in the browser (staff page): the same result as the server's
- * `normaliseArtwork()` (normalise.server.ts) without sharp, so nothing is uploaded.
+ * Print-ready artwork made in the browser: the same result as the server's
+ * `normaliseArtwork()` (normalise.server.ts) without sharp, so nothing is uploaded. The staff page
+ * now goes through `prepareOriginalArtwork` (original.client.ts), which keeps the uploaded bytes
+ * and calls this only as its fallback (with a dpi that never downscales) and for PDFs.
  *
  * Contract (docs/superpowers/specs/2026-11-12-cut-dots-and-staff-sheets-design.md, B3):
  *  - PNG/JPEG: createImageBitmap(file, { imageOrientation: 'from-image' }) (EXIF turn baked
