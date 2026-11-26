@@ -3,6 +3,7 @@
  * (/api/team/upload*, behind the staff login and limited per account). Only the rate-limit gate and the route name
  * (for the error report) differ; every byte check is the same.
  */
+import "server-only";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { BodyTooLarge, declaredLength, readCapped } from "./body";
