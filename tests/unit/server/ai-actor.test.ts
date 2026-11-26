@@ -98,7 +98,9 @@ describe("staffActor", () => {
       imageSite: STAFF_SITE_CAP,
     });
     expect(STAFF_IMAGE_DAILY_LIMIT).toBe(50);
-    expect(a.identify(req("10.9.0.3"))).toEqual({ ip: "10.9.0.3", ipKey: "staff:st1" });
+    expect(a.identify(req("10.9.0.3"))).toEqual({ ip: "", ipKey: "staff:st1" });
+    expect(a.guard).toBe("staff");
+    expect(customerActor.guard).toBe("customer");
   });
 
   it("a staff reservation uses kind 'staff_image' with 50 per account, and the record carries the staff id", async () => {

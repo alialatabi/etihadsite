@@ -95,6 +95,10 @@ const scaled = (name: ScaledName, k: number) =>
   createRateLimiter({ limit: SCALED[name].limit * k, windowMs: SCALED[name].windowMs });
 // Keyed by the visitor hash, not by clientIp(): no shared "global" bucket, so no x20, and a mode change does not reset it.
 const trackLimiter = () => createRateLimiter({ limit: 300, windowMs: HOUR });
+// Keyed by the staff account ('staff:<id>'), never by IP: no shared bucket, so no x20. Bounds a stolen session per hour;
+// the stored daily limit (50 images per account) is the real cap.
+const STAFF = { staffBrief: { limit: 120, windowMs: HOUR }, staffGenerate: { limit: 60, windowMs: HOUR } } as const;
+const staffLimiter = (name: keyof typeof STAFF) => createRateLimiter(STAFF[name]);
 // Added after the first limiter set (2026-11-21): a set that survived a dev hot reload gets them without resetting the others.
 const BACKFILLED = ['brief', 'generate', 'commit', 'trackIp'] as const satisfies readonly ScaledName[];
 type Limiters = {
@@ -111,6 +115,10 @@ type Limiters = {
   brief: RateLimiter;
   /** POST /api/design/generate: every attempt counts (never refunded), before refs and the stored reservation. */
   generate: RateLimiter;
+  /** POST /api/team/design/brief, keyed by the staff account. */
+  staffBrief: RateLimiter;
+  /** POST /api/team/design/generate, keyed by the staff account (every attempt counts, like `generate`). */
+  staffGenerate: RateLimiter;
   mode: number;
 };
 const g = globalThis as unknown as { __epLimiters?: Limiters };
@@ -136,9 +144,13 @@ export function limiters(): Limiters {
       brief: scaled('brief', k),
       generate: scaled('generate', k),
       track: prevTrack ?? trackLimiter(),
+      staffBrief: g.__epLimiters?.staffBrief ?? staffLimiter('staffBrief'),
+      staffGenerate: g.__epLimiters?.staffGenerate ?? staffLimiter('staffGenerate'),
     };
   }
   g.__epLimiters.track ??= trackLimiter();
   for (const name of BACKFILLED) g.__epLimiters[name] ??= scaled(name, k);
+  g.__epLimiters.staffBrief ??= staffLimiter('staffBrief');
+  g.__epLimiters.staffGenerate ??= staffLimiter('staffGenerate');
   return g.__epLimiters;
 }

@@ -205,8 +205,10 @@ export interface AiActor {
   briefKind: AiKind;
   imageKind: AiKind;
   limits(settings: ShopSettings): AiLimits;
-  /** Key of the in-memory first-line guard (limiters().brief / .generate). */
+  /** Key of the in-memory first-line guard. */
   limiterKey(ip: string): string;
+  /** Which in-memory first-line guards: 'customer' = limiters().brief / .generate (per IP), 'staff' = .staffBrief / .staffGenerate (per account). */
+  guard: 'customer' | 'staff';
   /** Written to the generation record; null for a customer. */
   staffId: string | null;
 }
@@ -229,17 +231,19 @@ export const customerActor: AiActor = {
     imageSite: settings.ai.siteDailyLimit,
   }),
   limiterKey: (ip) => ip || 'global',
+  guard: 'customer',
   staffId: null,
 };
 
-/** A logged-in staff account (the caller has already checked the session): own usage kinds, 50 images a day. */
+/**
+ * A logged-in staff account (the caller has already checked the session): own usage kinds, 50 images a day.
+ * `ip` is always '': staff are identified by their account, so an admin block on the shop's IP (which matches by
+ * full IP in reserve_ai and the precheck) never stops them, and no staff IP is stored.
+ */
 export function staffActor(staffId: string): AiActor {
   const key = `staff:${staffId}`;
   return {
-    identify(request) {
-      const ip = clientIp(request);
-      return { ip: ip === 'global' ? '' : ip, ipKey: key };
-    },
+    identify: () => ({ ip: '', ipKey: key }),
     briefKind: 'staff_brief',
     imageKind: 'staff_image',
     limits: () => ({
@@ -249,6 +253,7 @@ export function staffActor(staffId: string): AiActor {
       imageSite: STAFF_SITE_CAP,
     }),
     limiterKey: () => key,
+    guard: 'staff',
     staffId,
   };
 }
@@ -288,7 +293,8 @@ export async function runBrief(request: Request, json: unknown, actor: AiActor =
   const { cfg, storage } = setup;
 
   const { ip, ipKey } = actor.identify(request);
-  const rl = limiters().brief.check(actor.limiterKey(ip));
+  const guards = limiters();
+  const rl = (actor.guard === 'staff' ? guards.staffBrief : guards.brief).check(actor.limiterKey(ip));
   if (!rl.ok) return failure('rate_limited', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
@@ -422,7 +428,8 @@ export async function runGenerate(
   // In-memory guard BEFORE any ref work and the stored reservation: every attempt counts, even one
   // whose stored use is later given back, so failing calls cannot be repeated without limit.
   const { ip, ipKey } = actor.identify(request);
-  const rl = limiters().generate.check(actor.limiterKey(ip));
+  const guards = limiters();
+  const rl = (actor.guard === 'staff' ? guards.staffGenerate : guards.generate).check(actor.limiterKey(ip));
   if (!rl.ok) return failure('ip_limit', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
