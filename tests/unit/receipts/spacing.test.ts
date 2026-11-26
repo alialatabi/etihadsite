@@ -139,6 +139,16 @@ describe('spacingFits', () => {
     // a6 rows: 297000 - 300000 < 0
     expect(spacingFits('a6', sp('a6', { topUm: 100_000, bottomUm: 100_000, gapYUm: 100_000 }))).toBe(false);
   });
+  it('a slot with a positive height under 20 mm is no room (exactly 20 mm is fine)', () => {
+    // dl: (297000 - 100000 - 100000 - 2 * 20000) / 3 = 19000 tall
+    expect(spacingFits('dl', sp('dl', { topUm: 100_000, bottomUm: 100_000, gapYUm: 20_000 }))).toBe(false);
+    // dl: (297000 - 200000 - 2 * 18500) / 3 = 20000 tall
+    expect(spacingFits('dl', sp('dl', { topUm: 100_000, bottomUm: 100_000, gapYUm: 18_500 }))).toBe(true);
+    // a5: (297000 - 200000 - 60000) / 2 = 18500 tall
+    expect(spacingFits('a5', sp('a5', { topUm: 100_000, bottomUm: 100_000, gapYUm: 60_000 }))).toBe(false);
+    // a5: (297000 - 200000 - 57000) / 2 = 20000 tall
+    expect(spacingFits('a5', sp('a5', { topUm: 100_000, bottomUm: 100_000, gapYUm: 57_000 }))).toBe(true);
+  });
   it('a6 columns: left and the column gap can leave no room', () => {
     expect(spacingFits('a6', sp('a6', { gapXUm: 100_000, leftUm: 100_000 }))).toBe(false); // (210000 - 200000) / 2 = 5000
     expect(spacingFits('a6', sp('a6', { gapXUm: 100_000 }))).toBe(true); // 55000 each

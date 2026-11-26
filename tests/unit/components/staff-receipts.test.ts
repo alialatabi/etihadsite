@@ -111,7 +111,20 @@ describe('ReceiptCard', () => {
       for (const label of [sp.gapX, sp.gapY]) expect(a6).toContain(label);
       expect(a6).not.toContain(`>${sp.gap}<`);
       expect(a6).toContain('بالـ <bdi dir="ltr" class="tabular-nums">A6</bdi> المسافة بين الصفوف هي بياض الصف الثاني.');
+      expect(a6).not.toContain('بياض الصف الأول');
       expect(render(card('x a4.png', 1000, 1400))).not.toContain(sp.gap);
+    });
+
+    it('the A6 hint names the row whose white is the gap: the second with white on top, the first with white at the bottom', () => {
+      const top = render(card('x a6.png', 1000, 1400));
+      const bottom = render(card('x a6.png', 1000, 1400, [{ type: 'white', id: 'r1', white: 'bottom' }]));
+      const turned = render(card('x a6.png', 1500, 1000)); // landscape turns 270 and takes the white at the bottom by itself
+      expect(top).toContain('بياض الصف الثاني');
+      expect(top).not.toContain('بياض الصف الأول');
+      for (const html of [bottom, turned]) {
+        expect(html).toContain('بالـ <bdi dir="ltr" class="tabular-nums">A6</bdi> المسافة بين الصفوف هي بياض الصف الأول.');
+        expect(html).not.toContain('بياض الصف الثاني');
+      }
     });
 
     it('the labels point at their inputs; the fields are numeric, left-to-right, tall enough to touch', () => {

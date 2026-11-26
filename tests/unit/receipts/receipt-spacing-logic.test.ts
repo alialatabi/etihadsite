@@ -205,6 +205,15 @@ describe('spacing: editing', () => {
     expect(canDownload([v])).toBe(false);
   });
 
+  it('no room on the height axis: a positive slot height under 20 mm blocks the card too', () => {
+    // dl (3 rows): (297000 - 100000 - 100000 - 2 * 20000) / 3 = 19000 µm tall, 20000 wide or more
+    const cards = run([type('topUm', '100'), type('bottomUm', '100'), type('gapYUm', '20')], ready('x dl.png', 1400, 1000));
+    expect(cards[0].format).toBe('dl');
+    const v = cardView(cards[0], QUALITY);
+    expect(v).toMatchObject({ valid: false, problem: { kind: 'spacing', reason: 'noRoom' }, invalidSpacing: [], dpi: null });
+    expect(canDownload([v])).toBe(false);
+  });
+
   it('spacing edits never re-run the auto turn', () => {
     let cards = ready('x a5.png', 1000, 1400); // portrait in a landscape slot: turn 270
     cards = run([{ type: 'turn', id: ID }, { type: 'turn', id: ID }], cards); // 90, 180: the employee's own turn

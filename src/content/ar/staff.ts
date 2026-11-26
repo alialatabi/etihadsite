@@ -81,6 +81,8 @@ export const staff = {
       noRoom: 'المسافات كبيرة وما يبقى مكان كافي للتصميم. صغّر المسافات.',
       /** {formatName} = A6. */
       a6Hint: 'بالـ {formatName} المسافة بين الصفوف هي بياض الصف الثاني.',
+      /** The same hint when the white strip is at the bottom (the gap is then the first row's white). {formatName} = A6. */
+      a6HintBottom: 'بالـ {formatName} المسافة بين الصفوف هي بياض الصف الأول.',
     },
   },
 } as const;

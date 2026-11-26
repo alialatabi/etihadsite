@@ -10,7 +10,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{dpi} x1",
   "{fee} x1",
   "{files} x2",
-  "{formatName} x1",
+  "{formatName} x2",
   "{from} x2",
   "{gap} x3",
   "{gapX} x1",
@@ -1196,7 +1196,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 1`] = `
       "reset": "رجّع المسافات الافتراضية",
       "invalid": "اكتب رقم من {lowMm} إلى {highMm} ملم.",
       "noRoom": "المسافات كبيرة وما يبقى مكان كافي للتصميم. صغّر المسافات.",
-      "a6Hint": "بالـ {formatName} المسافة بين الصفوف هي بياض الصف الثاني."
+      "a6Hint": "بالـ {formatName} المسافة بين الصفوف هي بياض الصف الثاني.",
+      "a6HintBottom": "بالـ {formatName} المسافة بين الصفوف هي بياض الصف الأول."
     }
   }
 }"
@@ -1206,13 +1207,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 1433,
+  "chars": 1489,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 7,
-  "sha256OfRawJson": "630737a25c265225dba8674271508e039295014fcc0d2970a785090d1f51b08f",
-  "strings": 58,
+  "sha256OfRawJson": "78bf88fa8ada97f4d1cb517ada8f230e11686760ac09dbdcca022ba1dc78c955",
+  "strings": 59,
 }
 `;
 

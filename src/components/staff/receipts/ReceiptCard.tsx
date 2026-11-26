@@ -241,7 +241,7 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
                   <SpacingField card={card} view={view} field="gapYUm" label={grid.cols > 1 ? r.spacing.gapY : r.spacing.gap} disabled={spacingOff} onSpacing={onSpacing} />
                 )}
               </div>
-              {card.format === 'a6' && <p className="text-xs text-muted-foreground">{fillLtr(r.spacing.a6Hint, { formatName: r.formats.a6 })}</p>}
+              {card.format === 'a6' && <p className="text-xs text-muted-foreground">{fillLtr(card.white === 'top' ? r.spacing.a6Hint : r.spacing.a6HintBottom, { formatName: r.formats.a6 })}</p>}
               <Button type="button" variant="outline" className="h-11 px-4" disabled={spacingOff} onClick={() => onSpacingReset(card.id)}>
                 {r.spacing.reset}
               </Button>
