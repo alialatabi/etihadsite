@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { Panel, btn, field } from '@/components/admin/kit';
+import { SectionTitle, StickerMark } from '@/components/collage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +27,8 @@ export default async function TeamLoginPage({ searchParams }: { searchParams: Pr
     <div className="flex min-h-[60vh] items-center justify-center px-4 py-6">
       <Panel as="div" className="w-full max-w-sm" bodyClassName="flex flex-col gap-6 !p-8">
         <div className="flex flex-col items-center gap-4 text-center">
-          <Image src="/brand/softy-logo.png" alt={common.brand} width={1038} height={914} className="h-auto w-24" priority />
-          <h1 className="text-[24px] font-bold leading-tight text-[#121f34]">{team.login.title}</h1>
+          <StickerMark size={56} tilt={-6} alt={common.brand} priority />
+          <SectionTitle as="h1" size="sm" tilt={-1.5}>{team.login.title}</SectionTitle>
         </div>
         <form action={staffLoginAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
