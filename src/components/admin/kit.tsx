@@ -1,15 +1,17 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { Check, Inbox } from 'lucide-react';
 import { order } from '@/content/ar';
+import { BTN_BASE, btnCls, fieldCls } from '@/components/collage';
 import type { OrderStatus } from '@/lib/types';
 
 /**
  * Softy admin kit: the only styling vocabulary admin pages import (server-safe, no client code).
- * Palette: paper #fdfbfa, ink #121f34, brand red #d01c4a (one primary action per screen),
- * surface #f7f0ef, border #e7dfdf, secondary text #5a6475. Lime is for discounts only.
+ * Softy «قص ولزق» collage system, calm version (docs/DESIGN_SYSTEM.md): flat white cards with square corners
+ * and the paper shadow, navy ink, red for the ONE primary action per screen. The collage marks only the page
+ * title (a navy scrap), the stat tiles and the badges. Lime is for discounts only.
  */
 
-const CARD_SHADOW = 'shadow-[0_10px_28px_-18px_rgba(18,31,52,0.25)]';
+const CARD = 'rounded-[2px] bg-white shadow-paper';
 
 /** Joins truthy class strings (tiny local helper; keeps the kit free of imports from ui code). */
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -37,7 +39,7 @@ export function AdminPageHeader({
 }: {
   /** Heading content (a string, or `<Ltr>` for ids). */
   title: ReactNode;
-  /** Secondary line under the title (16px, #5a6475). */
+  /** Secondary line under the title (16px, ink-muted). */
   description?: ReactNode;
   /** Buttons/links at the end of the header. */
   actions?: ReactNode;
@@ -49,10 +51,10 @@ export function AdminPageHeader({
     <header className={cx('mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3', className)}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="text-[24px] font-bold leading-tight text-[#121f34] sm:text-[30px]">{title}</h1>
+          <h1 className="scrap scrap-navy inline-block -rotate-1 px-4 pt-1 pb-2.5 font-lalezar text-[26px] font-normal leading-[1.25] sm:text-[32px]">{title}</h1>
           {children}
         </div>
-        {description ? <p className="mt-2 text-[16px] leading-[1.7] text-[#5a6475]">{description}</p> : null}
+        {description ? <p className="mt-3 text-[16px] leading-[1.7] text-ink-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
@@ -64,7 +66,7 @@ export function AdminPageHeader({
 /* -------------------------------------------------------------------------- */
 
 /**
- * White card with a Softy border and soft shadow. Optional header row: `<h2>` title (18/700),
+ * White paper card with the paper shadow. Optional header row: `<h2>` title (18/700),
  * description (15px), `actions` at the end. `bodyClassName` is appended to the body wrapper `p-5` (use `!p-0` to drop the padding, e.g. for a table inside).
  */
 export function Panel({
@@ -88,12 +90,12 @@ export function Panel({
 }) {
   const hasHeader = Boolean(title || description || actions);
   return (
-    <Tag className={cx('rounded-xl border border-[#e7dfdf] bg-white', CARD_SHADOW, className)}>
+    <Tag className={cx(CARD, className)}>
       {hasHeader ? (
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 pt-5">
           <div className="min-w-0">
-            {title ? <h2 className="text-[18px] font-bold leading-[1.4] text-[#121f34]">{title}</h2> : null}
-            {description ? <p className="mt-1 text-[15px] leading-normal text-[#5a6475]">{description}</p> : null}
+            {title ? <h2 className="text-[18px] font-bold leading-[1.4] text-ink">{title}</h2> : null}
+            {description ? <p className="mt-1 text-[15px] leading-normal text-ink-muted">{description}</p> : null}
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
@@ -128,16 +130,11 @@ export function StatTile({
   const ink = tone === 'ink';
   return (
     <div
-      className={cx(
-        'rounded-xl border p-5',
-        CARD_SHADOW,
-        ink ? 'border-[#121f34] bg-[#121f34] text-[#fdfbfa]' : 'border-[#e7dfdf] bg-white text-[#121f34]',
-        className,
-      )}
+      className={cx('rounded-[2px] p-5 shadow-paper', ink ? 'bg-ink text-paper' : 'grid-paper bg-white text-ink', className)}
     >
-      <p className={cx('text-[14px] font-medium leading-[1.4]', ink ? 'text-[#fdfbfa]/75' : 'text-[#5a6475]')}>{label}</p>
-      <p className="mt-1 text-[30px] font-bold leading-tight tabular-nums">{value}</p>
-      {hint ? <p className={cx('mt-1 text-[14px] leading-[1.4]', ink ? 'text-[#fdfbfa]/75' : 'text-[#5a6475]')}>{hint}</p> : null}
+      <p className={cx('text-[14px] font-semibold leading-[1.4]', ink ? 'text-paper/80' : 'text-ink-muted')}>{label}</p>
+      <p className="mt-1 font-lalezar text-[34px] font-normal leading-[1.15] tabular-nums">{value}</p>
+      {hint ? <p className={cx('mt-1 text-[14px] leading-[1.4]', ink ? 'text-paper/80' : 'text-ink-muted')}>{hint}</p> : null}
     </div>
   );
 }
@@ -147,13 +144,13 @@ export function StatTile({
 /* -------------------------------------------------------------------------- */
 
 /**
- * Bordered, scrollable box for a shadcn `<Table>`: wide tables scroll inside it, never the page.
+ * Paper-card scrollable box for a shadcn `<Table>`: wide tables scroll inside it, never the page.
  * `label` becomes the accessible name of the scroll region (keyboard users can scroll it).
  */
 export function TableFrame({ children, label, className }: { children: ReactNode; label?: string; className?: string }) {
   return (
     <div
-      className={cx('overflow-x-auto rounded-xl border border-[#e7dfdf] bg-white', CARD_SHADOW, className)}
+      className={cx('overflow-x-auto rounded-[2px] bg-white shadow-paper focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink', className)}
       {...(label ? { role: 'region', 'aria-label': label, tabIndex: 0 } : {})}
     >
       {children}
@@ -167,8 +164,8 @@ export function TableFrame({ children, label, className }: { children: ReactNode
  * `TableCell className={tableCls.cell}`, numeric cells add `tableCls.num`.
  */
 export const tableCls = {
-  head: 'h-11 bg-[#f7f0ef] px-4 text-[14px] font-semibold text-[#5a6475] whitespace-nowrap',
-  row: 'border-[#e7dfdf] hover:bg-[#fdfbfa]',
+  head: 'h-11 bg-news px-4 text-[14px] font-bold text-ink-soft whitespace-nowrap',
+  row: 'border-line hover:bg-news-light',
   cell: 'px-4 py-3 text-[15px] align-middle',
   num: 'tabular-nums whitespace-nowrap',
 } as const;
@@ -178,10 +175,10 @@ export const tableCls = {
 /* -------------------------------------------------------------------------- */
 
 const STATUS_TONE: Record<OrderStatus, { box: string; dot: string }> = {
-  new: { box: 'bg-[#ffeaed] text-[#b8163f]', dot: 'bg-[#d01c4a]' },
-  printing: { box: 'bg-[#f4e8f5] text-[#6b2170]', dot: 'bg-[#8a2b8f]' },
-  done: { box: 'bg-[#eef0f4] text-[#121f34]', dot: 'bg-[#121f34]' },
-  cancelled: { box: 'bg-[#f7f0ef] text-[#5a6475]', dot: 'bg-[#9aa3b5]' },
+  new: { box: 'bg-brand-tint text-brand-ink', dot: 'bg-brand' },
+  printing: { box: 'bg-tape text-ink', dot: 'bg-ink' },
+  done: { box: 'bg-ink text-paper', dot: 'bg-paper' },
+  cancelled: { box: 'bg-news-dark text-ink-soft', dot: 'bg-ink/40' },
 };
 
 /** Order status pill: coloured dot + the `order.status[status]` label. */
@@ -190,12 +187,12 @@ export function StatusPill({ status, className }: { status: OrderStatus; classNa
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1 text-[14px] font-semibold leading-[1.4]',
+        'inline-flex items-center gap-2 whitespace-nowrap rounded-[2px] px-2.5 py-1 text-[14px] font-bold leading-[1.4]',
         tone.box,
         className,
       )}
     >
-      <span aria-hidden className={cx('size-2 shrink-0 rounded-full', tone.dot)} />
+      <span aria-hidden className={cx('size-2 shrink-0 rounded-[50%]', tone.dot)} />
       {order.status[status]}
     </span>
   );
@@ -205,11 +202,11 @@ export function StatusPill({ status, className }: { status: OrderStatus; classNa
 export type PillTone = 'neutral' | 'info' | 'warn' | 'ok' | 'discount';
 
 const PILL_TONE: Record<PillTone, string> = {
-  neutral: 'bg-white text-[#121f34] shadow-[inset_0_0_0_1px_#e7dfdf]',
-  info: 'bg-[#f4e8f5] text-[#6b2170]',
-  warn: 'bg-[#ffeaed] text-[#b8163f]',
-  ok: 'bg-[#eef0f4] text-[#121f34]',
-  discount: 'bg-[#b6ff1a] text-[#1a2e05]',
+  neutral: 'bg-white text-ink shadow-[inset_0_0_0_1px_rgb(18_31_52/0.25)]',
+  info: 'bg-news text-ink',
+  warn: 'bg-brand-tint text-brand-ink',
+  ok: 'bg-ink text-paper',
+  discount: 'bg-discount text-discount-foreground',
 };
 
 /**
@@ -220,7 +217,7 @@ export function Pill({ tone = 'neutral', children, className }: { tone?: PillTon
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[14px] font-semibold leading-[1.4]',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[2px] px-2.5 py-1 text-[14px] font-bold leading-[1.4]',
         PILL_TONE[tone],
         className,
       )}
@@ -249,15 +246,13 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={cx(
-        'flex flex-col items-center gap-2 rounded-xl border border-[#e7dfdf] bg-white px-5 py-12 text-center',
-        CARD_SHADOW,
-        className,
-      )}
+      className={cx('flex flex-col items-center gap-3 px-5 py-12 text-center', CARD, className)}
     >
-      <Icon aria-hidden className="size-7 text-[#9aa3b5]" />
-      <p className="text-[18px] font-bold leading-[1.4] text-[#121f34]">{title}</p>
-      {children ? <div className="max-w-md text-[15px] leading-normal text-[#5a6475]">{children}</div> : null}
+      <span className="grid size-16 place-items-center rounded-[50%] bg-news">
+        <Icon aria-hidden className="size-7 text-ink-muted" />
+      </span>
+      <p className="text-[18px] font-bold leading-[1.4] text-ink">{title}</p>
+      {children ? <div className="max-w-md text-[15px] leading-normal text-ink-muted">{children}</div> : null}
     </div>
   );
 }
@@ -266,33 +261,30 @@ export function EmptyState({
 /* Buttons                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const BTN_BASE =
-  'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 text-[16px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a] disabled:pointer-events-none disabled:opacity-60';
-
 /**
  * Class strings for buttons, usable on the shadcn `Button` (`className={btn.primary}`),
- * on `<a>`/`<Link>`, or on a plain `<button>`. All are h-11, rounded-xl.
+ * on `<a>`/`<Link>`, or on a plain `<button>`. All are h-11, square corners.
  * `primary` = the ONE red action per screen. `danger` is an outline, never a filled red.
  * `whatsapp` only for WhatsApp.
  */
 export const btn = {
-  primary: `${BTN_BASE} bg-[#d01c4a] text-white hover:bg-[#b8163f]`,
-  ink: `${BTN_BASE} bg-[#121f34] text-[#fdfbfa] hover:bg-[#1b2b46]`,
-  outline: `${BTN_BASE} border border-[#e7dfdf] bg-white text-[#121f34] hover:bg-[#f7f0ef]`,
-  danger: `${BTN_BASE} border border-[#f3c4cf] bg-white text-[#b8163f] hover:bg-[#ffeaed]`,
+  primary: `${BTN_BASE} bg-brand text-white hover:bg-brand-ink`,
+  ink: btnCls('ink'),
+  outline: btnCls('outline'),
+  danger: btnCls('danger'),
   whatsapp: `${BTN_BASE} bg-[#25d366] text-[#052e16] hover:bg-[#20bd5a]`,
 } as const;
 
 /**
- * Segmented-pill class for filters/range controls: selected = 2px ink border + bold,
- * unselected = 1px border + secondary text. Pair with `aria-current`/`aria-pressed` on the element.
+ * Segmented-pill class for filters/range controls: selected = solid ink + bold,
+ * unselected = white with a hairline border + secondary text. Pair with `aria-current`/`aria-pressed` on the element.
  */
 export function segment(selected: boolean): string {
   return cx(
-    'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a]',
+    'inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
     selected
-      ? 'border-2 border-[#121f34] font-bold text-[#121f34]'
-      : 'border border-[#e7dfdf] font-medium text-[#5a6475] hover:bg-[#f7f0ef]',
+      ? 'bg-ink font-bold text-paper'
+      : 'border border-ink/25 bg-white font-medium text-ink-soft hover:bg-news',
   );
 }
 
@@ -305,18 +297,12 @@ export function segment(selected: boolean): string {
  * `field.label` on `<label>`, `field.hint` for helper text, `field.error` for error text
  * (keep `role="alert"` / `aria-live` where it already exists).
  */
-export const field = {
-  input:
-    'h-11 rounded-xl border-[#e7dfdf] bg-white px-3 text-[16px] focus-visible:border-[#d01c4a] focus-visible:ring-[#d01c4a]/30',
-  label: 'text-[15px] font-semibold leading-normal text-[#121f34]',
-  hint: 'text-[14px] leading-[1.4] text-[#5a6475]',
-  error: 'text-[14px] leading-[1.4] text-[#b8163f]',
-} as const;
+export const field = fieldCls;
 
 /** Panel-style info strip (surface background) for notices such as "list capped". */
 export function InfoStrip({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cx('rounded-xl border border-[#e7dfdf] bg-[#f7f0ef] px-4 py-3 text-[15px] leading-normal text-[#5a6475]', className)}>
+    <div className={cx('rounded-[2px] bg-news px-4 py-3 text-[15px] leading-normal text-ink-soft shadow-[inset_0_0_0_1px_rgb(18_31_52/0.12)]', className)}>
       {children}
     </div>
   );

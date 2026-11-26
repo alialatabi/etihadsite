@@ -57,11 +57,11 @@ export function SizeInputs({
   return (
     <div className="flex flex-col gap-4 sm:flex-row" {...(labelledBy ? { role: 'group', 'aria-labelledby': labelledBy } : {})}>
       {isCircle ? (
-        <SizeField id={ids.width} label={builder.size.diameter} value={widthText} onChange={onWidth} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 text-center text-lg md:text-lg" />
+        <SizeField id={ids.width} label={builder.size.diameter} value={widthText} onChange={onWidth} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 rounded-[2px] bg-white text-center text-lg md:text-lg" />
       ) : (
         <>
-          <SizeField id={ids.width} label={builder.size.width} value={widthText} onChange={onWidth} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 text-center text-lg md:text-lg" />
-          <SizeField id={ids.height} label={builder.size.height} value={heightText} onChange={onHeight} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 text-center text-lg md:text-lg" />
+          <SizeField id={ids.width} label={builder.size.width} value={widthText} onChange={onWidth} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 rounded-[2px] bg-white text-center text-lg md:text-lg" />
+          <SizeField id={ids.height} label={builder.size.height} value={heightText} onChange={onHeight} invalid={invalid} describedBy={ids.msg} inputClassName="h-12 rounded-[2px] bg-white text-center text-lg md:text-lg" />
         </>
       )}
     </div>
@@ -92,7 +92,7 @@ export function SizeFields({ b, children }: { b: BuilderApi; children?: ReactNod
 
       <div id="size-msg" aria-live="polite">
         {error && (
-          <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>{error}</span>
           </p>

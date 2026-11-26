@@ -148,7 +148,7 @@ export function SheetPdfPreview({
       aria-busy={state === 'loading'}
       style={{ aspectRatio: `${SHEET_ASPECT.width} / ${SHEET_ASPECT.height}` }}
       className={cn(
-        'relative w-full overflow-hidden rounded-md border border-[#e7dfdf] bg-white shadow-sm',
+        'relative w-full overflow-hidden rounded-[2px] bg-white shadow-paper',
         small ? 'max-w-24' : 'mx-auto max-w-[720px]',
         className,
       )}
@@ -161,9 +161,9 @@ export function SheetPdfPreview({
       {state !== 'ready' ? (
         <div
           className={cn(
-            'absolute inset-0 flex items-center justify-center p-2 text-center text-muted-foreground',
+            'absolute inset-0 flex items-center justify-center p-2 text-center font-sans text-ink-muted',
             small ? 'text-[10px] leading-tight' : 'text-sm',
-            state === 'loading' && 'animate-pulse bg-muted/40',
+            state === 'loading' && 'animate-pulse bg-news/60',
           )}
         >
           {state === 'error' ? admin.preview.error : small ? <span className="sr-only">{admin.preview.loading}</span> : admin.preview.loading}

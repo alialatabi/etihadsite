@@ -5,6 +5,7 @@ import { FileDown, FileText, LoaderCircle, RotateCw, Trash2, TriangleAlert } fro
 import { builder, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
+import { btnCls, fieldCls } from '@/components/collage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ import {
 } from '@/lib/receipts/formats';
 import { UM_PER_MM, A4_UM } from '@/lib/units';
 import { uploadLimitMb } from '@/lib/upload-limit';
+import { cn } from '@/lib/utils';
 import { MAX_RECEIPT_FILE_BYTES, type ReceiptCardState, type ReceiptCardView } from './receipt-logic';
 
 interface Props {
@@ -78,14 +80,16 @@ function SpacingField({
   const invalid = view.invalidSpacing.includes(field);
   return (
     <div className="space-y-1">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className={fieldCls.label}>
+        {label}
+      </Label>
       <Input
         id={id}
         type="text"
         inputMode="decimal"
         dir="ltr"
         autoComplete="off"
-        className="h-11 text-start"
+        className={cn(fieldCls.input, 'text-start')}
         value={card.spacingText[field]}
         disabled={disabled}
         aria-invalid={invalid || undefined}
@@ -93,7 +97,7 @@ function SpacingField({
         onChange={(e) => onSpacing(card.id, field, e.target.value)}
       />
       {invalid && (
-        <p id={`${id}-error`} className="text-xs text-destructive">
+        <p id={`${id}-error`} className={fieldCls.error}>
           {fillLtr(r.spacing.invalid, { lowMm: 0, highMm: MAX_SPACING_UM / UM_PER_MM })}
         </p>
       )}
@@ -113,7 +117,7 @@ function SheetSketch({ format, spacing, turn, previewUrl }: { format: ReceiptFor
   return (
     <svg
       viewBox={`0 0 ${mm(A4_UM.widthUm)} ${mm(A4_UM.heightUm)}`}
-      className="block h-auto w-full rounded-[2px] border border-border bg-white drop-shadow-[0_6px_18px_rgba(30,42,74,0.22)]"
+      className="block h-auto w-full rounded-[2px] bg-white shadow-paper"
       role="img"
       aria-label={r.previewAria}
       preserveAspectRatio="xMidYMid meet"
@@ -156,11 +160,11 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
   const spacingOff = busy || card.status !== 'ready';
 
   return (
-    <li className="rounded-2xl border bg-card p-4" data-receipt-card={card.id}>
+    <li className="paper-card p-4" data-receipt-card={card.id}>
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
+            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
                 <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
@@ -174,19 +178,19 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
               <Ltr>{card.file.name}</Ltr>
             </p>
             {view.valid && (
-              <Button type="button" variant="outline" size="icon" className="size-11" disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
+              <Button type="button" variant="outline" size="icon" className={cn(btnCls('outline'), 'w-11 px-0')} disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
                 <FileDown className="size-4" aria-hidden />
               </Button>
             )}
-            <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
+            <Button type="button" variant="outline" size="icon" className={cn(btnCls('outline'), 'w-11 px-0')} aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
               <Trash2 className="size-4" aria-hidden />
             </Button>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`receipt-format-${card.id}`}>{r.formatLabel}</Label>
+            <Label htmlFor={`receipt-format-${card.id}`} className={fieldCls.label}>{r.formatLabel}</Label>
             <Select value={card.format} onValueChange={(v) => onFormat(card.id, v as ReceiptFormat)}>
-              <SelectTrigger id={`receipt-format-${card.id}`} className="w-full data-[size=default]:h-11">
+              <SelectTrigger id={`receipt-format-${card.id}`} className={fieldCls.select}>
                 <SelectValue>
                   <FormatLine format={card.format} inline />
                 </SelectValue>
@@ -202,20 +206,20 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
           </div>
 
           <div className="flex flex-wrap items-end gap-4">
-            <Button type="button" variant="outline" className="h-11 gap-2 px-4" disabled={!card.design} onClick={() => onTurn(card.id)}>
+            <Button type="button" variant="outline" className={btnCls('outline')} disabled={!card.design} onClick={() => onTurn(card.id)}>
               <RotateCw className="size-4" aria-hidden />
               {r.turn}
             </Button>
             {card.format === 'a6' && (
               <div role="group" aria-label={r.whiteLabel} className="space-y-2">
-                <p className="text-sm font-medium">{r.whiteLabel}</p>
+                <p className={fieldCls.label}>{r.whiteLabel}</p>
                 <div className="flex gap-2">
                   {WHITES.map((w) => (
                     <Button
                       key={w}
                       type="button"
                       variant={card.white === w ? 'default' : 'outline'}
-                      className="h-11 px-4"
+                      className={btnCls(card.white === w ? 'ink' : 'outline')}
                       aria-pressed={card.white === w}
                       onClick={() => onWhite(card.id, w)}
                     >
@@ -229,7 +233,7 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
 
           {card.design && (
             <fieldset className="space-y-3" data-receipt-spacing={card.id}>
-              <legend className="text-sm font-medium">{r.spacing.title}</legend>
+              <legend className={fieldCls.label}>{r.spacing.title}</legend>
               {/* The four PHYSICAL sides of the paper. In RTL the first cell of a row is on the right. */}
               <div className="grid grid-cols-2 gap-3">
                 <SpacingField card={card} view={view} field="topUm" label={r.spacing.top} disabled={spacingOff} onSpacing={onSpacing} />
@@ -241,8 +245,8 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
                   <SpacingField card={card} view={view} field="gapYUm" label={grid.cols > 1 ? r.spacing.gapY : r.spacing.gap} disabled={spacingOff} onSpacing={onSpacing} />
                 )}
               </div>
-              {card.format === 'a6' && <p className="text-xs text-muted-foreground">{fillLtr(card.white === 'top' ? r.spacing.a6Hint : r.spacing.a6HintBottom, { formatName: r.formats.a6 })}</p>}
-              <Button type="button" variant="outline" className="h-11 px-4" disabled={spacingOff} onClick={() => onSpacingReset(card.id)}>
+              {card.format === 'a6' && <p className={fieldCls.hint}>{fillLtr(card.white === 'top' ? r.spacing.a6Hint : r.spacing.a6HintBottom, { formatName: r.formats.a6 })}</p>}
+              <Button type="button" variant="outline" className={btnCls('outline')} disabled={spacingOff} onClick={() => onSpacingReset(card.id)}>
                 {r.spacing.reset}
               </Button>
             </fieldset>
@@ -250,21 +254,21 @@ export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onT
 
           <div id={msgId} aria-live="polite" className="space-y-2">
             {view.problem?.kind === 'decode' && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>{fillLtr(builder.upload.errors[view.problem.error], { mb: uploadLimitMb(MAX_RECEIPT_FILE_BYTES) })}</span>
               </p>
             )}
             {view.problem?.kind === 'spacing' && view.problem.reason === 'noRoom' && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>{r.spacing.noRoom}</span>
               </p>
             )}
-            {view.multiPage && <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">{r.multiPage}</p>}
+            {view.multiPage && <p className="rounded-[2px] bg-news px-3 py-2 text-sm text-ink-soft">{r.multiPage}</p>}
             {view.dpi !== null && view.problem?.kind !== 'decode' && <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: view.dpi })}</p>}
             {view.lowDpi && view.problem?.kind !== 'decode' && (
-              <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+              <p role="status" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
                 {staff.lowDpi}
               </p>
             )}

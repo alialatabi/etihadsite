@@ -32,8 +32,8 @@ function Field({ name, label, defaultValue, type = 'text', dir, step, min, max }
 
 function Check({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
   return (
-    <label className="flex min-h-11 items-center gap-3 text-[15px] font-medium leading-normal text-[#121f34]">
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="size-5 shrink-0 cursor-pointer accent-[#121f34] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a]" />
+    <label className="flex min-h-11 items-center gap-3 text-[15px] font-medium leading-normal text-ink">
+      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="size-5 shrink-0 cursor-pointer accent-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink" />
       {label}
     </label>
   );
@@ -52,13 +52,13 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
   return (
     <form action={formAction} className="flex flex-col gap-6">
       {saved && !state.error ? (
-        <p role="status" className="flex items-center gap-2 rounded-xl border border-[#e7dfdf] bg-[#eef0f4] px-4 py-3 text-[15px] font-semibold text-[#121f34]">
+        <p role="status" className="flex items-center gap-2 rounded-[2px] border border-[#15803d]/30 bg-white px-4 py-3 text-[15px] font-semibold text-[#15803d]">
           <CheckIcon aria-hidden className="size-5 shrink-0" />
           {s.saved}
         </p>
       ) : null}
       {state.error ? (
-        <p role="alert" className="flex items-center gap-2 rounded-xl border border-[#f3c4cf] bg-[#ffeaed] px-4 py-3 text-[15px] font-semibold text-[#b8163f]">
+        <p role="alert" className="flex items-center gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint px-4 py-3 text-[15px] font-semibold text-brand-ink">
           <CircleAlert aria-hidden className="size-5 shrink-0" />
           {state.error}
         </p>
@@ -76,10 +76,10 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
 
       <Panel title={s.pricing} bodyClassName="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
-          <h3 className="text-[16px] font-bold leading-normal text-[#121f34]">{s.materialsTitle}</h3>
+          <h3 className="text-[16px] font-bold leading-normal text-ink">{s.materialsTitle}</h3>
           {MATERIALS.map((k) => (
-            <div key={k} className="grid items-end gap-3 rounded-xl border border-[#e7dfdf] bg-[#fdfbfa] p-4 md:grid-cols-[1fr_2fr_auto]">
-              <div className="text-[16px] font-bold text-[#121f34] md:pb-3">{common.materials[k]}</div>
+            <div key={k} className="grid items-end gap-3 rounded-[2px] border border-line bg-news-light p-4 md:grid-cols-[1fr_2fr_auto]">
+              <div className="text-[16px] font-bold text-ink md:pb-3">{common.materials[k]}</div>
               <Field name={`${k}Price`} label={s.pricePerSheet} defaultValue={String(pr.materials[k].pricePerSheetIqd)} type="number" dir="ltr" step="1" />
               <div className="md:pb-0.5">
                 <Check name={`${k}Enabled`} label={s.materialEnabled} defaultChecked={pr.materials[k].enabled} />
@@ -94,11 +94,11 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
         </div>
 
         <div className="flex flex-col gap-3">
-          <h3 className="text-[16px] font-bold leading-normal text-[#121f34]">{s.tiersTitle}</h3>
+          <h3 className="text-[16px] font-bold leading-normal text-ink">{s.tiersTitle}</h3>
           <p className={field.hint}>{s.tiersHint}</p>
           <input type="hidden" name="tiers" value={tiersJson} />
           {tiers.map((row, i) => (
-            <div key={i} className="grid items-end gap-3 rounded-xl border border-[#e7dfdf] bg-[#fdfbfa] p-4 md:grid-cols-[1fr_1fr_auto]">
+            <div key={i} className="grid items-end gap-3 rounded-[2px] border border-line bg-news-light p-4 md:grid-cols-[1fr_1fr_auto]">
               <div className="flex flex-col gap-2">
                 <Label htmlFor={`tier-from-${i}`} className={field.label}>{s.tierFrom}</Label>
                 <Input id={`tier-from-${i}`} className={field.input} type="number" step={1} min={1} dir="ltr" value={row.minSheets} onChange={(e) => patch(i, { minSheets: e.target.value })} />
@@ -135,8 +135,8 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
           // Prefill with what is in effect today (fallbacks applied), not with the raw stored keys.
           const now = resolveShapeSpacing(settings.layout, shape);
           return (
-            <fieldset key={shape} className="grid gap-3 rounded-xl border border-[#e7dfdf] bg-[#fdfbfa] p-4 md:grid-cols-3">
-              <legend className="px-1 text-[16px] font-bold text-[#121f34]">{s.shapeHeading[shape]}</legend>
+            <fieldset key={shape} className="grid gap-3 rounded-[2px] border border-line bg-news-light p-4 md:grid-cols-3">
+              <legend className="px-1 text-[16px] font-bold text-ink">{s.shapeHeading[shape]}</legend>
               <Field name={margin.name} label={s.margin} defaultValue={String(umToMm(now.marginUm))} type="number" dir="ltr" />
               <Field name={gapX.name} label={s.gapX} defaultValue={String(umToMm(now.gapXUm))} type="number" dir="ltr" />
               <Field name={gapY.name} label={s.gapY} defaultValue={String(umToMm(now.gapYUm))} type="number" dir="ltr" />
@@ -161,7 +161,7 @@ export function SettingsForm({ settings, saved }: { settings: ShopSettings; save
       </Panel>
 
       {/* Sticky on phones so Save is always reachable; inline from sm up. */}
-      <div className="sticky bottom-0 z-30 -mx-4 border-t border-[#e7dfdf] bg-[#fdfbfa]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+      <div className="sticky bottom-0 z-30 -mx-4 border-t border-line bg-ground/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         <Button type="submit" disabled={pending} className={btn.primary}>
           {s.save}
         </Button>

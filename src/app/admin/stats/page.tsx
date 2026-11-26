@@ -91,9 +91,9 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         <ol className="flex flex-col gap-4">
           {st.funnel.map((f) => (
             <li key={f.id} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-[#121f34]">
+              <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-ink">
                 <span className="min-w-0">{funnelLabels[f.id]}</span>
-                <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#5a6475]">
+                <span className="shrink-0 text-[14px] font-medium tabular-nums text-ink-muted">
                   <Ltr>{f.count}</Ltr>
                   {f.ofPreviousPct !== null ? (
                     <>
@@ -103,8 +103,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                   ) : null}
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-[#f7f0ef]" aria-hidden="true">
-                <div className="h-full rounded-full bg-[#121f34]" style={{ width: `${f.ofFirstPct}%` }} />
+              <div className="h-3 overflow-hidden rounded-[2px] bg-news" aria-hidden="true">
+                <div className="h-full rounded-[2px] bg-ink" style={{ width: `${f.ofFirstPct}%` }} />
               </div>
             </li>
           ))}
@@ -118,7 +118,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </div>
       </Section>
 
-      <h2 className="mt-2 text-[24px] font-bold leading-[1.3] text-[#121f34]">{A.title}</h2>
+      <h2 className="mt-2 text-[24px] font-bold leading-[1.3] text-ink">{A.title}</h2>
       <div className="grid gap-6 md:grid-cols-2">
         <Section title={A.sources}>
           <BarList rows={sourceRows} />

@@ -2,6 +2,7 @@ import { memo, useId } from 'react';
 import { builder } from '@/content/ar';
 import { A4_UM } from '@/lib/units';
 import { CountLabel } from './labels';
+import { tagCls } from '@/components/collage';
 import { cn } from '@/lib/utils';
 import type { MultiLayoutDesign, MultiLayoutResult } from '@/lib/types';
 
@@ -28,7 +29,7 @@ export const MultiSheetPreview = memo(function MultiSheetPreview({ layout, previ
     <div className={cn('relative', className)}>
       <svg
         viewBox={`0 0 ${A4_UM.widthUm} ${A4_UM.heightUm}`}
-        className="block h-auto w-full rounded-[2px] bg-white drop-shadow-[0_6px_18px_rgba(30,42,74,0.22)]"
+        className="block h-auto w-full bg-white shadow-paper"
         role="img"
         aria-label={builder.preview.sheet}
         preserveAspectRatio="xMidYMid meet"
@@ -76,7 +77,7 @@ export const MultiSheetPreview = memo(function MultiSheetPreview({ layout, previ
         </p>
       )}
       {layout && !hideBadge && (
-        <span className="absolute bottom-2 start-2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow">
+        <span className={cn(tagCls('navy'), 'absolute bottom-2 start-2')}>
           <CountLabel n={layout.countPerSheet} /> {builder.preview.perSheet}
         </span>
       )}

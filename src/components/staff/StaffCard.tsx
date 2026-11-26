@@ -5,6 +5,7 @@ import { FileDown, FileText, LoaderCircle, Trash2, TriangleAlert } from 'lucide-
 import { builder, fill, staff } from '@/content/ar';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
+import { btnCls, fieldCls } from '@/components/collage';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +13,7 @@ import { SheetPreview } from '@/components/builder/SheetPreview';
 import { SizeField } from '@/components/builder/SizeField';
 import { safeFormatCm } from '@/components/builder/safe';
 import { uploadLimitMb } from '@/lib/upload-limit';
+import { cn } from '@/lib/utils';
 import { MAX_STAFF_FILE_BYTES, STAFF_SHAPES, type StaffCardState, type StaffCardView, type StaffProblem, type StaffShape } from './staff-logic';
 
 interface Props {
@@ -39,11 +41,11 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
   const previewUrl = card.design?.previewUrl ?? null;
 
   return (
-    <li className="rounded-2xl border bg-card p-4" data-card={card.id}>
+    <li className="paper-card p-4" data-card={card.id}>
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
+            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
                 <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
@@ -57,19 +59,19 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
               <Ltr>{card.file.name}</Ltr>
             </p>
             {view.valid && (
-              <Button type="button" variant="outline" size="icon" className="size-11" disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
+              <Button type="button" variant="outline" size="icon" className={cn(btnCls('outline'), 'w-11 px-0')} disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
                 <FileDown className="size-4" aria-hidden />
               </Button>
             )}
-            <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
+            <Button type="button" variant="outline" size="icon" className={cn(btnCls('outline'), 'w-11 px-0')} aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
               <Trash2 className="size-4" aria-hidden />
             </Button>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`staff-shape-${card.id}`}>{staff.shapeLabel}</Label>
+            <Label htmlFor={`staff-shape-${card.id}`} className={fieldCls.label}>{staff.shapeLabel}</Label>
             <Select value={card.shape} onValueChange={(v) => onShape(card.id, v as StaffShape)}>
-              <SelectTrigger id={`staff-shape-${card.id}`} className="w-full data-[size=default]:h-11">
+              <SelectTrigger id={`staff-shape-${card.id}`} className={fieldCls.select}>
                 <SelectValue>{staff.shapes[card.shape]}</SelectValue>
               </SelectTrigger>
               <SelectContent dir="rtl" alignItemWithTrigger={false}>
@@ -84,18 +86,18 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
 
           <div className="flex flex-col gap-4 sm:flex-row">
             {isCircle ? (
-              <SizeField id={`staff-w-${card.id}`} label={builder.size.diameter} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
+              <SizeField id={`staff-w-${card.id}`} label={builder.size.diameter} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName={cn(fieldCls.input, 'text-center')} />
             ) : (
               <>
-                <SizeField id={`staff-w-${card.id}`} label={builder.size.width} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
-                <SizeField id={`staff-h-${card.id}`} label={builder.size.height} value={card.heightText} onChange={(t) => onHeight(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName="h-11 text-center text-base md:text-base" />
+                <SizeField id={`staff-w-${card.id}`} label={builder.size.width} value={card.widthText} onChange={(t) => onWidth(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName={cn(fieldCls.input, 'text-center')} />
+                <SizeField id={`staff-h-${card.id}`} label={builder.size.height} value={card.heightText} onChange={(t) => onHeight(card.id, t)} invalid={sizeProblem} describedBy={msgId} inputClassName={cn(fieldCls.input, 'text-center')} />
               </>
             )}
           </div>
 
           <div id={msgId} aria-live="polite" className="space-y-2">
             {view.problem && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>{problemText(view.problem, view.maxWidthUm)}</span>
               </p>
@@ -104,7 +106,7 @@ export const StaffCard = memo(function StaffCard({ card, view, onShape, onWidth,
               <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: view.dpi })}</p>
             )}
             {view.lowDpi && !view.problem && (
-              <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+              <p role="status" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
                 {staff.lowDpi}
               </p>
             )}

@@ -82,9 +82,9 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
         </p>
       ) : null}
 
-      <p className="flex flex-wrap items-center gap-x-2 text-[16px] text-[#121f34]">
+      <p className="flex flex-wrap items-center gap-x-2 text-[16px] text-ink">
         <span className="font-semibold">{s.link}</span>
-        <Link href="/team/login" className="break-all font-semibold underline">
+        <Link href="/team/login" className="break-all font-semibold text-ink underline decoration-brand decoration-2 underline-offset-4 hover:decoration-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink">
           <Ltr>{loginUrl}</Ltr>
         </Link>
       </p>
@@ -132,10 +132,10 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                 <li key={a.id}>
                   <Panel as="div" bodyClassName="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                      <span className="text-[18px] font-bold text-[#121f34]">{a.name}</span>
-                      <Ltr className="text-[16px] font-medium text-[#121f34]">{formatPhoneLocal(a.phone)}</Ltr>
+                      <span className="text-[18px] font-bold text-ink">{a.name}</span>
+                      <Ltr className="text-[16px] font-medium text-ink">{formatPhoneLocal(a.phone)}</Ltr>
                       {a.active ? <Pill tone="ok">{s.active}</Pill> : <Pill tone="warn">{s.disabled}</Pill>}
-                      <span className="text-[15px] text-[#5a6475]">
+                      <span className="text-[15px] text-ink-muted">
                         {fillLtr(s.todayCount, { n: used.get(`staff:${a.id}`) ?? 0, max: STAFF_IMAGE_DAILY_LIMIT })}
                       </span>
                     </div>

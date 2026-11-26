@@ -1,15 +1,19 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { btn, Panel } from '@/components/admin/kit';
+import { btn, field, Panel } from '@/components/admin/kit';
 import { admin } from '@/content/ar';
 import { shapeLabel } from '@/lib/order-text';
+import { cn } from '@/lib/utils';
 import type { DesignFilters } from './filters';
 
 const f = admin.designs.filters;
 
-const CONTROL =
-  'h-11 w-full min-w-0 rounded-xl border border-[#e7dfdf] bg-white px-3 text-[16px] text-[#121f34] focus-visible:border-[#d01c4a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a]';
-const LABEL = 'text-[15px] font-semibold leading-normal text-[#121f34]';
+// Plain HTML controls (no shadcn parts): the kit's field look plus a border and the ink focus outline.
+const CONTROL = cn(
+  field.input,
+  'w-full min-w-0 border text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
+);
+const LABEL = field.label;
 
 export interface StaffOption {
   id: string;
@@ -73,17 +77,17 @@ export function FilterBar({ values, staff }: { values: DesignFilters['echo']; st
           <div className="grid grid-cols-2 gap-3">
             <label className="flex min-w-0 flex-col gap-1.5">
               <span className={LABEL}>{f.from}</span>
-              <input type="date" name="from" defaultValue={values.from} dir="ltr" className={CONTROL} />
+              <input type="date" name="from" defaultValue={values.from} dir="ltr" className={cn(CONTROL, 'px-2')} />
             </label>
             <label className="flex min-w-0 flex-col gap-1.5">
               <span className={LABEL}>{f.to}</span>
-              <input type="date" name="to" defaultValue={values.to} dir="ltr" className={CONTROL} />
+              <input type="date" name="to" defaultValue={values.to} dir="ltr" className={cn(CONTROL, 'px-2')} />
             </label>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" className={btn.primary}>
+          <button type="submit" className={btn.ink}>
             <Search aria-hidden className="size-5" />
             {f.submit}
           </button>

@@ -57,7 +57,7 @@ export default async function OrdersPage() {
         <TableFrame label={admin.orders.title}>
           <Table>
             <TableHeader>
-              <TableRow className="border-[#e7dfdf] hover:bg-transparent">
+              <TableRow className="border-line hover:bg-transparent">
                 <TableHead className={cn(tableCls.head, "px-3")}>{c.no}</TableHead>
                 <TableHead className={cn(tableCls.head, "px-3")}>{c.preview}</TableHead>
                 <TableHead className={cn(tableCls.head, "px-3")}>{c.date}</TableHead>
@@ -79,7 +79,7 @@ export default async function OrdersPage() {
                     <TableCell className={cn(tableCls.cell, tableCls.num, "px-3")}>
                       <Link
                         href={`/admin/orders/${o.orderId}`}
-                        className="text-[15px] font-bold text-[#121f34] underline-offset-4 hover:text-[#d01c4a] hover:underline"
+                        className="inline-flex min-h-11 items-center text-[15px] font-bold text-ink underline-offset-4 hover:text-brand-ink hover:underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink"
                       >
                         <Ltr>{o.displayNo}</Ltr>
                       </Link>
@@ -100,10 +100,10 @@ export default async function OrdersPage() {
                       {o.customer.name || admin.orders.noName}
                     </TableCell>
                     <TableCell className={cn(tableCls.cell, "px-3")}>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col">
                         <a
                           href={`tel:+${o.customer.phone}`}
-                          className="font-medium text-[#121f34] underline-offset-4 hover:underline"
+                          className="inline-flex min-h-11 items-center font-medium text-ink underline-offset-4 hover:underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink"
                           aria-label={admin.orders.call}
                         >
                           <Ltr>+{o.customer.phone}</Ltr>
@@ -112,11 +112,11 @@ export default async function OrdersPage() {
                           href={whatsappUrl(o.customer.phone)}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline"
+                          className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-[#0b5a2e] underline-offset-4 hover:underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink"
                         >
                           <span
                             aria-hidden
-                            className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-[#052e16]"
+                            className="inline-flex size-5 shrink-0 items-center justify-center rounded-[50%] bg-[#25d366] text-[#052e16]"
                           >
                             <MessageCircle className="size-3" />
                           </span>

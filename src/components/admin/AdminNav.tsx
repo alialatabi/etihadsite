@@ -41,13 +41,13 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={
-                  'inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdfbfa] ' +
-                  (active ? 'bg-[#fdfbfa] font-bold text-[#121f34]' : 'font-medium text-[#fdfbfa]/85 hover:bg-[#1b2b46]')
+                  'inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper ' +
+                  (active ? 'bg-paper font-bold text-ink' : 'font-medium text-paper/85 hover:bg-ink-hover')
                 }
               >
                 {item.label}
                 {item.badge && item.badge > 0 ? (
-                  <span className="rounded-full bg-[#ffeaed] px-2 text-[14px] font-bold leading-6 text-[#b8163f]">
+                  <span className="rounded-[2px] bg-brand-tint px-2 text-[14px] font-bold leading-6 text-brand-ink">
                     <Ltr>{item.badge}</Ltr>
                   </span>
                 ) : null}

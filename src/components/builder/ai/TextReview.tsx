@@ -3,12 +3,14 @@
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { builder } from '@/content/ar';
+import { btnCls, ctaCls, fieldCls } from '@/components/collage';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AI_INSTRUCTIONS_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
+import { cn } from '@/lib/utils';
 import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
 
@@ -36,8 +38,8 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
   }, [lines.length]);
 
   return (
-    <section aria-labelledby="ai-review-title" className="space-y-4 rounded-2xl border-2 border-brand/40 bg-brand/5 p-4">
-      <h3 id="ai-review-title" ref={headingRef} tabIndex={-1} className="text-base font-bold outline-none">
+    <section aria-labelledby="ai-review-title" className="paper-card space-y-4 p-4">
+      <h3 id="ai-review-title" ref={headingRef} tabIndex={-1} className="text-lg font-bold text-ink outline-none">
         {builder.ai.reviewTitle}
       </h3>
 
@@ -51,12 +53,12 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
               maxLength={AI_LINE_MAX_CHARS}
               aria-label={`${builder.ai.reviewTitle} ${i + 1}`}
               onChange={(e) => ai.setLines(lines.map((l, k) => (k === i ? e.target.value : l)))}
-              className="h-11 flex-1 text-base md:text-base"
+              className={cn(fieldCls.input, 'flex-1')}
             />
             <Button
               type="button"
-              variant="ghost"
-              className="size-11 shrink-0"
+              variant="outline"
+              className={cn(btnCls('outline'), 'size-11 shrink-0 px-0')}
               aria-label={builder.ai.removeLine}
               onClick={() => {
                 focusAfterDelete.current = i;
@@ -73,7 +75,7 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
         ref={addRef}
         type="button"
         variant="outline"
-        className="h-11 px-4"
+        className={btnCls('outline')}
         disabled={lines.length >= AI_MAX_LINES}
         onClick={() => ai.setLines([...lines, ''])}
       >
@@ -82,10 +84,10 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
       </Button>
 
       <div className="space-y-2">
-        <Label htmlFor="ai-instructions" className="text-base font-bold">
+        <Label htmlFor="ai-instructions" className={fieldCls.label}>
           {builder.ai.instructionsTitle}
         </Label>
-        <p id="ai-instructions-hint" className="text-sm text-muted-foreground">
+        <p id="ai-instructions-hint" className={fieldCls.hint}>
           {builder.ai.instructionsHint}
         </p>
         <Textarea
@@ -96,27 +98,27 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
           rows={4}
           onChange={(e) => ai.setInstructions(e.target.value)}
           aria-describedby="ai-instructions-hint ai-instructions-count"
-          className="min-h-28 text-base md:text-base"
+          className="min-h-28 rounded-[2px] border-input bg-white px-3 py-2 text-[16px] focus-visible:border-brand focus-visible:ring-brand/30 md:text-[16px]"
         />
-        <p id="ai-instructions-count" className="text-end text-xs text-muted-foreground">
+        <p id="ai-instructions-count" className={cn(fieldCls.hint, 'text-end')}>
           <Ltr>
             {ai.instructions.length}/{AI_INSTRUCTIONS_MAX_CHARS}
           </Ltr>
         </p>
         {/* Always in the DOM so the polite live region announces the change. */}
-        <p role="status" aria-live="polite" className="text-sm font-medium">
+        <p role="status" aria-live="polite" className="text-sm font-medium text-ink">
           {ai.instructionsEdited ? builder.ai.instructionsEdited : ''}
         </p>
       </div>
 
       {fixes.length > 0 && (
-        <div className="rounded-xl bg-background p-3 text-sm">
+        <div className="rounded-[2px] bg-news p-3 text-sm text-ink">
           <p className="font-medium">{builder.ai.fixesTitle}</p>
           <ul className="mt-1 space-y-1">
             {fixes.map((f, i) => (
               <li key={i} className="flex flex-wrap items-center gap-2">
-                <bdi className="text-muted-foreground line-through">{f.from}</bdi>
-                <ArrowLeft className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <bdi className="text-ink-muted line-through">{f.from}</bdi>
+                <ArrowLeft className="size-4 shrink-0 text-ink-muted" aria-hidden />
                 <bdi className="font-bold">{f.to}</bdi>
               </li>
             ))}
@@ -130,7 +132,7 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
         type="button"
         disabled={!canConfirm}
         onClick={() => void ai.generate()}
-        className="h-12 w-full bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90 sm:w-auto"
+        className={ctaCls('md')}
       >
         <Sparkles className="size-5" aria-hidden />
         {builder.ai.confirm}

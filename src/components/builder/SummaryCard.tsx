@@ -1,4 +1,5 @@
 import { builder, common, fill } from '@/content/ar';
+import { MarkerCircle, PaperCard } from '@/components/collage';
 import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
 import { safeShapeLabel } from './safe';
@@ -8,18 +9,27 @@ import type { SummaryData } from './logic';
 function Row({ label, children, strong }: { label: string; children: React.ReactNode; strong?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-4 py-2 ${strong ? 'text-base font-bold' : 'text-sm'}`}>
-      <dt className="text-muted-foreground">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className="text-end">{children}</dd>
     </div>
+  );
+}
+
+/** The final total: Lalezar, with the red marker loop round it. */
+function TotalAmount({ children }: { children: React.ReactNode }) {
+  return (
+    <MarkerCircle>
+      <span className="font-lalezar text-xl font-normal whitespace-nowrap sm:text-2xl">{children}</span>
+    </MarkerCircle>
   );
 }
 
 /** Read-only order summary; also used on the success page. */
 export function SummaryCard({ summary, title = builder.summary.title }: { summary: SummaryData; title?: string }) {
   return (
-    <section className="rounded-2xl border bg-card p-4">
-      <h3 className="font-heading mb-1 text-base font-bold">{title}</h3>
-      <dl className="divide-y">
+    <PaperCard as="section" tape="end" className="p-4">
+      <h3 className="mb-1 text-base font-bold text-ink">{title}</h3>
+      <dl className="divide-y divide-dashed divide-line">
         <Row label={builder.summary.shape}>{safeShapeLabel(summary.shape, summary.corners)}</Row>
         {summary.designs && summary.designs.length > 0 ? (
           // A multi-design order: one line per design with its own size.
@@ -64,18 +74,26 @@ export function SummaryCard({ summary, title = builder.summary.title }: { summar
         {summary.totalBeforeDiscountIqd != null && summary.totalIqd != null ? (
           <>
             <Row label={builder.summary.totalBefore}>
-              <span className="text-muted-foreground line-through"><Money amount={summary.totalBeforeDiscountIqd} /></span>
+              <span className="text-ink-muted line-through"><Money amount={summary.totalBeforeDiscountIqd} /></span>
             </Row>
             <Row label={builder.summary.totalAfter} strong>
-              <Money amount={summary.totalIqd} />
+              <TotalAmount>
+                <Money amount={summary.totalIqd} />
+              </TotalAmount>
             </Row>
           </>
         ) : (
           <Row label={builder.summary.total} strong>
-            {summary.totalIqd == null ? builder.summary.priceUnset : <Money amount={summary.totalIqd} />}
+            {summary.totalIqd == null ? (
+              builder.summary.priceUnset
+            ) : (
+              <TotalAmount>
+                <Money amount={summary.totalIqd} />
+              </TotalAmount>
+            )}
           </Row>
         )}
       </dl>
-    </section>
+    </PaperCard>
   );
 }

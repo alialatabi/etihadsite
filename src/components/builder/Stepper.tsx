@@ -3,12 +3,13 @@
 import { Check } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { cn } from '@/lib/utils';
+import { StepNumber } from '@/components/collage';
 import { STEPS } from './logic';
 import type { BuilderApi } from './useBuilder';
 
 export function Stepper({ b }: { b: BuilderApi }) {
   return (
-    <nav aria-label={builder.stepper.label} className="glass rounded-2xl p-2">
+    <nav aria-label={builder.stepper.label} className="paper-card p-2">
       <ol className="flex items-center gap-1 sm:gap-2">
         {STEPS.map((id, i) => {
           const done = i < b.step;
@@ -22,23 +23,22 @@ export function Stepper({ b }: { b: BuilderApi }) {
                 onClick={() => b.goTo(i)}
                 aria-current={current ? 'step' : undefined}
                 className={cn(
-                  'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:flex-row sm:gap-2 sm:text-sm',
+                  'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[2px] px-1 text-xs focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink sm:flex-row sm:gap-2 sm:text-sm',
                   current ? 'font-bold text-foreground' : 'text-muted-foreground',
                   !reachable && 'opacity-60',
                 )}
               >
-                <span
-                  className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold tabular-nums',
-                    current && 'border-brand bg-brand text-brand-foreground',
-                    done && 'border-primary bg-primary text-primary-foreground',
-                  )}
+                <StepNumber
+                  size="sm"
+                  n={i + 1}
+                  tone={current ? 'red' : done ? 'navy' : 'white'}
+                  className={cn(!current && !done && 'shadow-[0_0_0_2px_rgb(18_31_52/0.3)]')}
                 >
-                  {done ? <Check className="size-4" aria-hidden /> : i + 1}
-                </span>
+                  {done ? <Check className="size-4" aria-hidden /> : undefined}
+                </StepNumber>
                 <span className="text-center leading-tight text-balance sm:text-start">{builder.steps[id]}</span>
               </button>
-              {i < STEPS.length - 1 && <span aria-hidden className="cut-line hidden h-px w-3 shrink-0 text-border sm:block" />}
+              {i < STEPS.length - 1 && <span aria-hidden className="dashed-divider hidden h-px w-3 shrink-0 sm:block" />}
             </li>
           );
         })}

@@ -5,29 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens — Softy Printing (مطبعة سوفتي) identity.
- * Logo: circle gradient orange #FF9A1F -> crimson #EE3A62 -> purple #8A2B8F, wordmark navy #121F34.
- * Brand: ink navy (primary/foreground), near-white warm background, --brand = logo crimson #D01C4A
- * (darkened from #EE3A62 so white text passes AA: 5.32:1).
- * Use `bg-brand text-brand-foreground` for the main call-to-action only.
- * `bg-brand-gradient` is the full logo gradient (decorative, NO text on it: orange fails contrast).
- * `bg-brand-gradient-cta` is crimson -> purple, safe under white text (>= 4.95:1).
+ * Softy «قص ولزق» (cut and paste) collage system, see docs/DESIGN_SYSTEM.md.
+ * Red #D01C4A is only 4.25:1 on the ground, so small red text uses --brand-ink.
  */
-/*
- * Frosted-glass panel for text that sits on the sticker-pattern background (owner request):
- * translucent page colour + blur + hairline border, so text reads cleanly over the pattern.
- */
-@utility glass {
-  background-color: color-mix(in oklab, var(--background) 38%, transparent);
-  -webkit-backdrop-filter: blur(7px) saturate(1.4);
-  backdrop-filter: blur(7px) saturate(1.4);
-  border: 1px solid rgb(255 255 255 / 0.7);
-  outline: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  box-shadow:
-    0 1px 2px rgb(18 31 52 / 0.04),
-    0 10px 28px -14px rgb(18 31 52 / 0.16),
-    inset 0 1px 0 rgb(255 255 255 / 0.65);
-}
 
 /* Owner request: small text was hard to read — bump the two smallest steps site-wide. */
 @theme {
@@ -42,6 +22,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans), "Segoe UI", Tahoma, Arial, sans-serif;
   --font-heading: var(--font-sans), "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-lalezar: var(--ff-lalezar), "Segoe UI", Tahoma, sans-serif;
+  --font-rakkas: var(--ff-rakkas), "Segoe UI", Tahoma, serif;
+  --font-kufi: var(--ff-kufi), "Segoe UI", Tahoma, sans-serif;
+  --font-marker: var(--ff-ruqaa), "Segoe UI", Tahoma, serif;
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
@@ -49,6 +33,17 @@
   --color-discount-foreground: var(--discount-foreground);
   --color-paper: var(--paper);
   --color-ink: var(--ink);
+  --color-ground: var(--ground);
+  --color-news: var(--news);
+  --color-news-light: var(--news-light);
+  --color-news-dark: var(--news-dark);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-hover: var(--ink-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-tint: var(--brand-tint);
+  --color-tape: var(--tape);
+  --color-line: var(--line);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -65,95 +60,111 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --shadow-paper: var(--paper-shadow);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
 }
 
 :root {
-  --header-h: 3.5rem;
+  /* = the header row (h-14) + its torn-edge padding (pb-2); keep in step with Header.tsx */
+  --header-h: 4rem;
+  --ground: #ece6da;
+  --news: #f4efe4;
+  --news-light: #f7f3ea;
+  --news-dark: #e2dccf;
   --paper: #fdfbfa;
   --ink: #121f34;
+  --ink-soft: #3d4659;
+  --ink-muted: #4a5265;
+  --ink-hover: #1b2b46;
   --brand: #d01c4a;
   --brand-foreground: #ffffff;
-  /* Discount badges: vivid lime (owner request) with dark green text, ~14:1 contrast. */
+  --brand-ink: #b8163f;
+  --brand-tint: #fbe4ea;
+  --tape: rgb(255 154 31 / 0.82);
+  --line: #d3cab9;
+  /* Discount badges: vivid lime (owner request) with dark green text, ~14:1 contrast. Discounts only. */
   --discount: #b6ff1a;
   --discount-foreground: #1a2e05;
 
-  --background: var(--paper);
+  --background: var(--ground);
   --foreground: var(--ink);
-  --card: oklch(1 0 0);
+  --card: #ffffff;
   --card-foreground: var(--ink);
-  --popover: oklch(1 0 0);
+  --popover: #ffffff;
   --popover-foreground: var(--ink);
-  --primary: #121f34;
-  --primary-foreground: #fdfbfa;
-  --secondary: oklch(0.96 0.008 20);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--news);
   --secondary-foreground: var(--ink);
-  --muted: oklch(0.96 0.006 20);
-  --muted-foreground: oklch(0.5 0.03 262);
-  --accent: oklch(0.955 0.025 8);
+  --muted: var(--news);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--news-light);
   --accent-foreground: var(--ink);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.008 20);
-  --input: oklch(0.91 0.008 20);
-  --ring: #d01c4a;
-  --radius: 0.75rem;
+  --destructive: #b8163f;
+  --border: var(--line);
+  --input: #7d8391;
+  --ring: var(--brand);
+  --radius: 2px;
+
+  --paper-shadow: 0 14px 22px -12px rgb(30 24 12 / 0.45), 0 0 0 1px rgb(18 31 52 / 0.06);
+  --paper-drop: drop-shadow(0 8px 7px rgb(30 24 12 / 0.3));
+  --sticker-edge: drop-shadow(4px 0 0 #fff) drop-shadow(-4px 0 0 #fff) drop-shadow(0 4px 0 #fff) drop-shadow(0 -4px 0 #fff) drop-shadow(0 10px 10px rgb(30 24 12 / 0.28));
+  --sticker-edge-sm: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 5px 5px rgb(30 24 12 / 0.28));
+  --grid-line: rgb(40 110 190 / 0.22);
+  --pattern-news: repeating-linear-gradient(to bottom, rgb(18 31 52 / 0.22) 0 3px, transparent 3px 13px);
+  --pattern-grid: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  --logo-gradient: conic-gradient(from 210deg, #ff9a1f, #ee3a62, #8a2b8f, #ee3a62, #ff9a1f);
+  /* Torn paper edges, copied from the artboards (Dir-D-Base .d-torn, .d-torn4, .d-tornb). */
+  /* torn top and bottom, up to 7px */
+  --torn-edge: polygon(0.0% 3px, 3.3% 4px, 6.7% 6px, 10.0% 3px, 13.3% 4px, 16.7% 4px, 20.0% 1px, 23.3% 4px, 26.7% 4px, 30.0% 6px, 33.3% 1px, 36.7% 2px, 40.0% 1px, 43.3% 6px, 46.7% 5px, 50.0% 0px, 53.3% 7px, 56.7% 7px, 60.0% 5px, 63.3% 4px, 66.7% 1px, 70.0% 0px, 73.3% 4px, 76.7% 0px, 80.0% 1px, 83.3% 2px, 86.7% 0px, 90.0% 3px, 93.3% 3px, 96.7% 6px, 100.0% 4px, calc(100% - 0px) 10.0%, calc(100% - 0px) 20.0%, calc(100% - 0px) 30.0%, calc(100% - 0px) 40.0%, calc(100% - 0px) 50.0%, calc(100% - 0px) 60.0%, calc(100% - 0px) 70.0%, calc(100% - 0px) 80.0%, calc(100% - 0px) 90.0%, 100.0% calc(100% - 4px), 96.7% calc(100% - 3px), 93.3% calc(100% - 5px), 90.0% calc(100% - 3px), 86.7% calc(100% - 2px), 83.3% calc(100% - 7px), 80.0% calc(100% - 7px), 76.7% calc(100% - 6px), 73.3% calc(100% - 5px), 70.0% calc(100% - 2px), 66.7% calc(100% - 2px), 63.3% calc(100% - 2px), 60.0% calc(100% - 0px), 56.7% calc(100% - 5px), 53.3% calc(100% - 3px), 50.0% calc(100% - 6px), 46.7% calc(100% - 3px), 43.3% calc(100% - 7px), 40.0% calc(100% - 6px), 36.7% calc(100% - 0px), 33.3% calc(100% - 1px), 30.0% calc(100% - 6px), 26.7% calc(100% - 3px), 23.3% calc(100% - 7px), 20.0% calc(100% - 3px), 16.7% calc(100% - 1px), 13.3% calc(100% - 4px), 10.0% calc(100% - 5px), 6.7% calc(100% - 2px), 3.3% calc(100% - 1px), 0.0% calc(100% - 2px), 0px 90.0%, 0px 80.0%, 0px 70.0%, 0px 60.0%, 0px 50.0%, 0px 40.0%, 0px 30.0%, 0px 20.0%, 0px 10.0%);
+  /* torn on all four sides, up to 6px */
+  --torn-four: polygon(0.0% 6px, 4.2% 5px, 8.3% 1px, 12.5% 1px, 16.7% 1px, 20.8% 0px, 25.0% 5px, 29.2% 1px, 33.3% 3px, 37.5% 3px, 41.7% 1px, 45.8% 4px, 50.0% 1px, 54.2% 4px, 58.3% 1px, 62.5% 3px, 66.7% 1px, 70.8% 2px, 75.0% 6px, 79.2% 5px, 83.3% 2px, 87.5% 5px, 91.7% 1px, 95.8% 2px, 100.0% 5px, calc(100% - 4px) 12.5%, calc(100% - 1px) 25.0%, calc(100% - 6px) 37.5%, calc(100% - 1px) 50.0%, calc(100% - 2px) 62.5%, calc(100% - 5px) 75.0%, calc(100% - 2px) 87.5%, 100.0% calc(100% - 2px), 95.8% calc(100% - 0px), 91.7% calc(100% - 1px), 87.5% calc(100% - 3px), 83.3% calc(100% - 1px), 79.2% calc(100% - 4px), 75.0% calc(100% - 2px), 70.8% calc(100% - 3px), 66.7% calc(100% - 6px), 62.5% calc(100% - 3px), 58.3% calc(100% - 3px), 54.2% calc(100% - 5px), 50.0% calc(100% - 1px), 45.8% calc(100% - 1px), 41.7% calc(100% - 5px), 37.5% calc(100% - 5px), 33.3% calc(100% - 1px), 29.2% calc(100% - 1px), 25.0% calc(100% - 4px), 20.8% calc(100% - 6px), 16.7% calc(100% - 1px), 12.5% calc(100% - 6px), 8.3% calc(100% - 5px), 4.2% calc(100% - 4px), 0.0% calc(100% - 3px), 1px 87.5%, 0px 75.0%, 6px 62.5%, 1px 50.0%, 4px 37.5%, 2px 25.0%, 5px 12.5%);
+  /* torn bottom only, up to 12px: header bars */
+  --torn-bottom: polygon(0.0% 0px, 2.9% 0px, 5.9% 0px, 8.8% 0px, 11.8% 0px, 14.7% 0px, 17.6% 0px, 20.6% 0px, 23.5% 0px, 26.5% 0px, 29.4% 0px, 32.4% 0px, 35.3% 0px, 38.2% 0px, 41.2% 0px, 44.1% 0px, 47.1% 0px, 50.0% 0px, 52.9% 0px, 55.9% 0px, 58.8% 0px, 61.8% 0px, 64.7% 0px, 67.6% 0px, 70.6% 0px, 73.5% 0px, 76.5% 0px, 79.4% 0px, 82.4% 0px, 85.3% 0px, 88.2% 0px, 91.2% 0px, 94.1% 0px, 97.1% 0px, 100.0% 0px, calc(100% - 0px) 10.0%, calc(100% - 0px) 20.0%, calc(100% - 0px) 30.0%, calc(100% - 0px) 40.0%, calc(100% - 0px) 50.0%, calc(100% - 0px) 60.0%, calc(100% - 0px) 70.0%, calc(100% - 0px) 80.0%, calc(100% - 0px) 90.0%, 100.0% calc(100% - 7px), 97.1% calc(100% - 4px), 94.1% calc(100% - 2px), 91.2% calc(100% - 9px), 88.2% calc(100% - 1px), 85.3% calc(100% - 3px), 82.4% calc(100% - 7px), 79.4% calc(100% - 10px), 76.5% calc(100% - 7px), 73.5% calc(100% - 3px), 70.6% calc(100% - 11px), 67.6% calc(100% - 2px), 64.7% calc(100% - 0px), 61.8% calc(100% - 3px), 58.8% calc(100% - 5px), 55.9% calc(100% - 1px), 52.9% calc(100% - 2px), 50.0% calc(100% - 4px), 47.1% calc(100% - 7px), 44.1% calc(100% - 2px), 41.2% calc(100% - 4px), 38.2% calc(100% - 11px), 35.3% calc(100% - 12px), 32.4% calc(100% - 8px), 29.4% calc(100% - 8px), 26.5% calc(100% - 7px), 23.5% calc(100% - 2px), 20.6% calc(100% - 0px), 17.6% calc(100% - 0px), 14.7% calc(100% - 11px), 11.8% calc(100% - 8px), 8.8% calc(100% - 12px), 5.9% calc(100% - 0px), 2.9% calc(100% - 8px), 0.0% calc(100% - 6px), 0px 90.0%, 0px 80.0%, 0px 70.0%, 0px 60.0%, 0px 50.0%, 0px 40.0%, 0px 30.0%, 0px 20.0%, 0px 10.0%);
 }
 
 @media (min-width: 640px) {
   :root {
-    --header-h: 4rem;
+    --header-h: 4.5rem;
   }
 }
 
+/* Legacy names, kept so unmigrated files keep working. Do not use in new code. */
+@utility glass {
+  background-color: #fff;
+  box-shadow: var(--paper-shadow);
+}
+
 @utility bg-brand-gradient {
-  background-image: linear-gradient(135deg, #ff9a1f 0%, #ee3a62 50%, #8a2b8f 100%);
+  background-image: var(--logo-gradient);
 }
 
 @utility bg-brand-gradient-cta {
-  background-color: #d01c4a;
-  background-image: linear-gradient(135deg, #d01c4a 0%, #8a2b8f 100%);
+  background-color: var(--brand);
+  background-image: none;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "tnum" 0;
+    /* Fine paper grain on the ground. */
+    background-image: radial-gradient(rgb(70 60 40 / 0.09) 1px, transparent 1.4px), radial-gradient(rgb(70 60 40 / 0.06) 1px, transparent 1.3px);
+    background-size: 6px 6px, 11px 11px;
+    background-position: 0 0, 3px 4px;
+    /* Safety net: tilted decorations never create horizontal scroll. */
+    overflow-x: clip;
   }
-  /*
-   * Owner request: a pattern of die-cut lime stickers in different shapes, clear at the top of
-   * the page and fading out as you go down. Painted behind everything; cards keep solid backgrounds.
-   */
-  body::before {
-    content: "";
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline: 0;
-    z-index: -1;
-    height: 1100px;
-    pointer-events: none;
-    background-image: url("/brand/sticker-pattern.svg");
-    background-size: 240px 240px;
-    background-position: center top;
-    -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
-    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7) 0, transparent 900px);
-  }
-  /* Admin pages (marked by src/app/admin/template.tsx): no decorative pattern. */
-  body:has([data-admin])::before {
-    display: none;
-  }
-  /* Softy paper ground; the admin has its own ink top bar, so the public header and footer are hidden. */
-  body:has([data-admin]) {
-    background-color: #fdfbfa;
-  }
+  /* Admin pages (marked by src/app/admin/template.tsx) have their own top bar: hide the public header and footer. */
   body:has([data-admin]) [data-site-header],
   body:has([data-admin]) [data-site-footer] {
     display: none;
@@ -166,11 +177,138 @@
   h1, h2, h3, h4 {
     @apply font-heading;
   }
-  /* Dashed "cut line" motif helper. */
+  /* Dashed "cut line" divider (legacy name; same as .dashed-divider). */
   .cut-line {
-    background-image: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px);
-    background-size: 100% 1px;
-    background-repeat: no-repeat;
-    background-position: bottom;
+    height: 0;
+    background: none;
+    border: 0;
+    border-block-start: 3px dashed rgb(18 31 52 / 0.45);
   }
+}
+
+/* Plain classes in the components layer: any Tailwind utility overrides them. */
+@layer components {
+  /* A torn paper piece. The torn background lives on ::before, so the element itself is never clipped. */
+  .scrap {
+    /* Defaults live here, so a scrap nested in another scrap never inherits the parent's tone or edge. */
+    --scrap-bg: #fff;
+    --scrap-fg: var(--ink);
+    --scrap-img: none;
+    --scrap-img-size: auto;
+    --scrap-clip: var(--torn-edge);
+    position: relative;
+    isolation: isolate;
+    filter: var(--paper-drop);
+    color: var(--scrap-fg);
+  }
+  .scrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: var(--scrap-bg);
+    background-image: var(--scrap-img);
+    background-size: var(--scrap-img-size);
+    clip-path: var(--scrap-clip);
+  }
+  .scrap-flat { filter: none; }
+  .scrap-torn4 { --scrap-clip: var(--torn-four); }
+  .scrap-tornb { --scrap-clip: var(--torn-bottom); }
+  .scrap-square { --scrap-clip: none; }
+  .scrap-white { --scrap-bg: #fff; --scrap-fg: var(--ink); }
+  .scrap-navy { --scrap-bg: var(--ink); --scrap-fg: var(--paper); }
+  .scrap-red { --scrap-bg: var(--brand); --scrap-fg: #fff; }
+  .scrap-news { --scrap-bg: var(--news-light); --scrap-img: var(--pattern-news); --scrap-fg: var(--ink); }
+  .scrap-grid { --scrap-bg: #fff; --scrap-img: var(--pattern-grid); --scrap-img-size: 22px 22px; --scrap-fg: var(--ink); }
+  .scrap-tape { --scrap-bg: var(--tape); --scrap-clip: none; --scrap-fg: var(--ink); filter: none; }
+  .scrap-discount { --scrap-bg: var(--discount); --scrap-fg: var(--discount-foreground); }
+  .scrap:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .scrap-navy:focus-visible { outline-color: var(--brand); }
+
+  /* Main call to action: a red torn scrap in Lalezar. Use through ctaCls(). */
+  .cta {
+    --scrap-bg: var(--brand);
+    --scrap-fg: #fff;
+    font-family: var(--ff-lalezar), "Segoe UI", Tahoma, sans-serif;
+    font-weight: 400;
+    line-height: 1.2;
+    rotate: -2deg;
+    transition: rotate 0.15s ease-out, translate 0.15s ease-out;
+  }
+  .cta:hover { rotate: 0deg; }
+  .cta:disabled, .cta[aria-disabled="true"], .cta[data-disabled] { rotate: 0deg; }
+
+  /* Flat card for forms and data. */
+  .paper-card {
+    background-color: #fff;
+    box-shadow: var(--paper-shadow);
+  }
+
+  /* Decorative patterns (never under running text) and clip shapes. */
+  .news-lines { background-image: var(--pattern-news); }
+  .grid-paper { background-image: var(--pattern-grid); background-size: 22px 22px; }
+  .halftone { background-image: radial-gradient(var(--ink) 1.8px, transparent 2.2px); background-size: 10px 10px; }
+  .torn { clip-path: var(--torn-edge); }
+  .torn4 { clip-path: var(--torn-four); }
+  .tornb { clip-path: var(--torn-bottom); }
+
+  .paper-drop { filter: var(--paper-drop); }
+  .sticker-edge { filter: var(--sticker-edge); }
+  .sticker-edge-sm { filter: var(--sticker-edge-sm); }
+  .tape-strip { background: var(--tape); }
+  .tape-clear { background: rgb(255 255 255 / 0.62); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+  .cut-circle {
+    border-radius: 50%;
+    background: var(--logo-gradient);
+    box-shadow: 0 0 0 7px #fff, 0 14px 22px -10px rgb(30 24 12 / 0.45);
+  }
+  .dashed-divider { border: 0; border-block-start: 3px dashed rgb(18 31 52 / 0.45); }
+  .marker-note {
+    font-family: var(--ff-ruqaa), "Segoe UI", Tahoma, serif;
+    font-weight: 700;
+    color: var(--brand);
+  }
+
+  .anim-slap { animation: collage-slap 0.5s ease-out both; }
+  .anim-draw { animation: collage-draw 1.4s 0.3s ease-out both; }
+  .anim-flutter { animation: collage-flutter 4s ease-in-out infinite; }
+}
+
+/* Motion animates transform only; the tilt uses the separate `rotate` property, so the two combine. */
+@keyframes collage-slap {
+  0% { opacity: 0; transform: scale(1.35); }
+  60% { opacity: 1; transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes collage-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes collage-flutter {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-slap, .anim-draw, .anim-flutter { animation: none; }
+  .cta { transition: none; }
+}
+
+/*
+ * Unlayered on purpose: it beats shadcn's `ring-ring/50` utility (which sits in a layer), so the
+ * focus ring of every shadcn part is full strength red, at least 3:1.
+ */
+[data-slot]:focus-visible {
+  --tw-ring-color: var(--ring);
+}
+
+/*
+ * A CTA built on the shadcn Button: Button has `outline-none` and a red focus ring, which blends into the red scrap.
+ * Unlayered, so it beats both: an explicit navy outline (outline-style is set here, so `outline-none` no longer hides it)
+ * and no ring.
+ */
+.cta:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+  --tw-ring-shadow: 0 0 #0000;
 }

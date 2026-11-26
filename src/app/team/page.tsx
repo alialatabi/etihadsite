@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SectionTitle, btnCls } from '@/components/collage';
 import { TeamDesigner } from '@/components/team/TeamDesigner';
 import { remainingFromUsage, type TeamSettings } from '@/components/team/team-logic';
 import { Button } from '@/components/ui/button';
@@ -42,13 +43,13 @@ export default async function TeamPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:py-10">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">{team.title}</h1>
-          <p className="text-base">{fill(team.hello, { name: staff.name })}</p>
-          <p className="text-sm text-muted-foreground">{team.savedNote}</p>
+        <div className="space-y-2">
+          <SectionTitle as="h1">{team.title}</SectionTitle>
+          <p className="text-base text-ink">{fill(team.hello, { name: staff.name })}</p>
+          <p className="text-sm text-ink-muted">{team.savedNote}</p>
         </div>
         <form action={staffLogoutAction}>
-          <Button type="submit" variant="outline" className="h-11 px-4">
+          <Button type="submit" variant="outline" className={btnCls('outline')}>
             {team.logout}
           </Button>
         </form>

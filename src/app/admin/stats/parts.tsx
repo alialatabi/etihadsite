@@ -45,14 +45,14 @@ export interface BarRow {
 /** Horizontal bars with the label above the bar so long Arabic names never get clipped. */
 export function BarList({ rows }: { rows: BarRow[] }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0) return <p className="text-[15px] leading-normal text-[#5a6475]">{admin.stats.audience.none}</p>;
+  if (rows.length === 0) return <p className="text-[15px] leading-normal text-ink-muted">{admin.stats.audience.none}</p>;
   return (
     <ul className="flex flex-col gap-4">
       {rows.map((r) => (
         <li key={r.label} className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-[#121f34]">
+          <div className="flex items-baseline justify-between gap-3 text-[15px] leading-normal text-ink">
             <span className="min-w-0">{r.label}</span>
-            <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#5a6475]">
+            <span className="shrink-0 text-[14px] font-medium tabular-nums text-ink-muted">
               <Ltr>{r.value}</Ltr>
               {r.note ? (
                 <>
@@ -62,8 +62,8 @@ export function BarList({ rows }: { rows: BarRow[] }) {
               ) : null}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[#f7f0ef]" aria-hidden="true">
-            <div className="h-full rounded-full bg-[#121f34]" style={{ width: `${(r.value / max) * 100}%` }} />
+          <div className="h-2 overflow-hidden rounded-[2px] bg-news" aria-hidden="true">
+            <div className="h-full rounded-[2px] bg-ink" style={{ width: `${(r.value / max) * 100}%` }} />
           </div>
         </li>
       ))}
@@ -88,14 +88,14 @@ export function DayColumns({
   return (
     <figure className="flex flex-col gap-1.5" aria-label={`${label}: ${total}`}>
       <figcaption className="flex items-baseline justify-between gap-3">
-        <span className="text-[15px] font-semibold text-[#121f34]">{label}</span>
-        <span className="text-[14px] font-medium text-[#5a6475]">
+        <span className="text-[15px] font-semibold text-ink">{label}</span>
+        <span className="text-[14px] font-medium text-ink-muted">
           {admin.stats.daily.axisMax} <Ltr>{max}</Ltr>
         </span>
       </figcaption>
       <div
         dir="ltr"
-        className="flex h-28 items-end gap-px border-b border-s border-[#e7dfdf] ps-0.5"
+        className="flex h-28 items-end gap-px border-b border-s border-line ps-0.5"
         role="img"
         aria-label={`${label}: ${total}`}
       >
@@ -104,14 +104,14 @@ export function DayColumns({
           return (
             <div key={p.day} className="flex h-full flex-1 items-end" title={`${p.day}: ${v}`}>
               <div
-                className="w-full rounded-t-sm bg-[#121f34]"
+                className="w-full rounded-t-[2px] bg-ink"
                 style={{ height: v ? `${Math.max(4, (v / max) * 100)}%` : '0%' }}
               />
             </div>
           );
         })}
       </div>
-      <div dir="ltr" className="flex justify-between text-[14px] font-medium tabular-nums text-[#5a6475]">
+      <div dir="ltr" className="flex justify-between text-[14px] font-medium tabular-nums text-ink-muted">
         <span>{first}</span>
         <span>{last}</span>
       </div>

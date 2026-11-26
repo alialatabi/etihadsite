@@ -12,7 +12,7 @@ import type { TextWarning } from './ai-logic';
 export function TextWarningNote({ warning }: { warning: TextWarning }) {
   if (!warning) return null;
   return (
-    <p role="status" className="flex items-start gap-2 rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+    <p role="status" className="flex items-start gap-2 rounded-[2px] border border-ink/20 border-s-4 border-s-[#ff9a1f] bg-news-light p-3 text-sm text-ink">
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span>
         {warning.kind === 'enlarge'

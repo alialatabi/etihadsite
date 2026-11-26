@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import { FileText, Loader2 } from 'lucide-react';
+import { btn, field } from '@/components/admin/kit';
 import { admin } from '@/content/ar';
-import { cardBtn } from './card-styles';
+import { cn } from '@/lib/utils';
 import { errorMessageOf, filenameFromDisposition } from './sheet-download';
 
 const d = admin.designs;
+
+/** A design card is narrow (two per row on a phone): the kit button may wrap its text, still at least 44px tall. */
+const CARD_BTN = 'h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-center text-[14px] leading-snug';
 
 /**
  * «نزّل ورقة مسفطة (PDF)» of a design no order printed. The sheet is built on the fly (a few seconds), so the
@@ -46,7 +50,7 @@ export function SheetDownloadButton({ href }: { href: string }) {
 
   return (
     <>
-      <button type="button" onClick={download} disabled={pending} aria-busy={pending} className={cardBtn.outline}>
+      <button type="button" onClick={download} disabled={pending} aria-busy={pending} className={cn(btn.outline, CARD_BTN)}>
         {pending ? (
           <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />
         ) : (
@@ -55,7 +59,7 @@ export function SheetDownloadButton({ href }: { href: string }) {
         {pending ? d.card.sheetPending : d.card.downloadSheet}
       </button>
       {message ? (
-        <p role="alert" className="text-[14px] font-medium leading-normal text-[#b8163f]">
+        <p role="alert" className={cn(field.error, 'font-medium leading-normal')}>
           {message}
         </p>
       ) : null}
