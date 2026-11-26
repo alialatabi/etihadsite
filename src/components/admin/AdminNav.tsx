@@ -27,6 +27,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
     { href: '/admin/stats', label: admin.nav.stats, match: under('/admin/stats') },
     { href: '/admin/customers', label: admin.nav.customers, match: under('/admin/customers') },
     { href: '/admin/designs', label: admin.nav.designs, match: under('/admin/designs'), badge: designAlerts },
+    { href: '/admin/staff', label: admin.staff.nav, match: under('/admin/staff') },
     { href: '/admin/settings', label: admin.nav.settings, match: under('/admin/settings') },
   ];
   return (

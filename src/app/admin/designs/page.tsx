@@ -49,6 +49,17 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
     listAiBlocks(),
   ]);
 
+  // Staff names for the «موظف: <name>» badge, loaded once and only when the page has staff designs. Never breaks the page
+  // (before the staff migration the table does not exist: the badge then shows the id).
+  const staffNames: Record<string, string> = {};
+  if (storage.staffList && generations.rows.some((r) => r.staffId)) {
+    try {
+      for (const s of await storage.staffList()) staffNames[s.id] = s.name;
+    } catch {
+      // not ready or an outage: ids are shown instead
+    }
+  }
+
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));
   const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit, blockedKeys);
   const allTime = allTimeFiltered ?? generations.total;
@@ -145,7 +156,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
       {generations.rows.length === 0 ? (
         <EmptyState icon={ImageOff} title={d.empty} />
       ) : (
-        <DesignGrid rows={generations.rows} />
+        <DesignGrid rows={generations.rows} staffNames={staffNames} />
       )}
 
       {pages > 1 ? (
