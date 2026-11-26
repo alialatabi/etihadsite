@@ -22,7 +22,7 @@ vi.mock('@/components/builder/ai/useAiDesign', () => ({
 }));
 
 import { TeamDesigner } from '@/components/team/TeamDesigner';
-import { TEAM_AI_ENDPOINTS } from '@/components/team/team-logic';
+import { TEAM_AI_ENDPOINTS, teamErrorText } from '@/components/team/team-logic';
 
 const noop = () => {};
 const stubAi = (over: Record<string, unknown> = {}): AiDesignApi =>
@@ -117,9 +117,21 @@ describe('TeamDesigner markup', () => {
     expect(html).toContain('49');
   });
 
+  it('a rectangle result is not clipped to a circle', () => {
+    const rect = { ...result, madeFor: { shape: 'rect', widthUm: 50_000, heightUm: 30_000 } };
+    expect(render({ phase: 'result', result: rect, remainingToday: 49 })).not.toContain('rounded-full');
+  });
+
+  it('the first heading can take focus, so a new design can move it there after the old buttons are gone', () => {
+    expect(render()).toMatch(/<h2 id="team-shape"[^>]*tabindex="-1"/);
+  });
+
   it('the daily limit with no result: the limit text and no retry button', () => {
     const html = render({ phase: 'error', error: 'ip_limit', remainingToday: 0 });
-    expect(html).toContain('50');
+    // The whole filled sentence, with the number in its Ltr wrapper ('50' alone also appears in the radio buttons' ring class).
+    const sentence = renderToStaticMarkup(createElement('span', null, teamErrorText('ip_limit'))).replace(/^<span>|<\/span>$/g, '');
+    expect(sentence).toMatch(/dir="ltr"[^>]*>50</);
+    expect(html).toContain(sentence);
     expect(html).toContain(team.limitReached.split('{n}')[0]);
     expect(html).not.toContain(builder.ai.retry);
   });
