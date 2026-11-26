@@ -782,7 +782,7 @@ export interface StorageAdapter {
   /** Sets orderId on the generation whose uploadId matches; no match = no-op. */
   aiMarkOrdered?(uploadId: string, orderId: string): Promise<void>;
   /** Newest first; `total` counts every row matching the filter. */
-  aiListGenerations?(q: { limit: number; offset: number; ipKey?: string }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
+  aiListGenerations?(q: { limit: number; offset: number; ipKey?: string; maker?: AiGenerationMaker }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
   /** Usage rows with day ≥ sinceDay (YYYY-MM-DD); only rows of `kind` when given. */
   aiUsage?(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]>;
   /** Throws on an empty ipKey ('' is the site-only row and must never be blocked). */
@@ -808,6 +808,8 @@ export interface StorageAdapter {
  * `day` is the shop day (Asia/Baghdad), YYYY-MM-DD.
  */
 export type AiKind = 'image' | 'brief' | 'staff_image' | 'staff_brief';
+/** Who made a generation: 'customer' = staffId null/absent; 'staff' = any staff account; { staffId } = that account only. */
+export type AiGenerationMaker = 'customer' | 'staff' | { staffId: string };
 export type AiReserveResult = 'ok' | 'ip_limit' | 'site_limit' | 'blocked';
 
 export interface AiGenerationRecord {

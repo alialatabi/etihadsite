@@ -15,7 +15,7 @@ import path from "node:path";
 import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
   AiBlock,
-  AiGenerationFilter,
+  AiGenerationMaker,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -48,8 +48,8 @@ const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
 
-/** AiGenerationFilter.maker: customer = no staff id, staff = any staff id, { staffId } = that account. No filter = every row. */
-function makerMatches(staffId: string | null | undefined, maker: AiGenerationFilter["maker"]): boolean {
+/** AiGenerationMaker: customer = no staff id, staff = any staff id, { staffId } = that account. No filter = every row. */
+function makerMatches(staffId: string | null | undefined, maker: AiGenerationMaker | undefined): boolean {
   if (maker === undefined) return true;
   if (maker === "customer") return staffId == null;
   if (maker === "staff") return staffId != null;
@@ -465,7 +465,7 @@ export class LocalStorage implements StorageAdapter {
     limit: number;
     offset: number;
     ipKey?: string;
-    maker?: AiGenerationFilter["maker"];
+    maker?: AiGenerationMaker;
   }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
     const list = (await this.readAiList<AiGenerationRecord>("generations"))
       .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)

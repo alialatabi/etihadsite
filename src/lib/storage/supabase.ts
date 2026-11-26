@@ -22,7 +22,7 @@ import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
 import type {
   AiBlock,
-  AiGenerationFilter,
+  AiGenerationMaker,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -627,7 +627,7 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   /** Newest first. One Range page with an exact total; a page past the end (416) is empty. */
-  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string; maker?: AiGenerationFilter['maker'] }) {
+  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string; maker?: AiGenerationMaker }) {
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);
     let filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
