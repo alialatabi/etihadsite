@@ -84,6 +84,18 @@ describe('teamSizeEdit / teamShapeTexts', () => {
     expect(teamSizeEdit('custom', 'width', '4', cur)).toEqual({ widthText: '4', heightText: '4' });
     expect(teamSizeEdit('custom', 'height', '6', cur)).toEqual({ widthText: '6', heightText: '6' });
   });
+  it('a custom shape with 3 decimals stays an exact square whichever side was typed', () => {
+    for (const side of ['width', 'height'] as const) {
+      const t = teamSizeEdit('custom', side, '5.555', cur);
+      expect(t).toEqual({ widthText: '5.555', heightText: '5.555' });
+      expect(teamSizeState('custom', 'sharp', t.widthText, t.heightText, layout).spec).toEqual({
+        shape: 'custom',
+        widthUm: 55_550,
+        heightUm: 55_550,
+      });
+    }
+    expect(teamShapeTexts('custom', { widthText: '3.333', heightText: '' })).toEqual({ widthText: '3.333', heightText: '3.333' });
+  });
   it('a custom shape: an unreadable text keeps the other side, an empty one clears it', () => {
     expect(teamSizeEdit('custom', 'width', 'ab', cur)).toEqual({ widthText: 'ab', heightText: '8' });
     expect(teamSizeEdit('custom', 'width', '', cur)).toEqual({ widthText: '', heightText: '' });
@@ -180,6 +192,10 @@ describe('teamErrorText', () => {
 
 describe('TEAM_AI_ENDPOINTS', () => {
   it('points at the staff routes', () => {
-    expect(TEAM_AI_ENDPOINTS).toEqual({ brief: '/api/team/design/brief', generate: '/api/team/design/generate' });
+    expect(TEAM_AI_ENDPOINTS).toEqual({
+      brief: '/api/team/design/brief',
+      generate: '/api/team/design/generate',
+      upload: { start: '/api/team/upload/direct', commit: '/api/team/upload/direct/commit', server: '/api/team/upload' },
+    });
   });
 });

@@ -73,6 +73,18 @@ export function resultShown(phase: AiPhase, hasResult: boolean): boolean {
   return hasResult && phase !== 'generating';
 }
 
+/**
+ * The generate error for a refused reference upload. 'unauthorized' is what the staff upload routes answer (401) when the
+ * session ended: it passes through (the shared error type does not list it, like the staff page's other 401s), so the
+ * staff page shows «انتهت الجلسة» with the login link and not a generic error.
+ */
+export function uploadErrorCode(error: string): AiErrorCode {
+  if (error === 'rate_limited') return 'rate_limited';
+  if (error === 'server_error') return 'failed';
+  if (error === 'unauthorized') return 'unauthorized' as AiErrorCode;
+  return 'invalid_request';
+}
+
 /** Errors after which the same request cannot succeed (or may not run again today): no retry button. */
 const NO_RETRY: readonly AiErrorCode[] = ['ip_limit', 'text_too_long', 'invalid_request'];
 
