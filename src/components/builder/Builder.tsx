@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react';
 import { builder, common } from '@/content/ar';
 import { Button } from '@/components/ui/button';
+import { ctaCls, SectionTitle } from '@/components/collage';
 import { cn } from '@/lib/utils';
 import { whatsappHref } from '@/components/shell/whatsapp';
 import type { ShopSettings } from '@/lib/types';
@@ -135,10 +136,10 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
 
           {showStrip && <MobilePreview b={b} />}
 
-          <div className="rounded-3xl border bg-background p-4 shadow-sm sm:p-6">
-            <h2 ref={headingRef} tabIndex={-1} className="font-heading mb-5 text-2xl font-bold outline-none">
+          <div className="paper-card p-4 sm:p-6">
+            <SectionTitle ref={headingRef} tabIndex={-1} className="mb-5 outline-none">
               {title}
-            </h2>
+            </SectionTitle>
 
             {b.stepId === 'shape' && <StartStep b={b} ai={ai} />}
             {b.stepId === 'design' && <DesignStep b={b} ai={ai} />}
@@ -146,11 +147,11 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
             {b.stepId === 'quantity' && <QuantityStep b={b} />}
             {b.stepId === 'details' && <DetailsStep b={b} submit={sub.state} onSubmit={handleSubmit} />}
 
-            <div className="cut-line mt-6 h-px text-border" aria-hidden />
+            <div className="dashed-divider mt-6" aria-hidden />
             <div ref={navRowRef} className="mt-4 flex items-center justify-between gap-3">
               {/* While a try runs (counted and paid) the page stays on the progress: no Back. */}
               {b.step > 0 && !aiBusy(ai.phase, false) ? (
-                <Button type="button" variant="outline" className="h-12 px-5 text-base" onClick={b.back}>
+                <Button type="button" variant="outline" className="h-12 rounded-[2px] border-ink/30 bg-white px-5 text-base" onClick={b.back}>
                   <ArrowRight className="size-5" aria-hidden />
                   {common.actions.back}
                 </Button>
@@ -162,7 +163,7 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
                   type="button"
                   disabled={!b.stepOk[b.stepId]}
                   onClick={b.next}
-                  className="h-12 bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90"
+                  className={ctaCls('md')}
                 >
                   {common.actions.next}
                   <ArrowLeft className="size-5" aria-hidden />
@@ -181,7 +182,7 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            'fixed bottom-4 start-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-bold text-[#052e16] shadow-lg ring-2 ring-white/80 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 transition-opacity',
+            'fixed bottom-4 start-4 z-40 inline-flex h-12 items-center gap-2 rounded-[2px] bg-[#25D366] px-4 text-sm font-bold text-[#052e16] shadow-paper transition-opacity focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
             floatHidden && 'pointer-events-none opacity-0',
           )}
           tabIndex={floatHidden ? -1 : undefined}
