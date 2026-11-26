@@ -4,6 +4,8 @@
  * 'failed' means "the try was not counted", which the client cannot know). A JSON error answer is returned
  * as it is, whatever its HTTP status.
  */
+import { AI_INSTRUCTIONS_MAX_CHARS } from '@/lib/ai/config';
+import { capUnits } from '@/lib/ai/sanitize';
 import type {
   BriefError,
   BriefResponse as ServerBriefResponse,
@@ -65,4 +67,33 @@ export function postBrief(body: BriefRequest, url: string = DEFAULT_AI_ENDPOINTS
 
 export function postGenerate(body: GenerateRequest, url: string = DEFAULT_AI_ENDPOINTS.generate): Promise<GenerateResponse> {
   return post<GenerateResponse>(url, body);
+}
+
+const HEX64 = /^[0-9a-f]{64}$/;
+
+/** What the instructions field may hold (the generate route's zod limit). */
+export function capInstructions(text: string): string {
+  return capUnits(text, AI_INSTRUCTIONS_MAX_CHARS);
+}
+
+/** The customer changed the brief's instructions. Emptying the field is not an edit: the server then draws the brief's description. */
+export function isInstructionsEdited(text: string, original: string): boolean {
+  const t = text.trim();
+  return t !== '' && t !== original.trim();
+}
+
+/**
+ * The optional v2 fields of the generate body. Empty field → none (the signed description is drawn).
+ * Unedited → the brief's exact string (its token verifies, no translation); edited → the trimmed text.
+ * The token is sent only when it is 64 hex (else zod would refuse the whole body).
+ */
+export function instructionsFields(
+  text: string,
+  original: string,
+  token: string,
+): Pick<GenerateRequest, 'instructions' | 'instructionsToken'> {
+  const t = text.trim();
+  if (!t) return {};
+  const instructions = isInstructionsEdited(text, original) ? t : original;
+  return HEX64.test(token) ? { instructions, instructionsToken: token } : { instructions };
 }

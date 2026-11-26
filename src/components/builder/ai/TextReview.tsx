@@ -5,11 +5,13 @@ import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { AI_INSTRUCTIONS_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
 import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
 
-/** The box after «ولّد التصميم»: the exact lines that will be printed (editable), the spelling fixes, the 12 pt warning (never a block). */
+/** The box after «ولّد التصميم»: the exact lines that will be printed (editable), the design instructions (editable, Arabic), the spelling fixes, the 12 pt warning (never a block). */
 export function TextReview({ ai }: { ai: AiDesignApi }) {
   const { lines, fixes, textWarning } = ai;
   // Too much text for the size only warns: the customer may go on.
@@ -77,6 +79,29 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
         <Plus className="size-4" aria-hidden />
         {builder.ai.addLine}
       </Button>
+
+      <div className="space-y-2">
+        <Label htmlFor="ai-instructions" className="text-base font-bold">
+          {builder.ai.instructionsTitle}
+        </Label>
+        <p id="ai-instructions-hint" className="text-sm text-muted-foreground">
+          {builder.ai.instructionsHint}
+        </p>
+        <Textarea
+          id="ai-instructions"
+          dir="auto"
+          value={ai.instructions}
+          maxLength={AI_INSTRUCTIONS_MAX_CHARS}
+          rows={4}
+          onChange={(e) => ai.setInstructions(e.target.value)}
+          aria-describedby="ai-instructions-hint"
+          className="min-h-28 text-base md:text-base"
+        />
+        {/* Always in the DOM so the polite live region announces the change. */}
+        <p role="status" aria-live="polite" className="text-sm font-medium">
+          {ai.instructionsEdited ? builder.ai.instructionsEdited : ''}
+        </p>
+      </div>
 
       {fixes.length > 0 && (
         <div className="rounded-xl bg-background p-3 text-sm">
