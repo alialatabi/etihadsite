@@ -48,6 +48,9 @@ export async function GET(
   const upload = await storage.readUpload(id);
   if (!upload) return error(404, d.notFound, 'not_found');
 
+  // The order number goes into the PDF metadata when an order used this design; a failed load just means 'SOFTY'.
+  const displayNo = row.orderId ? await storage.getOrder(row.orderId).then((o) => o?.displayNo ?? 'SOFTY', () => 'SOFTY') : 'SOFTY';
+
   const settings = await getSettings();
   const spec: StickerSpec = { shape: row.shape, corners: row.corners, widthUm: row.widthUm, heightUm: row.heightUm };
   const outcome = computeLayout(spec, layoutParamsFor(spec, settings.layout));
@@ -63,8 +66,7 @@ export async function GET(
         layout,
         artwork,
         meta: {
-          // An admin export, not an order: there is no order number (an ordered design has /files/<id>/pdf).
-          displayNo: 'SOFTY',
+          displayNo,
           description: `${spec.shape} ${umToMm(spec.widthUm)}x${umToMm(spec.heightUm)}mm x${layout.countPerSheet}`,
         },
       });

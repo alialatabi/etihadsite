@@ -7,6 +7,8 @@ const guard = vi.hoisted(() => ({ denied: null as Response | null }));
 const store = vi.hoisted(() => ({
   row: null as unknown,
   upload: null as unknown,
+  order: null as unknown,
+  orderFails: false,
 }));
 const normalise = vi.hoisted(() => vi.fn());
 const buildPdf = vi.hoisted(() => vi.fn());
@@ -17,6 +19,10 @@ vi.mock('@/lib/storage', () => ({
   getStorage: () => ({
     aiGetGeneration: async () => store.row,
     readUpload: async () => store.upload,
+    getOrder: async () => {
+      if (store.orderFails) throw new Error('outage');
+      return store.order;
+    },
   }),
 }));
 vi.mock('@/lib/design/normalise.server', () => ({ normaliseArtwork: normalise }));
@@ -53,6 +59,8 @@ beforeEach(() => {
   guard.denied = null;
   store.row = row();
   store.upload = { bytes: png, meta: {} };
+  store.order = null;
+  store.orderFails = false;
   normalise.mockReset().mockResolvedValue({ ok: true, artwork: { kind: 'raster' }, pxWidth: 1, pxHeight: 1, kind: 'png' });
   buildPdf.mockReset().mockResolvedValue(pdfOf(1000));
 });
@@ -107,6 +115,20 @@ describe('GET /api/admin/designs/<id>/sheet', () => {
     expect(buildPdf).toHaveBeenCalledTimes(1);
     expect(normalise.mock.calls[0][1]).toMatchObject({ targetDpi: 1200, spec: { shape: 'circle', widthUm: 30_000 } });
     expect(buildPdf.mock.calls[0][0].meta.displayNo).toBe('SOFTY');
+  });
+
+  it("puts the order's number in the PDF metadata for an ordered design; 'SOFTY' when the order is missing or fails to load", async () => {
+    store.row = row({ orderId: 'order_12345678' });
+    store.order = { displayNo: 'EP-261120-AB3C' };
+    await getSheet(req('/x'), ctx());
+    expect(buildPdf.mock.calls[0][0].meta.displayNo).toBe('EP-261120-AB3C');
+    store.order = null;
+    await getSheet(req('/x'), ctx());
+    expect(buildPdf.mock.calls[1][0].meta.displayNo).toBe('SOFTY');
+    store.orderFails = true;
+    const res = await getSheet(req('/x'), ctx());
+    expect(res.status).toBe(200);
+    expect(buildPdf.mock.calls[2][0].meta.displayNo).toBe('SOFTY');
   });
 
   it('lowers the DPI (600, then 300) until the PDF is at most 4,000,000 bytes', async () => {
