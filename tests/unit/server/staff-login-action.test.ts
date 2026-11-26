@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupEnv } from "./helpers";
+import { SECRET, setupEnv } from "./helpers";
 
 const jar = new Map<string, string>();
 const reqHeaders = new Headers();
@@ -23,6 +23,8 @@ vi.mock("@/lib/auth/password", async (importOriginal) => {
 
 import { staffLoginAction, staffLogoutAction } from "@/app/team/actions";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { currentStaff, staffApiGuard } from "@/lib/auth/staff-session";
+import { signStaffToken } from "@/lib/auth/staff-token";
 import { limiters } from "@/lib/rate-limit";
 import { getStorage } from "@/lib/storage";
 import { StaffStorageError } from "@/lib/storage/staff-errors";
@@ -50,7 +52,7 @@ async function login(o: Record<string, string>, ip = "10.0.0.1"): Promise<string
   throw new Error("no redirect");
 }
 
-async function makeStaff(over: { active?: boolean } = {}) {
+async function makeStaff(over: { active?: boolean; changedAgoMs?: number } = {}) {
   const now = new Date().toISOString();
   await getStorage().staffCreate!({
     id: ID,
@@ -58,7 +60,8 @@ async function makeStaff(over: { active?: boolean } = {}) {
     phone: PHONE,
     active: over.active ?? true,
     createdAt: now,
-    passwordChangedAt: now,
+    // Backdated on request, so the whole-second rule cannot make a test depend on timing.
+    passwordChangedAt: new Date(Date.now() - (over.changedAgoMs ?? 0)).toISOString(),
     passwordHash: await hashPassword(PASSWORD),
   });
 }
@@ -150,5 +153,42 @@ describe("staffLogoutAction", () => {
     jar.set("sf_staff", "x");
     await expect(staffLogoutAction()).rejects.toThrow("NEXT_REDIRECT /team/login");
     expect(jar.has("sf_staff")).toBe(false);
+  });
+
+  it("an invalid cookie is just deleted: no storage write", async () => {
+    await makeStaff();
+    const update = vi.spyOn(getStorage(), "staffUpdate");
+    jar.set("sf_staff", "x");
+    await expect(staffLogoutAction()).rejects.toThrow("NEXT_REDIRECT /team/login");
+    expect(jar.has("sf_staff")).toBe(false);
+    expect(update).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("a token copied before logout is refused afterwards, a fresh login still works", async () => {
+    await makeStaff({ changedAgoMs: 60_000 });
+    const tok = await signStaffToken(SECRET, ID, Date.now() - 30_000);
+    jar.set("sf_staff", tok);
+    expect(await currentStaff()).not.toBeNull();
+    await expect(staffLogoutAction()).rejects.toThrow("NEXT_REDIRECT /team/login");
+    expect(jar.has("sf_staff")).toBe(false);
+    // The copy of the old cookie is put back: the server now refuses it.
+    jar.set("sf_staff", tok);
+    expect(await currentStaff()).toBeNull();
+    const guard = await staffApiGuard();
+    expect(guard).toBeInstanceOf(Response);
+    expect((guard as Response).status).toBe(401);
+    // A new login (token issued now) is accepted.
+    jar.set("sf_staff", await signStaffToken(SECRET, ID));
+    expect(await currentStaff()).not.toBeNull();
+  });
+
+  it("still clears the cookie and redirects when the storage write fails", async () => {
+    await makeStaff({ changedAgoMs: 60_000 });
+    jar.set("sf_staff", await signStaffToken(SECRET, ID, Date.now() - 30_000));
+    vi.spyOn(getStorage(), "staffUpdate").mockRejectedValue(new Error("db down"));
+    await expect(staffLogoutAction()).rejects.toThrow("NEXT_REDIRECT /team/login");
+    expect(jar.has("sf_staff")).toBe(false);
+    vi.restoreAllMocks();
   });
 });

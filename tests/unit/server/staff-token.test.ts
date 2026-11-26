@@ -46,6 +46,20 @@ describe("staff token", () => {
     expect(await verifyStaffToken(t, short)).toBeNull();
   });
 
+  it("refuses a placeholder secret (change-me...) on both sides", async () => {
+    const P = "change-me-to-a-long-random-string";
+    expect(P.length).toBeGreaterThanOrEqual(32);
+    await expect(signStaffToken(P, ID)).rejects.toThrow(/placeholder/);
+    // Mint a staff token directly, as an outsider who knows the published value could.
+    const tok = await new SignJWT({ role: "staff" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(ID)
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(new TextEncoder().encode(P));
+    expect(await verifyStaffToken(tok, P)).toBeNull();
+  });
+
   it("refuses to sign a bad staff id", async () => {
     await expect(signStaffToken(SECRET, "short")).rejects.toThrow();
     await expect(signStaffToken(SECRET, "bad id with spaces")).rejects.toThrow();

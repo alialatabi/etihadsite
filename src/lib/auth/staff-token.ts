@@ -20,6 +20,8 @@ export async function signStaffToken(
   ttlSec: number = STAFF_SESSION_TTL_SEC,
 ): Promise<string> {
   if (!secret || secret.length < 32) throw new Error('SESSION_SECRET too short');
+  // Same placeholder rule as env.ts (inlined: this file stays import-free for the proxy).
+  if (secret.toLowerCase().startsWith('change-me')) throw new Error('SESSION_SECRET is a placeholder');
   if (typeof staffId !== 'string' || !SUB_RE.test(staffId)) throw new Error('Invalid staff id');
   const iat = Math.floor(nowMs / 1000);
   return new SignJWT({ role: 'staff' })
@@ -36,6 +38,7 @@ export async function verifyStaffToken(
   nowMs: number = Date.now(),
 ): Promise<{ staffId: string; iatSec: number } | null> {
   if (!token || !secret || secret.length < 32) return null;
+  if (secret.toLowerCase().startsWith('change-me')) return null;
   try {
     const { payload } = await jwtVerify(token, key(secret), { algorithms: ['HS256'], currentDate: new Date(nowMs) });
     if (payload.role !== 'staff') return null;

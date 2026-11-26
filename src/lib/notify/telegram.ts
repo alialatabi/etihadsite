@@ -12,6 +12,10 @@ const L = order.telegram;
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/** Customer text on one caption line: control chars and line/paragraph separators become one space. */
+const oneLine = (s: string) =>
+  s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim();
+
 /** Cuts to at most `max` code points (before escaping), appending '…' when cut. */
 function clip(s: string, max: number): string {
   const chars = Array.from(s);
@@ -78,7 +82,11 @@ export function buildCaption(
     `${L.material}: ${common.materials[record.price.material]}`,
     `${L.shape}: ${escapeHtml(shapeLabel(record.spec.shape, record.spec.corners))}`,
     `${L.address}: ${escapeHtml(
-      [clip(c.governorate, 30), clip(c.district, 80), clip(c.landmark, 120)]
+      [
+        clip(oneLine(c.governorate), 30),
+        clip(oneLine(c.district), 80),
+        clip(oneLine(c.landmark), 120),
+      ]
         .filter(Boolean)
         .join(" - "),
     )}`,
@@ -140,7 +148,8 @@ export async function sendTelegram(
     const msg = e instanceof Error ? e.message : String(e);
     return {
       telegram: "failed",
-      error: msg.replace(cfg.token ?? "\u0000", "***"),
+      // Mask every copy of the token, not just the first.
+      error: cfg.token ? msg.split(cfg.token).join("***") : msg,
     };
   }
 }

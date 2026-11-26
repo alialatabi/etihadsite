@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalyticsEvent } from "@/lib/types";
 import { setupEnv } from "../server/helpers";
 
@@ -36,6 +37,30 @@ describe("visitorHash", () => {
   it("differs per ip", () => {
     const d = new Date("2026-11-10T08:00:00Z");
     expect(visitorHash(req({}), d)).not.toBe(visitorHash(req({}, { "x-forwarded-for": "5.6.7.8" }), d));
+  });
+  describe("blank SESSION_SECRET", () => {
+    afterEach(() => vi.unstubAllEnvs());
+    const d = new Date("2026-11-10T08:00:00Z");
+    const devHash = createHash("sha256")
+      .update(`2026-11-10|1.2.3.4|${UA}|softy-dev-analytics-salt`)
+      .digest("hex")
+      .slice(0, 16);
+
+    it("does not use the public dev salt in production", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("SESSION_SECRET", "");
+      const r = req({});
+      const h = visitorHash(r, d);
+      expect(h).toMatch(/^[0-9a-f]{16}$/);
+      expect(h).not.toBe(devHash);
+      // Stable within one process.
+      expect(visitorHash(r, d)).toBe(h);
+    });
+    it("keeps the dev salt outside production", () => {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("SESSION_SECRET", "");
+      expect(visitorHash(req({}), d)).toBe(devHash);
+    });
   });
 });
 

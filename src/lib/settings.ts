@@ -19,13 +19,25 @@ import type { ShopSettings } from '@/lib/types';
 /**
  * The copy of the settings that may be handed to a client component (it is serialised into the
  * page for every visitor). Same type, same keys: values the browser never needs are blanked
- * (the Telegram chat id that receives orders, the AI anti-abuse limits). Pages that hand
+ * (the Telegram chat id that receives orders, the AI anti-abuse limits, and the per-sheet
+ * prices while pricesPublished is false: the builder never shows them then). Pages that hand
  * `settings` to a 'use client' component pass it through here; server components and the
  * admin may use the full object.
  */
 export function toPublicSettings(settings: ShopSettings): ShopSettings {
+  const { pricing } = settings;
+  const publicPricing = settings.pricesPublished
+    ? pricing
+    : {
+        ...pricing,
+        materials: {
+          paper: { ...pricing.materials.paper, pricePerSheetIqd: 0 },
+          plastic: { ...pricing.materials.plastic, pricePerSheetIqd: 0 },
+        },
+      };
   return {
     ...settings,
+    pricing: publicPricing,
     telegramChatId: '',
     ai: { ...settings.ai, perIpDailyLimit: 0, siteDailyLimit: 0 },
   };

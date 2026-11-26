@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { PDFDocument } from 'pdf-lib';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { hasPngSignature, pdfHasActiveContent, pngChunksComplete, rasterDecodeOk } from '@/app/api/_lib/file-safety';
 import { checkUploadBytes } from '@/app/api/_lib/image-header';
@@ -8,17 +9,30 @@ import { order } from '@/content/ar';
 import type { UploadResponse } from '@/lib/types';
 import { pngWithDeclaredSize } from '../png-header';
 import {
+  asciiHexBytes,
   cleanPdf,
+  contentText,
+  flateBytes,
+  flateWithBadTail,
   pdfWithEmbeddedFiles,
   pdfWithEscapedJsKey,
+  pdfWithEscapedObjectStreamKey,
+  pdfWithForwardTypedObjectStream,
   pdfWithGoTo,
   pdfWithLaunch,
+  pdfWithLowerCaseEscapedJsKey,
   pdfWithOpenActionJs,
   pdfWithRichMedia,
   pdfWithDuplicateObject,
   pdfWithNestedJs,
+  pdfWithObjectStreamBody,
+  pdfWithObjectStreams,
+  pdfWithPageContents,
   pdfWithPaddingBeforeJs,
+  pdfWithRawContents,
+  storedFlateBytes,
   pdfWithTooDeepJs,
+  pdfWithUntypedObjectStream,
   pdfWithXfa,
 } from '../unsafe-pdf';
 import { setupEnv } from './helpers';
@@ -37,10 +51,23 @@ describe('PDF active-content scan', () => {
     ['an XFA AcroForm', pdfWithXfa],
     ['a Launch action in a link annotation', pdfWithLaunch],
     ['a #-escaped /J#53 key', async () => pdfWithEscapedJsKey()],
+    ['a lower-case #-escaped /#4aS key', async () => pdfWithLowerCaseEscapedJsKey()],
+    ['an untyped object stream whose /N key is lower-case #-escaped', async () => pdfWithEscapedObjectStreamKey()],
+    ['an object stream whose /Type is an indirect reference (never expanded, so never scanned)', async () => pdfWithForwardTypedObjectStream()],
+    ['an object stream with no /Type (never expanded, so never scanned)', async () => pdfWithUntypedObjectStream()],
   ])('flags %s', async (_label, make) => {
     const bytes = await make();
     expect(await pdfHasActiveContent(bytes)).toBe(true);
     expect(await checkUploadBytes(bytes)).toEqual({ ok: false, error: 'unsafe' });
+  });
+
+  it('accepts a PDF saved with object streams (a correctly labelled /Type /ObjStm is expanded and scanned)', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    const bytes = await doc.save({ useObjectStreams: true });
+    expect(new TextDecoder('latin1').decode(bytes)).toContain('/ObjStm');
+    expect(await pdfHasActiveContent(bytes)).toBe(false);
+    expect(await checkUploadBytes(bytes)).toEqual({ ok: true, kind: 'pdf' });
   });
 
   it('accepts a clean PDF and a plain GoTo OpenAction', async () => {
@@ -62,6 +89,148 @@ describe('PDF active-content scan', () => {
     const bare = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3]);
     expect(await pdfHasActiveContent(bare)).toBe(false);
     expect(await checkUploadBytes(bare)).toEqual({ ok: true, kind: 'pdf' });
+    // Even with absurdly low decode caps: a file that cannot be read has nothing to bound.
+    expect(await pdfHasActiveContent(bare, undefined, { perStream: 1, totalContent: 1 })).toBe(false);
+  });
+
+  describe('decode bound (the caps are lowered here, so no large file is needed)', () => {
+    const big = { perStream: 1 << 30, totalContent: 1 << 30 };
+
+    it('refuses an object or xref stream that inflates past the per-stream cap, and accepts it under the default', async () => {
+      const bytes = fx('cropbox-rot90.pdf'); // has a /Type /ObjStm and a /Type /XRef stream
+      const text = new TextDecoder('latin1').decode(bytes);
+      expect(text).toContain('/ObjStm');
+      expect(text).toContain('/XRef');
+      // The ObjStm decodes to 743 bytes, the XRef stream to 40, the page content to 222: only the parse hook can trip 300.
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 300, totalContent: 1 << 30 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 800, totalContent: 1 << 30 })).toBe(false);
+      expect(await pdfHasActiveContent(bytes, undefined, big)).toBe(false);
+      expect(await checkUploadBytes(bytes)).toEqual({ ok: true, kind: 'pdf' });
+    });
+
+    it('adds the object streams and the page content of a file into one total (fixture)', async () => {
+      const bytes = fx('cropbox-rot90.pdf'); // ObjStm 743 + XRef 40 bytes while parsing, then the page content 222: 1005 together
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 1000 })).toBe(true); // only the page content tips it over
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 1100 })).toBe(false);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 1 << 30 })).toBe(false);
+    });
+
+    it('bounds a Flate content stream of a PDF saved without object streams', async () => {
+      const bytes = await pdfWithRawContents([{ bytes: flateBytes(contentText(600)), filters: ['FlateDecode'] }], false);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 64 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 64, totalContent: 1 << 30 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 600, totalContent: 600 })).toBe(false);
+      expect(await pdfHasActiveContent(bytes)).toBe(false);
+    });
+
+    it('sums a /Contents array of streams against the total cap', async () => {
+      const part = { bytes: flateBytes(contentText(100)), filters: ['FlateDecode'] };
+      const bytes = await pdfWithRawContents([part, part, { bytes: flateBytes(contentText(100)), filters: ['FlateDecode'] }]);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 200, totalContent: 250 })).toBe(true); // 300 together
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 200, totalContent: 400 })).toBe(false);
+      expect(await pdfHasActiveContent(bytes)).toBe(false);
+    });
+
+    it.each([
+      ['ASCIIHexDecode', (t: Uint8Array) => ({ bytes: asciiHexBytes(t), filters: ['ASCIIHexDecode'] })],
+      ['[ASCIIHexDecode FlateDecode]', (t: Uint8Array) => ({ bytes: asciiHexBytes(flateBytes(t)), filters: ['ASCIIHexDecode', 'FlateDecode'] })],
+      ['[FlateDecode FlateDecode]', (t: Uint8Array) => ({ bytes: flateBytes(flateBytes(t)), filters: ['FlateDecode', 'FlateDecode'] })],
+      ['no filter', (t: Uint8Array) => ({ bytes: t })],
+    ])('bounds a content stream with %s', async (_label, encode) => {
+      const bytes = await pdfWithRawContents([encode(contentText(600))], false);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 300, totalContent: 1 << 30 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 300 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes)).toBe(false);
+    });
+
+    // 200 000 zero bytes deflate to a couple of hundred bytes; twice over, the stage in the middle is that small too.
+    const zeros = flateBytes(new Uint8Array(200_000));
+    const lazyChain = flateWithBadTail(zeros);
+    const lowCaps = { perStream: 1000, totalContent: 1000 };
+
+    it('bounds a [Flate Flate] chain whose inner stage fails after the outer one has what it needs (pdf-lib reads lazily)', async () => {
+      const bytes = await pdfWithRawContents([{ bytes: lazyChain, filters: ['FlateDecode', 'FlateDecode'] }], false);
+      expect(await pdfHasActiveContent(bytes, undefined, lowCaps)).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, big)).toBe(false);
+      const objStm = pdfWithObjectStreamBody(lazyChain, '[/FlateDecode /FlateDecode]');
+      expect(await pdfHasActiveContent(objStm, undefined, lowCaps)).toBe(true);
+    });
+
+    it('charges a stream whose decode fails part-way, so failing streams add up against the total', async () => {
+      // Each stream inflates its 500 bytes, then hits a bad block: the work was done, so it counts.
+      const failing = () => ({ bytes: flateWithBadTail(contentText(500)), filters: ['FlateDecode'] });
+      const bytes = await pdfWithPageContents([failing(), failing(), failing()], [[0], [1], [2]]);
+      expect(await pdfHasActiveContent(bytes, undefined, { perStream: 1 << 30, totalContent: 1000 })).toBe(true);
+      expect(await pdfHasActiveContent(bytes, undefined, big)).toBe(false);
+      expect(await pdfHasActiveContent(bytes)).toBe(false);
+    });
+
+    it('charges what a chain inflated even when its last layer shrinks the output to nothing', async () => {
+      // 600 spaces inflate in the Flate layer; ASCIIHex then skips the white space and outputs 0 bytes.
+      const spaces = new TextEncoder().encode(`${' '.repeat(600)}>`);
+      const shrinking = () => ({ bytes: flateBytes(spaces), filters: ['FlateDecode', 'ASCIIHexDecode'] });
+      const caps = { perStream: 1 << 30, totalContent: 20_000 }; // one such stream asks for about 8300 bytes of buffers
+      const one = await pdfWithPageContents([shrinking()], [[0]]);
+      expect(await pdfHasActiveContent(one, undefined, caps)).toBe(false);
+      const six = await pdfWithPageContents(Array.from({ length: 6 }, shrinking), [[0], [1], [2], [3], [4], [5]]);
+      expect(await pdfHasActiveContent(six, undefined, caps)).toBe(true); // six add up, though each outputs nothing
+      expect(await pdfHasActiveContent(six)).toBe(false);
+    });
+
+    it('counts the layers of a filter chain together (each layer keeps its whole output in memory)', async () => {
+      // Stored (uncompressed) blocks: every layer of the chain is about as big as the 300-byte content.
+      let layer = contentText(300);
+      for (let i = 0; i < 6; i++) layer = storedFlateBytes(layer);
+      const chain = await pdfWithRawContents([{ bytes: layer, filters: Array<string>(6).fill('FlateDecode') }], false);
+      const single = await pdfWithRawContents([{ bytes: storedFlateBytes(contentText(300)), filters: ['FlateDecode'] }], false);
+      const caps = { perStream: 1000, totalContent: 1 << 30 }; // no single layer comes near 1000, six together do
+      expect(await pdfHasActiveContent(chain, undefined, caps)).toBe(true);
+      expect(await pdfHasActiveContent(single, undefined, caps)).toBe(false);
+      expect(await pdfHasActiveContent(chain, undefined, big)).toBe(false);
+      expect(await pdfHasActiveContent(chain)).toBe(false);
+    });
+
+    it('counts every object stream against one total, not each against the per-stream cap alone', async () => {
+      const three = pdfWithObjectStreams(3, 900); // each decodes to about 900 bytes: under perStream 1000, 2700 together
+      const one = pdfWithObjectStreams(1, 900);
+      const caps = { perStream: 1000, totalContent: 1500 };
+      expect(await pdfHasActiveContent(three, undefined, caps)).toBe(true);
+      expect(await pdfHasActiveContent(one, undefined, caps)).toBe(false);
+      expect(await pdfHasActiveContent(three, undefined, big)).toBe(false);
+      expect(await pdfHasActiveContent(three)).toBe(false);
+    });
+
+    it('keeps one running total for the whole file: pages add up, a stream shared by pages counts once', async () => {
+      const stream = { bytes: flateBytes(contentText(200)), filters: ['FlateDecode'] };
+      const other = { bytes: flateBytes(contentText(200)), filters: ['FlateDecode'] };
+      const twoOwn = await pdfWithPageContents([stream, other], [[0], [1]]); // 400 together, each page only 200
+      const shared = await pdfWithPageContents([stream], [[0], [0]]); // the same 200 bytes, read twice
+      const caps = { perStream: 1 << 30, totalContent: 300 };
+      expect(await pdfHasActiveContent(twoOwn, undefined, caps)).toBe(true);
+      expect(await pdfHasActiveContent(shared, undefined, caps)).toBe(false);
+      expect(await pdfHasActiveContent(shared, undefined, { perStream: 1 << 30, totalContent: 150 })).toBe(true);
+      expect(await pdfHasActiveContent(twoOwn, undefined, big)).toBe(false);
+      expect(await pdfHasActiveContent(twoOwn)).toBe(false);
+    });
+
+    it('still refuses an over-cap object stream when the file cannot be parsed to its end (no endobj)', async () => {
+      const bomb = pdfWithObjectStreamBody(zeros, '/FlateDecode', false);
+      expect(await pdfHasActiveContent(bomb, undefined, lowCaps)).toBe(true);
+      expect(await pdfHasActiveContent(pdfWithObjectStreamBody(zeros, '/FlateDecode'), undefined, lowCaps)).toBe(true);
+      // Under the cap the unparseable file is let through as before (the order flow handles it).
+      expect(await pdfHasActiveContent(bomb, undefined, big)).toBe(false);
+    });
+
+    it('accepts, with the default caps, a pdf-lib default save with drawn text and every fixture', async () => {
+      const doc = await PDFDocument.create();
+      const page = doc.addPage([200, 200]);
+      for (let i = 0; i < 10; i++) page.drawText(`line ${i}`, { x: 10, y: 10 + i * 12 });
+      const saved = await doc.save();
+      expect(await pdfHasActiveContent(saved)).toBe(false);
+      for (const name of readdirSync(FIXTURES).filter((f) => f.endsWith('.pdf'))) {
+        expect(await pdfHasActiveContent(fx(name)), name).toBe(false);
+      }
+    });
   });
 
   it('finds a script nested 70 levels deep (inside the depth bound)', async () => {

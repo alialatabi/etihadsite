@@ -19,6 +19,25 @@ describe("toPublicSettings", () => {
     expect({ ...pub, telegramChatId: full.telegramChatId, ai: full.ai }).toEqual(full);
   });
 
+  it("zeroes the per-sheet prices when prices are not published, keeps everything else in pricing", () => {
+    const hidden = { ...full, pricesPublished: false };
+    const copy = structuredClone(hidden);
+    const pub = toPublicSettings(hidden);
+    expect(pub.pricing.materials.paper.pricePerSheetIqd).toBe(0);
+    expect(pub.pricing.materials.plastic.pricePerSheetIqd).toBe(0);
+    expect(pub.pricing.materials.paper.enabled).toBe(hidden.pricing.materials.paper.enabled);
+    expect(pub.pricing.materials.plastic.enabled).toBe(hidden.pricing.materials.plastic.enabled);
+    expect({ ...pub.pricing, materials: hidden.pricing.materials }).toEqual(hidden.pricing);
+    expect(pub.deliveryFeeIqd).toBe(hidden.deliveryFeeIqd);
+    expect(Object.keys(pub)).toEqual(Object.keys(hidden));
+    expect(hidden).toEqual(copy);
+  });
+
+  it("leaves the pricing unchanged when prices are published", () => {
+    expect(full.pricesPublished).toBe(true);
+    expect(toPublicSettings(full).pricing).toEqual(full.pricing);
+  });
+
   it("does not touch the object it was given", () => {
     const copy = structuredClone(full);
     toPublicSettings(full);

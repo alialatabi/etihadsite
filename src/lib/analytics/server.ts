@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { reportError } from '@/lib/monitoring/report';
 import { shopDayKey } from '@/lib/shop-time';
 import { getStorage } from '@/lib/storage';
@@ -7,6 +7,8 @@ import type { AnalyticsEvent } from '@/lib/types';
 import { classifyDevice } from './classify';
 
 const DEV_SALT = 'softy-dev-analytics-salt';
+/** Production with SESSION_SECRET blank: never use the public dev salt. Per process, so visitors split across instances in that misconfigured state. */
+const PROCESS_SALT = randomBytes(16).toString('hex');
 
 /** YYYY-MM-DD in shop time (SHOP_TIME_ZONE). */
 export function baghdadDay(date: Date = new Date()): string {
@@ -21,7 +23,7 @@ function ipOf(request: Request): string {
 
 /** Daily-rotating anonymous visitor id: 16 hex chars. IP and UA are hashed, never stored. */
 export function visitorHash(request: Request, now: Date = new Date()): string {
-  const salt = process.env.SESSION_SECRET || DEV_SALT;
+  const salt = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? PROCESS_SALT : DEV_SALT);
   const ua = request.headers.get('user-agent') ?? '';
   return createHash('sha256')
     .update(`${baghdadDay(now)}|${ipOf(request)}|${ua}|${salt}`)
