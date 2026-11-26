@@ -138,22 +138,22 @@ function UploadDesign({ b }: { b: BuilderApi }) {
             pick(e.dataTransfer.files);
           }}
           className={cn(
-            'flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed bg-card p-6 text-center outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-            dragging ? 'border-brand bg-brand/5' : 'border-border hover:border-foreground/40',
+            'grid-paper flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-[2px] border-[3px] border-dashed bg-white p-6 text-center outline-none transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink',
+            dragging ? 'border-brand bg-news-light' : 'border-ink/45 hover:bg-news-light',
           )}
         >
           {decoding ? (
             <>
               <LoaderCircle className="size-9 animate-spin text-brand" aria-hidden />
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium text-ink">
                 {common.status.loading}
               </span>
             </>
           ) : (
             <>
               <CloudUpload className="size-10 text-brand" aria-hidden />
-              <span className="text-base font-bold">{builder.upload.drop}</span>
-              <span className="text-sm text-muted-foreground">{accepted}</span>
+              <span className="text-base font-bold text-ink">{builder.upload.drop}</span>
+              <span className="text-sm text-ink-muted">{accepted}</span>
             </>
           )}
         </button>
@@ -162,15 +162,15 @@ function UploadDesign({ b }: { b: BuilderApi }) {
       {b.multi && <DesignCards b={b} limitMb={limitMb} addRef={addRef} onReplace={openReplace} onAdd={() => inputRef.current?.click()} />}
       {/* Mounted as soon as the box is ticked (like the status above), so the notice is read aloud when its text appears. */}
       {b.multi && (
-        <p role="status" className={capNotice ? 'rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground' : 'sr-only'}>
+        <p role="status" className={capNotice ? 'rounded-[2px] bg-news px-4 py-3 text-sm text-ink-soft' : 'sr-only'}>
           {capNotice ? fillLtr(builder.multi.limitNotice, { max: MAX_DESIGNS }) : ''}
         </p>
       )}
 
       {design && !b.multi && (
-        <div className="rounded-2xl border bg-card p-4">
+        <div className="paper-card p-4">
           <div className="flex items-center gap-4">
-            <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
+            <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
               {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL preview */}
               <img src={design.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
             </div>
@@ -185,7 +185,7 @@ function UploadDesign({ b }: { b: BuilderApi }) {
                 </Ltr>{' '}
                 {builder.upload.pixelsUnit}
               </p>
-              <Button ref={replaceRef} type="button" variant="outline" className="h-11 px-4" disabled={decoding} onClick={() => inputRef.current?.click()}>
+              <Button ref={replaceRef} type="button" variant="outline" className="h-11 rounded-[2px] border-ink/30 bg-white px-4 text-ink hover:bg-news" disabled={decoding} onClick={() => inputRef.current?.click()}>
                 {decoding ? common.status.loading : builder.upload.replace}
               </Button>
             </div>
@@ -205,11 +205,11 @@ function UploadDesign({ b }: { b: BuilderApi }) {
       {shape === 'custom' && !design && <p className="text-sm text-muted-foreground">{builder.upload.transparentHint}</p>}
 
       {designError && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-4 text-sm text-brand-ink">
           <TriangleAlert className="size-5 shrink-0" aria-hidden />
           <p className="min-w-0 flex-1">{fillLtr(builder.upload.errors[designError], { mb: limitMb })}</p>
           {designError === 'no_alpha' && (
-            <Button type="button" variant="outline" className="h-11 px-4" onClick={() => b.setShape('rect')}>
+            <Button type="button" variant="outline" className="h-11 rounded-[2px] border-ink/30 bg-white px-4 text-ink hover:bg-news" onClick={() => b.setShape('rect')}>
               {builder.upload.errors.switchToRect}
             </Button>
           )}
@@ -268,10 +268,10 @@ function DesignCards({
         </ul>
       )}
       {(b.design || cards.length > 0) && (
-        <Button ref={addRef} type="button" variant="outline" className="h-12 w-full gap-2 px-4 text-base" disabled={full} onClick={onAdd}>
+        <Button ref={addRef} type="button" variant="outline" className="h-12 w-full gap-2 rounded-[2px] border-ink/30 bg-white px-4 text-base text-ink hover:bg-news" disabled={full} onClick={onAdd}>
           <Plus className="size-5" aria-hidden />
           {builder.multi.add}
-          <Ltr className="text-sm text-muted-foreground">
+          <Ltr className="text-sm text-ink-muted">
             {b.designCount}/{MAX_DESIGNS}
           </Ltr>
         </Button>
@@ -288,22 +288,22 @@ function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow;
   const d = r.design;
   const prefill = d && b.shape ? pdfPrefillUm(d, b.shape) : null;
   return (
-    <li className="rounded-2xl border bg-card p-4">
+    <li className="paper-card p-4">
       <div className="flex items-center gap-4">
-        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
+        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
           {d ? (
             // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
             <img src={d.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
           ) : r.decoding ? (
             <LoaderCircle className="size-7 animate-spin text-brand" aria-hidden />
           ) : (
-            <TriangleAlert className="size-7 text-destructive" aria-hidden />
+            <TriangleAlert className="size-7 text-brand-ink" aria-hidden />
           )}
         </div>
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-heading text-base font-bold">{fillLtr(builder.multi.designN, { n })}</h3>
-            {d?.hasAlpha && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">{builder.multi.cutOut}</span>}
+            <h3 className="font-heading text-base font-bold text-ink">{fillLtr(builder.multi.designN, { n })}</h3>
+            {d?.hasAlpha && <span className="rounded-[2px] bg-brand-tint px-2 py-0.5 text-xs font-bold text-brand-ink">{builder.multi.cutOut}</span>}
           </div>
           {d && (
             <>
@@ -328,20 +328,20 @@ function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow;
           )}
         </div>
         <div className="flex shrink-0 flex-col gap-2">
-          <Button type="button" variant="outline" size="icon" className="size-11" disabled={r.decoding} aria-label={fill(builder.multi.replaceN, { n })} onClick={onReplace}>
+          <Button type="button" variant="outline" size="icon" className="size-11 rounded-[2px] border-ink/30 bg-white text-ink hover:bg-news" disabled={r.decoding} aria-label={fill(builder.multi.replaceN, { n })} onClick={onReplace}>
             <RefreshCw className="size-4" aria-hidden />
           </Button>
-          <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(builder.multi.removeN, { n })} onClick={() => b.removeDesign(r.index)}>
+          <Button type="button" variant="outline" size="icon" className="size-11 rounded-[2px] border-ink/30 bg-white text-ink hover:bg-news" aria-label={fill(builder.multi.removeN, { n })} onClick={() => b.removeDesign(r.index)}>
             <Trash2 className="size-4" aria-hidden />
           </Button>
         </div>
       </div>
       {r.index > 0 && r.error && (
-        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
           <TriangleAlert className="size-5 shrink-0" aria-hidden />
           <p className="min-w-0 flex-1">{fillLtr(builder.upload.errors[r.error], { mb: limitMb })}</p>
           {r.error === 'no_alpha' && (
-            <Button type="button" variant="outline" className="h-11 px-4" onClick={() => b.setShape('rect')}>
+            <Button type="button" variant="outline" className="h-11 rounded-[2px] border-ink/30 bg-white px-4 text-ink hover:bg-news" onClick={() => b.setShape('rect')}>
               {builder.upload.errors.switchToRect}
             </Button>
           )}
@@ -352,6 +352,6 @@ function DesignCard({ b, r, limitMb, onReplace }: { b: BuilderApi; r: DesignRow;
 }
 
 function Notice({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">{children}</p>;
+  return <p className="rounded-[2px] bg-news px-4 py-3 text-sm text-ink-soft">{children}</p>;
 }
 

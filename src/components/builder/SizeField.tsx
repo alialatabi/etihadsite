@@ -24,7 +24,9 @@ export function SizeField({
 }) {
   return (
     <div className="flex-1 space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-[15px] font-bold text-ink">
+        {label}
+      </Label>
       <div className="flex items-center gap-2">
         <Input
           id={id}
@@ -38,7 +40,7 @@ export function SizeField({
           aria-describedby={describedBy}
           className={inputClassName}
         />
-        <span className="shrink-0 text-sm text-muted-foreground">{common.units.cm}</span>
+        <span className="shrink-0 text-sm text-ink-muted">{common.units.cm}</span>
       </div>
     </div>
   );
