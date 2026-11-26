@@ -11,6 +11,12 @@ import 'server-only';
  *    the fixed template, the brief's `visualDescription` and the confirmed `lines`.
  *  - `visualDescription` reaches `generate` from the browser, so `brief` signs it (`briefToken`,
  *    HMAC with SESSION_SECRET) and `generate` refuses any description it did not sign.
+ *  - The Arabic design instructions (`instructions`, v2) also come back from the browser. `brief` signs them with
+ *    the description (`instructionsToken`); when they come back unchanged the signed English description is drawn
+ *    and nothing extra is called. Edited instructions are untrusted customer text: hardened and capped
+ *    (AI_INSTRUCTIONS_MAX_CHARS), they reach OpenAI only through the translator (instructions.ts: after the
+ *    reservation, as `input` data), and its English enters the image prompt wrapped as design instructions that
+ *    are never printed, followed by a rule that the shape/size/text rules win.
  *  - Reports carry fixed messages and codes only: no idea text, no IP, no key, no caught error
  *    (a storage error can echo the row, which holds the idea and the IP).
  */
@@ -39,6 +45,7 @@ import {
   AI_BRIEF_PER_IP,
   AI_BRIEF_SITE,
   AI_IDEA_MAX_CHARS,
+  AI_INSTRUCTIONS_MAX_CHARS,
   AI_AFTER_OPENAI_SAFETY_MS,
   AI_IMAGE_MODEL,
   AI_LINE_MAX_CHARS,
@@ -47,10 +54,12 @@ import {
   AI_MIN_OPENAI_BUDGET_MS,
   AI_OPENAI_TIMEOUT_MS,
   AI_ROUTE_MAX_DURATION_MS,
+  AI_TRANSLATE_TIMEOUT_MS,
   STAFF_BRIEF_DAILY_LIMIT,
   STAFF_IMAGE_DAILY_LIMIT,
   STAFF_SITE_CAP,
 } from './config';
+import { translateInstructions } from './instructions';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, type ImageRef } from './openai';
@@ -92,12 +101,21 @@ export const AI_BODY_MAX_BYTES = 16 * 1024;
  * printed lines in the template), spaces collapse, and the length is capped.
  */
 export function hardenVisualDescription(s: string): string {
+  return hardenText(s, AI_VISUAL_MAX_CHARS);
+}
+
+/** The same clean-up for the Arabic design instructions (the brief's answer and what the browser sends back). */
+export function hardenInstructions(s: string): string {
+  return hardenText(s, AI_INSTRUCTIONS_MAX_CHARS);
+}
+
+function hardenText(s: string, max: number): string {
   const cleaned = s
     .replace(/[\p{Cc}\u2028\u2029]/gu, ' ')
     .replace(/[«»]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return capUnits(cleaned, AI_VISUAL_MAX_CHARS).trim();
+  return capUnits(cleaned, max).trim();
 }
 
 const DEV_SALT = 'softy-dev-ai-brief-salt';
@@ -120,10 +138,19 @@ export function instructionsToken(visualDescription: string, instructions: strin
   return createHmac('sha256', key).update(`ai-instr|${visualDescription}|${instructions}`).digest('hex');
 }
 
-function briefTokenOk(visualDescription: string, token: string): boolean {
-  const want = Buffer.from(briefToken(visualDescription), 'hex');
-  const got = Buffer.from(token, 'hex');
+function hexEqual(wantHex: string, gotHex: string): boolean {
+  const want = Buffer.from(wantHex, 'hex');
+  const got = Buffer.from(gotHex, 'hex');
   return got.length === want.length && timingSafeEqual(got, want);
+}
+
+function briefTokenOk(visualDescription: string, token: string): boolean {
+  return hexEqual(briefToken(visualDescription), token);
+}
+
+/** True when `token` signs exactly this pair (no token = not signed). */
+function instructionsTokenOk(visualDescription: string, instructions: string, token: string | undefined): boolean {
+  return token !== undefined && hexEqual(instructionsToken(visualDescription, instructions), token);
 }
 
 /**
@@ -178,6 +205,9 @@ export const generateRequestSchema = z
     briefToken: z.string().regex(/^[0-9a-f]{64}$/),
     lines: z.array(z.string().max(AI_LINE_MAX_CHARS)).max(AI_MAX_LINES),
     refUploadIds: z.array(z.string().regex(ID_RE)).max(AI_MAX_REFS),
+    // Not trimmed or transformed: the token signs the exact string.
+    instructions: z.string().max(AI_INSTRUCTIONS_MAX_CHARS).optional(),
+    instructionsToken: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   })
   .refine(circleSquare, 'circle must be square');
 
@@ -330,8 +360,8 @@ export async function runBrief(request: Request, json: unknown, actor: AiActor =
       .map((f) => ({ from: capUnits(f.from.trim(), AI_LINE_MAX_CHARS), to: f.to.trim() }))
       .filter((f) => f.to.length > 0 && lines.some((l) => l.includes(f.to)));
 
-    // Phase 0: the Arabic instructions stay empty until the brief prompt returns them; the token already signs the pair.
-    const instructions = '';
+    // May be '' (the model gave none): still signed; the review box then shows an empty field.
+    const instructions = hardenInstructions(result.brief.instructions);
     return {
       body: {
         ok: true,
@@ -367,6 +397,21 @@ export function openAiTimeoutMs(elapsedMs: number): number | null {
   const budget = AI_ROUTE_MAX_DURATION_MS - Math.max(0, elapsedMs) - AI_AFTER_OPENAI_SAFETY_MS;
   if (budget < AI_MIN_OPENAI_BUDGET_MS) return null;
   return Math.min(AI_OPENAI_TIMEOUT_MS, budget);
+}
+
+/** Shortest translation call worth starting. */
+export const AI_TRANSLATE_MIN_MS = 5_000;
+
+/**
+ * How long the instructions translation may run: at most AI_TRANSLATE_TIMEOUT_MS, and never so long that less than
+ * AI_MIN_OPENAI_BUDGET_MS would be left for the image call after it. null when that is under AI_TRANSLATE_MIN_MS
+ * (the use is given back, 'failed').
+ */
+export function translateTimeoutMs(elapsedMs: number): number | null {
+  const left = openAiTimeoutMs(elapsedMs);
+  if (left === null) return null;
+  const t = Math.min(AI_TRANSLATE_TIMEOUT_MS, left - AI_MIN_OPENAI_BUDGET_MS);
+  return t >= AI_TRANSLATE_MIN_MS ? t : null;
 }
 
 /**
@@ -424,6 +469,13 @@ export async function runGenerate(
 
   const visualDescription = hardenVisualDescription(req.visualDescription);
   if (!visualDescription) return failure('invalid_request');
+
+  // v2 design instructions. '' = none (an old page, or the field was emptied): the signed description, as before.
+  const instructions = req.instructions === undefined ? '' : hardenInstructions(req.instructions);
+  // Unchanged since the brief (checked on the exact strings received) → no translation. No token = edited.
+  const needsTranslation =
+    instructions !== '' &&
+    !instructionsTokenOk(req.visualDescription, req.instructions as string, req.instructionsToken);
 
   // In-memory guard BEFORE any ref work and the stored reservation: every attempt counts, even one
   // whose stored use is later given back, so failing calls cannot be repeated without limit.
@@ -492,6 +544,31 @@ export async function runGenerate(
   const giveBack = () => release(storage, { day, ipKey, kind: actor.imageKind }, 'ai.generate');
   let stored: { uploadId: string; png: Uint8Array; pxWidth: number; pxHeight: number };
   try {
+    // Edited instructions: the English the image model reads comes from the translator (after the reservation).
+    let artwork = visualDescription;
+    let descriptionSource: 'brief' | 'customer' = 'brief';
+    if (needsTranslation) {
+      const translateMs = translateTimeoutMs(clock() - started);
+      if (translateMs === null) {
+        report('ai.generate', 'no time left for the translation', {}, 'warning');
+        await giveBack();
+        return failure('failed');
+      }
+      const tr = await translateInstructions(cfg, instructions, translateMs);
+      if (!tr.ok) {
+        await giveBack();
+        return failure(tr.reason === 'refused' ? 'refused' : 'failed');
+      }
+      const english = hardenVisualDescription(tr.visualDescription);
+      if (!english) {
+        report('ai.generate', 'empty translation', {}, 'warning');
+        await giveBack();
+        return failure('failed');
+      }
+      artwork = english;
+      descriptionSource = 'customer';
+    }
+
     // Time left in this request: never start (or run) an image call that a platform kill at
     // maxDuration could cut off after OpenAI has charged.
     const timeoutMs = openAiTimeoutMs(clock() - started);
@@ -507,7 +584,8 @@ export async function runGenerate(
         corners: req.corners,
         widthUm: req.widthUm,
         heightUm: req.heightUm,
-        visualDescription,
+        visualDescription: artwork,
+        descriptionSource,
         lines,
         hasRefs: refs.length > 0,
       }),
@@ -576,6 +654,7 @@ export async function runGenerate(
     model: AI_IMAGE_MODEL,
     uploadId: stored.uploadId,
     orderId: null,
+    instructions: instructions === '' ? null : instructions,
     // Only a staff generation carries the account; a customer record keeps today's shape.
     ...(actor.staffId !== null ? { staffId: actor.staffId } : {}),
   };

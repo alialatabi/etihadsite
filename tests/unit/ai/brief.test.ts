@@ -42,6 +42,7 @@ describe('extractBrief', () => {
         responsesBody({
           printed_text: ['أهلاً وسهلاً', ' رمضان كريم ', ''],
           visual_description: 'A lantern and a crescent moon',
+          design_instructions: ' ستيكر بيه فانوس وهلال ',
           spelling_fixes: [{ from: 'اهلا', to: 'أهلاً' }],
         }),
       ),
@@ -52,6 +53,7 @@ describe('extractBrief', () => {
       brief: {
         lines: ['أهلاً وسهلاً', 'رمضان كريم'],
         visualDescription: 'A lantern and a crescent moon',
+        instructions: 'ستيكر بيه فانوس وهلال',
         fixes: [{ from: 'اهلا', to: 'أهلاً' }],
       },
     });
@@ -68,13 +70,14 @@ describe('extractBrief', () => {
     expect(body.text.format.strict).toBe(true);
     const schema = body.text.format.schema;
     expect(schema.additionalProperties).toBe(false);
-    expect([...schema.required].sort()).toEqual(['printed_text', 'spelling_fixes', 'visual_description']);
+    expect([...schema.required].sort()).toEqual(['design_instructions', 'printed_text', 'spelling_fixes', 'visual_description']);
+    expect(schema.properties.design_instructions).toEqual({ type: 'string' });
     const fixItem = schema.properties.spelling_fixes.items;
     expect(fixItem.additionalProperties).toBe(false);
     expect([...fixItem.required].sort()).toEqual(['from', 'to']);
     // A bounded, quick answer: low reasoning effort (the cap counts reasoning tokens too) and an output cap.
     expect(body.reasoning).toEqual({ effort: 'low' });
-    expect(body.max_output_tokens).toBe(1500);
+    expect(body.max_output_tokens).toBe(2000);
   });
 
   it("status 'incomplete' (the output cap was hit) → error, even with a readable start of JSON", async () => {
@@ -84,6 +87,16 @@ describe('extractBrief', () => {
         status: 'incomplete',
         incomplete_details: { reason: 'max_output_tokens' },
       }),
+    );
+    expect(await extractBrief(cfg, 'idea')).toEqual({ ok: false, reason: 'error' });
+  });
+
+  it('an answer without design_instructions reads as none; a wrong type is an error', async () => {
+    fetchMock.mockResolvedValue(ok(responsesBody({ printed_text: ['x'], visual_description: 'y', spelling_fixes: [] })));
+    const r = await extractBrief(cfg, 'idea');
+    expect(r.ok && r.brief.instructions).toBe('');
+    fetchMock.mockResolvedValue(
+      ok(responsesBody({ printed_text: ['x'], visual_description: 'y', design_instructions: 5, spelling_fixes: [] })),
     );
     expect(await extractBrief(cfg, 'idea')).toEqual({ ok: false, reason: 'error' });
   });
@@ -146,13 +159,30 @@ describe('extractBrief', () => {
     expect(instructions).toContain('handles (@...)');
     expect(instructions).toContain('«اسم المحل»');
 
-    // Worked examples (at most 6), each with its expected answer.
+    // Worked examples, each with its expected answer.
     const examples = instructions.match(/^Example \d+$/gm) ?? [];
-    expect(examples.length).toBeGreaterThanOrEqual(5);
-    expect(examples.length).toBeLessThanOrEqual(6);
+    expect(examples.length).toBe(9);
     expect(instructions).toContain('اهلا وسهلا وبالسطر الثاني شكرا لطلبكم منا');
     expect(instructions).toContain('"printed_text":["أهلاً وسهلاً","شكراً لطلبكم منا"]');
     expect(instructions).toContain('شعار لمطعم البيك العراقي، بيه دجاجة مشوية وصحن تمن، اكتبوا المطعم بخط كبير وتحته توصيل مجاني');
     expect(instructions).toContain('"printed_text":["مطعم البيك العراقي","توصيل مجاني"]');
+  });
+
+  it('instructions teach design instructions: never printed, but kept in design_instructions', async () => {
+    fetchMock.mockResolvedValue(ok(responsesBody({ printed_text: [], visual_description: 'x', spelling_fixes: [] })));
+    await extractBrief(cfg, 'idea');
+    const instructions: string = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string).instructions;
+    for (const phrase of ['«خط عريض»', '«خلي الاسم بالنص»', '«خلفية سودة»', '«ألوان هادئة»', '«الكتابة فوق والصورة جوه»']) {
+      expect(instructions).toContain(phrase);
+    }
+    expect(instructions).toContain('NEVER printed text');
+    expect(instructions).toContain('2b) Write design_instructions');
+    expect(instructions).toContain('«السطر الأول»');
+
+    const answers = instructions.match(/^Answer: .*$/gm) ?? [];
+    expect(answers).toHaveLength(9);
+    for (const a of answers) expect(a).toContain('"design_instructions":"');
+    expect(instructions).toContain('"printed_text":["حلويات الريم"]');
+    expect(instructions).toContain('"printed_text":["مبروك التخرج","الدكتورة زينب"]');
   });
 });

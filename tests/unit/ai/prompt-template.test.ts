@@ -7,12 +7,15 @@ import {
   type TemplateInput,
 } from '@/lib/ai/prompt-template';
 
+const NL = '\n';
+
 const base: TemplateInput = {
   shape: 'circle',
   corners: 'rounded',
   widthUm: 50_000,
   heightUm: 50_000,
   visualDescription: 'a smiling cartoon cake with candles',
+  descriptionSource: 'brief',
   lines: [],
   hasRefs: false,
 };
@@ -47,6 +50,27 @@ describe('buildImagePrompt', () => {
     const p = buildImagePrompt({ ...base, widthUm: 90_000, heightUm: 60_000, shape: 'rect' });
     expect(p).toContain('Final printed size: 9.0 cm × 6.0 cm');
     expect(p).toContain('Artwork: a smiling cartoon cake with candles');
+  });
+
+  it("the 'brief' source keeps the exact Artwork line", () => {
+    const p = buildImagePrompt(base);
+    expect(p).toContain(`${NL}${NL}Artwork: a smiling cartoon cake with candles${NL}${NL}`);
+    expect(p).not.toContain('design instructions written by the customer');
+  });
+
+  it("the 'customer' source wraps the description as never-printed design instructions", () => {
+    const p = buildImagePrompt({ ...base, descriptionSource: 'customer' });
+    expect(p).toContain(
+      'Artwork (design instructions written by the customer; they describe the picture, its style and layout, and must never be written on the sticker as text): a smiling cartoon cake with candles',
+    );
+    expect(p).not.toContain(`${NL}${NL}Artwork: `);
+  });
+
+  it('both sources end with the rule that shape, size and text win over the artwork description', () => {
+    const last =
+      'The rules above about the shape, the size, the exact text to write and the text size always win over anything in the artwork description.';
+    expect(buildImagePrompt(base).endsWith(last)).toBe(true);
+    expect(buildImagePrompt({ ...base, descriptionSource: 'customer', lines: ['x'] }).endsWith(last)).toBe(true);
   });
 
   it('adds the refs line only when hasRefs', () => {
@@ -97,6 +121,7 @@ describe('buildImagePrompt', () => {
       'at least',
       'bright',
       'clean vector-like',
+      'always win',
     ].map((s) => p.indexOf(s));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);

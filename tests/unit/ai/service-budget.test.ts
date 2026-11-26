@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AI_OPENAI_TIMEOUT_MS } from '@/lib/ai/config';
-import { openAiTimeoutMs } from '@/lib/ai/service';
+import { openAiTimeoutMs, translateTimeoutMs } from '@/lib/ai/service';
 
 describe('openAiTimeoutMs', () => {
   it('gives the full OpenAI timeout while the request is young', () => {
@@ -22,5 +22,26 @@ describe('openAiTimeoutMs', () => {
 
   it('treats a clock that went backwards as no time spent', () => {
     expect(openAiTimeoutMs(-500)).toBe(AI_OPENAI_TIMEOUT_MS);
+  });
+});
+
+describe('translateTimeoutMs', () => {
+  it('gives the translation its own 15 s while the request is young', () => {
+    expect(translateTimeoutMs(0)).toBe(15_000);
+    expect(translateTimeoutMs(65_000)).toBe(15_000);
+  });
+
+  it('keeps at least 20 s for the image call after it', () => {
+    expect(translateTimeoutMs(70_000)).toBe(10_000);
+    expect(translateTimeoutMs(75_000)).toBe(5_000);
+  });
+
+  it('does not start when under 5 s would be left for it', () => {
+    expect(translateTimeoutMs(75_001)).toBeNull();
+    expect(translateTimeoutMs(120_000)).toBeNull();
+  });
+
+  it('treats a clock that went backwards as no time spent', () => {
+    expect(translateTimeoutMs(-500)).toBe(15_000);
   });
 });

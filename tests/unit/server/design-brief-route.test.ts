@@ -72,6 +72,34 @@ describe("POST /api/design/brief", () => {
     expect(await briefUsage()).toBe(1);
   });
 
+  it("brief returns the hardened Arabic design instructions with a token that signs the pair", async () => {
+    stubOpenAi(() =>
+      jsonResponse({
+        output: [
+          {
+            type: "message",
+            content: [
+              {
+                type: "output_text",
+                text: JSON.stringify({
+                  printed_text: ["أهلاً"],
+                  visual_description: "A round sticker with roses.",
+                  design_instructions: "  ستيكر «دائري»\nبيه\u0007 ورد " + "ب".repeat(700),
+                  spelling_fixes: [],
+                }),
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const out = await read(await call(BODY));
+    if (!out.ok) throw new Error(out.error);
+    expect(out.instructions.startsWith("ستيكر دائري بيه ورد ببب")).toBe(true);
+    expect(out.instructions).toHaveLength(600);
+    expect(out.instructionsToken).toBe(instructionsToken(out.visualDescription, out.instructions));
+  });
+
   it("brief rejects idea over 1000 chars", async () => {
     const calls = stubOpenAi(() => jsonResponse({}));
     const res = await call({ ...BODY, idea: "ا".repeat(1001) });

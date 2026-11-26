@@ -7,7 +7,7 @@ import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
 import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
-import { DEFAULT_AI_ENDPOINTS, postBrief, postGenerate, type AiEndpoints } from './api';
+import { DEFAULT_AI_ENDPOINTS, capInstructions, instructionsFields, isInstructionsEdited, postBrief, postGenerate, type AiEndpoints } from './api';
 
 export type { AiPhase };
 
@@ -67,7 +67,12 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
   // The last reference pick left files out (wrong type, too big, over 5).
   const [refRejected, setRefRejected] = useState(false);
 
-  const brief = useRef<{ visualDescription: string; briefToken: string } | null>(null);
+  // The Arabic design instructions in the review box, and the brief's text as signed (state, not a ref: the
+  // "edited" note is computed in render).
+  const [instructions, setInstructionsState] = useState('');
+  const [instructionsOriginal, setInstructionsOriginal] = useState('');
+
+  const brief = useRef<{ visualDescription: string; briefToken: string; instructions: string; instructionsToken: string } | null>(null);
   const busy = useRef(false);
   const token = useRef(0);
   const refKey = useRef(0);
@@ -130,7 +135,16 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
       setPhase('idle');
       return;
     }
-    brief.current = { visualDescription: res.visualDescription, briefToken: res.briefToken };
+    // The token signs this exact string: it is kept as the server sent it.
+    const original = typeof res.instructions === 'string' ? res.instructions : '';
+    brief.current = {
+      visualDescription: res.visualDescription,
+      briefToken: res.briefToken,
+      instructions: original,
+      instructionsToken: typeof res.instructionsToken === 'string' ? res.instructionsToken : '',
+    };
+    setInstructionsOriginal(original);
+    setInstructionsState(capInstructions(original));
     setLinesState(res.lines.slice(0, AI_MAX_LINES).map((l) => l.slice(0, AI_LINE_MAX_CHARS)));
     setFixes(res.fixes);
     setPhase('reviewing');
@@ -141,6 +155,9 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     (l: string[]) => setLinesState(l.slice(0, AI_MAX_LINES).map((x) => typedLine(x).slice(0, AI_LINE_MAX_CHARS))),
     [],
   );
+
+  const setInstructions = useCallback((t: string) => setInstructionsState(capInstructions(t)), []);
+  const instructionsEdited = isInstructionsEdited(instructions, instructionsOriginal);
 
   /** The idea changed: an open review box belongs to the old idea. */
   const onIdeaChange = useCallback(
@@ -179,6 +196,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
   const generate = useCallback(async () => {
     if (busy.current || !shape || !spec || !brief.current || off) return;
     const sent = printable;
+    // Snapshot at click time. Empty field → none (the signed description); unchanged → the brief's string + token.
+    const instr = instructionsFields(instructions, brief.current.instructions, brief.current.instructionsToken);
     busy.current = true;
     const my = ++token.current;
     setError(undefined);
@@ -209,6 +228,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
         briefToken: brief.current.briefToken,
         lines: sent,
         refUploadIds: refIds,
+        ...instr,
       },
       endpoints.generate,
     );
@@ -238,7 +258,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     });
     setRemainingToday(res.remainingToday);
     setPhase('result');
-  }, [host, shape, spec, corners, idea, off, printable, uploadRefs, fail, replaceResult, endpoints.generate]);
+  }, [host, shape, spec, corners, idea, off, printable, instructions, uploadRefs, fail, replaceResult, endpoints.generate]);
 
   const retry = generate;
 
@@ -310,6 +330,11 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     briefing,
     /** Why «ولّد التصميم» is disabled (null: it may run). */
     block,
+    /** The Arabic design instructions in the review box (editable). */
+    instructions,
+    setInstructions,
+    /** The customer changed them: the server will translate them before drawing. */
+    instructionsEdited,
     refs,
     refRejected,
     review,
