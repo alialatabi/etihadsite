@@ -195,7 +195,7 @@ export function DetailsStep({
           </div>
         )}
 
-        <Button type="submit" disabled={busy} className={ctaCls('lg')}>
+        <Button type="submit" disabled={busy} className={cn(ctaCls('lg'), '-rotate-1 hover:rotate-0 disabled:rotate-0')}>
           {builder.details.submit}
         </Button>
       </form>

@@ -277,7 +277,7 @@ function PriceRow({ label, children, strong }: { label: ReactNode; children: Rea
 /** The total in Lalezar with the view's one marker loop. */
 function TotalAmount({ amount }: { amount: number }) {
   return (
-    <MarkerCircle>
+    <MarkerCircle className="px-5 py-1.5">
       <span className="whitespace-nowrap font-lalezar text-[30px] font-normal leading-tight text-ink">
         <Money amount={amount} />
       </span>
