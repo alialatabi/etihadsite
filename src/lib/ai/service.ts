@@ -32,6 +32,7 @@ import type {
   BriefResponse,
   GenerateError,
   GenerateResponse,
+  ShopSettings,
 } from '@/lib/types';
 import { extractBrief } from './brief';
 import {
@@ -46,6 +47,9 @@ import {
   AI_MIN_OPENAI_BUDGET_MS,
   AI_OPENAI_TIMEOUT_MS,
   AI_ROUTE_MAX_DURATION_MS,
+  STAFF_BRIEF_DAILY_LIMIT,
+  STAFF_IMAGE_DAILY_LIMIT,
+  STAFF_SITE_CAP,
 } from './config';
 import { aiIpKey } from './ip';
 import { normaliseGenerated, prepareRef } from './normalise';
@@ -105,6 +109,15 @@ export { aiReady, secretReady };
 export function briefToken(visualDescription: string): string {
   const key = process.env.SESSION_SECRET || DEV_SALT;
   return createHmac('sha256', key).update(`ai-brief|${visualDescription}`).digest('hex');
+}
+
+/**
+ * HMAC-SHA256 hex that signs the English description together with the Arabic design instructions
+ * shown to the customer (`generate` skips the translation call when they come back unchanged).
+ */
+export function instructionsToken(visualDescription: string, instructions: string): string {
+  const key = process.env.SESSION_SECRET || DEV_SALT;
+  return createHmac('sha256', key).update(`ai-instr|${visualDescription}|${instructions}`).digest('hex');
 }
 
 function briefTokenOk(visualDescription: string, token: string): boolean {
@@ -174,10 +187,70 @@ function report(where: string, what: string, tags: Record<string, string | numbe
   reportError(new Error(`ai ${what}`), { where, tags, level });
 }
 
+/** The daily limits an actor works under: per usage key (IP or staff account) and for the whole site, per kind. */
+export interface AiLimits {
+  briefPerKey: number;
+  briefSite: number;
+  imagePerKey: number;
+  imageSite: number;
+}
+
+/**
+ * Who is asking and under which limits (strategy). The customer actor is today's behaviour; the staff
+ * actor counts per account under its own usage kinds, so staff use never touches the customer limits.
+ */
+export interface AiActor {
+  /** `ip` is the full address ('' without a trusted proxy); `ipKey` is the usage key: customer = aiIpKey(ip), staff = 'staff:<id>'. */
+  identify(request: Request): { ip: string; ipKey: string };
+  briefKind: AiKind;
+  imageKind: AiKind;
+  limits(settings: ShopSettings): AiLimits;
+  /** Key of the in-memory first-line guard (limiters().brief / .generate). */
+  limiterKey(ip: string): string;
+  /** Written to the generation record; null for a customer. */
+  staffId: string | null;
+}
+
 /** The limit key: '' (site-only) when there is no trusted proxy and clientIp() is 'global'. */
 function identify(request: Request): { ip: string; ipKey: string } {
   const ip = clientIp(request);
   return ip === 'global' ? { ip: '', ipKey: '' } : { ip, ipKey: aiIpKey(ip) };
+}
+
+/** The site's visitors: per-IP daily limits from the admin settings, the fixed brief limits. */
+export const customerActor: AiActor = {
+  identify,
+  briefKind: 'brief',
+  imageKind: 'image',
+  limits: (settings) => ({
+    briefPerKey: AI_BRIEF_PER_IP,
+    briefSite: AI_BRIEF_SITE,
+    imagePerKey: settings.ai.perIpDailyLimit,
+    imageSite: settings.ai.siteDailyLimit,
+  }),
+  limiterKey: (ip) => ip || 'global',
+  staffId: null,
+};
+
+/** A logged-in staff account (the caller has already checked the session): own usage kinds, 50 images a day. */
+export function staffActor(staffId: string): AiActor {
+  const key = `staff:${staffId}`;
+  return {
+    identify(request) {
+      const ip = clientIp(request);
+      return { ip: ip === 'global' ? '' : ip, ipKey: key };
+    },
+    briefKind: 'staff_brief',
+    imageKind: 'staff_image',
+    limits: () => ({
+      briefPerKey: STAFF_BRIEF_DAILY_LIMIT,
+      briefSite: STAFF_SITE_CAP,
+      imagePerKey: STAFF_IMAGE_DAILY_LIMIT,
+      imageSite: STAFF_SITE_CAP,
+    }),
+    limiterKey: () => key,
+    staffId,
+  };
 }
 
 /** Gives a reserved use back; never throws (a failed release is reported, the answer stands). */
@@ -205,7 +278,7 @@ export interface BriefOutcome {
   retryAfterSec?: number;
 }
 
-export async function runBrief(request: Request, json: unknown): Promise<BriefOutcome> {
+export async function runBrief(request: Request, json: unknown, actor: AiActor = customerActor): Promise<BriefOutcome> {
   const parsed = briefRequestSchema.safeParse(json);
   if (!parsed.success) return failure('invalid_request');
 
@@ -214,22 +287,23 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
   if (!setup) return failure('unavailable');
   const { cfg, storage } = setup;
 
-  const { ip, ipKey } = identify(request);
-  const rl = limiters().brief.check(ip || 'global');
+  const { ip, ipKey } = actor.identify(request);
+  const rl = limiters().brief.check(actor.limiterKey(ip));
   if (!rl.ok) return failure('rate_limited', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
+  const limits = actor.limits(settings);
   const reserved = await storage.aiReserve({
     day,
     ipKey,
     ip,
-    kind: 'brief',
-    perIpLimit: AI_BRIEF_PER_IP,
-    siteLimit: AI_BRIEF_SITE,
+    kind: actor.briefKind,
+    perIpLimit: limits.briefPerKey,
+    siteLimit: limits.briefSite,
   });
   // The brief has one limit answer for the customer: blocked, per-IP and site caps all read «wait».
   if (reserved.status !== 'ok') return failure('rate_limited');
-  const giveBack = () => release(storage, { day, ipKey, kind: 'brief' }, 'ai.brief');
+  const giveBack = () => release(storage, { day, ipKey, kind: actor.briefKind }, 'ai.brief');
 
   try {
     const result = await extractBrief(cfg, parsed.data.idea);
@@ -250,8 +324,18 @@ export async function runBrief(request: Request, json: unknown): Promise<BriefOu
       .map((f) => ({ from: capUnits(f.from.trim(), AI_LINE_MAX_CHARS), to: f.to.trim() }))
       .filter((f) => f.to.length > 0 && lines.some((l) => l.includes(f.to)));
 
+    // Phase 0: the Arabic instructions stay empty until the brief prompt returns them; the token already signs the pair.
+    const instructions = '';
     return {
-      body: { ok: true, lines, fixes, visualDescription, briefToken: briefToken(visualDescription) },
+      body: {
+        ok: true,
+        lines,
+        fixes,
+        visualDescription,
+        briefToken: briefToken(visualDescription),
+        instructions,
+        instructionsToken: instructionsToken(visualDescription, instructions),
+      },
     };
   } catch {
     report('ai.brief', 'unexpected failure');
@@ -287,14 +371,14 @@ export function openAiTimeoutMs(elapsedMs: number): number | null {
  */
 async function precheckAi(
   storage: AiStorage,
-  a: { day: string; ip: string; ipKey: string; perIpLimit: number; siteLimit: number },
+  a: { day: string; ip: string; ipKey: string; kind: AiKind; perIpLimit: number; siteLimit: number },
 ): Promise<Exclude<AiReserveResult, 'ok'> | null> {
   if (!storage.aiListBlocks || !storage.aiUsage) return null;
   try {
     const [blocks, usage] = await Promise.all([storage.aiListBlocks(), storage.aiUsage(a.day)]);
     // By key, or by the full IP (a new SESSION_SECRET changes every key; it must not lift blocks). Same as the reservation.
     if (blocks.some((b) => b.ipKey === a.ipKey || (a.ip !== '' && b.ip === a.ip))) return 'blocked';
-    const rows = usage.filter((r) => r.day === a.day && r.kind === 'image');
+    const rows = usage.filter((r) => r.day === a.day && r.kind === a.kind);
     if (rows.reduce((n, r) => n + r.count, 0) >= a.siteLimit) return 'site_limit';
     const mine = rows.find((r) => r.ipKey === a.ipKey);
     if (a.ipKey !== '' && (mine?.count ?? 0) >= a.perIpLimit) return 'ip_limit';
@@ -308,7 +392,13 @@ async function precheckAi(
  * `startedAt`: when the route started (before the body read, which counts against its `maxDuration`);
  * without it the budget starts here. `clock` is for tests only (the time budget).
  */
-export async function runGenerate(request: Request, json: unknown, clock: () => number = Date.now, startedAt?: number): Promise<GenerateOutcome> {
+export async function runGenerate(
+  request: Request,
+  json: unknown,
+  clock: () => number = Date.now,
+  startedAt?: number,
+  actor: AiActor = customerActor,
+): Promise<GenerateOutcome> {
   const started = startedAt ?? clock();
   const parsed = generateRequestSchema.safeParse(json);
   if (!parsed.success) return failure('invalid_request');
@@ -331,20 +421,19 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
 
   // In-memory guard BEFORE any ref work and the stored reservation: every attempt counts, even one
   // whose stored use is later given back, so failing calls cannot be repeated without limit.
-  const { ip, ipKey } = identify(request);
-  const rl = limiters().generate.check(ip || 'global');
+  const { ip, ipKey } = actor.identify(request);
+  const rl = limiters().generate.check(actor.limiterKey(ip));
   if (!rl.ok) return failure('ip_limit', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
-  const perIpLimit = settings.ai.perIpDailyLimit;
-  const siteLimit = settings.ai.siteDailyLimit;
+  const { imagePerKey: perIpLimit, imageSite: siteLimit } = actor.limits(settings);
 
   // Reference images: checked and prepared BEFORE the reservation, so a bad one costs nothing.
   // Downloading and decoding them is the expensive part, so first (only when there are refs) a
   // read-only look answers a blocked IP or a reached cap without touching a single file, and each
   // ref's meta and size are checked before its bytes are read. The atomic reservation still decides.
   if (req.refUploadIds.length > 0) {
-    const early = await precheckAi(storage, { day, ip, ipKey, perIpLimit, siteLimit });
+    const early = await precheckAi(storage, { day, ip, ipKey, kind: actor.imageKind, perIpLimit, siteLimit });
     if (early) return failure(early);
   }
   // Each ref's meta and size first (all in parallel, no bytes read yet), then the bytes (each a storage round trip,
@@ -386,14 +475,14 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     day,
     ipKey,
     ip,
-    kind: 'image',
+    kind: actor.imageKind,
     perIpLimit,
     siteLimit,
   });
   if (reserved.status !== 'ok') return failure(reserved.status);
 
   // From here on every failure gives the use back: a failed try does not count.
-  const giveBack = () => release(storage, { day, ipKey, kind: 'image' }, 'ai.generate');
+  const giveBack = () => release(storage, { day, ipKey, kind: actor.imageKind }, 'ai.generate');
   let stored: { uploadId: string; png: Uint8Array; pxWidth: number; pxHeight: number };
   try {
     // Time left in this request: never start (or run) an image call that a platform kill at
@@ -480,6 +569,8 @@ export async function runGenerate(request: Request, json: unknown, clock: () => 
     model: AI_IMAGE_MODEL,
     uploadId: stored.uploadId,
     orderId: null,
+    // Only a staff generation carries the account; a customer record keeps today's shape.
+    ...(actor.staffId !== null ? { staffId: actor.staffId } : {}),
   };
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {

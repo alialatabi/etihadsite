@@ -4,6 +4,7 @@ export { order } from './order';
 export { pages } from './pages';
 export { admin } from './admin';
 export { staff } from './staff';
+export { team } from './team';
 export { governorates, type Governorate } from './governorates';
 
 /** Fill {placeholders} in a copy string. */

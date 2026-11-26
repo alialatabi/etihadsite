@@ -7,8 +7,8 @@
 import type {
   BriefError,
   BriefResponse as ServerBriefResponse,
-  Corners,
   GenerateError,
+  GenerateRequestBody,
   GenerateResponse as ServerGenerateResponse,
   Shape,
 } from '@/lib/types';
@@ -29,19 +29,8 @@ export type BriefResponse =
   | Extract<ServerBriefResponse, { ok: true }>
   | { ok: false; error: BriefError | ClientError };
 
-export interface GenerateRequest {
-  shape: Shape;
-  corners: Corners;
-  widthUm: number;
-  heightUm: number;
-  idea: string;
-  visualDescription: string;
-  briefToken: string;
-  /** ≤ 8 lines, each ≤ 60 characters. */
-  lines: string[];
-  /** ≤ 5 upload ids of the reference images. */
-  refUploadIds: string[];
-}
+/** ≤ 8 lines, each ≤ 60 characters; ≤ 5 reference upload ids; `instructions` / `instructionsToken` optional (see types.ts). */
+export type GenerateRequest = GenerateRequestBody;
 
 export type GenerateResponse =
   | Extract<ServerGenerateResponse, { ok: true }>
@@ -62,10 +51,18 @@ async function post<T extends { ok: boolean }>(url: string, body: unknown): Prom
   }
 }
 
-export function postBrief(body: BriefRequest): Promise<BriefResponse> {
-  return post<BriefResponse>('/api/design/brief', body);
+/** The two routes a page talks to: the customer builder uses the defaults, the staff page its own. */
+export interface AiEndpoints {
+  brief: string;
+  generate: string;
 }
 
-export function postGenerate(body: GenerateRequest): Promise<GenerateResponse> {
-  return post<GenerateResponse>('/api/design/generate', body);
+export const DEFAULT_AI_ENDPOINTS: AiEndpoints = { brief: '/api/design/brief', generate: '/api/design/generate' };
+
+export function postBrief(body: BriefRequest, url: string = DEFAULT_AI_ENDPOINTS.brief): Promise<BriefResponse> {
+  return post<BriefResponse>(url, body);
+}
+
+export function postGenerate(body: GenerateRequest, url: string = DEFAULT_AI_ENDPOINTS.generate): Promise<GenerateResponse> {
+  return post<GenerateResponse>(url, body);
 }

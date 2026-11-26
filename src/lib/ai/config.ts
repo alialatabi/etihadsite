@@ -21,3 +21,13 @@ export const AI_MIN_OPENAI_BUDGET_MS = 20_000;
 export const AI_MIN_PIXELS = 655_360;
 export const AI_MAX_ASPECT = 3;
 export const AI_REF_LONG_SIDE = 1024;
+/** Longest design-instructions text (UTF-16 units) the generate route accepts. */
+export const AI_INSTRUCTIONS_MAX_CHARS = 600;
+/** Staff designer: image generations per account per shop day (separate from the customer limits). */
+export const STAFF_IMAGE_DAILY_LIMIT = 50;
+/** Staff designer: briefs per account per shop day. */
+export const STAFF_BRIEF_DAILY_LIMIT = 300;
+/** Site-wide daily cap of each staff kind (separate kinds, so staff never eat the customer caps). */
+export const STAFF_SITE_CAP = 5000;
+/** The Arabic → English instructions translation call may run this long. */
+export const AI_TRANSLATE_TIMEOUT_MS = 15_000;

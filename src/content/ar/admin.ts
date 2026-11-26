@@ -278,7 +278,31 @@ export const admin = {
     ordered: 'صار طلب',
     printed: 'الكتابة',
     idea: 'الفكرة',
+    /** {name} = the staff member's name. */
+    staffBadge: 'موظف: {name}',
     prev: 'السابق',
     next: 'التالي',
+  },
+  /** Staff designer accounts page (/admin/staff). */
+  staff: {
+    nav: 'الموظفين',
+    title: 'حسابات الموظفين',
+    add: 'أضف موظف',
+    name: 'الاسم',
+    phone: 'رقم الموبايل',
+    password: 'كلمة السر (8 أحرف على الأقل)',
+    active: 'فعّال',
+    disabled: 'موقوف',
+    disable: 'أوقف',
+    enable: 'فعّل',
+    resetPassword: 'غيّر كلمة السر',
+    /** {n} = used today, {max} = the daily limit. */
+    todayCount: 'اليوم: {n} من {max}',
+    empty: 'ماكو موظفين بعد.',
+    link: 'رابط صفحة الموظفين:',
+    phoneTaken: 'هذا الرقم مسجّل لموظف ثاني.',
+    invalid: 'تأكد من الاسم والرقم وكلمة السر.',
+    notReady: 'لازم تطبّق تحديث قاعدة البيانات أول (staff_designer).',
+    saved: 'انحفظ.',
   },
 } as const;

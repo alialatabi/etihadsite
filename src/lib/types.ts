@@ -643,8 +643,34 @@ export type DirectUploadStart =
 
 export type BriefError = 'unavailable' | 'rate_limited' | 'invalid_request' | 'failed';
 export type BriefResponse =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
+  | {
+      ok: true;
+      lines: string[];
+      fixes: { from: string; to: string }[];
+      visualDescription: string;
+      briefToken: string;
+      /** Arabic description of the artwork for the customer to read and edit (v2). */
+      instructions: string;
+      /** 64-hex HMAC of the English description and these instructions: `generate` skips the translation when it matches. */
+      instructionsToken: string;
+    }
   | { ok: false; error: BriefError };
+
+/** Body of POST /api/design/generate. `instructions` / `instructionsToken` are optional: an old page omits them. */
+export interface GenerateRequestBody {
+  shape: Shape;
+  corners: Corners;
+  widthUm: number;
+  heightUm: number;
+  idea: string;
+  visualDescription: string;
+  briefToken: string;
+  lines: string[];
+  refUploadIds: string[];
+  /** Arabic design instructions as confirmed or edited by the customer (≤ AI_INSTRUCTIONS_MAX_CHARS). */
+  instructions?: string;
+  instructionsToken?: string;
+}
 
 export type GenerateError =
   | 'unavailable'
@@ -762,6 +788,14 @@ export interface StorageAdapter {
   aiUnblock?(ipKey: string): Promise<void>;
   /** Newest first. */
   aiListBlocks?(): Promise<AiBlock[]>;
+
+  /* Staff designer accounts (optional; both adapters implement them). */
+  staffList?(): Promise<StaffAccountRecord[]>;
+  staffGet?(id: string): Promise<StaffAccountRecord | null>;
+  staffByPhone?(phone: string): Promise<StaffAccountRecord | null>;
+  staffCreate?(rec: StaffAccountRecord): Promise<void>;
+  staffUpdate?(id: string, patch: Partial<Pick<StaffAccountRecord, 'name' | 'active' | 'passwordHash' | 'passwordChangedAt'>>): Promise<StaffAccountRecord | null>;
+  staffTouchLogin?(id: string, at: string): Promise<void>;
 }
 
 /* ────────────────────────────── AI sticker designer ────────────────────── */
@@ -771,7 +805,7 @@ export interface StorageAdapter {
  * (owner decision D9, 2026-11-21); `ipKey` is a keyed hash of it, the limit/block key.
  * `day` is the shop day (Asia/Baghdad), YYYY-MM-DD.
  */
-export type AiKind = 'image' | 'brief';
+export type AiKind = 'image' | 'brief' | 'staff_image' | 'staff_brief';
 export type AiReserveResult = 'ok' | 'ip_limit' | 'site_limit' | 'blocked';
 
 export interface AiGenerationRecord {
@@ -792,6 +826,32 @@ export interface AiGenerationRecord {
   uploadId: string;
   /** Set when an order used this design. */
   orderId: string | null;
+  /** The Arabic design instructions as confirmed (v2); absent on older rows. */
+  instructions?: string | null;
+  /** The staff account that made it; absent / null for a customer. */
+  staffId?: string | null;
+}
+
+/* ────────────────────────────── Staff designer accounts ────────────────── */
+
+/** A staff account as shown to the admin and the session (never carries the password hash). */
+export interface StaffAccount {
+  id: string;
+  name: string;
+  /** Normalised phone number, the login name. */
+  phone: string;
+  active: boolean;
+  /** ISO 8601 */
+  createdAt: string;
+  /** ISO 8601 */
+  lastLoginAt?: string;
+  /** ISO 8601; a session issued before it is refused (a password reset logs the account out). */
+  passwordChangedAt: string;
+}
+
+/** Stored form: `passwordHash` is `scrypt$N$r$p$saltB64$hashB64`. */
+export interface StaffAccountRecord extends StaffAccount {
+  passwordHash: string;
 }
 
 /** One daily counter. `ipKey` '' = the site-only row (per-IP check skipped). */

@@ -7,9 +7,18 @@ import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
 import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
-import { postBrief, postGenerate } from './api';
+import { DEFAULT_AI_ENDPOINTS, postBrief, postGenerate, type AiEndpoints } from './api';
 
 export type { AiPhase };
+
+/**
+ * The part of the builder the AI designer uses. `BuilderApi` satisfies it structurally (Builder.tsx passes `b`);
+ * the staff page passes its own small host.
+ */
+export type AiHost = Pick<
+  BuilderApi,
+  'shape' | 'spec' | 'corners' | 'idea' | 'sizeOk' | 'settings' | 'setIdea' | 'startAi' | 'showDesignStep' | 'acceptAi' | 'goTo'
+>;
 
 export interface AiRef {
   key: number;
@@ -44,7 +53,7 @@ function revoke(url: string | undefined): void {
  * result, accept / retry). Lives in Builder so it survives the step change. Every request starts from a click
  * (never from an effect) and is guarded against running twice; a late answer of an abandoned try is dropped.
  */
-export function useAiDesign(b: BuilderApi, ready = true) {
+export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints = DEFAULT_AI_ENDPOINTS) {
   const [phase, setPhase] = useState<AiPhase>('idle');
   const [lines, setLinesState] = useState<string[]>([]);
   const [fixes, setFixes] = useState<{ from: string; to: string }[]>([]);
@@ -52,7 +61,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   const [result, setResult] = useState<AiResultData | undefined>(undefined);
   const [remainingToday, setRemainingToday] = useState<number | null>(null);
   // `ready` (from the server: switch, key, secret) only sets the start; a route's answer can still turn it off.
-  const [off, setOff] = useState(!ready || b.settings.ai?.enabled === false);
+  const [off, setOff] = useState(!ready || host.settings.ai?.enabled === false);
   const [briefing, setBriefing] = useState(false);
   const [refs, setRefs] = useState<AiRef[]>([]);
   // The last reference pick left files out (wrong type, too big, over 5).
@@ -82,13 +91,13 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     setResult(next);
   }, []);
 
-  const { shape, spec, corners, idea, sizeOk } = b;
+  const { shape, spec, corners, idea, sizeOk } = host;
   const block: GenerateBlock | null = generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: aiBusy(phase, briefing) });
 
   const printable = useMemo(() => printableLines(lines), [lines]);
   // Too much text for the size: a warning in the review box, never a block.
   // The cap on a recommended size is taken at the ratio typed on this page (a rectangle is free here), not the design's.
-  const { settings } = b;
+  const { settings } = host;
   const textWarning = useMemo(
     () => textWarningFor(printable, shape, spec, () => maxWidthAtSize(shape, corners, spec, settings.layout)),
     [printable, shape, spec, corners, settings.layout],
@@ -112,7 +121,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     setBriefing(true);
     setError(undefined);
     const my = ++token.current;
-    const res = await postBrief({ idea: idea.trim(), shape, widthUm: spec.widthUm, heightUm: spec.heightUm });
+    const res = await postBrief({ idea: idea.trim(), shape, widthUm: spec.widthUm, heightUm: spec.heightUm }, endpoints.brief);
     busy.current = false;
     if (my !== token.current) return;
     setBriefing(false);
@@ -125,7 +134,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     setLinesState(res.lines.slice(0, AI_MAX_LINES).map((l) => l.slice(0, AI_LINE_MAX_CHARS)));
     setFixes(res.fixes);
     setPhase('reviewing');
-  }, [shape, spec, sizeOk, idea, off, fail]);
+  }, [shape, spec, sizeOk, idea, off, fail, endpoints.brief]);
 
   // What is typed loses the never-printed characters at once; the full clean (spaces, length) is `printable`.
   const setLines = useCallback(
@@ -136,10 +145,10 @@ export function useAiDesign(b: BuilderApi, ready = true) {
   /** The idea changed: an open review box belongs to the old idea. */
   const onIdeaChange = useCallback(
     (text: string) => {
-      b.setIdea(text);
+      host.setIdea(text);
       if (phase === 'reviewing') setPhase('idle');
     },
-    [b, phase],
+    [host, phase],
   );
 
   /** Uploads the reference images not uploaded yet. Returns their ids, or an error code. */
@@ -174,8 +183,8 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     const my = ++token.current;
     setError(undefined);
     setPhase('generating');
-    b.startAi();
-    b.showDesignStep();
+    host.startAi();
+    host.showDesignStep();
     const madeFor = { shape, widthUm: spec.widthUm, heightUm: spec.heightUm };
 
     const refIds = await uploadRefs();
@@ -189,17 +198,20 @@ export function useAiDesign(b: BuilderApi, ready = true) {
       setPhase('error');
       return;
     }
-    const res = await postGenerate({
-      shape,
-      corners,
-      widthUm: spec.widthUm,
-      heightUm: spec.heightUm,
-      idea: idea.trim(),
-      visualDescription: brief.current.visualDescription,
-      briefToken: brief.current.briefToken,
-      lines: sent,
-      refUploadIds: refIds,
-    });
+    const res = await postGenerate(
+      {
+        shape,
+        corners,
+        widthUm: spec.widthUm,
+        heightUm: spec.heightUm,
+        idea: idea.trim(),
+        visualDescription: brief.current.visualDescription,
+        briefToken: brief.current.briefToken,
+        lines: sent,
+        refUploadIds: refIds,
+      },
+      endpoints.generate,
+    );
     busy.current = false;
     if (my !== token.current) return;
     if (!res.ok) {
@@ -226,16 +238,16 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     });
     setRemainingToday(res.remainingToday);
     setPhase('result');
-  }, [b, shape, spec, corners, idea, off, printable, uploadRefs, fail, replaceResult]);
+  }, [host, shape, spec, corners, idea, off, printable, uploadRefs, fail, replaceResult, endpoints.generate]);
 
   const retry = generate;
 
   /** «أكمل بهذا»: the result becomes the order's design; the arrangement step opens. */
   const accept = useCallback(async () => {
     if (!result || busy.current) return;
-    if (b.shape !== result.madeFor.shape) return; // the button is disabled then
+    if (host.shape !== result.madeFor.shape) return; // the button is disabled then
     busy.current = true;
-    const ok = await b.acceptAi(result.file, result.uploadId, result.madeFor, result.lines);
+    const ok = await host.acceptAi(result.file, result.uploadId, result.madeFor, result.lines);
     busy.current = false;
     if (!ok) {
       // The generated PNG did not decode in this browser (should not happen): say so; another try is offered.
@@ -247,14 +259,14 @@ export function useAiDesign(b: BuilderApi, ready = true) {
     // Accepted after a failed retry: that try's message must not come back on page 1.
     setError(undefined);
     setPhase('idle');
-  }, [b, result, replaceResult, fail]);
+  }, [host, result, replaceResult, fail]);
 
   /** «عدّل الفكرة»: back to the first page (not offered while a try runs: it is counted and its answer is kept). */
   const editIdea = useCallback(() => {
     if (phase === 'generating') return;
     setPhase(brief.current && phase !== 'idle' ? 'reviewing' : 'idle');
-    b.goTo(0);
-  }, [b, phase]);
+    host.goTo(0);
+  }, [host, phase]);
 
   const addRefFiles = useCallback(
     (picked: File[]) => {
@@ -262,7 +274,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
       const { files, rejected } = addRefs(
         current.map((r) => r.file),
         picked,
-        b.settings.maxUploadBytes,
+        host.settings.maxUploadBytes,
       );
       setRefRejected(rejected > 0);
       const fresh = files.slice(current.length).map((file) => ({ key: ++refKey.current, file, previewUrl: URL.createObjectURL(file) }));
@@ -271,7 +283,7 @@ export function useAiDesign(b: BuilderApi, ready = true) {
       refsRef.current = next;
       setRefs(next);
     },
-    [b.settings.maxUploadBytes],
+    [host.settings.maxUploadBytes],
   );
 
   const removeRef = useCallback((key: number) => {

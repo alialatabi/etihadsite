@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import { POST as briefRoute } from "@/app/api/design/brief/route";
 import { AI_BRIEF_PER_IP } from "@/lib/ai/config";
-import { briefToken } from "@/lib/ai/service";
+import { briefToken, instructionsToken } from "@/lib/ai/service";
 import { shopDayKey } from "@/lib/shop-time";
 import { getStorage } from "@/lib/storage";
 import { setupEnv } from "./helpers";
 import { OPENAI_BASE, briefResponse, jsonResponse, stubOpenAi } from "./ai-helpers";
 
 type Brief =
-  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string }
+  | { ok: true; lines: string[]; fixes: { from: string; to: string }[]; visualDescription: string; briefToken: string; instructions: string; instructionsToken: string }
   | { ok: false; error: string };
 
 let ipSeq = 0;
@@ -61,6 +61,8 @@ describe("POST /api/design/brief", () => {
       fixes: [{ from: "اهلا", to: "أهلاً" }],
       visualDescription: "A round sticker with roses.",
       briefToken: briefToken("A round sticker with roses."),
+      instructions: "",
+      instructionsToken: instructionsToken("A round sticker with roses.", ""),
     });
     expect(calls.map((c) => c.path)).toEqual(["/responses"]);
     // The idea is sent as data (input), never inside the instructions.

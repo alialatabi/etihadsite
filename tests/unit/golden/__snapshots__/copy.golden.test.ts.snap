@@ -15,11 +15,11 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{gapY} x1",
   "{h} x3",
   "{margin} x1",
-  "{max} x6",
+  "{max} x7",
   "{mb} x4",
   "{min} x1",
-  "{n} x10",
-  "{name} x4",
+  "{n} x12",
+  "{name} x6",
   "{no} x1",
   "{pages} x1",
   "{percent} x4",
@@ -330,8 +330,29 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "ordered": "صار طلب",
     "printed": "الكتابة",
     "idea": "الفكرة",
+    "staffBadge": "موظف: {name}",
     "prev": "السابق",
     "next": "التالي"
+  },
+  "staff": {
+    "nav": "الموظفين",
+    "title": "حسابات الموظفين",
+    "add": "أضف موظف",
+    "name": "الاسم",
+    "phone": "رقم الموبايل",
+    "password": "كلمة السر (8 أحرف على الأقل)",
+    "active": "فعّال",
+    "disabled": "موقوف",
+    "disable": "أوقف",
+    "enable": "فعّل",
+    "resetPassword": "غيّر كلمة السر",
+    "todayCount": "اليوم: {n} من {max}",
+    "empty": "ماكو موظفين بعد.",
+    "link": "رابط صفحة الموظفين:",
+    "phoneTaken": "هذا الرقم مسجّل لموظف ثاني.",
+    "invalid": "تأكد من الاسم والرقم وكلمة السر.",
+    "notReady": "لازم تطبّق تحديث قاعدة البيانات أول (staff_designer).",
+    "saved": "انحفظ."
   }
 }"
 `;
@@ -340,13 +361,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3423,
+  "chars": 3715,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 21,
-  "sha256OfRawJson": "73e46d060086a04209573d508005cfd9e88d591540571b466253e4052219cd84",
-  "strings": 253,
+  "objects": 22,
+  "sha256OfRawJson": "6a73982b27dcdd4e5e6b087b9468e81ebec8224e792c8ec5a5cebaa7c06d02bf",
+  "strings": 272,
 }
 `;
 
@@ -402,7 +423,7 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
   "ai": {
     "title": "صمّم ستيكرك",
     "ideaLabel": "اكتب فكرتك وكل التفاصيل",
-    "ideaHint": "شنو تريد بالرسمة، والكتابة اللي تريدها على الستيكر بالضبط",
+    "ideaHint": "شنو تريد بالرسمة، والكتابة اللي تريدها على الستيكر بالضبط، وأي تعليمات للتصميم: الألوان، نوع الخط، مكان الكتابة…",
     "refs": "صور مرجعية (اختياري، لحد 5)",
     "addRef": "أضف صورة",
     "removeRef": "احذف الصورة",
@@ -416,7 +437,25 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "confirm": "تمام، ولّد",
     "tooMuchText": "تنبيه: الكتابة كثيرة على هذا القياس، ممكن تطلع صغيرة وما تنقرا زين بالطبع. ننصحك تكبّر القياس لـ {size} أو تقلّل الكتابة، وتكدر تكمل هيج إذا تريد.",
     "tooMuchTextReduce": "تنبيه: الكتابة كثيرة على هذا القياس، ممكن تطلع صغيرة وما تنقرا زين بالطبع. ننصحك تقلّل الكتابة، وتكدر تكمل هيج إذا تريد.",
-    "generating": "جاري تصميم ستيكرك… (حوالي 15 ثانية)",
+    "generating": "جاري تصميم ستيكرك…",
+    "instructionsTitle": "تعليمات التصميم",
+    "instructionsHint": "هذا اللي راح نرسمه. عدّل عليه إذا تريد تغيّر شي بالرسمة أو الألوان أو ترتيب الكتابة.",
+    "instructionsEdited": "عدّلت التعليمات، راح نعتمد كلامك.",
+    "progress": {
+      "label": "تقدّم التصميم",
+      "brief": [
+        "نقرا فكرتك…",
+        "نرتّب الكتابة ونصحح الإملاء…"
+      ],
+      "image": [
+        "نقرا التعليمات…",
+        "نرسم التصميم…",
+        "نلوّن ونضبط التفاصيل…",
+        "نجهّزه للطباعة…"
+      ],
+      "slow": "ياخذ وقت أكثر من العادة، خليك بالصفحة…",
+      "wait": "ممكن ياخذ لحد دقيقة، لا تسكّر الصفحة."
+    },
     "printedText": "الكتابة:",
     "resultAlt": "التصميم المقترح",
     "remaining": "باقيلك {n} {attempts} اليوم",
@@ -604,15 +643,15 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
 
 exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
-  "arrays": 1,
+  "arrays": 3,
   "booleans": 0,
-  "chars": 4731,
+  "chars": 5092,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 22,
-  "sha256OfRawJson": "6dae1bc7dd4b3f9d2e996cdde687af11deb1c893e93ca929e8306e462d6447dc",
-  "strings": 203,
+  "objects": 23,
+  "sha256OfRawJson": "6307cb34e6f33576cde11c7ffe3aa91532dc71457a805be9737f45abfe4da445",
+  "strings": 215,
 }
 `;
 
@@ -1048,6 +1087,43 @@ exports[`golden: Arabic copy (@/content/ar) > export "staff" 2`] = `
 }
 `;
 
+exports[`golden: Arabic copy (@/content/ar) > export "team" 1`] = `
+"{
+  "title": "مصمم سوفتي — للموظفين",
+  "login": {
+    "title": "دخول الموظفين",
+    "phone": "رقم الموبايل",
+    "password": "كلمة السر",
+    "submit": "دخول",
+    "error": "رقم الموبايل أو كلمة السر غلط، أو الحساب موقوف.",
+    "rateLimited": "محاولات كثيرة. انتظر شوية وجرّب مرة لخ.",
+    "unavailable": "صفحة الموظفين مو جاهزة هسه."
+  },
+  "hello": "هلا {name}",
+  "logout": "خروج",
+  "shape": "الشكل",
+  "size": "القياس (سم)",
+  "download": "نزّل التصميم PNG",
+  "newDesign": "تصميم جديد",
+  "savedNote": "كل تصميم ينحفظ بمعرض التصاميم بالإدارة.",
+  "limitReached": "خلصت محاولاتك لليوم ({n}). ارجع باچر."
+}"
+`;
+
+exports[`golden: Arabic copy (@/content/ar) > export "team" 2`] = `
+{
+  "arrays": 0,
+  "booleans": 0,
+  "chars": 304,
+  "functions": 0,
+  "nulls": 0,
+  "numbers": 0,
+  "objects": 2,
+  "sha256OfRawJson": "17e2853a9922eed99044c9eb50ada74e92445a3de071e7de83efb09855998c43",
+  "strings": 16,
+}
+`;
+
 exports[`golden: Arabic copy (@/content/ar) > export names 1`] = `
 [
   "admin: object",
@@ -1058,6 +1134,7 @@ exports[`golden: Arabic copy (@/content/ar) > export names 1`] = `
   "order: object",
   "pages: object",
   "staff: object",
+  "team: object",
 ]
 `;
 
