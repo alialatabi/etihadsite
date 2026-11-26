@@ -1,7 +1,6 @@
-import { Fragment } from 'react';
-import { ArrowLeft, ArrowRight, Grid3x3, Layers, PackageCheck, Sparkles, type LucideIcon } from 'lucide-react';
 import { builder } from '@/content/ar';
 import { Builder } from '@/components/builder/Builder';
+import { StepNumber, StickerMark, Tape } from '@/components/collage';
 import { fillLtr } from '@/components/fill-ltr';
 import { aiReady } from '@/lib/ai/ready';
 import { getSettings, toPublicSettings } from '@/lib/settings';
@@ -9,98 +8,63 @@ import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Headline = the order journey (owner request). Colour rises with importance:
- * start (navy) → preview (logo purple) → quantity (lime, the money/discount colour) → receive (brand gradient, the goal).
- */
-const FLOW_STYLE: { icon: LucideIcon; className: string }[] = [
-  { icon: Sparkles, className: 'bg-primary text-primary-foreground' },
-  { icon: Grid3x3, className: 'bg-[#8a2b8f] text-white' },
-  { icon: Layers, className: 'bg-discount text-discount-foreground' },
-  { icon: PackageCheck, className: 'bg-brand-gradient-cta text-white shadow-md ring-2 ring-brand/25' },
-];
-
 const flow = builder.hero.flow;
 
 /**
- * Every step pill is a link down to the order form, which opens on the shape choice (owner request:
- * customers kept tapping the pills). The pills sit inside aria-hidden copies of the sr-only <h1>, so they
- * are taken out of the tab order; keyboard and screen-reader users reach the form next anyway.
+ * Every step card is a link down to the order form, which opens on the shape choice (owner request:
+ * customers kept tapping the steps). The list is an aria-hidden decorative copy of the sr-only <h1>, so the
+ * cards are taken out of the tab order; keyboard and screen-reader users reach the form next anyway.
  */
 const TO_SHAPE = '#builder';
-const LINK = 'cursor-pointer transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0';
 
-/** Desktop / tablet: one row, arrows pointing to the next step (left, RTL). */
-function FlowRow() {
-  return (
-    <div aria-hidden className="hidden flex-wrap items-center gap-x-3 gap-y-3 text-xl font-bold leading-tight sm:flex md:text-2xl">
-      {flow.map((label, i) => {
-        const { icon: Icon, className } = FLOW_STYLE[i];
-        return (
-          <Fragment key={label}>
-            {i > 0 && <ArrowLeft className="size-6 shrink-0 text-muted-foreground md:size-7" />}
-            <a href={TO_SHAPE} tabIndex={-1} className={cn('inline-flex items-center gap-2 rounded-2xl px-4 py-2.5', LINK, className)}>
-              <Icon className="size-6 shrink-0" />
-              {label}
-            </a>
-          </Fragment>
-        );
-      })}
-    </div>
-  );
-}
-
-function Tile({ i }: { i: number }) {
-  const { icon: Icon, className } = FLOW_STYLE[i];
-  return (
-    <a href={TO_SHAPE} tabIndex={-1} className={cn('flex h-16 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-center', LINK, className)}>
-      <Icon className="size-5 shrink-0" />
-      <span className="text-sm font-bold leading-tight">{flow[i]}</span>
-    </a>
-  );
-}
-
-/**
- * Mobile: 2 × 2 "snake". Row 1 runs right→left (1 → 2); a dashed cut-line curls round the
- * left edge down to step 3, and row 2 runs left→right (3 → 4).
- */
-function FlowSnake() {
-  return (
-    <div aria-hidden className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-5 sm:hidden">
-      <Tile i={0} />
-      <ArrowLeft className="size-5 text-muted-foreground" />
-      <Tile i={1} />
-
-      <Tile i={3} />
-      <ArrowRight className="size-5 text-muted-foreground" />
-      <Tile i={2} />
-
-      {/* Curl from step 2 (end of row 1) down to step 3 (start of row 2), on the left edge. */}
-      <svg viewBox="0 0 18 84" className="absolute -end-[18px] top-8 h-[84px] w-[18px] overflow-visible text-muted-foreground" fill="none">
-        <path d="M18 1C2 1 1 12 1 42s1 41 17 41" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" strokeLinecap="round" />
-        <path d="M12 77.5 18 83l-6 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
+/** Col-Story: three paper cards (the second on squared paper) and the goal on the one red scrap. */
+const CARD = ['paper-card -rotate-[1.5deg]', 'paper-card grid-paper rotate-[1.5deg]', 'paper-card -rotate-1', 'scrap scrap-red rotate-2 py-4'];
+const NUM = ['red', 'navy', 'red', 'navy'] as const;
 
 export default async function HomePage() {
   const settings = await getSettings();
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pb-4 pt-6 md:pt-10">
-        <div className="glass rounded-3xl p-5 md:p-8">
-          <span className="inline-block rounded-full bg-brand/15 px-3 py-1 text-xs font-medium text-brand">{builder.hero.badge}</span>
-          {/* One accessible heading; the two visual layouts below are decorative copies. */}
-          <h1 className="sr-only">{flow.join(' ← ')}</h1>
-          <div className="mt-4 font-heading">
-            <FlowRow />
-            <FlowSnake />
-          </div>
-          <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
-            {fillLtr(builder.hero.subtitle, { shop: <span className="font-bold text-foreground">{settings.shopName}</span> })}
-          </p>
+      <section className="relative isolate mx-auto max-w-6xl overflow-x-clip px-4 pb-4 pt-6 md:pt-10">
+        <div aria-hidden className="pointer-events-none absolute -z-10 top-0 end-4 hidden h-36 w-72 md:block">
+          <div className="news-lines torn4 absolute inset-0 bg-news -rotate-6" />
+          <span className="halftone absolute -bottom-6 start-6 size-24 rounded-[50%] opacity-40" />
         </div>
+        <div className="flex items-center justify-between gap-4">
+          <Tape>{builder.hero.badge}</Tape>
+          <StickerMark size={64} tilt={8} className="hidden sm:block" />
+        </div>
+        {/* One accessible heading; the step cards below are a decorative copy. */}
+        <h1 className="sr-only">{flow.join(' ← ')}</h1>
+        <ol aria-hidden className="mt-6 grid grid-cols-2 gap-x-3 gap-y-4 md:grid-cols-4 md:gap-5">
+          {flow.map((label, i) => (
+            <li key={label}>
+              <a
+                href={TO_SHAPE}
+                tabIndex={-1}
+                className={cn(
+                  'anim-slap flex h-full min-h-16 items-center gap-3 px-3 py-3 transition-[rotate,translate] hover:-translate-y-0.5 hover:rotate-0 md:px-4',
+                  CARD[i],
+                )}
+                style={{ animationDelay: `${i * 120}ms` }}
+              >
+                <StepNumber n={i + 1} tone={NUM[i]} size="md" />
+                <span
+                  className={
+                    i === 3
+                      ? 'font-lalezar text-xl font-normal leading-tight md:text-2xl'
+                      : 'text-base font-bold leading-snug text-ink md:text-lg'
+                  }
+                >
+                  {label}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-6 max-w-2xl text-base text-ink-soft md:text-lg">
+          {fillLtr(builder.hero.subtitle, { shop: <span className="font-bold text-foreground">{settings.shopName}</span> })}
+        </p>
       </section>
       <Builder settings={toPublicSettings(settings)} aiReady={aiReady(settings)} />
     </>

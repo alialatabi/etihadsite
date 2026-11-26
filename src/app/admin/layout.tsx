@@ -1,7 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AdminNav } from '@/components/admin/AdminNav';
+import { StickerMark } from '@/components/collage';
 import { admin } from '@/content/ar';
 import { verifySession } from '@/lib/auth/session';
 import { getSettings } from '@/lib/settings';
@@ -41,23 +41,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       {authed ? (
-        <div className="sticky top-0 z-40 w-full bg-[#121f34] text-[#fdfbfa]">
+        <div className="scrap scrap-navy scrap-tornb sticky top-0 z-40 w-full pb-1.5">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 md:flex-nowrap">
             <div className="order-1 flex min-w-0 items-center gap-3">
-              <Image src="/brand/softy-mark.png" alt="" width={36} height={36} className="size-9 shrink-0 rounded-lg" priority />
-              <span className="truncate text-[18px] font-bold">{admin.title}</span>
+              <StickerMark size={36} tilt={-6} priority />
+              <span className="truncate font-lalezar text-[22px] font-normal text-paper">{admin.title}</span>
             </div>
             <div className="order-2 ms-auto flex shrink-0 items-center gap-1 md:order-3">
               <Link
                 href="/"
-                className="inline-flex h-11 items-center rounded-xl px-3 text-[15px] font-medium text-[#fdfbfa]/85 transition-colors hover:bg-[#1b2b46] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdfbfa]"
+                className="inline-flex h-11 items-center rounded-[2px] px-3 text-[15px] font-medium text-paper/85 transition-colors hover:bg-ink-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper"
               >
                 {admin.nav.site}
               </Link>
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="inline-flex h-11 items-center rounded-xl border border-[#2a3a55] px-4 text-[15px] font-medium text-[#fdfbfa] transition-colors hover:bg-[#1b2b46] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdfbfa]"
+                  className="inline-flex h-11 items-center rounded-[2px] border border-paper/30 px-4 text-[15px] font-medium text-paper transition-colors hover:bg-ink-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper"
                 >
                   {admin.nav.logout}
                 </button>

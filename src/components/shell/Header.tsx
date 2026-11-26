@@ -1,30 +1,31 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { common, pages } from '@/content/ar';
+import { ctaCls, StickerMark } from '@/components/collage';
 import type { ShopSettings } from '@/lib/types';
 import { NavLink } from './NavLink';
 
 /**
- * Site header (Server Component). Sticky with blur; only NavLink is a client island.
- * Rendered in app/layout.tsx with the current settings.
+ * Site header (Server Component): a white paper strip with a torn bottom edge, sticky.
+ * Only NavLink is a client island. Rendered in app/layout.tsx with the current settings.
  */
 export function Header({ settings }: { settings: ShopSettings }) {
   return (
-    <header data-site-header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+    <header data-site-header className="scrap scrap-white scrap-tornb sticky top-0 z-40 pb-2">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
-        <Link href="/" aria-label={pages.shell.homeAria} className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Image src="/brand/softy-mark.png" alt="" width={36} height={36} className="size-8 rounded-lg sm:size-9" priority />
-          <span className="font-heading text-base font-bold text-primary sm:text-lg">{settings.shopName}</span>
+        <Link
+          href="/"
+          aria-label={pages.shell.homeAria}
+          className="flex shrink-0 items-center gap-2 rounded-[2px] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink sm:gap-3"
+        >
+          <StickerMark size={36} tilt={-6} priority className="size-8 sm:size-9" />
+          <span className="font-lalezar text-lg font-normal leading-none text-ink sm:text-xl">{settings.shopName}</span>
         </Link>
 
-        <nav aria-label={pages.shell.menuLabel} className="flex items-center gap-1 text-xs sm:gap-3 sm:text-sm">
+        <nav aria-label={pages.shell.menuLabel} className="flex items-center gap-1 text-sm sm:gap-3">
           <NavLink href="/how-it-works" className="whitespace-nowrap">
             {common.nav.howItWorks}
           </NavLink>
-          <Link
-            href="/#builder"
-            className="whitespace-nowrap rounded-lg bg-brand-gradient-cta px-3 py-2 font-bold text-brand-foreground shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-4"
-          >
+          <Link href="/#builder" className={ctaCls('sm')}>
             {common.nav.start}
           </Link>
         </nav>
