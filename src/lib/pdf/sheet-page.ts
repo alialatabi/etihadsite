@@ -104,7 +104,7 @@ export interface EmbeddedArtwork {
   bw: number;
   bh: number;
   isImage: boolean;
-  /** Clockwise /Rotate of the source PDF page (embedPage ignores it), or the raster artwork's own `rotate` (staff page: EXIF turn); 0 otherwise. */
+  /** Clockwise /Rotate of the source PDF page (embedPage ignores it); 0 for images. */
   pageRotateCw: number;
 }
 
