@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AI_IDEA_MAX_CHARS, AI_MAX_REFS } from '@/lib/ai/config';
+import { AiProgress } from '../ai/AiProgress';
 import { REF_ACCEPT, aiErrorMessage, showViewResult } from '../ai/ai-logic';
 import { TextReview } from '../ai/TextReview';
 import type { AiDesignApi } from '../ai/useAiDesign';
@@ -144,15 +145,18 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
           )}
 
           {ai.phase !== 'reviewing' && (
-            <Button
-              type="button"
-              disabled={ai.block !== null}
-              onClick={() => void ai.review()}
-              className="h-12 w-full bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90 sm:w-auto"
-            >
-              {ai.briefing ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Sparkles className="size-5" aria-hidden />}
-              {builder.ai.generate}
-            </Button>
+            <>
+              <Button
+                type="button"
+                disabled={ai.block !== null}
+                onClick={() => void ai.review()}
+                className="h-12 w-full bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90 sm:w-auto"
+              >
+                {ai.briefing ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Sparkles className="size-5" aria-hidden />}
+                {builder.ai.generate}
+              </Button>
+              {ai.briefing && <AiProgress kind="brief" />}
+            </>
           )}
 
           {ai.phase === 'reviewing' && <TextReview ai={ai} />}

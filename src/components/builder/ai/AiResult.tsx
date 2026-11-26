@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { acceptedAiLines } from '../logic';
 import type { BuilderApi } from '../useBuilder';
 import { aiErrorMessage, canRetryAi, maxWidthAtSize, resultAcceptedSpec, resultDpiStatus, resultShown, textWarning } from './ai-logic';
+import { AiProgress } from './AiProgress';
 import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
 
@@ -107,10 +108,9 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   if (ai.phase === 'generating') {
     return (
       <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-2xl border bg-card p-6 text-center">
-        <LoaderCircle className="size-10 animate-spin text-brand" aria-hidden />
-        <p className="text-base font-medium">
-          {builder.ai.generating}
-        </p>
+        <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden />
+        <p className="text-base font-medium">{builder.ai.generating}</p>
+        <AiProgress kind="image" />
       </div>
     );
   }
