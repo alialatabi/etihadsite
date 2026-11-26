@@ -72,6 +72,7 @@ export function TeamDesigner({ settings, ready, remainingToday }: { settings: Te
       settings={full}
       ready={ready}
       seed={seed}
+      focusOnMount={session > 0}
       shape={shape}
       corners={corners}
       texts={texts}
@@ -91,6 +92,7 @@ function TeamSession({
   settings,
   ready,
   seed,
+  focusOnMount,
   shape,
   corners,
   texts,
@@ -103,6 +105,8 @@ function TeamSession({
   settings: ShopSettings;
   ready: boolean;
   seed: number | null;
+  /** True for every session after the first: «تصميم جديد» destroyed the focused button, so focus starts at the top of the form. */
+  focusOnMount: boolean;
   shape: Shape | null;
   corners: Corners;
   texts: SizeTexts;
@@ -125,7 +129,14 @@ function TeamSession({
 
   const refInput = useRef<HTMLInputElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
+  const shapeHeading = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
+
+  // «تصميم جديد» re-mounts this whole session, so the button that had focus is gone and focus would fall to <body>.
+  // Put it on the first heading of the fresh form (announced by screen readers), but not on the first visit to the page.
+  useEffect(() => {
+    if (focusOnMount) shapeHeading.current?.focus();
+  }, [focusOnMount]);
 
   // «جرّب مرة ثانية» can unmount the focused button when the phase changes, which would drop keyboard focus on
   // <body>. Put it on the results region then, but only when it really was lost and not on first paint (as AiResult does).
@@ -162,7 +173,7 @@ function TeamSession({
     <div className="space-y-6">
       <fieldset disabled={generating || ai.briefing} className="min-w-0 space-y-6">
         <section aria-labelledby="team-shape" className="space-y-3">
-          <h2 id="team-shape" className="text-lg font-bold">
+          <h2 id="team-shape" ref={shapeHeading} tabIndex={-1} className="text-lg font-bold outline-none">
             {team.shape}
           </h2>
           <TeamShape shape={shape} onShape={onShape} corners={corners} onCorners={onCorners} />
