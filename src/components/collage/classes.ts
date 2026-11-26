@@ -66,9 +66,9 @@ export function scrapCls({
 }
 
 const CTA_SIZE = {
-  sm: 'min-h-11 px-4 pt-1 pb-2.5 text-lg!',
-  md: 'min-h-12 px-7 pt-1.5 pb-3 text-[22px]!',
-  lg: 'min-h-14 w-full px-8 pt-2 pb-3.5 text-[26px]!',
+  sm: 'min-h-11 px-4 pt-1 pb-2.5 text-lg',
+  md: 'min-h-12 px-7 pt-1.5 pb-3 text-[22px]',
+  lg: 'min-h-14 w-full px-8 pt-2 pb-3.5 text-[26px]',
 } as const;
 
 /**

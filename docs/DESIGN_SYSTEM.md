@@ -55,7 +55,7 @@ The class helpers live in `src/components/collage/classes.ts` (not `scrap.ts`: o
 | Component / helper | Props | Renders |
 |---|---|---|
 | `scrapCls({tone, font, edge, size})` | tone `white\|navy\|red\|news\|grid\|tape\|discount`; font `lalezar\|rakkas\|kufi\|marker\|body`; edge `torn\|torn4\|tornb\|square`; size `tag\|sm\|md\|lg\|xl` | class string |
-| `ctaCls(size='md')` | `sm` (min-h-11, header), `md` (min-h-12), `lg` (min-h-14, full submit) | class string for `<Link>`, `<a>`, `<button>` and the shadcn `<Button className>` (it neutralises Button's bg, border, radius, height and font size) |
+| `ctaCls(size='md')` | `sm` (min-h-11, header), `md` (min-h-12), `lg` (min-h-14, full submit) | class string for `<Link>`, `<a>`, `<button>` and the shadcn `<Button className>` (it neutralises Button's bg, border, radius and height) |
 | `tagCls(tone)`, `paperCardCls(tone)` | | class strings behind `Tag` and `PaperCard` |
 | `TILT` | keys `-3 -2 -1.5 -1 0 1 1.5 2 3` | static rotate classes |
 | `<Scrap>` | `as` (span p div h1 h2 h3 li), tone, font, edge, size, `tilt`, className, `id`, `ref`, rest | one element = one scrap |
@@ -98,7 +98,7 @@ Heading tiers:
 10. **Never put `bg-*` on a `scrap` element** (it paints a rectangle round the torn edge). Never put Tailwind filter utilities (`brightness-*`, `drop-shadow-*`, `blur-*`) on a scrap or sticker: they replace its shadow. For hover, change `rotate` or `translate`.
 11. **No `filter`, `transform`, `rotate` or `scale` on an ancestor of a `position: fixed` element** (the WhatsApp float, InstallPrompt, dialogs): it turns the ancestor into the containing block and moves the fixed element. A `scrap` uses `filter`, so a scrap never contains a fixed element. A section with sticky content uses `overflow-x-clip`, never `overflow-hidden`.
 12. **No horizontal scroll at 390px.** A section with tilted or decorative pieces gets `overflow-x-clip`; `body` also has `overflow-x: clip` as a safety net, so look for overflow with the snippet in §10, not only by scrolling.
-13. **The shadcn `Button` uses the `cn` npm package, which does not merge conflicting Tailwind classes**, so the CSS order decides between its own `text-sm` and yours. `ctaCls` marks its font size important (`text-[22px]!`) for that reason. Any other override of a Button class may need the same `!` suffix. The Button's `text-primary-foreground` also stays, so a CTA made with `<Button>` has cream (`#FDFBFA`) text instead of pure white on the red scrap (still AA).
+13. **The shadcn `Button` merges classes** (its `cn` drops the conflicting default `text-sm`, `h-8`, `px-2.5`, `rounded-lg`, `bg-primary`), so `<Button className={ctaCls('lg')}>` renders as the CTA scrap. One leftover: the Button keeps `text-primary-foreground`, so a CTA made with `<Button>` has cream (`#FDFBFA`) text instead of pure white on the red scrap (still AA). `CtaLink` callers may pass a smaller `text-*` (how-it-works uses `text-base`).
 
 ## 7. Old literal colours → tokens
 
