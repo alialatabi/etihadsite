@@ -5,36 +5,14 @@ import { CloudUpload, FileDown, LoaderCircle, TriangleAlert } from 'lucide-react
 import { ACCEPTED_EXTENSIONS } from '@/config/defaults';
 import { builder, common, staff } from '@/content/ar';
 import { Button } from '@/components/ui/button';
-import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
-import { count, formatCount, type PluralForms } from '@/lib/plural';
 import { uploadLimitMb } from '@/lib/upload-limit';
 import { cn } from '@/lib/utils';
 import type { LayoutSettings, QualitySettings } from '@/lib/types';
 import { StaffCard } from './StaffCard';
 import { MAX_STAFF_FILES, MAX_STAFF_FILE_BYTES, downloadStaffFiles, type StaffCardState } from './staff-logic';
+import { Counted, saveFile } from './staff-shared';
 import { useStaffItems } from './useStaffItems';
-
-/** Hands the finished PDF to the browser as a download. */
-function saveFile(bytes: Uint8Array, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
-/** "3 تصاميم": the number isolated LTR, the plural word after it. */
-function Counted({ n, forms }: { n: number; forms: PluralForms }) {
-  return (
-    <>
-      <Ltr>{formatCount(n)}</Ltr> {count(n, forms)}
-    </>
-  );
-}
 
 export function StaffSheets({ layoutSettings, quality }: { layoutSettings: LayoutSettings; quality: QualitySettings }) {
   const s = useStaffItems(layoutSettings, quality);

@@ -52,5 +52,6 @@ export const common = {
     design: { zero: 'تصاميم', one: 'تصميم', two: 'تصميمين', few: 'تصاميم', many: 'تصميم', other: 'تصميم' },
     file: { zero: 'ملفات', one: 'ملف', two: 'ملفين', few: 'ملفات', many: 'ملف', other: 'ملف' },
     page: { zero: 'صفحات', one: 'صفحة', two: 'صفحتين', few: 'صفحات', many: 'صفحة', other: 'صفحة' },
+    receipt: { zero: 'وصولات', one: 'وصل', two: 'وصلين', few: 'وصولات', many: 'وصل', other: 'وصل' },
   },
 } as const;

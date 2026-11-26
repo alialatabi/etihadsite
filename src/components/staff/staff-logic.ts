@@ -246,15 +246,24 @@ export const SAVE_GAP_MS = 400;
 const trimEnds = (t: string) => t.replace(/^[\s.]+|[\s.]+$/g, '');
 
 /**
+ * A design's file name without extension, safe for a Windows file name: forbidden characters are
+ * dropped, Arabic and other letters stay, at most 80 characters, `design` when nothing is left.
+ * Shared by the sticker and the receipt downloads.
+ */
+export function fileBaseName(fileName: string): string {
+  const noExt = fileName.replace(/\.[^.]*$/, '');
+  let base = trimEnds(noExt.replace(FORBIDDEN_IN_NAME, ''));
+  base = trimEnds(Array.from(base).slice(0, MAX_BASE_NAME).join(''));
+  return base || 'design';
+}
+
+/**
  * `<design file name without extension>-<size>.pdf`: `logo-5.8cm.pdf` for a circle (its
  * diameter), `logo-5x3cm.pdf` for the others (width x height, the size fields' number format).
  * Characters Windows forbids are dropped, Arabic and other letters stay.
  */
 export function staffPdfName(fileName: string, spec: StickerSpec): string {
-  const noExt = fileName.replace(/\.[^.]*$/, '');
-  let base = trimEnds(noExt.replace(FORBIDDEN_IN_NAME, ''));
-  base = trimEnds(Array.from(base).slice(0, MAX_BASE_NAME).join(''));
-  if (!base) base = 'design';
+  const base = fileBaseName(fileName);
   const size = spec.shape === 'circle' ? safeFormatCm(spec.widthUm) : `${safeFormatCm(spec.widthUm)}x${safeFormatCm(spec.heightUm)}`;
   return `${base}-${size}cm.pdf`;
 }
