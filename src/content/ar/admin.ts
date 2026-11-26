@@ -282,6 +282,67 @@ export const admin = {
     staffBadge: 'موظف: {name}',
     prev: 'السابق',
     next: 'التالي',
+    /** The tile that counts the designs still stored (older unordered ones were deleted). */
+    stored: 'المحفوظة',
+    /** {days} = the retention in days, e.g. «7 أيام». */
+    retentionNote: 'التصاميم الي ما انطلبت تنحذف تلقائياً بعد {days} من إنشائها.',
+    dayPlural: { zero: 'أيام', one: 'يوم', two: 'يومين', few: 'أيام', many: 'يوم', other: 'يوم' },
+    /** {days} = «3 أيام». */
+    expiresIn: 'ينحذف بعد {days}',
+    expiresToday: 'ينحذف اليوم',
+    /** Filter bar. */
+    filters: {
+      label: 'فلترة التصاميم',
+      search: 'بحث',
+      searchPlaceholder: 'اسم الزبون، الموبايل، رقم الطلب، أو الفكرة',
+      status: 'الحالة',
+      statusAll: 'الكل',
+      statusOrdered: 'انطلب',
+      statusUnordered: 'ما انطلب',
+      maker: 'منو سوّاه',
+      makerAll: 'الكل',
+      makerCustomers: 'الزبائن',
+      makerStaff: 'الموظفين',
+      shape: 'الشكل',
+      shapeAll: 'الكل',
+      shapeRect: 'مستطيل',
+      from: 'من تاريخ',
+      to: 'إلى تاريخ',
+      submit: 'ابحث',
+      clear: 'امسح',
+      /** {n} = result count, {unit} = the plural of «تصميم». */
+      found: 'لقينا {n} {unit}',
+      searchCapped: 'البحث بالاسم والموبايل ورقم الطلب يشمل آخر 1000 طلب فقط.',
+    },
+    /** Card actions. */
+    card: {
+      customer: 'الزبون',
+      order: 'الطلب',
+      whatsapp: 'واتساب',
+      /** {no} = the order number. */
+      whatsappText: 'هلا، بخصوص طلبك رقم {no} من مطبعة سوفتي',
+      downloadImage: 'نزّل الصورة',
+      downloadSheet: 'نزّل ورقة مسفطة (PDF)',
+      delete: 'احذف',
+    },
+    delete: {
+      title: 'تحذف هذا التصميم نهائياً؟',
+      body: 'ينحذف التصميم وما يرجع.',
+      confirm: 'نعم، احذف',
+      cancel: 'لا، خلّيه',
+      deleting: 'جاري الحذف…',
+      refused: 'ما ينحذف، التصميم مرتبط بطلب.',
+      failed: 'ما گدرنا نحذف، جرّب مرة ثانية.',
+      invalid: 'رقم التصميم مو صحيح.',
+    },
+    /** Errors of GET /api/admin/designs/<id>/sheet (JSON `message`). */
+    sheet: {
+      notFound: 'التصميم مو موجود.',
+      layoutFailed: 'ما گدرنا نرتب هذا القياس على الورقة.',
+      artworkFailed: 'ما گدرنا نجهز الصورة للورقة.',
+      tooBig: 'الورقة كبيرة وما تنزل من هنا. نزّل الصورة بدالها.',
+      failed: 'ما گدرنا نسوي الورقة، جرّب مرة ثانية.',
+    },
   },
   /** Staff designer accounts page (/admin/staff). */
   staff: {
