@@ -31,9 +31,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <a
               href={link}
               rel="noreferrer"
-              className="flex min-h-11 items-center gap-2 rounded-xl border border-[#e7dfdf] bg-white px-4 py-2 text-[15px] font-medium text-[#121f34] transition-colors hover:bg-[#f7f0ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d01c4a]"
+              className="flex min-h-11 items-center gap-2 rounded-[2px] bg-news px-4 py-2 text-[15px] font-medium text-ink shadow-[inset_0_0_0_1px_rgb(18_31_52/0.12)] transition-colors hover:bg-news-dark focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
-              <ExternalLink aria-hidden className="size-5 shrink-0 text-[#5a6475]" />
+              <ExternalLink aria-hidden className="size-5 shrink-0 text-ink-muted" />
               <Ltr className="min-w-0 break-all underline underline-offset-4">{link}</Ltr>
             </a>
           </Panel>
