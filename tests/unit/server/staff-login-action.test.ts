@@ -103,10 +103,14 @@ describe("staffLoginAction", () => {
     expect(verifyPassword).toHaveBeenCalledTimes(1);
   });
 
-  it("the 11th try from one IP is rate limited", async () => {
+  it("the 11th try from one IP is rate limited even with a different phone every time", async () => {
     await makeStaff();
-    for (let i = 0; i < 10; i++) expect(await login({ phone: PHONE, password: "wrong-one-1" }, "10.9.9.9")).not.toContain("rate");
-    expect(await login({ phone: PHONE, password: PASSWORD }, "10.9.9.9")).toBe("/team/login?error=rate");
+    // A fresh phone per try keeps the per-phone limiter far from its limit, so only the per-IP limiter can trip here.
+    const phoneN = (i: number) => `0770${String(i).padStart(7, "0")}`;
+    for (let i = 1; i <= 10; i++) expect(await login({ phone: phoneN(i), password: "wrong-one-1" }, "10.9.9.9")).toBe("/team/login?error=1");
+    expect(await login({ phone: phoneN(11), password: "wrong-one-1" }, "10.9.9.9")).toBe("/team/login?error=rate");
+    // The IP check runs before the phone check: a never-seen phone is still refused from the exhausted IP.
+    expect(await login({ phone: phoneN(12), password: PASSWORD }, "10.9.9.9")).toBe("/team/login?error=rate");
   });
 
   it("the 11th try for one phone is rate limited even from different IPs", async () => {
