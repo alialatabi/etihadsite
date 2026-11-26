@@ -52,6 +52,12 @@ describe('AiProgress (timer wrapper)', () => {
     expect(politeText(html)).toBe(builder.ai.progress.brief[0]);
     expect(html).toContain('aria-valuenow="0"');
   });
+
+  it('a remount with a start in the past paints its real place on the first frame (not 0 %)', () => {
+    const html = render(AiProgress, { kind: 'image', startedAt: Date.now() - 30_000 });
+    expect(politeText(html)).toBe(builder.ai.progress.image[2]);
+    expect(html).not.toContain('aria-valuenow="0"');
+  });
 });
 
 describe('AiResult while generating', () => {

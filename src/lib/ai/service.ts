@@ -84,6 +84,7 @@ export const GENERATE_STATUS: Record<GenerateError, number> = {
   refused: 422,
   ip_limit: 429,
   site_limit: 429,
+  rate_limited: 429,
   failed: 502,
   unavailable: 503,
 };
@@ -482,7 +483,8 @@ export async function runGenerate(
   const { ip, ipKey } = actor.identify(request);
   const guards = limiters();
   const rl = (actor.guard === 'staff' ? guards.staffGenerate : guards.generate).check(actor.limiterKey(ip));
-  if (!rl.ok) return failure('ip_limit', rl.retryAfterSec);
+  // Staff get their own answer: 'ip_limit' means "the day's tries are used up" and the staff page would lock itself.
+  if (!rl.ok) return failure(actor.guard === 'staff' ? 'rate_limited' : 'ip_limit', rl.retryAfterSec);
 
   const day = shopDayKey(new Date());
   const { imagePerKey: perIpLimit, imageSite: siteLimit } = actor.limits(settings);

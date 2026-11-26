@@ -8,6 +8,22 @@ export const PROGRESS_CAP = 95;
 /** How often AiProgress re-reads the clock. */
 export const PROGRESS_TICK_MS = 500;
 
+/**
+ * Starts the clock of one AiProgress: reports the elapsed time since `start` once right away (a zero-delay timer,
+ * so a bar that remounts mid-request shows its real place on the first frame, not 0 % for a tick) and then every
+ * PROGRESS_TICK_MS. Elapsed is read from the clock, not counted in ticks: background tabs throttle intervals.
+ * Returns the stop function.
+ */
+export function startProgressClock(start: number, onElapsed: (ms: number) => void): () => void {
+  const tick = () => onElapsed(Math.max(0, Date.now() - start));
+  const first = setTimeout(tick, 0);
+  const id = setInterval(tick, PROGRESS_TICK_MS);
+  return () => {
+    clearTimeout(first);
+    clearInterval(id);
+  };
+}
+
 /** Time constant of the curve: fast at first, then slower and slower. */
 export const PROGRESS_TAU_MS: Record<ProgressKind, number> = { brief: 4_000, image: 30_000 };
 

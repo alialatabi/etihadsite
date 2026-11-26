@@ -22,6 +22,7 @@ import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { reportError } from '@/lib/monitoring/report';
 import type {
   AiBlock,
+  AiGenerationFilter,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -626,10 +627,13 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   /** Newest first. One Range page with an exact total; a page past the end (416) is empty. */
-  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string }) {
+  async aiListGenerations(q: { limit: number; offset: number; ipKey?: string; maker?: AiGenerationFilter['maker'] }) {
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);
-    const filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
+    let filter = q.ipKey !== undefined ? `&ip_key=eq.${encodeURIComponent(q.ipKey)}` : '';
+    if (q.maker === 'customer') filter += '&staff_id=is.null';
+    else if (q.maker === 'staff') filter += '&staff_id=not.is.null';
+    else if (q.maker) filter += `&staff_id=eq.${encodeURIComponent(q.maker.staffId)}`;
     if (!(limit >= 1)) {
       // An empty page, but still with the exact total (PostgREST `limit=0` answers `[]` with Content-Range */total).
       const res = await this.req(`/rest/v1/ai_generations?select=id&limit=0${filter}`, {

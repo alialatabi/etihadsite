@@ -15,6 +15,7 @@ import path from "node:path";
 import { DEFAULT_SETTINGS } from "../../config/defaults";
 import type {
   AiBlock,
+  AiGenerationFilter,
   AiGenerationRecord,
   AiKind,
   AiReserveResult,
@@ -46,6 +47,14 @@ const AI_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EVENT_FILE_RE = /^events-(\d{4})-(\d{2})\.jsonl$/;
 const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+
+/** AiGenerationFilter.maker: customer = no staff id, staff = any staff id, { staffId } = that account. No filter = every row. */
+function makerMatches(staffId: string | null | undefined, maker: AiGenerationFilter["maker"]): boolean {
+  if (maker === undefined) return true;
+  if (maker === "customer") return staffId == null;
+  if (maker === "staff") return staffId != null;
+  return staffId === maker.staffId;
+}
 
 export class LocalStorage implements StorageAdapter {
   readonly root: string;
@@ -456,9 +465,11 @@ export class LocalStorage implements StorageAdapter {
     limit: number;
     offset: number;
     ipKey?: string;
+    maker?: AiGenerationFilter["maker"];
   }): Promise<{ rows: AiGenerationRecord[]; total: number }> {
     const list = (await this.readAiList<AiGenerationRecord>("generations"))
       .filter((g) => q.ipKey === undefined || g.ipKey === q.ipKey)
+      .filter((g) => makerMatches(g.staffId, q.maker))
       .sort((x, y) => cmp(y.createdAt, x.createdAt) || cmp(y.id, x.id));
     const from = Math.max(0, Math.floor(q.offset));
     const limit = Math.floor(q.limit);

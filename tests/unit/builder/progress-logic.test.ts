@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { builder } from '@/content/ar';
 import {
   PROGRESS_CAP,
@@ -6,6 +6,7 @@ import {
   PROGRESS_STAGE_STARTS_MS,
   PROGRESS_TICK_MS,
   progressAt,
+  startProgressClock,
   type ProgressKind,
 } from '@/components/builder/ai/progress-logic';
 
@@ -100,5 +101,32 @@ describe('progressAt', () => {
   it('pins the cap and the tick', () => {
     expect(PROGRESS_CAP).toBe(95);
     expect(PROGRESS_TICK_MS).toBe(500);
+  });
+});
+
+describe('startProgressClock', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('reports the real elapsed time at once for a start in the past (a remount keeps its place), then every tick', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    const seen: number[] = [];
+    const stop = startProgressClock(100_000 - 30_000, (ms) => seen.push(ms));
+    expect(seen).toEqual([]);
+    vi.advanceTimersByTime(0);
+    expect(seen).toEqual([30_000]);
+    expect(progressAt(seen[0], 'image').stageIndex).toBe(2);
+    expect(progressAt(seen[0], 'image').percent).toBeGreaterThan(0);
+    vi.advanceTimersByTime(PROGRESS_TICK_MS);
+    expect(seen).toEqual([30_000, 30_000 + PROGRESS_TICK_MS]);
+    stop();
+  });
+
+  it('stops on cleanup, also before the first tick', () => {
+    vi.useFakeTimers();
+    const seen: number[] = [];
+    startProgressClock(Date.now(), (ms) => seen.push(ms))();
+    vi.advanceTimersByTime(5_000);
+    expect(seen).toEqual([]);
   });
 });

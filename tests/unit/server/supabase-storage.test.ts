@@ -456,3 +456,24 @@ describe("SupabaseStorage purge", () => {
     expect(calls.every((c) => c.init.method !== "DELETE")).toBe(true);
   });
 });
+
+describe("SupabaseStorage aiListGenerations maker filter", () => {
+  const total = (range: string) => new Response("[]", { status: 200, headers: { "content-range": range } });
+
+  it("customer = staff_id is null, staff = not null, one account = eq (escaped)", async () => {
+    respond(total("*/3"), total("*/2"), total("*/1"));
+    const s = store();
+    expect((await s.aiListGenerations({ limit: 0, offset: 0, maker: "customer" })).total).toBe(3);
+    expect((await s.aiListGenerations({ limit: 0, offset: 0, maker: "staff" })).total).toBe(2);
+    expect((await s.aiListGenerations({ limit: 0, offset: 0, maker: { staffId: "st_a b" } })).total).toBe(1);
+    expect(calls[0].url).toContain("&staff_id=is.null");
+    expect(calls[1].url).toContain("&staff_id=not.is.null");
+    expect(calls[2].url).toContain("&staff_id=eq.st_a%20b");
+  });
+
+  it("no maker adds no staff filter", async () => {
+    respond(total("*/4"));
+    await store().aiListGenerations({ limit: 0, offset: 0 });
+    expect(calls[0].url).not.toContain("staff_id");
+  });
+});

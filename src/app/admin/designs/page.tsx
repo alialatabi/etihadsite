@@ -11,6 +11,7 @@ import { getStorage } from '@/lib/storage';
 import type { AiBlock, AiGenerationRecord, AiUsageRow } from '@/lib/types';
 import { formatBaghdad } from '../_lib';
 import { blockIpAction, unblockIpAction } from './actions';
+import { customerAllTime } from './all-time';
 import { listAiBlocks } from './blocks';
 import { DesignGrid } from './DesignGrid';
 import { designsSummary, IP_KEY_RE, pageFromParam, usageSince } from './summary';
@@ -35,15 +36,17 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
   const settings = await getSettings();
   const today = shopDayKey(new Date());
 
-  const [generations, allTimeFiltered, usage, blocks]: [
+  const [generations, allTimeCustomer, usage, blocks]: [
     { rows: AiGenerationRecord[]; total: number },
     number | null,
     AiUsageRow[],
     AiBlock[],
   ] = await Promise.all([
     storage.aiListGenerations?.({ limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE, ipKey }) ?? { rows: [], total: 0 },
-    // All time = every stored generation. Without ?ip the page's own total already is that number.
-    ipKey && storage.aiListGenerations ? storage.aiListGenerations({ limit: 0, offset: 0 }).then((g) => g.total) : null,
+    // All time = every stored CUSTOMER generation, the same population as today and this month (which count kind 'image');
+    // staff designs show in the gallery below but not in these tiles. A storage without the staff column (migration not
+    // applied yet) cannot hold staff designs, so its plain total is the same number.
+    customerAllTime(storage),
     // Today, this month and the alerts (today and yesterday) need nothing older.
     storage.aiUsage?.(usageSince(today), 'image') ?? [],
     listAiBlocks(),
@@ -62,7 +65,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));
   const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit, blockedKeys);
-  const allTime = allTimeFiltered ?? generations.total;
+  const allTime = allTimeCustomer ?? generations.total;
   const pages = Math.max(1, Math.ceil(generations.total / PAGE_SIZE));
   const href = (page: number) => {
     const q = new URLSearchParams();

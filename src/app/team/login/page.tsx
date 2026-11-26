@@ -24,7 +24,7 @@ export default async function TeamLoginPage({ searchParams }: { searchParams: Pr
   if (await currentStaff()) redirect('/team');
   const { error } = await searchParams;
   return (
-    <div className="flex min-h-[60vh] items-center justify-center py-6">
+    <div className="flex min-h-[60vh] items-center justify-center px-4 py-6">
       <Panel as="div" className="w-full max-w-sm" bodyClassName="flex flex-col gap-6 !p-8">
         <div className="flex flex-col items-center gap-4 text-center">
           <Image src="/brand/softy-logo.png" alt={common.brand} width={1038} height={914} className="h-auto w-24" priority />

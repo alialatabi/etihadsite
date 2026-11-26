@@ -680,7 +680,9 @@ export type GenerateError =
   | 'text_too_long'
   | 'refused'
   | 'failed'
-  | 'invalid_request';
+  | 'invalid_request'
+  /** Staff only: the hourly in-memory guard (60 tries per account) said wait. Not the daily limit. */
+  | 'rate_limited';
 export type GenerateResponse =
   | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
   | { ok: false; error: GenerateError };
