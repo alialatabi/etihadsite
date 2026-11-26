@@ -19,6 +19,8 @@ export async function signToken(secret: string, nowMs: number = Date.now(), ttlS
 
 export async function verifyToken(token: string | undefined, secret: string | undefined, nowMs: number = Date.now()): Promise<boolean> {
   if (!token || !secret || secret.length < 32) return false;
+  // Same placeholder rule as env.ts (inlined: this file stays import-free for the proxy).
+  if (secret.toLowerCase().startsWith('change-me')) return false;
   try {
     const { payload } = await jwtVerify(token, key(secret), { algorithms: ['HS256'], currentDate: new Date(nowMs) });
     return payload.role === 'admin';

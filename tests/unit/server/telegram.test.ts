@@ -137,6 +137,29 @@ describe("telegram caption", () => {
     }
   });
 
+  it("an address with line breaks or control chars stays on the one address line", () => {
+    const clean = buildCaption(rec(), DEFAULT_SETTINGS);
+    const c = buildCaption(
+      rec({
+        governorate: "بغداد x",
+        district: "الكرادة" + NL + "y",
+        landmark: "قرب\r\nالجسر\u0007\u2028z\u2029",
+      }),
+      DEFAULT_SETTINGS,
+    );
+    expect(c.split(NL)).toHaveLength(clean.split(NL).length);
+    expect(c.split(NL).slice(1).map((l) => l.split(":")[0])).toEqual([
+      "الأوراق",
+      "الخامة",
+      "الشكل",
+      "العنوان",
+      "الموبايل",
+      "الإجمالي",
+    ]);
+    expect(c).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/);
+    expect(c.split(NL)[4]).toBe("العنوان: بغداد x - الكرادة y - قرب الجسر z");
+  });
+
   it("never shows the customer name or notes", () => {
     const c = buildCaption(
       rec({
@@ -233,5 +256,22 @@ describe("notifyShop", () => {
     });
     expect(r2.telegram).toBe("failed");
     expect(r2.error).not.toContain("123:ABC");
+  });
+
+  it("masks every copy of the bot token in a thrown error message", async () => {
+    setupEnv({ ORDER_TRANSPORT: "telegram", TELEGRAM_BOT_TOKEN: "123:ABC" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("a 123:ABC b 123:ABC c");
+      }),
+    );
+    const r = await notifyShop(rec(), new Uint8Array(), "x.pdf", {
+      ...DEFAULT_SETTINGS,
+      telegramChatId: "777",
+    });
+    expect(r.telegram).toBe("failed");
+    expect(r.error).not.toContain("123:ABC");
+    expect(r.error).toBe("a *** b *** c");
   });
 });

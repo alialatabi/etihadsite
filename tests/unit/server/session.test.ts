@@ -33,6 +33,17 @@ describe("admin session", () => {
     expect(await verifyToken(undefined, SECRET)).toBe(false);
   });
 
+  it("refuses a placeholder secret (change-me...) even when it is long enough", async () => {
+    const P = "change-me-to-a-long-random-string";
+    expect(P.length).toBeGreaterThanOrEqual(32);
+    const token = await signToken(P);
+    expect(await verifyToken(token, P)).toBe(false);
+    const upper = P.toUpperCase();
+    expect(await verifyToken(await signToken(upper), upper)).toBe(false);
+    // Control: a real secret still verifies.
+    expect(await verifyToken(await signToken(SECRET), SECRET)).toBe(true);
+  });
+
   it("createSession / verifySession / destroySession via cookie", async () => {
     setupEnv();
     expect(await verifySession()).toBe(false);

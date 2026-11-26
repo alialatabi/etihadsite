@@ -7,6 +7,7 @@ import { makeDisplayNo, multiPdfFileNameFor, pdfFileNameFor } from "@/lib/displa
 import { normaliseArtwork } from "@/lib/design/normalise.server";
 import { computeLayout, computeMultiLayout, layoutParamsFor } from "@/lib/layout";
 import { reportError } from "@/lib/monitoring/report";
+import { makeTextScrubber } from "@/lib/monitoring/scrub";
 import { notifyShop } from "@/lib/notify";
 import { buildMultiOrderRecord, buildOrderRecord, summaryOf, type MultiDesignInput } from "@/lib/order-record";
 import { orderRequestSchema } from "@/lib/order-schema";
@@ -109,6 +110,10 @@ function errorCode(e: unknown): string {
   const status = e instanceof Error ? /-> (\d{3})/.exec(e.message) : null;
   return status ? status[1] : "unknown";
 }
+
+const scrubLog = makeTextScrubber();
+/** An error as scrubbed text for the platform log: a storage error message can echo a row (phone, address). */
+const logText = (e: unknown): string => scrubLog(e instanceof Error ? e.message : String(e));
 
 /** The stored order, or null when it is absent or the read failed (callers then carry on as the winner). */
 async function readBack(
@@ -343,13 +348,23 @@ async function completeOrder(
       });
     }
   } catch (e) {
-    console.error("[orders] notify threw", e);
+    console.error("[orders] notify threw", logText(e));
     reportError(e, { where: "orders.notify", route: "/api/orders", tags: { orderId: record.orderId } });
   }
-  const updated = (await storage.updateOrder(record.orderId, { notified })) ?? {
-    ...record,
-    notified,
-  };
+  // Best effort like the steps above: the order is saved and the shop was told, so a failed write of
+  // the notify state must not turn into server_error.
+  let updated: OrderRecord = { ...record, notified };
+  try {
+    updated = (await storage.updateOrder(record.orderId, { notified })) ?? updated;
+  } catch (e) {
+    // A short code only, and a fixed error for Sentry: the error text can carry a PostgREST row (phone).
+    console.error(`[orders] notified-state save failed (${errorCode(e)})`);
+    reportError(new Error("Order notified-state save failed"), {
+      where: "orders.notifiedState",
+      route: "/api/orders",
+      tags: { orderId: record.orderId },
+    });
+  }
   return successFor(updated, settings);
 }
 
@@ -538,7 +553,7 @@ export async function POST(request: Request): Promise<Response> {
       inflight.delete(req.orderId);
     }
   } catch (e) {
-    console.error("[orders] failed", e);
+    console.error("[orders] failed", logText(e));
     reportError(e, { where: "orders.post", route: "/api/orders" });
     return send(fail("server_error"));
   }
