@@ -11,6 +11,7 @@ const d = admin.designs;
 
 const MESSAGE: Record<Exclude<DeleteDesignResult['status'], 'deleted' | 'missing'>, string> = {
   refused: d.delete.refused,
+  tooNew: d.delete.tooNew,
   invalid: d.delete.invalid,
   error: d.delete.failed,
 };

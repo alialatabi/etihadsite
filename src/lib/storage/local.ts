@@ -729,10 +729,12 @@ export class LocalStorage implements StorageAdapter {
 
   /**
    * 7-day rule for designs (owner 2026-11-26), same behaviour as the Supabase adapter: every generation with
-   * orderId null created before `cutoff` is removed (upload .bin + .json, then the row). Orders are read first
-   * (strictly: an unreadable order file aborts, nothing is deleted); a generation an order uses is healed
-   * (orderId set) and kept. A row whose file could not be deleted is kept for the next run, and the call throws
-   * at the end. dryRun changes nothing (no healing either).
+   * orderId null created before `cutoff` is removed. ROWS FIRST, files second: the rows are taken out of the list
+   * (and the list written) under the lock, then the files of the removed rows are deleted. Orders are read first
+   * (strictly: an unreadable order file aborts, nothing is deleted) and once more right before the list is written;
+   * a generation an order uses is healed (orderId set) and kept. A file that could not be deleted is left behind
+   * (the row is gone for good; purgeUnusedUploads sweeps it as a plain unused upload) and the call throws at the
+   * end. dryRun changes nothing (no healing either).
    */
   async aiPurgeUnordered(cutoff: Date, dryRun: boolean): Promise<string[]> {
     assertUnorderedCutoff(cutoff);
@@ -748,20 +750,30 @@ export class LocalStorage implements StorageAdapter {
         )
         .sort((x, y) => cmp(x.createdAt, y.createdAt) || cmp(x.id, y.id));
       if (candidates.length === 0) return [];
-      const usedBy = await this.orderUsesByPath();
-      const removed: string[] = [];
-      const gone = new Set<string>();
+      let usedBy = await this.orderUsesByPath();
       let healed = false;
-      let failures = 0;
-      for (const g of candidates) {
-        const orderId = usedBy.get(uploadPath(g.uploadId));
-        if (orderId !== undefined) {
-          if (!dryRun) {
-            g.orderId = orderId;
-            healed = true;
-          }
-          continue;
+      const heal = (): void => {
+        for (const g of candidates) {
+          const orderId = usedBy.get(uploadPath(g.uploadId));
+          if (orderId === undefined || dryRun || g.orderId === orderId) continue;
+          g.orderId = orderId;
+          healed = true;
         }
+      };
+      heal();
+      // Orders saved while the first read ran (closes the gap right before the write).
+      if (!dryRun) {
+        usedBy = await this.orderUsesByPath();
+        heal();
+      }
+      const gone = candidates.filter((g) => !usedBy.has(uploadPath(g.uploadId)));
+      const goneIds = new Set(gone.map((g) => g.id));
+      if (!dryRun && (healed || gone.length > 0)) {
+        await this.writeAiList("generations", list.filter((g) => !goneIds.has(g.id)));
+      }
+      const removed: string[] = [];
+      let failures = 0;
+      for (const g of gone) {
         const files: string[] = [];
         try {
           for (const rel of [uploadPath(g.uploadId), uploadMetaPath(g.uploadId)]) {
@@ -771,17 +783,11 @@ export class LocalStorage implements StorageAdapter {
           }
         } catch (e) {
           failures++;
-          console.error("[storage] design file not deleted, row kept for the next run", g.id, (e as Error).message);
-          removed.push(...files);
-          continue;
+          console.error("[storage] design row deleted but its file was not; purgeUnusedUploads will sweep it", g.id, (e as Error).message);
         }
         removed.push(...files, `ai_generation:${g.id}`);
-        gone.add(g.id);
       }
-      if (!dryRun && (healed || gone.size > 0)) {
-        await this.writeAiList("generations", list.filter((g) => !gone.has(g.id)));
-      }
-      if (failures > 0) throw new Error(`${failures} design(s) could not be deleted; they stay for the next run`);
+      if (failures > 0) throw new Error(`${failures} design(s) lost their row but kept a file; purgeUnusedUploads sweeps the file`);
       return removed;
     });
   }
@@ -795,10 +801,15 @@ export class LocalStorage implements StorageAdapter {
     assertUnorderedCutoff(cutoff);
     const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * 86_400_000);
     const inWindow = (d: Date) => d >= windowStart && d < cutoff;
-    const used = new Set((await this.orderUsesByPath()).keys());
-    for (const g of await this.readAiList<AiGenerationRecord>("generations")) {
-      if (typeof g.uploadId === "string" && ID_RE.test(g.uploadId)) used.add(uploadPath(g.uploadId));
-    }
+    // Every upload an order or a remaining generation points at (strict: an unreadable file throws).
+    const readUsed = async (): Promise<Set<string>> => {
+      const used = new Set((await this.orderUsesByPath()).keys());
+      for (const g of await this.readAiList<AiGenerationRecord>("generations")) {
+        if (typeof g.uploadId === "string" && ID_RE.test(g.uploadId)) used.add(uploadPath(g.uploadId));
+      }
+      return used;
+    };
+    let used = await readUsed();
     let names: string[];
     try {
       names = await fs.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ this.root, "uploads"));
@@ -821,20 +832,26 @@ export class LocalStorage implements StorageAdapter {
       if (!dryRun) await this.deleteFile(rel);
       removed.push(rel);
     };
+    // plan: the files to remove, each group keyed by the upload (.bin path) a reference would name.
+    const plan: { key: string; files: string[] }[] = [];
     for (const name of [...names].sort()) {
       const rel = `uploads/${name}`;
       if (name.endsWith(".bin")) {
         if (used.has(rel)) continue;
         const t = await mtime(name);
         if (!t || !inWindow(t)) continue;
-        await drop(rel);
-        await drop(metaPathForDesign(rel));
+        plan.push({ key: rel, files: [rel, metaPathForDesign(rel)] });
       } else if (name.endsWith(".json")) {
         const stem = name.slice(0, -".json".length);
         if (have.has(`${stem}.bin`) || used.has(`uploads/${stem}.bin`)) continue;
         const t = await mtime(name);
-        if (t && inWindow(t)) await drop(rel);
+        if (t && inWindow(t)) plan.push({ key: `uploads/${stem}.bin`, files: [rel] });
       }
+    }
+    if (!dryRun && plan.length > 0) used = await readUsed(); // re-read right before deleting (fails closed: a throw deletes nothing)
+    for (const item of plan) {
+      if (used.has(item.key)) continue;
+      for (const f of item.files) await drop(f);
     }
     return removed;
   }

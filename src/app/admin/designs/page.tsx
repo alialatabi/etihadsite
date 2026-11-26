@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, ImageOff } from 'lucide-react';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { AdminPageHeader, EmptyState, InfoStrip, Panel, Pill, StatTile, btn } from '@/components/admin/kit';
-import { UNORDERED_DESIGN_DAYS } from '@/config/defaults';
+import { ORDERS_LIST_CAP, UNORDERED_DESIGN_DAYS } from '@/config/defaults';
 import { admin, common } from '@/content/ar';
 import { count } from '@/lib/plural';
 import { requireAdmin } from '@/lib/auth/guard';
@@ -26,9 +26,6 @@ const PAGE_SIZE = 48;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-/** listOrders() answers at most this many orders (the newest): the name / phone / order-number search covers only those. */
-const ORDERS_LIST_CAP = 1000;
-
 export default async function DesignsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
   const sp = await searchParams;
@@ -44,6 +41,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
   // and let storage match the design text OR those order ids.
   let filter: AiGenerationFilter = baseFilter;
   let searchCapped = false;
+  let searchTruncated = false;
   if (echo.q) {
     let allOrders: OrderRecord[] = [];
     try {
@@ -52,7 +50,9 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
       // the design text is still searched
     }
     searchCapped = allOrders.length >= ORDERS_LIST_CAP;
-    filter = { ...baseFilter, search: { text: echo.q, orderIds: matchOrderIds(echo.q, allOrders) } };
+    const matched = matchOrderIds(echo.q, allOrders);
+    searchTruncated = matched.truncated;
+    filter = { ...baseFilter, search: { text: echo.q, orderIds: matched.ids } };
   }
 
   const [generations, allTimeUnfiltered, usage, blocks, staffList]: [
@@ -197,7 +197,15 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
       {searchCapped ? (
         <div role="status">
-          <InfoStrip>{d.filters.searchCapped}</InfoStrip>
+          <InfoStrip>
+            {fillLtr(d.filters.searchCapped, { n: ORDERS_LIST_CAP, unit: <>{count(ORDERS_LIST_CAP, d.orderPlural)}</> })}
+          </InfoStrip>
+        </div>
+      ) : null}
+
+      {searchTruncated ? (
+        <div role="status">
+          <InfoStrip>{d.filters.searchTruncated}</InfoStrip>
         </div>
       ) : null}
 

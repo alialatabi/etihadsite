@@ -153,22 +153,32 @@ export function phoneSearchDigits(q: string): string {
   return d.length >= MIN_PHONE_DIGITS ? d : '';
 }
 
+/** What matchOrderIds found. */
+export interface OrderMatch {
+  /** Newest first, no duplicates, at most MAX_SEARCH_ORDER_IDS. */
+  ids: string[];
+  /** True when more orders matched than MAX_SEARCH_ORDER_IDS: the oldest matches are not searched. */
+  truncated: boolean;
+}
+
 /**
- * Ids of the orders whose customer name or order number contains `q` (case-insensitive) or whose phone
- * contains its digits. Newest first, at most MAX_SEARCH_ORDER_IDS, no duplicates.
+ * The orders whose customer name or order number contains `q` (case-insensitive) or whose phone contains its
+ * digits. `q` is digit-normalised first (٠١٢ = 012), so an order number typed with Arabic-Indic digits matches too.
+ * Newest first, at most MAX_SEARCH_ORDER_IDS ids, no duplicates; `truncated` says the cap cut matches off.
  */
 export function matchOrderIds(
   q: string,
   orders: ReadonlyArray<Pick<OrderRecord, 'orderId' | 'displayNo' | 'createdAt' | 'customer'>>,
-): string[] {
-  const text = q.trim().toLowerCase();
-  if (!text) return [];
+): OrderMatch {
+  const text = normaliseDigits(q).trim().toLowerCase();
+  if (!text) return { ids: [], truncated: false };
   const digits = phoneSearchDigits(q);
   const hits = orders.filter((o) => {
-    if ((o.customer.name ?? '').toLowerCase().includes(text)) return true;
+    if (normaliseDigits(o.customer.name ?? '').toLowerCase().includes(text)) return true;
     if (o.displayNo.toLowerCase().includes(text)) return true;
     return digits !== '' && normaliseDigits(o.customer.phone).replace(/\D/g, '').includes(digits);
   });
   hits.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
-  return [...new Set(hits.map((o) => o.orderId))].slice(0, MAX_SEARCH_ORDER_IDS);
+  const unique = [...new Set(hits.map((o) => o.orderId))];
+  return { ids: unique.slice(0, MAX_SEARCH_ORDER_IDS), truncated: unique.length > MAX_SEARCH_ORDER_IDS };
 }

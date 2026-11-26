@@ -11,6 +11,7 @@ import type { AiGenerationRecord } from '@/lib/types';
 import { formatBaghdad } from '../_lib';
 import { cardBtn } from './card-styles';
 import { DeleteDesignButton } from './DeleteDesignButton';
+import { SheetDownloadButton } from './SheetDownloadButton';
 import { daysUntilDeletion } from './expiry';
 
 const d = admin.designs;
@@ -25,7 +26,7 @@ export interface DesignOrderInfo {
   pdfAvailable: boolean;
 }
 
-/** Cards of generated designs, newest first. Server component: no state (only the delete button is client code). */
+/** Cards of generated designs, newest first. Server component: no state (only the delete and sheet buttons are client code). */
 export function DesignGrid({
   rows,
   staffNames,
@@ -46,7 +47,7 @@ export function DesignGrid({
         return (
           <li
             key={g.id}
-            className="flex flex-col gap-2 overflow-hidden rounded-xl border border-[#e7dfdf] bg-white p-2 shadow sm:gap-3 sm:p-3-[0_10px_28px_-18px_rgba(18,31,52,0.25)]"
+            className="flex flex-col gap-2 overflow-hidden rounded-xl border border-[#e7dfdf] bg-white p-2 shadow-[0_10px_28px_-18px_rgba(18,31,52,0.25)] sm:gap-3 sm:p-3"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- admin-only, auth-guarded route; next/image would re-fetch it unauthenticated */}
             <img
@@ -124,17 +125,15 @@ export function DesignGrid({
                 <Download aria-hidden className="size-4 shrink-0" />
                 {d.card.downloadImage}
               </a>
-              <a
-                href={
-                  g.orderId && order?.pdfAvailable
-                    ? `/api/admin/files/${g.orderId}/pdf`
-                    : `/api/admin/designs/${g.uploadId}/sheet`
-                }
-                className={cardBtn.outline}
-              >
-                <FileText aria-hidden className="size-4 shrink-0" />
-                {d.card.downloadSheet}
-              </a>
+              {g.orderId && order?.pdfAvailable ? (
+                // The printed file of the order: a normal link (the route may answer with a redirect to a signed URL).
+                <a href={`/api/admin/files/${g.orderId}/pdf`} className={cardBtn.outline}>
+                  <FileText aria-hidden className="size-4 shrink-0" />
+                  {d.card.downloadSheet}
+                </a>
+              ) : (
+                <SheetDownloadButton href={`/api/admin/designs/${g.uploadId}/sheet`} />
+              )}
               {g.orderId ? null : <DeleteDesignButton uploadId={g.uploadId} />}
             </div>
           </li>

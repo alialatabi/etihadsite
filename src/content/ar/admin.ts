@@ -287,6 +287,7 @@ export const admin = {
     /** {days} = the retention in days, e.g. «7 أيام». */
     retentionNote: 'التصاميم الي ما انطلبت تنحذف تلقائياً بعد {days} من إنشائها.',
     dayPlural: { zero: 'أيام', one: 'يوم', two: 'يومين', few: 'أيام', many: 'يوم', other: 'يوم' },
+    orderPlural: { zero: 'طلبات', one: 'طلب', two: 'طلبين', few: 'طلبات', many: 'طلب', other: 'طلب' },
     /** {days} = «3 أيام». */
     expiresIn: 'ينحذف بعد {days}',
     expiresToday: 'ينحذف اليوم',
@@ -312,17 +313,21 @@ export const admin = {
       clear: 'امسح',
       /** {n} = result count, {unit} = the plural of «تصميم». */
       found: 'لقينا {n} {unit}',
-      searchCapped: 'البحث بالاسم والموبايل ورقم الطلب يشمل آخر 1000 طلب فقط.',
+      /** {n} = how many of the newest orders the search covers, {unit} = the plural of «طلب». */
+      searchCapped: 'البحث بالاسم والموبايل ورقم الطلب يشمل آخر {n} {unit} فقط.',
+      /** More orders matched the name / phone / order number than one search can use. */
+      searchTruncated: 'لقينا طلبات كثيرة، ضيّق البحث.',
     },
     /** Card actions. */
     card: {
       customer: 'الزبون',
-      order: 'الطلب',
       whatsapp: 'واتساب',
       /** {no} = the order number. */
       whatsappText: 'هلا، بخصوص طلبك رقم {no} من مطبعة سوفتي',
       downloadImage: 'نزّل الصورة',
       downloadSheet: 'نزّل ورقة مسفطة (PDF)',
+      /** The sheet button while the server builds the PDF. */
+      sheetPending: 'دا يتحضّر…',
       delete: 'احذف',
     },
     delete: {
@@ -332,6 +337,7 @@ export const admin = {
       cancel: 'لا، خلّيه',
       deleting: 'جاري الحذف…',
       refused: 'ما ينحذف، التصميم مرتبط بطلب.',
+      tooNew: 'التصميم جديد وممكن زبون يطلبه هسه. جرّب بعد ساعتين.',
       failed: 'ما گدرنا نحذف، جرّب مرة ثانية.',
       invalid: 'رقم التصميم مو صحيح.',
     },

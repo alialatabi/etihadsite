@@ -5,6 +5,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{attempts} x1",
   "{cols} x1",
   "{count} x2",
+  "{days} x2",
   "{designs} x1",
   "{dpi} x1",
   "{fee} x1",
@@ -18,9 +19,9 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{max} x7",
   "{mb} x4",
   "{min} x1",
-  "{n} x12",
+  "{n} x14",
   "{name} x6",
-  "{no} x1",
+  "{no} x2",
   "{pages} x1",
   "{percent} x4",
   "{price} x1",
@@ -31,6 +32,7 @@ exports[`golden: Arabic copy (@/content/ar) > every {placeholder} used anywhere 
   "{step} x1",
   "{to} x1",
   "{total} x1",
+  "{unit} x2",
   "{upright} x1",
   "{w} x3",
 ]
@@ -332,7 +334,77 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 1`] = `
     "idea": "الفكرة",
     "staffBadge": "موظف: {name}",
     "prev": "السابق",
-    "next": "التالي"
+    "next": "التالي",
+    "stored": "المحفوظة",
+    "retentionNote": "التصاميم الي ما انطلبت تنحذف تلقائياً بعد {days} من إنشائها.",
+    "dayPlural": {
+      "zero": "أيام",
+      "one": "يوم",
+      "two": "يومين",
+      "few": "أيام",
+      "many": "يوم",
+      "other": "يوم"
+    },
+    "orderPlural": {
+      "zero": "طلبات",
+      "one": "طلب",
+      "two": "طلبين",
+      "few": "طلبات",
+      "many": "طلب",
+      "other": "طلب"
+    },
+    "expiresIn": "ينحذف بعد {days}",
+    "expiresToday": "ينحذف اليوم",
+    "filters": {
+      "label": "فلترة التصاميم",
+      "search": "بحث",
+      "searchPlaceholder": "اسم الزبون، الموبايل، رقم الطلب، أو الفكرة",
+      "status": "الحالة",
+      "statusAll": "الكل",
+      "statusOrdered": "انطلب",
+      "statusUnordered": "ما انطلب",
+      "maker": "منو سوّاه",
+      "makerAll": "الكل",
+      "makerCustomers": "الزبائن",
+      "makerStaff": "الموظفين",
+      "shape": "الشكل",
+      "shapeAll": "الكل",
+      "shapeRect": "مستطيل",
+      "from": "من تاريخ",
+      "to": "إلى تاريخ",
+      "submit": "ابحث",
+      "clear": "امسح",
+      "found": "لقينا {n} {unit}",
+      "searchCapped": "البحث بالاسم والموبايل ورقم الطلب يشمل آخر {n} {unit} فقط.",
+      "searchTruncated": "لقينا طلبات كثيرة، ضيّق البحث."
+    },
+    "card": {
+      "customer": "الزبون",
+      "whatsapp": "واتساب",
+      "whatsappText": "هلا، بخصوص طلبك رقم {no} من مطبعة سوفتي",
+      "downloadImage": "نزّل الصورة",
+      "downloadSheet": "نزّل ورقة مسفطة (PDF)",
+      "sheetPending": "دا يتحضّر…",
+      "delete": "احذف"
+    },
+    "delete": {
+      "title": "تحذف هذا التصميم نهائياً؟",
+      "body": "ينحذف التصميم وما يرجع.",
+      "confirm": "نعم، احذف",
+      "cancel": "لا، خلّيه",
+      "deleting": "جاري الحذف…",
+      "refused": "ما ينحذف، التصميم مرتبط بطلب.",
+      "tooNew": "التصميم جديد وممكن زبون يطلبه هسه. جرّب بعد ساعتين.",
+      "failed": "ما گدرنا نحذف، جرّب مرة ثانية.",
+      "invalid": "رقم التصميم مو صحيح."
+    },
+    "sheet": {
+      "notFound": "التصميم مو موجود.",
+      "layoutFailed": "ما گدرنا نرتب هذا القياس على الورقة.",
+      "artworkFailed": "ما گدرنا نجهز الصورة للورقة.",
+      "tooBig": "الورقة كبيرة وما تنزل من هنا. نزّل الصورة بدالها.",
+      "failed": "ما گدرنا نسوي الورقة، جرّب مرة ثانية."
+    }
   },
   "staff": {
     "nav": "الموظفين",
@@ -361,13 +433,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "admin" 2`] = `
 {
   "arrays": 1,
   "booleans": 0,
-  "chars": 3715,
+  "chars": 4581,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
-  "objects": 22,
-  "sha256OfRawJson": "6a73982b27dcdd4e5e6b087b9468e81ebec8224e792c8ec5a5cebaa7c06d02bf",
-  "strings": 272,
+  "objects": 28,
+  "sha256OfRawJson": "5fa57fb981874e8a51e18ed15f7069cc24e985caa157271e8afae6b920d0dba9",
+  "strings": 330,
 }
 `;
 

@@ -8,7 +8,6 @@ import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
 import { activeTier, maxStickers, minStickers, sortedTiers, totalBeforeDiscountIqd } from '@/lib/pricing';
-import { deriveLockedSize } from '@/lib/layout';
 import { AI_IDEA_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_ASPECT, AI_MAX_LINES } from '@/lib/ai/config';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
@@ -344,18 +343,8 @@ export function generateBlock(p: {
   return null;
 }
 
-/**
- * Sticker size after an AI design is accepted. `typed` is the size the design was made for, `aspect` the decoded
- * design's width / height. Custom: the typed size is a square box and the LONGER side of the trimmed design keeps it.
- * Circle and rect: the width is kept and the height follows the image (the aspect lock, as for an upload).
- */
-export function aiAcceptedSize(shape: Shape, typed: { widthUm: number; heightUm: number }, aspect: number): { widthUm: number; heightUm: number } {
-  if (shape === 'custom' && Number.isFinite(aspect) && aspect > 0 && aspect < 1) {
-    return deriveLockedSize(shape, aspect, { heightUm: Math.max(typed.widthUm, typed.heightUm) });
-  }
-  const side = shape === 'custom' ? Math.max(typed.widthUm, typed.heightUm) : typed.widthUm;
-  return deriveLockedSize(shape, aspect, { widthUm: side });
-}
+// aiAcceptedSize lives in a pure module of src/lib (the admin sheet route uses it too); re-exported for the builder.
+export { aiAcceptedSize } from '@/lib/ai/accepted-size';
 
 /** How far a size may stray from the design's width / height (rounding of a derived side) before it counts as another ratio. */
 const AI_RATIO_TOLERANCE = 0.02;

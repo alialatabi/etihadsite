@@ -46,9 +46,20 @@ function encodable(s: string): boolean {
   }
 }
 
+/** Strict ISO 8601 date-time with a zone: `Z` or an explicit `±HH:MM` offset (the admin page sends toISOString()). */
+const ISO_DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * Absent → undefined; a valid strict ISO 8601 instant (zone required, year 1..9999) → Date; anything else → null
+ * (the filter then yields no rows). `new Date("1")` or a zone-less string would otherwise depend on the server's time zone.
+ */
 function parseDate(v: unknown): Date | null | undefined {
   if (v === undefined || v === null || v === "") return undefined; // absent
   if (typeof v !== "string" || v.length > 40) return null;
+  const m = ISO_DATE_TIME_RE.exec(v);
+  if (!m) return null;
+  const year = Number(m[1]);
+  if (year < 1 || year > 9999) return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 }

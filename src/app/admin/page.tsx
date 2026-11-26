@@ -26,6 +26,7 @@ import { count } from "@/lib/plural";
 import { whatsappUrl } from "@/lib/parse/phone";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
+import { ORDERS_LIST_CAP } from "@/config/defaults";
 import { cn } from "@/lib/utils";
 import { formatBaghdad, isPdfPurged, orderPriceView, telegramLabel } from "./_lib";
 import { TelegramCell, TelegramSentMark } from "./orders/TelegramCell";
@@ -34,8 +35,6 @@ export const dynamic = "force-dynamic";
 /** The "send to Telegram" button runs resendTelegramAction under this page's limit (sendTelegram aborts after 25 s). */
 export const maxDuration = 60;
 
-/** listOrders() answers at most this many orders (the newest) from Supabase. */
-const ORDERS_LIST_CAP = 1000;
 
 export default async function OrdersPage() {
   await requireAdmin();

@@ -80,6 +80,18 @@ describe("aiListGenerations filters (exact URLs)", () => {
     expect(dated).toContain("&created_at=lt.2026-11-30T00%3A00%3A00.000Z");
   });
 
+  it("strict ISO dates with Z or an offset are accepted and sent as UTC instants", async () => {
+    route = () => json([], 200, { "content-range": "*/0" });
+    const list = async (f: object) => {
+      calls = [];
+      await store().aiListGenerations({ limit: 10, offset: 0, ...f } as never);
+      return calls.map((c) => c.url);
+    };
+    expect((await list({ since: "2026-11-20T21:00:00.000Z" })).some((u) => u.includes("created_at=gte.2026-11-20T21%3A00%3A00.000Z"))).toBe(true);
+    expect((await list({ until: "2026-11-21T00:00:00+03:00" })).some((u) => u.includes("created_at=lt.2026-11-20T21%3A00%3A00.000Z"))).toBe(true);
+    expect((await list({ since: "2026-11-20T10:00Z" })).length).toBeGreaterThan(0);
+  });
+
   it("invalid values send NO request and answer an empty page", async () => {
     for (const f of [
       { maker: { staffId: "x" } },
@@ -89,6 +101,11 @@ describe("aiListGenerations filters (exact URLs)", () => {
       { shape: "rect&x=1" },
       { since: "yesterday" },
       { until: "2026-13-45" },
+      { since: "1" },
+      { since: "2026-11-20T10:00" },
+      { until: "2026-11-20" },
+      { since: "0000-01-01T00:00:00Z" },
+      { since: "10000-01-01T00:00:00Z" },
       { ordered: "yes" },
       { search: { text: "", orderIds: [] } },
       { search: { text: "   ", orderIds: ["short", 'bad"id,xx'] } },
@@ -290,14 +307,14 @@ describe("aiPurgeUnordered", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("reads candidates (order_id null, before the cutoff, NO lower bound), then deletes files first and rows by explicit ids", async () => {
+  it("reads candidates (order_id null, before the cutoff, NO lower bound), then deletes ROWS first by explicit ids and the files of the returned rows second", async () => {
     const oldest = ago(30);
     serve({ gens: [genRow("gen_00000001", "up_00000001", oldest), genRow("gen_00000002", "up_00000002", ago(9))] });
     const c = cutoff();
     const removed = await store().aiPurgeUnordered(c, false);
     expect(removed).toEqual([
-      "uploads/up_00000001.bin", "uploads/up_00000001.json", "uploads/up_00000002.bin", "uploads/up_00000002.json",
       "ai_generation:gen_00000001", "ai_generation:gen_00000002",
+      "uploads/up_00000001.bin", "uploads/up_00000001.json", "uploads/up_00000002.bin", "uploads/up_00000002.json",
     ]);
     const cutoffQ = encodeURIComponent(c.toISOString());
     expect(rest(calls[0])).toBe(`/rest/v1/ai_generations?select=id,upload_id,created_at,order_id&order_id=is.null&created_at=lt.${cutoffQ}&order=created_at.asc,id.asc`);
@@ -310,12 +327,12 @@ describe("aiPurgeUnordered", () => {
     const oldestMinusDay = encodeURIComponent(new Date(oldest.getTime() - DAY).toISOString());
     expect(rest(calls[orderReads[0]])).toContain(`&created_at=gte.${oldestMinusDay}&`);
     expect(calls[orderReads[0]].url).not.toContain("created_at=lt");
-    // Files (explicit paths) then rows (explicit ids + backstops).
+    // Rows (explicit ids + conditions) first, then the files (explicit paths) of the rows the server returned.
     const del = calls.filter((x) => x.method === "DELETE");
-    expect(del[0].url).toBe(`${BASE}/storage/v1/object/etihad`);
-    expect(del[0].body).toEqual({ prefixes: ["uploads/up_00000001.bin", "uploads/up_00000001.json", "uploads/up_00000002.bin", "uploads/up_00000002.json"] });
-    expect(rest(del[1])).toBe(`/rest/v1/ai_generations?select=id&id=in.(gen_00000001,gen_00000002)&order_id=is.null&created_at=lt.${cutoffQ}`);
-    expect(del[1].headers.Prefer).toBe("return=representation");
+    expect(rest(del[0])).toBe(`/rest/v1/ai_generations?select=id&id=in.(gen_00000001,gen_00000002)&order_id=is.null&created_at=lt.${cutoffQ}`);
+    expect(del[0].headers.Prefer).toBe("return=representation");
+    expect(del[1].url).toBe(`${BASE}/storage/v1/object/etihad`);
+    expect(del[1].body).toEqual({ prefixes: ["uploads/up_00000001.bin", "uploads/up_00000001.json", "uploads/up_00000002.bin", "uploads/up_00000002.json"] });
     expect(del).toHaveLength(2);
   });
 
@@ -339,15 +356,15 @@ describe("aiPurgeUnordered", () => {
       ],
     });
     const removed = await store().aiPurgeUnordered(cutoff(), false);
-    expect(removed).toEqual(["uploads/up_00000003.bin", "uploads/up_00000003.json", "ai_generation:gen_00000003"]);
+    expect(removed).toEqual(["ai_generation:gen_00000003", "uploads/up_00000003.bin", "uploads/up_00000003.json"]);
     const patches = calls.filter((x) => x.method === "PATCH");
     expect(patches.map((p) => [rest(p), p.body])).toEqual([
       ["/rest/v1/ai_generations?upload_id=eq.up_00000001", { order_id: "order-0001-aaaa" }],
       ["/rest/v1/ai_generations?upload_id=eq.up_00000002", { order_id: "order-0002-bbbb" }],
     ]);
     const del = calls.filter((x) => x.method === "DELETE");
-    expect(del[0].body).toEqual({ prefixes: ["uploads/up_00000003.bin", "uploads/up_00000003.json"] });
-    expect(rest(del[1])).toContain("id=in.(gen_00000003)&");
+    expect(rest(del[0])).toContain("id=in.(gen_00000003)&");
+    expect(del[1].body).toEqual({ prefixes: ["uploads/up_00000003.bin", "uploads/up_00000003.json"] });
   });
 
   it("an order whose id cannot be healed still keeps its design (used decides, not the heal)", async () => {
@@ -397,10 +414,73 @@ describe("aiPurgeUnordered", () => {
     expect(methods()).not.toContain("DELETE");
   });
 
-  it("a failed file delete keeps the rows of that chunk and throws (retried next day)", async () => {
+  it("rows first: a failed file delete leaves the rows deleted (the files are swept later) and throws", async () => {
     serve({ gens: [genRow("gen_00000001", "up_00000001", ago(10))], failStorageDelete: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(store().aiPurgeUnordered(cutoff(), false)).rejects.toThrow(/500/);
-    expect(calls.filter((x) => x.method === "DELETE").every((x) => x.url.includes("/storage/v1/"))).toBe(true);
+    const del = calls.filter((x) => x.method === "DELETE");
+    expect(del[0].url).toContain("/rest/v1/ai_generations?"); // the row delete went first and is not undone
+    expect(del[1].url).toContain("/storage/v1/");
+    expect(calls.some((x) => x.method === "POST" || x.method === "PUT")).toBe(false); // no row is ever re-created
+  });
+
+  it("a row that got an order meanwhile is not returned by the DELETE and keeps its files", async () => {
+    serve({ gens: [genRow("gen_00000001", "up_00000001", ago(10)), genRow("gen_00000002", "up_00000002", ago(10))] });
+    const inner = route;
+    route = (c) => {
+      // The server answers only gen_00000002: gen_00000001 was healed (order_id set) after our reads.
+      if (c.method === "DELETE" && c.url.includes("/rest/v1/ai_generations?")) return json([{ id: "gen_00000002" }]);
+      return inner(c);
+    };
+    const removed = await store().aiPurgeUnordered(cutoff(), false);
+    expect(removed).toEqual(["ai_generation:gen_00000002", "uploads/up_00000002.bin", "uploads/up_00000002.json"]);
+    const storageDel = calls.filter((x) => x.method === "DELETE" && x.url.includes("/storage/v1/"));
+    expect(storageDel).toHaveLength(1);
+    expect(storageDel[0].body).toEqual({ prefixes: ["uploads/up_00000002.bin", "uploads/up_00000002.json"] });
+  });
+
+  it("nothing returned by the row DELETE means no file is touched", async () => {
+    serve({ gens: [genRow("gen_00000001", "up_00000001", ago(10))] });
+    const inner = route;
+    route = (c) => (c.method === "DELETE" && c.url.includes("/rest/v1/ai_generations?") ? json([]) : inner(c));
+    expect(await store().aiPurgeUnordered(cutoff(), false)).toEqual([]);
+    expect(calls.some((x) => x.url.includes("/storage/v1/object/etihad") && x.method === "DELETE")).toBe(false);
+  });
+
+  it("a failing row DELETE throws and no file is deleted", async () => {
+    serve({ gens: [genRow("gen_00000001", "up_00000001", ago(10))] });
+    const inner = route;
+    route = (c) => (c.method === "DELETE" && c.url.includes("/rest/v1/ai_generations?") ? new Response("down", { status: 503 }) : inner(c));
+    await expect(store().aiPurgeUnordered(cutoff(), false)).rejects.toThrow(/503/);
+    expect(calls.some((x) => x.url.includes("/storage/v1/object/etihad") && x.method === "DELETE")).toBe(false);
+  });
+
+  it("re-reads the orders before EACH chunk; an order that appears for a later chunk keeps that design", async () => {
+    const gens = Array.from({ length: 230 }, (_, i) => genRow(`gen_${String(i).padStart(8, "0")}`, `up_${String(i).padStart(8, "0")}`, ago(10)));
+    serve({ gens });
+    const inner = route;
+    let rowDeletes = 0;
+    route = (c) => {
+      if (c.method === "DELETE" && c.url.includes("/rest/v1/ai_generations?")) rowDeletes++;
+      // After the first chunk, an order uses design 150 (it lives in the second chunk).
+      if (c.method === "GET" && c.url.includes("/rest/v1/orders?") && rowDeletes >= 1 && c.headers.Range?.startsWith("0-")) {
+        return json([ord("order-late-0001", ago(0), "uploads/up_00000150.bin")]);
+      }
+      return inner(c);
+    };
+    const removed = await store().aiPurgeUnordered(cutoff(), false);
+    const deletes = calls.filter((x) => x.method === "DELETE" && x.url.includes("/rest/v1/ai_generations?"));
+    expect(deletes).toHaveLength(3);
+    // One order read for the candidates, then one before each of the 3 chunks (the first page of each read starts at 0).
+    const reads = calls.filter((x) => x.method === "GET" && x.url.includes("/rest/v1/orders?") && x.headers.Range?.startsWith("0-"));
+    expect(reads).toHaveLength(4);
+    for (const del of deletes) {
+      const before = calls.slice(0, calls.indexOf(del)).filter((x) => x.method === "GET" && x.url.includes("/rest/v1/orders?") && x.headers.Range?.startsWith("0-"));
+      expect(before.length).toBe(1 + deletes.indexOf(del) + 1);
+    }
+    expect(removed).not.toContain("ai_generation:gen_00000150");
+    expect(removed.filter((x) => x.startsWith("ai_generation:"))).toHaveLength(229);
+    expect(calls.find((x) => x.method === "PATCH" && rest(x).endsWith("up_00000150"))?.body).toEqual({ order_id: "order-late-0001" });
   });
 
   it("deletes in chunks of 100 ids; an earlier chunk stays deleted when a later one fails", async () => {
@@ -459,6 +539,55 @@ describe("purgeUnusedUploads", () => {
     const del = calls.filter((c) => c.method === "DELETE");
     expect(del).toHaveLength(1);
     expect((del[0].body as { prefixes: string[] }).prefixes.sort()).toEqual(removed.sort());
+  });
+
+  it("re-reads orders and generations right before deleting: a reference that appeared after the listing keeps the upload", async () => {
+    let orderReads = 0;
+    serve({ uploads: [obj("up_late_001.bin", ago(10)), obj("up_late_001.json", ago(10)), obj("up_plain_01.bin", ago(10)), obj("up_plain_01.json", ago(10))] });
+    const inner = route;
+    route = (c) => {
+      if (c.url.includes("/rest/v1/orders?") && c.headers.Range?.startsWith("0-")) {
+        orderReads++;
+        if (orderReads >= 2) return json([{ order_id: "order-late-0001", created_at: ago(0).toISOString(), files: { designPath: "uploads/up_late_001.bin", pdfPath: "orders/x.pdf" } }]);
+      }
+      return inner(c);
+    };
+    const removed = await store().purgeUnusedUploads(cutoff(), false);
+    expect(orderReads).toBe(2);
+    expect(removed.sort()).toEqual(["uploads/up_plain_01.bin", "uploads/up_plain_01.json"]);
+    const del = calls.filter((x) => x.method === "DELETE");
+    expect(del).toHaveLength(1);
+    expect((del[0].body as { prefixes: string[] }).prefixes.sort()).toEqual(["uploads/up_plain_01.bin", "uploads/up_plain_01.json"]);
+    // The generations are read again as well, after the listing and before the delete.
+    const lastList = calls.map((x, i) => (x.url.endsWith("/storage/v1/object/list/etihad") ? i : -1)).filter((i) => i >= 0).pop()!;
+    expect(calls.slice(lastList).some((x) => x.url.includes("/rest/v1/ai_generations?select=upload_id"))).toBe(true);
+  });
+
+  it("a generation row that appeared after the listing also keeps the upload", async () => {
+    let genReads = 0;
+    serve({ uploads: [obj("up_late_001.bin", ago(10))] });
+    const inner = route;
+    route = (c) => {
+      if (c.url.includes("/rest/v1/ai_generations?select=upload_id") && c.headers.Range?.startsWith("0-")) {
+        genReads++;
+        if (genReads >= 2) return json([{ upload_id: "up_late_001" }]);
+      }
+      return inner(c);
+    };
+    expect(await store().purgeUnusedUploads(cutoff(), false)).toEqual([]);
+    expect(calls.some((x) => x.method === "DELETE")).toBe(false);
+  });
+
+  it("fails closed: a failing re-read deletes nothing", async () => {
+    let orderReads = 0;
+    serve({ uploads: [obj("up_plain_01.bin", ago(10))] });
+    const inner = route;
+    route = (c) => {
+      if (c.url.includes("/rest/v1/orders?") && c.headers.Range?.startsWith("0-") && ++orderReads >= 2) return new Response("down", { status: 503 });
+      return inner(c);
+    };
+    await expect(store().purgeUnusedUploads(cutoff(), false)).rejects.toThrow(/503/);
+    expect(calls.some((x) => x.method === "DELETE")).toBe(false);
   });
 
   it("dry run: same list, no DELETE", async () => {

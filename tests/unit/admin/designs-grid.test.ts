@@ -5,6 +5,10 @@ import { admin } from '@/content/ar';
 import type { AiGenerationRecord } from '@/lib/types';
 
 vi.mock('@/app/admin/designs/actions', () => ({ deleteDesignAction: vi.fn() }));
+// The sheet button is client code that fetches the route; here it only has to point at the right route.
+vi.mock('@/app/admin/designs/SheetDownloadButton', () => ({
+  SheetDownloadButton: ({ href }: { href: string }) => createElement('a', { href }, 'sheet'),
+}));
 
 import { DesignGrid, type DesignOrderInfo } from '@/app/admin/designs/DesignGrid';
 
@@ -43,7 +47,8 @@ describe('DesignGrid cards', () => {
   });
 
   it('unordered and in its last day: «ينحذف اليوم»', () => {
-    expect(render([row('a', { createdAt: '2026-11-19T18:00:00Z' })])).toContain(admin.designs.expiresToday);
+    // made 11-19 01:00Z: due 11-26 01:00Z, the purge run is 11-26 01:30Z, on the NOW day (Baghdad)
+    expect(render([row('a', { createdAt: '2026-11-19T01:00:00Z' })])).toContain(admin.designs.expiresToday);
   });
 
   it('ordered: no delete, no expiry, the order WhatsApp link (new tab, noopener) and the order PDF', () => {

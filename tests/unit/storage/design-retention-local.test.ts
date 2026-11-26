@@ -167,18 +167,50 @@ describe("aiPurgeUnordered", () => {
     await expect(s.purgeUnusedUploads(cutoff(), false)).rejects.toThrow(/unreadable/);
   });
 
-  it("a row whose files could not be deleted stays (retried next day) and the call throws", async () => {
+  it("rows first: a file that cannot be deleted leaves the row gone (swept later as a plain upload) and the call throws", async () => {
     await addGen(gen("gen-bad-00001", "up-bad-00001", ago(10)));
     await addGen(gen("gen-good-0001", "up-good-0001", ago(10)));
     const real = s.deleteFile.bind(s);
+    const rowsAtFileDelete: string[][] = [];
     vi.spyOn(s, "deleteFile").mockImplementation(async (rel: string) => {
+      rowsAtFileDelete.push(await rows());
       if (rel.includes("up-bad-00001")) throw new Error("EPERM");
       return real(rel);
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(s.aiPurgeUnordered(cutoff(), false)).rejects.toThrow(/1 design/);
-    expect(await rows()).toEqual(["gen-bad-00001"]);
+    // The rows were already written without the removed generations when the first file was deleted.
+    expect(rowsAtFileDelete.length).toBeGreaterThan(0);
+    for (const r of rowsAtFileDelete) expect(r).toEqual([]);
+    expect(await rows()).toEqual([]);
     expect(await has("uploads/up-good-0001.bin")).toBe(false);
+    // The leftover file is an ordinary unused upload now; the second sweep removes it.
+    vi.restoreAllMocks();
+    expect(await has("uploads/up-bad-00001.bin")).toBe(true);
+    const swept = await s.purgeUnusedUploads(cutoff(), false);
+    expect(swept.sort()).toEqual(["uploads/up-bad-00001.bin", "uploads/up-bad-00001.json"]);
+  });
+
+  it("a generation an order picks up between the first read and the write is healed and keeps its files", async () => {
+    await addGen(gen("gen-race-0001", "up-race-0001", ago(10)));
+    await addGen(gen("gen-gone-0001", "up-gone-0001", ago(10)));
+    const real = s.saveOrder.bind(s);
+    const proto = Object.getPrototypeOf(s) as { orderUsesByPath: () => Promise<Map<string, string>> };
+    let reads = 0;
+    const orig = proto.orderUsesByPath;
+    const spy = vi.spyOn(proto, "orderUsesByPath").mockImplementation(async function (this: LocalStorage) {
+      reads++;
+      // Between the first and the second read an order starts using up-race-0001.
+      if (reads === 2) await real(order("order-race-001", ago(0), { designPath: "uploads/up-race-0001.bin" }));
+      return orig.call(this);
+    });
+    const removed = await s.aiPurgeUnordered(cutoff(), false);
+    spy.mockRestore();
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(removed.sort()).toEqual(["ai_generation:gen-gone-0001", "uploads/up-gone-0001.bin", "uploads/up-gone-0001.json"]);
+    expect(await rows()).toEqual(["gen-race-0001"]);
+    expect((await s.aiGetGeneration("up-race-0001"))?.orderId).toBe("order-race-001");
+    expect(await has("uploads/up-race-0001.bin")).toBe(true);
   });
 
   it("never treats a generation with a bad date or id as a candidate", async () => {
@@ -214,6 +246,38 @@ describe("purgeUnusedUploads", () => {
     }
     expect(await has("uploads/up-unused-001.bin")).toBe(false);
     expect(await s.purgeUnusedUploads(cutoff(), false)).toEqual([]);
+  });
+
+  it("re-reads the references right before deleting: an order saved after the listing keeps its upload", async () => {
+    await addUpload("up-late-0001", ago(10));
+    await addUpload("up-plain-001", ago(10));
+    const proto = Object.getPrototypeOf(s) as { orderUsesByPath: () => Promise<Map<string, string>> };
+    const orig = proto.orderUsesByPath;
+    let reads = 0;
+    const spy = vi.spyOn(proto, "orderUsesByPath").mockImplementation(async function (this: LocalStorage) {
+      reads++;
+      if (reads === 2) await this.saveOrder(order("order-late-001", ago(0), { designPath: "uploads/up-late-0001.bin" }));
+      return orig.call(this);
+    });
+    const removed = await s.purgeUnusedUploads(cutoff(), false);
+    spy.mockRestore();
+    expect(reads).toBe(2);
+    expect(removed.sort()).toEqual(["uploads/up-plain-001.bin", "uploads/up-plain-001.json"]);
+    expect(await has("uploads/up-late-0001.bin")).toBe(true);
+  });
+
+  it("fails closed: if the re-read throws nothing is deleted", async () => {
+    await addUpload("up-plain-001", ago(10));
+    const proto = Object.getPrototypeOf(s) as { orderUsesByPath: () => Promise<Map<string, string>> };
+    const orig = proto.orderUsesByPath;
+    let reads = 0;
+    const spy = vi.spyOn(proto, "orderUsesByPath").mockImplementation(async function (this: LocalStorage) {
+      if (++reads === 2) throw new Error("orders unreadable");
+      return orig.call(this);
+    });
+    await expect(s.purgeUnusedUploads(cutoff(), false)).rejects.toThrow(/unreadable/);
+    spy.mockRestore();
+    expect(await has("uploads/up-plain-001.bin")).toBe(true);
   });
 
   it("a design the first step removed leaves nothing for the second (order of the cron)", async () => {
@@ -291,6 +355,14 @@ describe("aiListGenerations filters", () => {
     expect(await ids({ ...base, since: "garbage" })).toEqual([]);
     expect(await ids({ ...base, shape: "triangle" as never })).toEqual([]);
     expect(await ids({ ...base, since: "" })).toHaveLength(3);
+  });
+  it("only strict ISO 8601 with a zone is a date: '1', a zone-less time and year 0 give no rows", async () => {
+    for (const since of ["1", "2026-11-20T10:00", "2026-11-20", "0000-01-01T00:00:00Z", "10000-01-01T00:00:00Z", "2026-11-20 10:00:00Z", "Nov 20 2026"]) {
+      expect(await ids({ ...base, since })).toEqual([]);
+      expect(await ids({ ...base, until: since })).toEqual([]);
+    }
+    expect(await ids({ ...base, since: "2026-11-05T13:00:00+03:00" })).toEqual(["gen-c-0000001", "gen-b-0000001"]);
+    expect(await ids({ ...base, until: "2026-11-30T21:00:00.000Z" })).toHaveLength(3);
   });
   it("search: case-insensitive substring of idea or instructions, or an order id", async () => {
     expect(await ids({ ...base, search: { text: "coffee", orderIds: [] } })).toEqual(["gen-a-0000001"]);

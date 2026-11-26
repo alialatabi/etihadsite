@@ -26,8 +26,14 @@ vi.mock('@/lib/storage', () => ({
   }),
 }));
 vi.mock('@/lib/design/normalise.server', () => ({ normaliseArtwork: normalise }));
+// The real layout, but recorded: the spec it is called with is what decides the printed sticker size.
+vi.mock('@/lib/layout', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/layout')>();
+  return { ...real, computeLayout: vi.fn(real.computeLayout) };
+});
 vi.mock('@/lib/pdf/build-sheet', () => ({ buildSheetPdf: buildPdf }));
 
+import { computeLayout } from '@/lib/layout';
 import { GET as getImage } from '@/app/api/admin/designs/[id]/image/route';
 import { GET as getSheet } from '@/app/api/admin/designs/[id]/sheet/route';
 
@@ -63,7 +69,11 @@ beforeEach(() => {
   store.orderFails = false;
   normalise.mockReset().mockResolvedValue({ ok: true, artwork: { kind: 'raster' }, pxWidth: 1, pxHeight: 1, kind: 'png' });
   buildPdf.mockReset().mockResolvedValue(pdfOf(1000));
+  vi.mocked(computeLayout).mockClear();
 });
+
+/** normaliseArtwork results: the quick probe reads pxWidth/pxHeight, the real ones hand back artwork. */
+const decoded = (pxWidth: number, pxHeight: number) => ({ ok: true, artwork: { kind: 'raster' }, pxWidth, pxHeight, kind: 'png' });
 
 describe('GET /api/admin/designs/<id>/image', () => {
   it('stays inline without the parameter', async () => {
@@ -113,13 +123,15 @@ describe('GET /api/admin/designs/<id>/sheet', () => {
     expect(res.headers.get('cache-control')).toBe('private, no-store');
     expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="softy-sheet-circle-30x30mm-x\d+\.pdf"$/);
     expect(buildPdf).toHaveBeenCalledTimes(1);
-    expect(normalise.mock.calls[0][1]).toMatchObject({ targetDpi: 1200, spec: { shape: 'circle', widthUm: 30_000 } });
+    // call 0 is the quick size probe, call 1 the real one
+    expect(normalise.mock.calls[0][1]).toMatchObject({ targetDpi: 72, blockDpi: 0 });
+    expect(normalise.mock.calls[1][1]).toMatchObject({ targetDpi: 1200, spec: { shape: 'circle', widthUm: 30_000 } });
     expect(buildPdf.mock.calls[0][0].meta.displayNo).toBe('SOFTY');
   });
 
   it("puts the order's number in the PDF metadata for an ordered design; 'SOFTY' when the order is missing or fails to load", async () => {
     store.row = row({ orderId: 'order_12345678' });
-    store.order = { displayNo: 'EP-261120-AB3C' };
+    store.order = { displayNo: 'EP-261120-AB3C', spec: { shape: 'circle', corners: 'rounded', widthUm: 30_000, heightUm: 30_000 } };
     await getSheet(req('/x'), ctx());
     expect(buildPdf.mock.calls[0][0].meta.displayNo).toBe('EP-261120-AB3C');
     store.order = null;
@@ -138,14 +150,14 @@ describe('GET /api/admin/designs/<id>/sheet', () => {
       .mockResolvedValueOnce(pdfOf(3_000_000));
     const res = await getSheet(req('/x'), ctx());
     expect(res.status).toBe(200);
-    expect(normalise.mock.calls.map((c) => c[1].targetDpi)).toEqual([1200, 600, 300]);
+    expect(normalise.mock.calls.map((c) => c[1].targetDpi)).toEqual([72, 1200, 600, 300]);
     expect(Number(res.headers.get('content-length'))).toBe(3_000_000);
   });
 
   it('stops at the first size that fits', async () => {
     buildPdf.mockResolvedValueOnce(pdfOf(5_000_000)).mockResolvedValueOnce(pdfOf(2_000_000));
     await getSheet(req('/x'), ctx());
-    expect(normalise.mock.calls.map((c) => c[1].targetDpi)).toEqual([1200, 600]);
+    expect(normalise.mock.calls.map((c) => c[1].targetDpi)).toEqual([72, 1200, 600]);
   });
 
   it('a PDF that is still too big gets a clear error, never oversized bytes', async () => {
@@ -159,7 +171,7 @@ describe('GET /api/admin/designs/<id>/sheet', () => {
     normalise.mockResolvedValue({ ok: true, artwork: { kind: 'pdf' }, pxWidth: 1, pxHeight: 1, kind: 'pdf' });
     buildPdf.mockResolvedValue(pdfOf(5_000_000));
     const res = await getSheet(req('/x'), ctx());
-    expect(normalise).toHaveBeenCalledTimes(1);
+    expect(normalise).toHaveBeenCalledTimes(2); // the probe and one real pass, no lower-DPI retries
     expect(res.status).toBe(413);
   });
 
@@ -172,11 +184,57 @@ describe('GET /api/admin/designs/<id>/sheet', () => {
   });
 
   it('an artwork that cannot be prepared, or a builder crash, is an error response', async () => {
-    normalise.mockResolvedValueOnce({ ok: false, error: 'corrupt' });
+    normalise.mockResolvedValueOnce({ ok: false, error: 'corrupt' }); // the size probe
     expect((await getSheet(req('/x'), ctx())).status).toBe(422);
+    normalise.mockResolvedValueOnce(decoded(1, 1)).mockResolvedValueOnce({ ok: false, error: 'corrupt' }); // the real pass
+    expect((await getSheet(req('/x'), ctx())).status).toBe(422);
+    normalise.mockRejectedValueOnce(new Error('sharp')); // the probe throws
+    expect((await getSheet(req('/x'), ctx())).status).toBe(500);
     buildPdf.mockRejectedValueOnce(new Error('boom'));
     const res = await getSheet(req('/x'), ctx());
     expect(res.status).toBe(500);
     expect((await res.json()).message).toBe(admin.designs.sheet.failed);
+  });
+
+  it('a custom shape is laid out at the trimmed size (the longer side keeps the typed size), not at the typed square', async () => {
+    store.row = row({ shape: 'custom', corners: 'sharp', widthUm: 50_000, heightUm: 50_000 });
+    // the stored PNG is a 1024x1024 canvas whose alpha box is 400 x 1000 px
+    normalise.mockResolvedValue(decoded(400, 1000));
+    const res = await getSheet(req('/x'), ctx());
+    expect(res.status).toBe(200);
+    expect(vi.mocked(computeLayout).mock.calls[0][0]).toEqual({ shape: 'custom', corners: 'sharp', widthUm: 20_000, heightUm: 50_000 });
+    expect(normalise.mock.calls[1][1].spec).toEqual({ shape: 'custom', corners: 'sharp', widthUm: 20_000, heightUm: 50_000 });
+    expect(res.headers.get('content-disposition')).toMatch(/softy-sheet-custom-20x50mm-x\d+\.pdf/);
+    expect(buildPdf.mock.calls[0][0].meta.description).toContain('20x50mm');
+  });
+
+  it("a rectangle's height follows the image ratio, as at accept in the builder", async () => {
+    store.row = row({ shape: 'rect', corners: 'sharp', widthUm: 50_000, heightUm: 30_000 });
+    normalise.mockResolvedValue(decoded(1024, 608));
+    await getSheet(req('/x'), ctx());
+    expect(vi.mocked(computeLayout).mock.calls[0][0]).toMatchObject({ shape: 'rect', widthUm: 50_000, heightUm: 29_688 });
+  });
+
+  it("a single-design order's own spec is the size: no probe, and the layout uses that spec", async () => {
+    store.row = row({ shape: 'custom', corners: 'sharp', widthUm: 50_000, heightUm: 50_000, orderId: 'order_12345678' });
+    const spec = { shape: 'custom', corners: 'sharp', widthUm: 21_000, heightUm: 48_000 };
+    store.order = { displayNo: 'EP-261120-AB3C', spec };
+    const res = await getSheet(req('/x'), ctx());
+    expect(res.status).toBe(200);
+    expect(vi.mocked(computeLayout).mock.calls[0][0]).toEqual(spec);
+    expect(normalise).toHaveBeenCalledTimes(1);
+    expect(normalise.mock.calls[0][1]).toMatchObject({ targetDpi: 1200, spec });
+  });
+
+  it("a multi-design order does not lend its spec (it is design 0's); the size is worked out from the image", async () => {
+    store.row = row({ shape: 'custom', corners: 'sharp', widthUm: 50_000, heightUm: 50_000, orderId: 'order_12345678' });
+    store.order = {
+      displayNo: 'EP-261120-AB3C',
+      spec: { shape: 'custom', corners: 'sharp', widthUm: 70_000, heightUm: 70_000 },
+      designs: [{}, {}],
+    };
+    normalise.mockResolvedValue(decoded(500, 1000));
+    await getSheet(req('/x'), ctx());
+    expect(vi.mocked(computeLayout).mock.calls[0][0]).toMatchObject({ widthUm: 25_000, heightUm: 50_000 });
   });
 });

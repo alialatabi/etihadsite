@@ -96,6 +96,27 @@ export const KEEP_DESIGNS_FROM = '2026-11-21T00:00:00+03:00';
  */
 export const UNORDERED_DESIGN_DAYS = 7;
 
+/**
+ * When the daily retention purge (GET /api/cron/purge) runs, in UTC. MUST match the `crons` schedule in
+ * vercel.json ("30 1 * * *" = 01:30 UTC); tests/unit/admin/designs-expiry.test.ts fails when they differ.
+ * The admin designs gallery uses it to say on which day an unordered design really goes.
+ */
+export const PURGE_CRON_UTC = { hour: 1, minute: 30 } as const;
+
+/**
+ * A design younger than this cannot be deleted by hand from the admin gallery: the builder keeps a customer's
+ * draft (and the design in it) for 2 hours, so a young design may be in an order being placed right now.
+ * Keep it at least the builder's DRAFT_TTL_MS (src/components/builder/logic.ts; a test checks it).
+ */
+export const DESIGN_DELETE_MIN_AGE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * listOrders() answers at most this many orders (the newest, Supabase `limit=1000`): everything that
+ * searches or counts "all orders" from that list only covers those. One constant for every page that says so
+ * (the orders list and the admin designs search).
+ */
+export const ORDERS_LIST_CAP = 1000;
+
 /** Each retention purge only looks at items created in [cutoff − this many days, cutoff). */
 export const PURGE_WINDOW_DAYS = 30;
 

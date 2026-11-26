@@ -1016,10 +1016,11 @@ export class SupabaseStorage implements StorageAdapter {
    *   - the orders created since (oldest candidate − 1 day) are read BEFORE anything is deleted (any read failure
    *     throws and nothing is deleted); a candidate whose upload an order uses is healed (aiMarkOrdered) and is
    *     never deleted, even if the heal itself does nothing;
-   *   - orders are read once more right before the deletes (closes most of the gap of a long run);
-   *   - deleted in chunks, files first (explicit paths) and then the rows by explicit id list, with order_id is null
-   *     and the cutoff as backstops. A chunk whose files could not be deleted keeps its rows and the run stops by
-   *     throwing, so tomorrow retries (deleting a missing object is fine).
+   *   - orders are read again before EACH chunk of deletes (a long run never relies on one early read);
+   *   - deleted in chunks, ROWS FIRST (DELETE by explicit id list with order_id is null and the cutoff as conditions,
+   *     return=representation) and then the files of only the rows the server returned: a row that got an order
+   *     meanwhile is not returned, so its files stay. If the file delete fails the rows are already gone; the
+   *     leftover files are plain unused uploads that purgeUnusedUploads sweeps, and the run stops by throwing.
    * At most MAX_UNORDERED_PER_RUN designs (oldest first) per run; the rest follows the next day.
    * Returns the removed paths and `ai_generation:<id>` rows (what would be when dryRun; a dry run changes nothing).
    */
@@ -1055,27 +1056,41 @@ export class SupabaseStorage implements StorageAdapter {
       }
     };
     await heal();
-    // Orders placed while the reads and heals above ran.
-    for (const [p, o] of await this.orderUsesSince(new Date(startedAt - RECHECK_OVERLAP_MS))) if (!used.has(p)) used.set(p, o);
-    await heal();
     const gone = candidates.filter((c) => !used.has(uploadPath(c.uploadId)));
 
+    // ROWS FIRST, files second: a row is the proof that a design is unordered, and deleting it with
+    // `order_id is null` as a condition is atomic on the server. Only the files of the rows the server really
+    // removed are deleted, so a row that got an order meanwhile keeps its files.
     const removed: string[] = [];
+    const recheckFrom = new Date(startedAt - RECHECK_OVERLAP_MS);
     for (let i = 0; i < gone.length; i += GENERATION_DELETE_CHUNK) {
-      const chunk = gone.slice(i, i + GENERATION_DELETE_CHUNK);
-      const files = chunk.flatMap((c) => [uploadPath(c.uploadId), uploadMetaPath(c.uploadId)]);
+      // The safety read runs before EACH chunk (a long run must not rely on one early read).
+      for (const [p, o] of await this.orderUsesSince(recheckFrom)) if (!used.has(p)) used.set(p, o);
+      await heal();
+      const chunk = gone.slice(i, i + GENERATION_DELETE_CHUNK).filter((c) => !used.has(uploadPath(c.uploadId)));
+      if (chunk.length === 0) continue;
       if (dryRun) {
-        removed.push(...files, ...chunk.map((c) => `ai_generation:${c.id}`));
+        removed.push(...chunk.flatMap((c) => [uploadPath(c.uploadId), uploadMetaPath(c.uploadId)]), ...chunk.map((c) => `ai_generation:${c.id}`));
         continue;
       }
-      await this.deleteMany(files); // throws: this chunk's rows stay, the run stops
       const ids = chunk.map((c) => c.id).join(',');
       const res = await this.req(`/rest/v1/ai_generations?select=id&id=in.(${ids})&order_id=is.null&created_at=lt.${cutoffQ}`, {
         method: 'DELETE',
         headers: { Prefer: 'return=representation' },
       });
-      const deleted = (await res.json().catch(() => [])) as { id?: unknown }[];
-      removed.push(...files, ...(Array.isArray(deleted) ? deleted : []).filter((d) => typeof d.id === 'string').map((d) => `ai_generation:${d.id}`));
+      const answer = (await res.json().catch(() => [])) as { id?: unknown }[];
+      const deletedIds = new Set((Array.isArray(answer) ? answer : []).map((d) => d?.id).filter((x): x is string => typeof x === 'string'));
+      const deleted = chunk.filter((c) => deletedIds.has(c.id));
+      const files = deleted.flatMap((c) => [uploadPath(c.uploadId), uploadMetaPath(c.uploadId)]);
+      removed.push(...deleted.map((c) => `ai_generation:${c.id}`));
+      try {
+        await this.deleteMany(files);
+      } catch (e) {
+        // The rows are gone and never come back; these files are plain unused uploads that purgeUnusedUploads sweeps later.
+        console.error('[storage] design rows deleted but their files were not; purgeUnusedUploads will sweep them', files.length, (e as Error).message);
+        throw e;
+      }
+      removed.push(...files);
     }
     return removed;
   }
@@ -1085,37 +1100,46 @@ export class SupabaseStorage implements StorageAdapter {
    * [cutoff − PURGE_WINDOW_DAYS, cutoff) that no order and no remaining ai_generations row uses loses its .bin and
    * .json (a leftover .json without its .bin too). Same guard on the cutoff; the references are read like
    * purgeOlderThan does (orders and generations created since one day before the window start, no upper bound) and
-   * any read failure throws before anything is deleted. Run it AFTER aiPurgeUnordered.
+   * any read failure throws before anything is deleted. The references are read AGAIN right after the upload listing and before
+   * the delete (fails closed). Run it AFTER aiPurgeUnordered.
    */
   async purgeUnusedUploads(cutoff: Date, dryRun: boolean): Promise<string[]> {
     assertUnorderedCutoff(cutoff);
     const windowStart = new Date(cutoff.getTime() - PURGE_WINDOW_DAYS * DAY_MS);
     const refFromDate = new Date(windowStart.getTime() - DAY_MS);
-    const used = new Set((await this.orderUsesSince(refFromDate)).keys());
-    const ai = (await this.selectAllPaged(
-      `/rest/v1/ai_generations?select=upload_id&created_at=gte.${encodeURIComponent(refFromDate.toISOString())}&order=created_at.asc,id.asc`,
-      { untilEmpty: true },
-    )) as { upload_id: unknown }[];
-    for (const g of ai) if (typeof g.upload_id === 'string' && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
+    // Every upload an order or a remaining generation points at (read strictly: any failure throws).
+    const readUsed = async (): Promise<Set<string>> => {
+      const used = new Set((await this.orderUsesSince(refFromDate)).keys());
+      const ai = (await this.selectAllPaged(
+        `/rest/v1/ai_generations?select=upload_id&created_at=gte.${encodeURIComponent(refFromDate.toISOString())}&order=created_at.asc,id.asc`,
+        { untilEmpty: true },
+      )) as { upload_id: unknown }[];
+      for (const g of ai) if (typeof g.upload_id === 'string' && ID_RE.test(g.upload_id)) used.add(uploadPath(g.upload_id));
+      return used;
+    };
+    let used = await readUsed();
     const uploads = await this.listPrefixSince('uploads', windowStart);
     const names = new Set(uploads.map((u) => u.name));
     const inWindow = (iso: string | undefined) => {
       const d = iso ? new Date(iso) : null;
       return d !== null && d >= windowStart && d < cutoff;
     };
-    const files = new Set<string>();
+    // plan: the files to remove, each group keyed by the upload (.bin path) a reference would name.
+    const plan: { key: string; files: string[] }[] = [];
     for (const u of uploads) {
       const rel = `uploads/${u.name}`;
       if (!PATH_RE.test(rel) || !inWindow(u.created_at)) continue;
       if (u.name.endsWith('.bin')) {
         if (used.has(rel)) continue;
-        files.add(rel);
-        if (names.has(metaPathForDesign(u.name))) files.add(metaPathForDesign(rel));
+        plan.push({ key: rel, files: names.has(metaPathForDesign(u.name)) ? [rel, metaPathForDesign(rel)] : [rel] });
       } else if (u.name.endsWith('.json')) {
         const bin = u.name.replace(/\.json$/, '.bin');
-        if (!names.has(bin) && !used.has(`uploads/${bin}`)) files.add(rel);
+        if (!names.has(bin) && !used.has(`uploads/${bin}`)) plan.push({ key: `uploads/${bin}`, files: [rel] });
       }
     }
+    if (!dryRun && plan.length > 0) used = await readUsed(); // re-read right before deleting (fails closed: a throw deletes nothing)
+    const files = new Set<string>();
+    for (const item of plan) if (!used.has(item.key)) for (const f of item.files) files.add(f);
     if (!dryRun && files.size > 0) await this.deleteMany([...files]);
     return [...files];
   }
