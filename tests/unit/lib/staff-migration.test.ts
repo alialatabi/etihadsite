@@ -29,8 +29,8 @@ describe('staff designer migration', () => {
   it('widens the ai_usage kind check to the four kinds', () => {
     // Every existing check on `kind` is dropped by catalog lookup, whatever its name, before the new one is added.
     expect(s).toContain("pg_get_constraintdef(con.oid) ilike '%kind%'");
-    expect(s).toContain("execute format('alter table public.ai_usage drop constraint %I', c.conname)");
-    expect(s.indexOf('drop constraint %I')).toBeLessThan(s.indexOf('add constraint ai_usage_kind_check'));
+    expect(s).toContain("execute format('alter table public.ai_usage drop constraint %i', c.conname)");
+    expect(s.indexOf('drop constraint %i')).toBeLessThan(s.indexOf('add constraint ai_usage_kind_check'));
     expect(s).toContain("check (kind in ('image', 'brief', 'staff_image', 'staff_brief'))");
   });
 
