@@ -15,16 +15,32 @@ async function postJson<T>(url: string, body: unknown, badTag: string): Promise<
   }
 }
 
+/** The three upload routes: the customer ones by default, the staff page passes its own (per-account limits). */
+export interface UploadRoutes {
+  start: string;
+  commit: string;
+  server: string;
+}
+export const DEFAULT_UPLOAD_ROUTES: UploadRoutes = {
+  start: '/api/upload/direct',
+  commit: '/api/upload/direct/commit',
+  server: '/api/upload',
+};
+
 /**
  * Upload the design. Asks the server first: with cloud storage the file goes straight from
  * the browser to the bucket through a one-time signed URL (hosting caps request bodies at
  * 4.5 MB), then the server checks the stored bytes. With local storage it is the classic
  * multipart POST /api/upload. Rejects on network failure.
  */
-export async function uploadWithProgress(file: File, onProgress: (fraction: number) => void): Promise<UploadResponse> {
-  const start = await postJson<DirectUploadStart>('/api/upload/direct', { size: file.size, name: file.name }, 'bad_upload_start');
+export async function uploadWithProgress(
+  file: File,
+  onProgress: (fraction: number) => void,
+  routes: UploadRoutes = DEFAULT_UPLOAD_ROUTES,
+): Promise<UploadResponse> {
+  const start = await postJson<DirectUploadStart>(routes.start, { size: file.size, name: file.name }, 'bad_upload_start');
   if (!start.ok) return start;
-  if (start.mode === 'server') return xhrSend('POST', '/api/upload', multipart(file), onProgress, true);
+  if (start.mode === 'server') return xhrSend('POST', routes.server, multipart(file), onProgress, true);
 
   try {
     await xhrSend('PUT', start.url, file, onProgress, false);
@@ -35,7 +51,7 @@ export async function uploadWithProgress(file: File, onProgress: (fraction: numb
     }
     throw e;
   }
-  return postJson<UploadResponse>('/api/upload/direct/commit', { uploadId: start.uploadId, name: file.name }, 'bad_upload_commit');
+  return postJson<UploadResponse>(routes.commit, { uploadId: start.uploadId, name: file.name }, 'bad_upload_commit');
 }
 
 function multipart(file: File): FormData {

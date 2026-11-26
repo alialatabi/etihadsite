@@ -13,7 +13,7 @@ type Props = Record<string, unknown>;
 const render = (C: unknown, props: Props) => renderToStaticMarkup(createElement(C as ComponentType<Props>, props));
 
 const noop = () => {};
-const baseAi = { lines: ['عيد ميلاد سعيد', 'يا حبيبي'], fixes: [], block: null, setLines: noop, generate: noop };
+const baseAi = { instructions: '', lines: ['عيد ميلاد سعيد', 'يا حبيبي'], fixes: [], block: null, setLines: noop, generate: noop };
 
 /** The confirm button's opening tag. */
 const confirmTag = (html: string) => {
@@ -56,5 +56,14 @@ describe('TextReview with too much text', () => {
     const html = render(TextReview, { ai: { ...baseAi, textWarning: null } });
     expect(html).not.toContain('تنبيه: الكتابة كثيرة');
     expect(confirmTag(html)).not.toContain(' disabled=""');
+  });
+});
+
+describe('TextReview instructions field', () => {
+  it('shows a length counter (Western digits, LTR) and points the textarea at it', () => {
+    const html = render(TextReview, { ai: { ...baseAi, textWarning: null, instructions: 'ورود حمراء' } });
+    expect(html).toContain('id="ai-instructions-count"');
+    expect(html).toMatch(/id="ai-instructions-count"[^>]*>.*?10\/600/);
+    expect(html).toContain('aria-describedby="ai-instructions-hint ai-instructions-count"');
   });
 });

@@ -6,6 +6,7 @@
  */
 import { AI_INSTRUCTIONS_MAX_CHARS } from '@/lib/ai/config';
 import { capUnits } from '@/lib/ai/sanitize';
+import type { UploadRoutes } from '../orderApi';
 import type {
   BriefError,
   BriefResponse as ServerBriefResponse,
@@ -53,10 +54,12 @@ async function post<T extends { ok: boolean }>(url: string, body: unknown): Prom
   }
 }
 
-/** The two routes a page talks to: the customer builder uses the defaults, the staff page its own. */
+/** The routes a page talks to: the customer builder uses the defaults, the staff page its own. */
 export interface AiEndpoints {
   brief: string;
   generate: string;
+  /** Reference-image uploads; absent = the customer routes (limited per IP). */
+  upload?: UploadRoutes;
 }
 
 export const DEFAULT_AI_ENDPOINTS: AiEndpoints = { brief: '/api/design/brief', generate: '/api/design/generate' };

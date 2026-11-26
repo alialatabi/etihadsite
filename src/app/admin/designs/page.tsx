@@ -13,6 +13,7 @@ import { getStorage } from '@/lib/storage';
 import type { AiBlock, AiGenerationFilter, AiGenerationRecord, AiUsageRow, OrderRecord } from '@/lib/types';
 import { formatBaghdad, isPdfPurged } from '../_lib';
 import { blockIpAction, unblockIpAction } from './actions';
+import { customerAllTime } from './all-time';
 import { listAiBlocks } from './blocks';
 import { DesignGrid, type DesignOrderInfo } from './DesignGrid';
 import { FilterBar, type StaffOption } from './FilterBar';
@@ -55,7 +56,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
     filter = { ...baseFilter, search: { text: echo.q, orderIds: matched.ids } };
   }
 
-  const [generations, allTimeUnfiltered, usage, blocks, staffList]: [
+  const [generations, allTimeCustomer, usage, blocks, staffList]: [
     { rows: AiGenerationRecord[]; total: number },
     number | null,
     AiUsageRow[],
@@ -63,8 +64,10 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
     StaffOption[],
   ] = await Promise.all([
     storage.aiListGenerations?.({ limit: PAGE_SIZE, offset: (pageNo - 1) * PAGE_SIZE, ...filter }) ?? { rows: [], total: 0 },
-    // The «المحفوظة» tile counts every stored generation. Without a filter the page's own total already is that number.
-    active && storage.aiListGenerations ? storage.aiListGenerations({ limit: 0, offset: 0 }).then((g) => g.total) : null,
+    // All time = every stored CUSTOMER generation, the same population as today and this month (which count kind 'image');
+    // staff designs show in the gallery below but not in these tiles. A storage without the staff column (migration not
+    // applied yet) cannot hold staff designs, so its plain total is the same number.
+    customerAllTime(storage),
     // Today, this month and the alerts (today and yesterday) need nothing older.
     storage.aiUsage?.(usageSince(today), 'image') ?? [],
     listAiBlocks(),
@@ -98,7 +101,7 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
 
   const blockedKeys = new Set(blocks.map((b) => b.ipKey));
   const summary = designsSummary(usage, today, settings.ai.perIpDailyLimit, blockedKeys);
-  const allTime = allTimeUnfiltered ?? generations.total;
+  const allTime = allTimeCustomer ?? generations.total;
   const pages = Math.max(1, Math.ceil(generations.total / PAGE_SIZE));
   const href = (page: number) => {
     const q = filterQuery(echo, page);

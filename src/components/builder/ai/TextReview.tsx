@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { builder } from '@/content/ar';
+import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,9 +95,14 @@ export function TextReview({ ai }: { ai: AiDesignApi }) {
           maxLength={AI_INSTRUCTIONS_MAX_CHARS}
           rows={4}
           onChange={(e) => ai.setInstructions(e.target.value)}
-          aria-describedby="ai-instructions-hint"
+          aria-describedby="ai-instructions-hint ai-instructions-count"
           className="min-h-28 text-base md:text-base"
         />
+        <p id="ai-instructions-count" className="text-end text-xs text-muted-foreground">
+          <Ltr>
+            {ai.instructions.length}/{AI_INSTRUCTIONS_MAX_CHARS}
+          </Ltr>
+        </p>
         {/* Always in the DOM so the polite live region announces the change. */}
         <p role="status" aria-live="polite" className="text-sm font-medium">
           {ai.instructionsEdited ? builder.ai.instructionsEdited : ''}

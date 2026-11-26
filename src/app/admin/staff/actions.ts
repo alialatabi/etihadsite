@@ -87,7 +87,13 @@ export async function setStaffActiveAction(formData: FormData): Promise<void> {
   let error: StaffError | null = null;
   try {
     // A disabled account is refused on its very next request: currentStaff() re-reads the account every time.
-    const updated = await storage.staffUpdate(parsed.data.id, { active: parsed.data.active === 'true' });
+    // Disabling also moves the session cutoff (passwordChangedAt) to now, so every cookie issued before it stays
+    // dead after a later re-enable: the person has to log in again.
+    const active = parsed.data.active === 'true';
+    const updated = await storage.staffUpdate(
+      parsed.data.id,
+      active ? { active: true } : { active: false, passwordChangedAt: new Date().toISOString() },
+    );
     if (!updated) error = 'invalid';
   } catch (e) {
     error = mapStorageError(e);

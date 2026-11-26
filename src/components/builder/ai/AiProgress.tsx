@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { builder } from '@/content/ar';
 import { cn } from '@/lib/utils';
-import { PROGRESS_TICK_MS, progressAt, type ProgressKind } from './progress-logic';
+import { progressAt, startProgressClock, type ProgressKind } from './progress-logic';
 
 /**
  * The estimated progress of one AI request (R7): a stage text announced politely only when the stage changes,
@@ -41,14 +41,10 @@ export function AiProgressView({ kind, elapsedMs, className }: { kind: ProgressK
   );
 }
 
-/** Ticks every PROGRESS_TICK_MS from `startedAt` (default: when it mounts); the timer stops on unmount. */
+/** Ticks from `startedAt` (default: when it mounts), starting with one tick at once; the timers stop on unmount. */
 export function AiProgress({ kind, startedAt, className }: { kind: ProgressKind; startedAt?: number; className?: string }) {
-  const [elapsedMs, setElapsedMs] = useState(0);
-  useEffect(() => {
-    const start = startedAt ?? Date.now();
-    // Elapsed is read from the clock, not counted in ticks: background tabs throttle intervals.
-    const id = window.setInterval(() => setElapsedMs(Date.now() - start), PROGRESS_TICK_MS);
-    return () => window.clearInterval(id);
-  }, [startedAt]);
+  // Starts from the clock, not 0: a remounted bar paints its real place on the first frame. It only mounts on the client, after a click.
+  const [elapsedMs, setElapsedMs] = useState(() => (startedAt === undefined ? 0 : Math.max(0, Date.now() - startedAt)));
+  useEffect(() => startProgressClock(startedAt ?? Date.now(), setElapsedMs), [startedAt]);
   return <AiProgressView kind={kind} elapsedMs={elapsedMs} className={className} />;
 }

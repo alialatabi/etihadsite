@@ -680,7 +680,9 @@ export type GenerateError =
   | 'text_too_long'
   | 'refused'
   | 'failed'
-  | 'invalid_request';
+  | 'invalid_request'
+  /** Staff only: the hourly in-memory guard (60 tries per account) said wait. Not the daily limit. */
+  | 'rate_limited';
 export type GenerateResponse =
   | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
   | { ok: false; error: GenerateError };
@@ -825,6 +827,8 @@ export interface StorageAdapter {
  * `day` is the shop day (Asia/Baghdad), YYYY-MM-DD.
  */
 export type AiKind = 'image' | 'brief' | 'staff_image' | 'staff_brief';
+/** Who made a generation: 'customer' = staffId null/absent; 'staff' = any staff account; { staffId } = that account only. */
+export type AiGenerationMaker = 'customer' | 'staff' | { staffId: string };
 export type AiReserveResult = 'ok' | 'ip_limit' | 'site_limit' | 'blocked';
 
 /**
@@ -835,8 +839,7 @@ export interface AiGenerationFilter {
   ipKey?: string;
   /** true = only designs an order used (orderId set); false = only those no order used. */
   ordered?: boolean;
-  /** 'customer' = staffId null/absent; 'staff' = any staff account; { staffId } = that account only. */
-  maker?: 'customer' | 'staff' | { staffId: string };
+  maker?: AiGenerationMaker;
   shape?: Shape;
   /** createdAt ≥ since (ISO 8601). */
   since?: string;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setupEnv } from '../server/helpers';
+import { SECRET, setupEnv } from '../server/helpers';
 
 const requireAdmin = vi.fn();
 const revalidatePath = vi.fn();
@@ -12,6 +12,15 @@ vi.mock('@/lib/storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/storage')>();
   return { ...actual, getStorage: () => (storageOverride ?? actual.getStorage()) as ReturnType<typeof actual.getStorage> };
 });
+const jar = new Map<string, string>();
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (k: string) => (jar.has(k) ? { name: k, value: jar.get(k)! } : undefined),
+    set: (k: string, v: string) => void jar.set(k, v),
+    delete: (k: string) => void jar.delete(k),
+  }),
+  headers: async () => new Headers(),
+}));
 vi.mock('next/navigation', () => ({
   redirect: (u: string) => {
     throw new Error('NEXT_REDIRECT ' + u);
@@ -20,6 +29,8 @@ vi.mock('next/navigation', () => ({
 
 import { createStaffAction, resetStaffPasswordAction, setStaffActiveAction } from '@/app/admin/staff/actions';
 import { verifyPassword } from '@/lib/auth/password';
+import { currentStaff } from '@/lib/auth/staff-session';
+import { signStaffToken } from '@/lib/auth/staff-token';
 import { getStorage } from '@/lib/storage';
 import { LocalStorage } from '@/lib/storage/local';
 import type { StaffAccountRecord } from '@/lib/types';
@@ -64,6 +75,7 @@ beforeEach(() => {
   revalidatePath.mockReset();
   vi.restoreAllMocks();
   storageOverride = null;
+  jar.clear();
 });
 
 describe('admin staff actions require the admin first', () => {
@@ -136,6 +148,26 @@ describe('setStaffActiveAction', () => {
     expect((await getStorage().staffGet!(ID))?.active).toBe(false);
     await run(setStaffActiveAction, { id: ID, active: 'true' });
     expect((await getStorage().staffGet!(ID))?.active).toBe(true);
+  });
+
+  it('disabling ends the sessions: a cookie issued before it stays dead after a re-enable', async () => {
+    await seed();
+    jar.set('sf_staff', await signStaffToken(SECRET, ID, Date.now() - 5_000));
+    expect(await currentStaff()).not.toBeNull();
+    await run(setStaffActiveAction, { id: ID, active: 'false' });
+    expect(await currentStaff()).toBeNull();
+    await run(setStaffActiveAction, { id: ID, active: 'true' });
+    expect((await getStorage().staffGet!(ID))?.active).toBe(true);
+    expect(await currentStaff()).toBeNull();
+    // a fresh login after the re-enable works
+    jar.set('sf_staff', await signStaffToken(SECRET, ID, Date.now() + 2_000));
+    expect(await currentStaff()).not.toBeNull();
+  });
+
+  it('enabling alone leaves passwordChangedAt untouched', async () => {
+    await seed({ active: false });
+    await run(setStaffActiveAction, { id: ID, active: 'true' });
+    expect((await getStorage().staffGet!(ID))?.passwordChangedAt).toBe('2026-01-01T08:00:00.000Z');
   });
 
   it('a bad id, a bad value or an unknown account gives invalid', async () => {

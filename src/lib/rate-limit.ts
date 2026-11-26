@@ -101,6 +101,9 @@ const trackLimiter = () => createRateLimiter({ limit: 300, windowMs: HOUR });
 const STAFF = {
   staffBrief: { limit: 120, windowMs: HOUR },
   staffGenerate: { limit: 60, windowMs: HOUR },
+  // Reference images on the staff page (up to 5 per design): the start of an upload and its commit, kept apart like the customer pair.
+  staffUpload: { limit: 60, windowMs: HOUR },
+  staffCommit: { limit: 120, windowMs: HOUR },
   // Keyed by the normalised phone (not an IP): no shared bucket, so no x20. Ten wrong tries per phone per 15 minutes.
   staffLoginPhone: { limit: 10, windowMs: 15 * 60 * 1000 },
 } as const;
@@ -125,6 +128,10 @@ type Limiters = {
   staffBrief: RateLimiter;
   /** POST /api/team/design/generate, keyed by the staff account (every attempt counts, like `generate`). */
   staffGenerate: RateLimiter;
+  /** POST /api/team/upload and /api/team/upload/direct, keyed by the staff account: reference images never use the per-IP `upload`. */
+  staffUpload: RateLimiter;
+  /** POST /api/team/upload/direct/commit, keyed by the staff account. */
+  staffCommit: RateLimiter;
   /** The /team/login server action, per IP. Separate from the admin `login`, so staff guessing never locks the admin out. */
   staffLogin: RateLimiter;
   /** The same action, per normalised phone (a second guard: a botnet changes IPs, the phone stays). */
@@ -157,6 +164,8 @@ export function limiters(): Limiters {
       track: prevTrack ?? trackLimiter(),
       staffBrief: g.__epLimiters?.staffBrief ?? staffLimiter('staffBrief'),
       staffGenerate: g.__epLimiters?.staffGenerate ?? staffLimiter('staffGenerate'),
+      staffUpload: g.__epLimiters?.staffUpload ?? staffLimiter('staffUpload'),
+      staffCommit: g.__epLimiters?.staffCommit ?? staffLimiter('staffCommit'),
       staffLoginPhone: g.__epLimiters?.staffLoginPhone ?? staffLimiter('staffLoginPhone'),
     };
   }
@@ -164,6 +173,8 @@ export function limiters(): Limiters {
   for (const name of BACKFILLED) g.__epLimiters[name] ??= scaled(name, k);
   g.__epLimiters.staffBrief ??= staffLimiter('staffBrief');
   g.__epLimiters.staffGenerate ??= staffLimiter('staffGenerate');
+  g.__epLimiters.staffUpload ??= staffLimiter('staffUpload');
+  g.__epLimiters.staffCommit ??= staffLimiter('staffCommit');
   g.__epLimiters.staffLoginPhone ??= staffLimiter('staffLoginPhone');
   return g.__epLimiters;
 }

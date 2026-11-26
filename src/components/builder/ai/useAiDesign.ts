@@ -6,7 +6,7 @@ import { generateBlock, type GenerateBlock } from '../logic';
 import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
-import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, type AiErrorCode, type AiPhase } from './ai-logic';
+import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, uploadErrorCode, type AiErrorCode, type AiPhase } from './ai-logic';
 import { DEFAULT_AI_ENDPOINTS, capInstructions, instructionsFields, isInstructionsEdited, postBrief, postGenerate, type AiEndpoints } from './api';
 
 export type { AiPhase };
@@ -54,6 +54,7 @@ function revoke(url: string | undefined): void {
  * (never from an effect) and is guarded against running twice; a late answer of an abandoned try is dropped.
  */
 export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints = DEFAULT_AI_ENDPOINTS) {
+  const uploadRoutes = endpoints.upload; // undefined = the customer upload routes
   const [phase, setPhase] = useState<AiPhase>('idle');
   const [lines, setLinesState] = useState<string[]>([]);
   const [fixes, setFixes] = useState<{ from: string; to: string }[]>([]);
@@ -182,8 +183,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
         continue;
       }
       try {
-        const up = await uploadWithProgress(ref.file, () => {});
-        if (!up.ok) return up.error === 'rate_limited' ? 'rate_limited' : up.error === 'server_error' ? 'failed' : 'invalid_request';
+        const up = await uploadWithProgress(ref.file, () => {}, uploadRoutes);
+        if (!up.ok) return uploadErrorCode(up.error);
         refUploads.current.set(ref.key, up.uploadId);
         ids.push(up.uploadId);
       } catch {
@@ -191,7 +192,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
       }
     }
     return ids;
-  }, []);
+  }, [uploadRoutes]);
 
   /**
    * Confirm in the review box, «جرّب مرة لخ»: one image from the confirmed lines. Opens the design step.

@@ -14,6 +14,8 @@ import {
 import { aiIpKey } from "@/lib/ai/ip";
 import { briefToken, customerActor, instructionsToken, runBrief, runGenerate, staffActor } from "@/lib/ai/service";
 import { shopDayKey } from "@/lib/shop-time";
+import { GENERATE_STATUS } from "@/lib/ai/service";
+import { limiters } from "@/lib/rate-limit";
 import { getStorage } from "@/lib/storage";
 import { setupEnv } from "./helpers";
 import { OPENAI_BASE, briefResponse, imageResponse, opaquePng, stubOpenAi } from "./ai-helpers";
@@ -151,6 +153,26 @@ describe("staffActor", () => {
     expect(out.body).toEqual({ ok: false, error: "ip_limit" });
     const rows = await storage.aiUsage!(day);
     expect(rows.every((r) => r.kind === "staff_image")).toBe(true);
+  });
+});
+
+describe("staff hourly guard", () => {
+  it("a full staffGenerate limiter answers rate_limited (429), not ip_limit, and reserves nothing", async () => {
+    const guard = limiters().staffGenerate;
+    let r = guard.check("staff:st9");
+    while (r.ok) r = guard.check("staff:st9");
+    const out = await runGenerate(req("10.9.0.9"), genBody(), Date.now, undefined, staffActor("st9"));
+    expect(out.body).toEqual({ ok: false, error: "rate_limited" });
+    expect(GENERATE_STATUS.rate_limited).toBe(429);
+    expect(await getStorage().aiUsage!(shopDayKey(new Date()))).toEqual([]);
+  });
+
+  it("the customer guard keeps answering ip_limit", async () => {
+    const guard = limiters().generate;
+    let r = guard.check("10.9.0.10");
+    while (r.ok) r = guard.check("10.9.0.10");
+    const out = await runGenerate(req("10.9.0.10"), genBody());
+    expect(out.body).toEqual({ ok: false, error: "ip_limit" });
   });
 });
 

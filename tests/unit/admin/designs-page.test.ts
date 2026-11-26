@@ -77,9 +77,9 @@ describe('DesignsPage with every filter set', () => {
     });
   });
 
-  it('fetches the unfiltered total separately and shows it in the stored tile', async () => {
+  it('fetches the stored customer total separately and shows it in the stored tile', async () => {
     const html = await render(sp);
-    expect(store.aiListGenerations.mock.calls[1][0]).toEqual({ limit: 0, offset: 0 });
+    expect(store.aiListGenerations.mock.calls[1][0]).toEqual({ limit: 0, offset: 0, maker: 'customer' });
     expect(html).toContain('777');
   });
 
@@ -102,10 +102,11 @@ describe('DesignsPage with every filter set', () => {
 });
 
 describe('DesignsPage without filters', () => {
-  it('lists page 1 with no extra total call and no search', async () => {
+  it('lists page 1 plus the stored customer total, and no search', async () => {
     await render({});
-    expect(store.aiListGenerations).toHaveBeenCalledTimes(1);
+    expect(store.aiListGenerations).toHaveBeenCalledTimes(2);
     expect(store.aiListGenerations.mock.calls[0][0]).toEqual({ limit: 48, offset: 0 });
+    expect(store.aiListGenerations.mock.calls[1][0]).toEqual({ limit: 0, offset: 0, maker: 'customer' });
     expect(store.listOrders).not.toHaveBeenCalled();
   });
 

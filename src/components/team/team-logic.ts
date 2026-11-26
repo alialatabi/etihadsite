@@ -8,6 +8,7 @@ import { fillLtr } from '@/components/fill-ltr';
 import { safeFormatCm, safeLayout, safeParseCm } from '@/components/builder/safe';
 import type { SizeIds } from '@/components/builder/steps/SizeFields';
 import { STAFF_IMAGE_DAILY_LIMIT } from '@/lib/ai/config';
+import { umToCm } from '@/lib/units';
 import type { AiUsageRow, Corners, LayoutOutcome, LayoutSettings, Shape, ShopSettings, StickerSpec } from '@/lib/types';
 
 /**
@@ -16,7 +17,12 @@ import type { AiUsageRow, Corners, LayoutOutcome, LayoutSettings, Shape, ShopSet
  */
 
 /** The staff routes the shared AI hook talks to. */
-export const TEAM_AI_ENDPOINTS: AiEndpoints = { brief: '/api/team/design/brief', generate: '/api/team/design/generate' };
+export const TEAM_AI_ENDPOINTS: AiEndpoints = {
+  brief: '/api/team/design/brief',
+  generate: '/api/team/design/generate',
+  // Reference images go through the staff twins too: limited per account, never by the shop's IP.
+  upload: { start: '/api/team/upload/direct', commit: '/api/team/upload/direct/commit', server: '/api/team/upload' },
+};
 
 /** The part of the shop settings the page sends to the browser. */
 export type TeamSettings = Pick<ShopSettings, 'maxUploadBytes' | 'layout' | 'quality' | 'ai'>;
@@ -34,6 +40,12 @@ export interface SizeTexts {
 }
 
 /**
+ * The other side of a custom square, as text. Exact (not safeFormatCm's 2 decimals): both texts must parse back to
+ * the same whole micrometres, whichever side was typed.
+ */
+const squareText = (um: number): string => String(umToCm(um));
+
+/**
  * One side typed. Mirrors useBuilder's onWidthChange / onHeightChange on page 1 before a design exists:
  * a rectangle is free, a custom shape stays a square, a circle has only the diameter.
  */
@@ -41,7 +53,7 @@ export function teamSizeEdit(shape: Shape | null, side: 'width' | 'height', text
   if (shape === 'circle') return { widthText: side === 'width' ? text : current.widthText, heightText: '' };
   if (shape === 'custom') {
     const um = safeParseCm(text);
-    const other = um ? safeFormatCm(um) : text.trim() ? (side === 'width' ? current.heightText : current.widthText) : '';
+    const other = um ? squareText(um) : text.trim() ? (side === 'width' ? current.heightText : current.widthText) : '';
     return side === 'width' ? { widthText: text, heightText: other } : { widthText: other, heightText: text };
   }
   return side === 'width' ? { ...current, widthText: text } : { ...current, heightText: text };
@@ -52,7 +64,7 @@ export function teamShapeTexts(shape: Shape, t: SizeTexts): SizeTexts {
   if (shape === 'circle') return { widthText: t.widthText, heightText: '' };
   if (shape === 'custom') {
     const um = safeParseCm(t.widthText);
-    return um ? { widthText: t.widthText, heightText: safeFormatCm(um) } : t;
+    return um ? { widthText: t.widthText, heightText: squareText(um) } : t;
   }
   return t;
 }

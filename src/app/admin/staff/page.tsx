@@ -106,10 +106,12 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                 <Input
                   id="staff-password"
                   name="password"
-                  type="password"
+                  type="text"
                   required
                   minLength={STAFF_PASSWORD_MIN}
-                  autoComplete="new-password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
                   dir="ltr"
                   className={field.input}
                 />
@@ -152,10 +154,12 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                           <Input
                             id={`pw-${a.id}`}
                             name="password"
-                            type="password"
+                            type="text"
                             required
                             minLength={STAFF_PASSWORD_MIN}
-                            autoComplete="new-password"
+                            autoComplete="off"
+                            spellCheck={false}
+                            autoCapitalize="none"
                             dir="ltr"
                             className={`${field.input} w-56`}
                           />

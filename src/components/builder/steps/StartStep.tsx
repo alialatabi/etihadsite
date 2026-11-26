@@ -155,7 +155,7 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
                 {ai.briefing ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Sparkles className="size-5" aria-hidden />}
                 {builder.ai.generate}
               </Button>
-              {ai.briefing && <AiProgress kind="brief" />}
+              {ai.briefing && <AiProgress kind="brief" startedAt={ai.busySince ?? undefined} />}
             </>
           )}
 

@@ -118,3 +118,28 @@ Workers may add a missing small string next to these, in the same tone; report e
 1. Apply `20261126000000_staff_designer.sql` on live Supabase **before** deploying.
 2. Deploy when the owner asks.
 3. Add staff accounts in «الموظفين» and give them the `/team/login` link.
+
+## Status (2026-11-26)
+
+**Done.** All four tasks are implemented and merged on the working branch (lanes 0, A, B, C merged as 7076763, then the staff page and review fixes on top):
+
+- Instructions chain (tasks 1 and 2): `brief.ts` returns `design_instructions` and `brief` signs `instructionsToken`; the review box has the editable field; `generate` draws the signed description when the instructions are unchanged and otherwise translates them (`instructions.ts`) after the reservation, giving the use back on any failure; the image prompt wraps the description as design instructions.
+- Staff designer (task 3): migration `20261126000000_staff_designer.sql` (written, not applied), `password.ts` (scrypt), `staff-token.ts`, `staff-session.ts`, `/team/login`, `/team`, `/api/team/design/{brief,generate}` and the staff upload twins (`/api/team/upload*`, added after this plan so reference images use per-account limits), `/admin/staff`, the staff badge in `/admin/designs`, `/team` out of robots and analytics. Limits as planned: 50 images and 300 briefs per account per day, site cap 5,000 per staff kind, in-memory guards per account, login limited per IP and per phone. The proxy is untouched (R3).
+- Progress (task 4): `progress-logic.ts` and `AiProgress.tsx`, used in `StartStep`, `AiResult` and the staff page (`AiProgress` also takes `startedAt`, so the start survives a remount).
+- Docs: `docs/ARCHITECTURE.md` (route map, AI designer section, limits, staff auth, invariants 18 and 19, production checklist item 5) and `README.md` "Deployment".
+
+**Live check (local key, `STORAGE=local`, dev server on port 3111, stopped afterwards).** Everything passed and no `brief.ts` tuning was needed.
+
+- Brief: 5 calls (a bakery name, a barber logo with a phone number, a birthday greeting, no text at all, a prompt-injection attempt). All answered 200; the printed lines held only the words to print, the Arabic instructions were readable and carried the style and layout without quoting the printed words, and the English description said the same thing. The injection text was not printed.
+- Image 1 (customer route, translate path): the instructions were edited («بنية» to «زرقاء فاتحة») and sent with the old token. The result had the light blue background, the correct Arabic name and a clean round sticker. The dev log does not show the translation call, so the colour change is the only evidence that the translate step ran.
+- Image 2 (staff route): `/team/login` 200, `/team` without the cookie 307 to `/team/login`, `POST /api/team/design/brief` without the cookie 401. With a session cookie the brief and the image worked; the PNG was correct. Usage counted under `staff:<id>` (`staff_image`, `staff_brief`), separate from the customer rows; the generation record carries `staffId`, the customer's does not.
+- Not exercised: the real `/team/login` form POST (the cookie was minted with the same helpers instead), and everything on live Supabase. Spend: 5 briefs, 2 images and 1 translation. `./data` was restored afterwards.
+- Gate: `CI=1 pnpm check` passed (143 files, 2333 tests, lint and lint:rtl).
+
+**Owner hand-over (not done by us).**
+
+1. Apply `supabase/migrations/20261126000000_staff_designer.sql` on live Supabase **before** deploying.
+2. Deploy when the owner asks (`vercel deploy --prod`); no new environment variable.
+3. Open `/admin/staff` (it must show the list, not the not-ready notice), add the staff accounts (name, phone, password of 8 or more characters) and give them the `/team/login` link.
+4. Log in once on the live site with a real staff account and make one test design (this covers the login form, which the live check did not).
+
