@@ -55,21 +55,21 @@ export function TeamShape({
               tabIndex={radioTabIndex(i, selectedIndex)}
               onClick={() => onShape(id)}
               className={cn(
-                'flex min-h-11 items-center gap-4 rounded-2xl border-2 bg-card p-4 text-start outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 sm:flex-col sm:items-start sm:gap-3',
-                selected ? 'border-brand bg-brand/5' : 'border-border hover:border-foreground/30',
+                'paper-card flex min-h-11 items-center gap-4 p-4 text-start transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink sm:flex-col sm:items-start sm:gap-3',
+                selected ? 'outline outline-[3px] outline-ink' : 'hover:bg-news-light',
               )}
             >
               <span
                 className={cn(
-                  'flex size-14 shrink-0 items-center justify-center rounded-xl',
-                  selected ? 'bg-brand text-brand-foreground' : 'bg-muted text-foreground',
+                  'flex size-14 shrink-0 items-center justify-center rounded-[2px]',
+                  selected ? 'bg-ink text-paper' : 'bg-news text-ink',
                 )}
               >
                 <Icon className="size-7" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-lg font-bold">{label}</span>
-                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{hint}</span>
+                <span className="block text-lg font-bold text-ink">{label}</span>
+                <span className="mt-1 block text-sm leading-relaxed text-ink-muted">{hint}</span>
               </span>
             </button>
           );
@@ -77,8 +77,8 @@ export function TeamShape({
       </div>
 
       {shape === 'rect' && (
-        <fieldset className="rounded-2xl border bg-card p-4">
-          <legend className="px-1 text-sm font-medium">{builder.shape.corners}</legend>
+        <fieldset className="paper-card p-4">
+          <legend className="px-1 text-sm font-medium text-ink">{builder.shape.corners}</legend>
           <RadioGroup value={corners} onValueChange={(v) => onCorners(v as Corners)} className="mt-1 gap-3 sm:grid-cols-2">
             {(
               [
@@ -90,14 +90,14 @@ export function TeamShape({
                 key={id}
                 htmlFor={`team-corners-${id}`}
                 className={cn(
-                  'flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3',
-                  corners === id ? 'border-brand bg-brand/5' : 'border-border',
+                  'flex min-h-11 cursor-pointer items-start gap-3 rounded-[2px] border p-3',
+                  corners === id ? 'border-ink bg-news-light' : 'border-line bg-white',
                 )}
               >
                 <RadioGroupItem id={`team-corners-${id}`} value={id} className="mt-1" />
                 <span>
-                  <span className="block text-sm font-medium">{label}</span>
-                  <span className="block text-xs text-muted-foreground">{hint}</span>
+                  <span className="block text-sm font-medium text-ink">{label}</span>
+                  <span className="block text-xs text-ink-muted">{hint}</span>
                 </span>
               </label>
             ))}

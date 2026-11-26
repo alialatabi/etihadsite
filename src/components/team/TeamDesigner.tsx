@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ImagePlus, LoaderCircle, Pencil, RefreshCw, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { builder, team } from '@/content/ar';
+import { btnCls, ctaCls, fieldCls } from '@/components/collage';
 import { Ltr } from '@/components/Ltr';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { useAiDesign } from '@/components/builder/ai/useAiDesign';
 import { SizeInputs } from '@/components/builder/steps/SizeFields';
 import { AI_IDEA_MAX_CHARS, AI_MAX_REFS } from '@/lib/ai/config';
 import type { Corners, Shape, ShopSettings } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { TeamResult } from './TeamResult';
 import { TeamShape } from './TeamShape';
 import {
@@ -32,7 +34,7 @@ import {
 
 function ErrorBox({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+    <div className="flex items-start gap-3 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-4 text-sm text-brand-ink">
       <TriangleAlert className="size-5 shrink-0" aria-hidden />
       <p className="min-w-0 flex-1">{children}</p>
     </div>
@@ -42,7 +44,7 @@ function ErrorBox({ children }: { children: ReactNode }) {
 /** The way back to the login page when the session ended. */
 function SessionLink() {
   return (
-    <Link href="/team/login" className="ms-2 font-medium underline">
+    <Link href="/team/login" className="ms-2 font-medium underline decoration-2 underline-offset-4">
       {team.login.submit}
     </Link>
   );
@@ -172,16 +174,16 @@ function TeamSession({
   return (
     <div className="space-y-6">
       <fieldset disabled={generating || ai.briefing} className="min-w-0 space-y-6">
-        <section aria-labelledby="team-shape" className="space-y-3">
-          <h2 id="team-shape" ref={shapeHeading} tabIndex={-1} className="text-lg font-bold outline-none">
+        <section aria-labelledby="team-shape" className="paper-card space-y-3 p-4 sm:p-5">
+          <h2 id="team-shape" ref={shapeHeading} tabIndex={-1} className="text-lg font-bold text-ink outline-none">
             {team.shape}
           </h2>
           <TeamShape shape={shape} onShape={onShape} corners={corners} onCorners={onCorners} />
         </section>
 
         {shape && (
-          <section aria-labelledby="team-size" className="space-y-3">
-            <h2 id="team-size" className="text-lg font-bold">
+          <section aria-labelledby="team-size" className="paper-card space-y-3 p-4 sm:p-5">
+            <h2 id="team-size" className="text-lg font-bold text-ink">
               {team.size}
             </h2>
             <SizeInputs
@@ -195,14 +197,14 @@ function TeamSession({
             />
             <div id={TEAM_SIZE_IDS.msg} aria-live="polite">
               {sz.error && (
-                <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
                   <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                   <span>{sz.error}</span>
                 </p>
               )}
             </div>
             {ai.block === 'aspect' && !ai.off && (
-              <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+              <p role="status" className="rounded-[2px] border border-ink/20 bg-news-light p-3 text-sm text-ink">
                 {builder.ai.aspect}
               </p>
             )}
@@ -210,16 +212,16 @@ function TeamSession({
         )}
 
         {ai.off ? (
-          <p role="status" className="rounded-xl bg-muted px-4 py-3 text-sm">
+          <p role="status" className="rounded-[2px] border border-ink/20 bg-news-light px-4 py-3 text-sm text-ink">
             {team.login.unavailable}
           </p>
         ) : (
-          <section aria-labelledby="team-idea-label" className="space-y-4">
+          <section aria-labelledby="team-idea-label" className="paper-card space-y-4 p-4 sm:p-5">
             <div className="space-y-2">
-              <Label id="team-idea-label" htmlFor="team-idea" className="text-lg font-bold">
+              <Label id="team-idea-label" htmlFor="team-idea" className="text-lg font-bold text-ink">
                 {builder.ai.ideaLabel}
               </Label>
-              <p id="team-idea-hint" className="text-sm text-muted-foreground">
+              <p id="team-idea-hint" className={fieldCls.hint}>
                 {builder.ai.ideaHint}
               </p>
               <Textarea
@@ -229,9 +231,9 @@ function TeamSession({
                 onChange={(e) => ai.onIdeaChange(e.target.value)}
                 aria-describedby="team-idea-hint team-idea-count"
                 rows={4}
-                className="min-h-28 text-base md:text-base"
+                className="min-h-28 rounded-[2px] border-input bg-white px-3 py-2 text-[16px] focus-visible:border-brand focus-visible:ring-brand/30 md:text-[16px]"
               />
-              <p id="team-idea-count" className="text-end text-xs text-muted-foreground">
+              <p id="team-idea-count" className={cn(fieldCls.hint, 'text-end')}>
                 <Ltr>
                   {idea.length}/{AI_IDEA_MAX_CHARS}
                 </Ltr>
@@ -239,7 +241,7 @@ function TeamSession({
             </div>
 
             <div className="space-y-2">
-              <p id="team-refs-caption" className="text-sm font-medium">
+              <p id="team-refs-caption" className="text-sm font-medium text-ink">
                 {builder.ai.refs}
               </p>
               <input
@@ -260,7 +262,7 @@ function TeamSession({
               <div className="flex flex-wrap items-center gap-3">
                 {ai.refs.map((r) => (
                   <div key={r.key} className="relative size-20">
-                    <div className="size-full overflow-hidden rounded-xl border bg-muted">
+                    <div className="size-full overflow-hidden rounded-[2px] border border-line bg-news">
                       {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL preview */}
                       <img src={r.previewUrl} alt="" className="size-full object-cover" />
                     </div>
@@ -269,9 +271,9 @@ function TeamSession({
                       type="button"
                       aria-label={builder.ai.removeRef}
                       onClick={() => ai.removeRef(r.key)}
-                      className="group absolute -end-3 -top-3 flex size-11 items-center justify-center rounded-full outline-none"
+                      className="group absolute -end-3 -top-3 flex size-11 items-center justify-center rounded-[50%] outline-none"
                     >
-                      <span className="flex size-7 items-center justify-center rounded-full border bg-background text-foreground shadow group-focus-visible:ring-3 group-focus-visible:ring-ring/50">
+                      <span className="flex size-7 items-center justify-center rounded-[50%] border border-ink/30 bg-white text-ink shadow group-focus-visible:outline-solid group-focus-visible:outline-[3px] group-focus-visible:outline-offset-2 group-focus-visible:outline-ink">
                         <X className="size-4" aria-hidden />
                       </span>
                     </button>
@@ -282,7 +284,7 @@ function TeamSession({
                     type="button"
                     variant="outline"
                     aria-describedby="team-refs-caption"
-                    className="h-20 min-w-20 flex-col gap-1 px-3"
+                    className={cn(btnCls('outline'), 'h-20 min-w-20 flex-col gap-1 px-3')}
                     onClick={() => refInput.current?.click()}
                   >
                     <ImagePlus className="size-6" aria-hidden />
@@ -293,7 +295,7 @@ function TeamSession({
             </div>
 
             {ai.refRejected && (
-              <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+              <p role="status" className="rounded-[2px] border border-ink/20 bg-news-light p-3 text-sm text-ink">
                 {builder.ai.refRejected}
               </p>
             )}
@@ -304,7 +306,7 @@ function TeamSession({
       {!ai.off && (
         <div className="space-y-4">
           {ai.phase === 'idle' && ai.error && (
-            <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
                 {teamErrorText(ai.error)}
@@ -314,7 +316,7 @@ function TeamSession({
           )}
 
           {remaining === 0 && !(ai.phase === 'error' && ai.error === 'ip_limit') && (
-            <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+            <p role="status" className="rounded-[2px] border border-ink/20 bg-news-light p-3 text-sm text-ink">
               {teamErrorText('ip_limit')}
             </p>
           )}
@@ -325,7 +327,7 @@ function TeamSession({
                 type="button"
                 disabled={ai.block !== null || remaining === 0}
                 onClick={() => void ai.review()}
-                className="h-12 w-full bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand/90 sm:w-auto"
+                className={ai.result && resultShown(ai.phase, true) ? btnCls('outline') : ctaCls('md')}
               >
                 {ai.briefing ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Sparkles className="size-5" aria-hidden />}
                 {builder.ai.generate}
@@ -340,9 +342,9 @@ function TeamSession({
 
       <div ref={regionRef} tabIndex={-1} aria-live="polite" className="space-y-4 outline-none">
         {generating ? (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-2xl border bg-card p-6 text-center">
+          <div className="paper-card flex min-h-64 flex-col items-center justify-center gap-4 p-6 text-center">
             <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden />
-            <p className="text-base font-medium">{builder.ai.generating}</p>
+            <p className="text-base font-medium text-ink">{builder.ai.generating}</p>
             <AiProgress kind="image" startedAt={ai.busySince ?? undefined} />
           </div>
         ) : ai.result && resultShown(ai.phase, true) ? (
@@ -355,16 +357,16 @@ function TeamSession({
             {errorBox}
             <div className="flex flex-wrap items-center gap-3">
               {canRetry && (
-                <Button type="button" variant="outline" className="h-12 px-5" onClick={() => void ai.retry()}>
+                <Button type="button" variant="outline" className={btnCls('outline')} onClick={() => void ai.retry()}>
                   <RefreshCw className="size-4" aria-hidden />
                   {builder.ai.retry}
                 </Button>
               )}
-              <Button type="button" variant="ghost" className="h-12 px-5" onClick={ai.editIdea}>
+              <Button type="button" variant="outline" className={btnCls('outline')} onClick={ai.editIdea}>
                 <Pencil className="size-4" aria-hidden />
                 {builder.ai.editIdea}
               </Button>
-              <Button type="button" variant="ghost" className="h-12 px-5" onClick={newDesign}>
+              <Button type="button" variant="outline" className={btnCls('outline')} onClick={newDesign}>
                 {team.newDesign}
               </Button>
             </div>
