@@ -6,9 +6,9 @@
  */
 import { dpiFor, dpiStatus, pdfPrefillUm } from '@/components/builder/logic';
 import { safeDerive, safeFormatCm, safeLayout, safeMaxWidth, safeParseCm } from '@/components/builder/safe';
-import { prepareArtwork, type PrepareError } from '@/lib/design/prepare.client';
+import { prepareOriginalArtwork } from '@/lib/design/original.client';
+import type { PrepareError } from '@/lib/design/prepare.client';
 import { reportClientError } from '@/lib/monitoring/report.client';
-import { PRINT_DPI } from '@/lib/print-dpi';
 import type {
   Corners,
   DesignDecodeError,
@@ -292,9 +292,9 @@ export async function buildStaffFile(
     if (!spec || !card.design) return { ok: false, reason: 'build', ...failed };
     const outcome = safeLayout(spec, layoutSettings);
     if (!outcome.ok) return { ok: false, reason: 'build', ...failed };
-    const prepared = await prepareArtwork(card.design, spec, PRINT_DPI);
+    const prepared = await prepareOriginalArtwork(card.design, spec);
     if (!prepared.ok) {
-      // prepareArtwork turns every throw (canvas too big, toBlob, memory) into 'corrupt'; this design already decoded on this page.
+      // prepareOriginalArtwork (like prepareArtwork) turns every throw (canvas too big, toBlob, memory) into 'corrupt'; this design already decoded on this page.
       if (prepared.error === 'corrupt') {
         reportClientError(new Error('staff prepare failed: corrupt'), {
           where: 'staff.prepare',

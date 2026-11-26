@@ -23,8 +23,8 @@ vi.mock('@/lib/pdf/build-staff-pdf', () => ({
     return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
   },
 }));
-vi.mock('@/lib/design/prepare.client', () => ({
-  prepareArtwork: async (source: DesignSource): Promise<unknown> => {
+vi.mock('@/lib/design/original.client', () => ({
+  prepareOriginalArtwork: async (source: DesignSource): Promise<unknown> => {
     if (source.file.name === 'locked.pdf') return { ok: false, error: 'encrypted' };
     const artwork = { kind: 'raster', bytes: new Uint8Array([1]), mime: 'image/png', pxWidth: source.pxWidth, pxHeight: source.pxHeight, hasAlpha: true, effectiveDpi: 300 };
     return { ok: true, artwork, effectiveDpi: 300 };

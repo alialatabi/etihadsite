@@ -116,7 +116,7 @@ export async function embedArtwork(doc: PDFDocument, page: PDFPage, artwork: Nor
   if (artwork.kind === 'raster') {
     const image = artwork.mime === 'image/png' ? await doc.embedPng(artwork.bytes) : await doc.embedJpg(artwork.bytes);
     const xobjectName = page.node.newXObject('Image', image.ref);
-    return { xobjectName, bw: artwork.pxWidth, bh: artwork.pxHeight, isImage: true, pageRotateCw: 0 };
+    return { xobjectName, bw: artwork.pxWidth, bh: artwork.pxHeight, isImage: true, pageRotateCw: artwork.rotate ?? 0 };
   }
   const src = await PDFDocument.load(artwork.bytes);
   const srcPage = src.getPage(0);
