@@ -1,0 +1,191 @@
+'use client';
+
+import { memo } from 'react';
+import { FileDown, FileText, LoaderCircle, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
+import { builder, fill, staff } from '@/content/ar';
+import { Ltr } from '@/components/Ltr';
+import { fillLtr } from '@/components/fill-ltr';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RECEIPT_FORMATS, RECEIPT_FORMAT_IDS, receiptSlots, type ReceiptFormat, type ReceiptTurn, type ReceiptWhite } from '@/lib/receipts/formats';
+import { UM_PER_MM, A4_UM } from '@/lib/units';
+import { uploadLimitMb } from '@/lib/upload-limit';
+import { MAX_RECEIPT_FILE_BYTES, type ReceiptCardState, type ReceiptCardView } from './receipt-logic';
+
+interface Props {
+  card: ReceiptCardState;
+  view: ReceiptCardView;
+  onFormat: (id: string, format: ReceiptFormat) => void;
+  onTurn: (id: string) => void;
+  onWhite: (id: string, white: ReceiptWhite) => void;
+  onRemove: (id: string) => void;
+  onDownload: (id: string) => void;
+  /** A download is running: the per-card buttons wait. */
+  busy: boolean;
+}
+
+const r = staff.receipts;
+const WHITES: readonly ReceiptWhite[] = ['top', 'bottom'];
+/** µm to mm, rounded to the micrometre so the markup carries no floating-point noise. */
+const mm = (um: number) => Math.round(um) / UM_PER_MM;
+const round3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/** "A5" and "15 × 19.5 سم، 2 بالورقة" for one format: on two lines in the list, on one line in the closed picker. */
+function FormatLine({ format, inline }: { format: ReceiptFormat; inline?: boolean }) {
+  return (
+    <span className={inline ? 'flex min-w-0 items-baseline gap-2 text-start' : 'flex min-w-0 flex-col items-start gap-0.5 text-start'}>
+      <span className="font-medium">
+        <Ltr>{r.formats[format]}</Ltr>
+      </span>
+      <span className="text-xs text-muted-foreground">{fillLtr(r.formatDetail, { size: r.sizes[format], n: RECEIPT_FORMATS[format].perSheet })}</span>
+    </span>
+  );
+}
+
+/**
+ * The A4 sheet as the PDF will print it: the preview image stretched into every slot and turned
+ * by the card's turn about the slot centre (the preview is already upright, so only the card's
+ * turn applies). A quarter turn draws the image with its sides swapped first.
+ */
+function SheetSketch({ format, white, turn, previewUrl }: { format: ReceiptFormat; white: ReceiptWhite; turn: ReceiptTurn; previewUrl: string | null }) {
+  const swap = turn === 90 || turn === 270;
+  return (
+    <svg
+      viewBox={`0 0 ${mm(A4_UM.widthUm)} ${mm(A4_UM.heightUm)}`}
+      className="block h-auto w-full rounded-[2px] border border-border bg-white drop-shadow-[0_6px_18px_rgba(30,42,74,0.22)]"
+      role="img"
+      aria-label={r.previewAria}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {receiptSlots(format, white).map((s, i) => {
+        const x = mm(s.xUm);
+        const y = mm(s.yUm);
+        const w = mm(s.widthUm);
+        const h = mm(s.heightUm);
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const iw = swap ? h : w;
+        const ih = swap ? w : h;
+        return (
+          <g key={i} data-receipt-slot={i}>
+            {previewUrl && (
+              <image
+                href={previewUrl}
+                x={round3(cx - iw / 2)}
+                y={round3(cy - ih / 2)}
+                width={iw}
+                height={ih}
+                preserveAspectRatio="none"
+                transform={turn ? `rotate(${turn} ${round3(cx)} ${round3(cy)})` : undefined}
+              />
+            )}
+            <rect x={x} y={y} width={w} height={h} fill="none" stroke="#cbd5e1" strokeWidth={0.4} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** One receipt design: thumbnail, name, format, turn, the A4 sheet preview and its messages. */
+export const ReceiptCard = memo(function ReceiptCard({ card, view, onFormat, onTurn, onWhite, onRemove, onDownload, busy }: Props) {
+  const msgId = `receipt-msg-${card.id}`;
+  const previewUrl = card.design?.previewUrl ?? null;
+
+  return (
+    <li className="rounded-2xl border bg-card p-4" data-receipt-card={card.id}>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- blob: URL preview
+                <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+              ) : card.status === 'decoding' ? (
+                <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden />
+              ) : (
+                <FileText className="size-6 text-muted-foreground" aria-hidden />
+              )}
+            </div>
+            <p className="min-w-0 flex-1 truncate text-sm font-medium">
+              <Ltr>{card.file.name}</Ltr>
+            </p>
+            {view.valid && (
+              <Button type="button" variant="outline" size="icon" className="size-11" disabled={busy} aria-label={fill(staff.downloadOne, { name: card.file.name })} onClick={() => onDownload(card.id)}>
+                <FileDown className="size-4" aria-hidden />
+              </Button>
+            )}
+            <Button type="button" variant="outline" size="icon" className="size-11" aria-label={fill(staff.removeAria, { name: card.file.name })} onClick={() => onRemove(card.id)}>
+              <Trash2 className="size-4" aria-hidden />
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`receipt-format-${card.id}`}>{r.formatLabel}</Label>
+            <Select value={card.format} onValueChange={(v) => onFormat(card.id, v as ReceiptFormat)}>
+              <SelectTrigger id={`receipt-format-${card.id}`} className="w-full data-[size=default]:h-11">
+                <SelectValue>
+                  <FormatLine format={card.format} inline />
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent dir="rtl" alignItemWithTrigger={false}>
+                {RECEIPT_FORMAT_IDS.map((f) => (
+                  <SelectItem key={f} value={f} className="min-h-11">
+                    <FormatLine format={f} />
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-4">
+            <Button type="button" variant="outline" className="h-11 gap-2 px-4" disabled={!card.design} onClick={() => onTurn(card.id)}>
+              <RotateCw className="size-4" aria-hidden />
+              {r.turn}
+            </Button>
+            {card.format === 'a6' && (
+              <div role="group" aria-label={r.whiteLabel} className="space-y-2">
+                <p className="text-sm font-medium">{r.whiteLabel}</p>
+                <div className="flex gap-2">
+                  {WHITES.map((w) => (
+                    <Button
+                      key={w}
+                      type="button"
+                      variant={card.white === w ? 'default' : 'outline'}
+                      className="h-11 px-4"
+                      aria-pressed={card.white === w}
+                      onClick={() => onWhite(card.id, w)}
+                    >
+                      {w === 'top' ? r.whiteTop : r.whiteBottom}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div id={msgId} aria-live="polite" className="space-y-2">
+            {view.problem && (
+              <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{fillLtr(builder.upload.errors[view.problem.error], { mb: uploadLimitMb(MAX_RECEIPT_FILE_BYTES) })}</span>
+              </p>
+            )}
+            {view.multiPage && <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">{r.multiPage}</p>}
+            {view.dpi !== null && !view.problem && <p className="text-sm font-medium">{fillLtr(builder.size.dpiLabel, { dpi: view.dpi })}</p>}
+            {view.lowDpi && !view.problem && (
+              <p role="status" className="rounded-xl border border-brand/50 bg-brand/10 p-3 text-sm">
+                {staff.lowDpi}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-44 shrink-0 sm:mx-0 sm:w-44">
+          <SheetSketch format={card.format} white={card.white} turn={card.turn} previewUrl={previewUrl} />
+        </div>
+      </div>
+    </li>
+  );
+});

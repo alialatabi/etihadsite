@@ -38,4 +38,31 @@ export const staff = {
   prepareFailed: 'تعذر تجهيز «{name}».',
   /** {percent} = the print scale. */
   printActualSize: 'اطبع الملف بحجم {percent}% (Actual size). لا تختار «ملاءمة الصفحة» حتى تبقى النقاط السودة بمكانها.',
+  /** The two tabs of the staff page. */
+  tabs: {
+    label: 'نوع الشغل',
+    stickers: 'الستيكرات',
+    receipts: 'الوصولات',
+  },
+  /** The receipts (الوصولات) tab: receipt books imposed on A4. Shared strings (drop, accepted, download…) are the sticker tab's. */
+  receipts: {
+    intro: 'ارفع تصميم الوصل واختار قياسه، ونطلعلك ملف PDF على ورقة A4 جاهز للطباعة. البياض يبقى بمكان التخريم والكبس.',
+    empty: 'ما أضفت أي وصل بعد.',
+    formatLabel: 'قياس الوصل',
+    formats: { a4: 'A4', a5: 'A5', a6: 'A6', dl: 'DL' },
+    /** Width x height in cm, as the owner wrote them. */
+    sizes: { a4: '21 × 28.5', a5: '15 × 19.5', a6: '10 × 15', dl: '19.5 × 10' },
+    /** {size} = the size in cm, {n} = receipts per A4 sheet. */
+    formatDetail: '{size} سم، {n} بالورقة',
+    turn: 'لف التصميم',
+    whiteLabel: 'مكان البياض',
+    whiteTop: 'فوق',
+    whiteBottom: 'تحت',
+    multiPage: 'الملف بيه أكثر من صفحة. نستخدم الصفحة الأولى بس.',
+    previewAria: 'معاينة ورقة A4',
+    /** {receipts} = "3 وصولات", {files} = "3 ملفات". */
+    summary: '{receipts}، يعني {files}.',
+    /** {percent} = the print scale. */
+    printHint: 'اطبع الملف بحجم {percent}% (Actual size) على ورق A4.',
+  },
 } as const;
