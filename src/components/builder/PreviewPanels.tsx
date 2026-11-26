@@ -7,6 +7,7 @@ import { builder, common } from '@/content/ar';
 import { umToMm } from '@/lib/units';
 import { resolveShapeSpacing, shapeKeyOf } from '@/lib/layout/spacing';
 import { fillLtr } from '@/components/fill-ltr';
+import { tagCls } from '@/components/collage';
 import { Ltr } from '@/components/Ltr';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -52,9 +53,9 @@ export function PreviewPanel({ b }: { b: BuilderApi }) {
   const marks = multi ? b.multiLayout?.marks : layout?.marks;
   return (
     <aside aria-label={builder.preview.title} className="hidden lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:block lg:self-start">
-      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="paper-card p-5">
         <div className="mb-4 flex items-baseline justify-between gap-2">
-          <h2 className="font-heading text-base font-bold">{builder.preview.title}</h2>
+          <h2 className="text-base font-bold text-ink">{builder.preview.title}</h2>
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto max-w-[320px]">
@@ -135,10 +136,10 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={builder.preview.expand}
-        className="relative block w-full rounded-3xl border bg-card p-4 text-start shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:hidden"
+        className="paper-card relative block w-full p-4 text-start focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink lg:hidden"
       >
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <span className="font-heading text-base font-bold">{builder.preview.title}</span>
+          <span className="text-base font-bold text-ink">{builder.preview.title}</span>
           <span className="text-xs text-muted-foreground">{builder.preview.sheet}</span>
         </div>
         <div className="mx-auto w-full max-w-[min(300px,calc(55dvh*0.707))]">{sheet()}</div>
@@ -158,7 +159,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         aria-hidden={cardVisible}
         tabIndex={cardVisible ? -1 : 0}
         className={cn(
-          'fixed start-0 end-0 top-[var(--header-h)] z-30 flex min-h-[124px] w-full items-center gap-4 border-b bg-background/95 px-4 py-2 text-start shadow-sm backdrop-blur outline-none transition-transform duration-200 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:hidden',
+          'paper-card fixed start-0 end-0 top-[var(--header-h)] z-30 flex min-h-[124px] w-full items-center gap-4 border-b border-line px-4 py-2 text-start transition-transform duration-200 focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none lg:hidden',
           cardVisible ? 'pointer-events-none -translate-y-[calc(100%+var(--header-h))]' : 'translate-y-0',
         )}
       >
@@ -166,7 +167,7 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
           {sheet({ hideBadge: true, className: 'h-full' })}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="inline-block rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
+          <p className={tagCls('navy')}>
             <CountLabel n={perSheet} /> {builder.preview.perSheet}
           </p>
           {multi ? (
@@ -181,14 +182,14 @@ export function MobilePreview({ b }: { b: BuilderApi }) {
         <Maximize2 className="size-5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" showCloseButton={false} className="max-h-[94dvh] overflow-y-auto sm:max-w-md">
+        <DialogContent dir="rtl" showCloseButton={false} className="max-h-[94dvh] overflow-y-auto shadow-paper ring-0 sm:max-w-md">
           <DialogTitle>{builder.preview.title}</DialogTitle>
           <DialogDescription>{marginHint}</DialogDescription>
           <div className="mx-auto w-full max-w-[min(100%,calc(80dvh*0.707))]">{sheet()}</div>
           {multi && <div>{sizes}</div>}
           {turnHint && <p className="text-center text-xs text-muted-foreground">{turnHint}</p>}
           {marks && <p className="text-center text-xs text-muted-foreground">{common.marksHint}</p>}
-          <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full text-base" />}>{builder.preview.close}</DialogClose>
+          <DialogClose render={<Button type="button" variant="outline" className="h-12 w-full rounded-[2px] border-ink/30 bg-white text-base" />}>{builder.preview.close}</DialogClose>
         </DialogContent>
       </Dialog>
     </>
