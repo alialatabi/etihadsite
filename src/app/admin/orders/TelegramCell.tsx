@@ -63,9 +63,9 @@ export function TelegramCell({
         <TelegramSentMark markRef={markRef} />
       ) : (
         <>
-          <span className="text-[13px] leading-[1.4] text-[#5a6475]">{reason}</span>
+          <span className="text-[13px] leading-[1.4] text-ink-muted">{reason}</span>
           {pdfPurged ? (
-            <span className="text-[13px] leading-[1.4] text-[#b8163f]">{c.telegramFileMissing}</span>
+            <span className="text-[13px] leading-[1.4] text-brand-ink">{c.telegramFileMissing}</span>
           ) : (
             <form action={action} className="flex flex-col gap-2">
               <input type="hidden" name="orderId" value={orderId} />
@@ -79,7 +79,7 @@ export function TelegramCell({
           )}
         </>
       )}
-      <p role="status" aria-live="polite" className="text-[13px] leading-[1.4] text-[#b8163f] empty:hidden">
+      <p role="status" aria-live="polite" className="text-[13px] leading-[1.4] text-brand-ink empty:hidden">
         {message}
       </p>
     </div>

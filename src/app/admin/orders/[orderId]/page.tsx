@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, Check, Download, MessageCircle, Phone } from 'lucide-react';
 import { SheetPdfPreview } from '@/components/admin/SheetPdfPreview';
-import { AdminPageHeader, Panel, Pill, StatusPill, btn, type PillTone } from '@/components/admin/kit';
+import { AdminPageHeader, InfoStrip, Panel, Pill, StatusPill, btn, type PillTone } from '@/components/admin/kit';
 import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
 import { admin, common, fill } from '@/content/ar';
@@ -30,9 +30,9 @@ const telegramTone: Record<OrderRecord['notified']['telegram'], PillTone> = {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-[#e7dfdf] py-2.5 text-[15px] leading-normal last:border-b-0">
-      <dt className="text-[#5a6475]">{label}</dt>
-      <dd className="min-w-0 text-end font-medium text-[#121f34]">{children}</dd>
+    <div className="flex items-start justify-between gap-4 border-b border-line py-2.5 text-[15px] leading-normal last:border-b-0">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="min-w-0 text-end font-medium text-ink">{children}</dd>
     </div>
   );
 }
@@ -86,7 +86,7 @@ export default async function OrderDetailPage({
       {updated ? (
         <p
           role="status"
-          className="mb-4 flex items-center gap-2 rounded-xl border border-[#e7dfdf] bg-[#eef0f4] px-4 py-3 text-[15px] font-medium text-[#121f34]"
+          className="mb-4 flex items-center gap-2 rounded-[2px] bg-news px-4 py-3 text-[15px] font-medium text-ink shadow-[inset_0_0_0_1px_rgb(18_31_52/0.12)]"
         >
           <Check aria-hidden className="size-5 shrink-0 text-[#0b5a2e]" />
           {d.statusSaved}
@@ -101,9 +101,9 @@ export default async function OrderDetailPage({
               <Row label={d.phone}>
                 <a
                   href={`tel:+${o.customer.phone}`}
-                  className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
+                  className="-my-2.5 inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ink"
                 >
-                  <Phone aria-hidden className="size-4 shrink-0 text-[#5a6475]" />
+                  <Phone aria-hidden className="size-4 shrink-0 text-ink-muted" />
                   <Ltr>+{o.customer.phone}</Ltr>
                 </a>
               </Row>
@@ -176,9 +176,9 @@ export default async function OrderDetailPage({
           <Panel title={d.designs}>
             <ol className="flex flex-col gap-3">
               {designs.map((g, i) => (
-                <li key={i} className="border-b border-[#e7dfdf] pb-3 text-[15px] leading-normal last:border-b-0 last:pb-0">
+                <li key={i} className="border-b border-line pb-3 text-[15px] leading-normal last:border-b-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-bold text-[#121f34]">{fill(d.designN, { n: i + 1 })}</span>
+                    <span className="font-bold text-ink">{fill(d.designN, { n: i + 1 })}</span>
                     <Pill tone={isCutOutDesign(g) ? 'ok' : 'neutral'}>{isCutOutDesign(g) ? d.cutOut : d.notCutOut}</Pill>
                   </div>
                   <dl className="mt-1">
@@ -217,11 +217,11 @@ export default async function OrderDetailPage({
               <Row label={d.delivery}>{money(pv.deliveryFeeIqd)}</Row>
             </dl>
             {/* Dashed cut line, as in the customer price summary. */}
-            <div aria-hidden className="cut-line my-3 h-px text-[#9aa3b5]" />
+            <div aria-hidden className="dashed-divider my-3" />
             <dl>
               <div className="flex items-baseline justify-between gap-4 py-1">
-                <dt className="text-[18px] font-bold text-[#121f34]">{d.total}</dt>
-                <dd className="text-end text-[26px] font-bold leading-tight tabular-nums text-[#121f34]">
+                <dt className="text-[18px] font-bold text-ink">{d.total}</dt>
+                <dd className="text-end text-[26px] font-bold leading-tight tabular-nums text-ink">
                   {money(pv.totalIqd, !!pv.material)}
                 </dd>
               </div>
@@ -236,7 +236,7 @@ export default async function OrderDetailPage({
 
           <Panel title={d.preview}>
             {pdfPurged ? (
-              <p className="text-[15px] leading-normal text-[#5a6475]">{admin.orders.pdfPurged}</p>
+              <InfoStrip>{admin.orders.pdfPurged}</InfoStrip>
             ) : (
               <SheetPdfPreview orderId={o.orderId} displayNo={o.displayNo} variant="large" />
             )}
@@ -244,7 +244,7 @@ export default async function OrderDetailPage({
 
           <Panel title={d.files} bodyClassName="flex flex-col gap-2">
             {pdfPurged ? (
-              <p className="text-[15px] leading-normal text-[#5a6475]">{admin.orders.pdfPurged}</p>
+              <InfoStrip>{admin.orders.pdfPurged}</InfoStrip>
             ) : (
               <a href={`/api/admin/files/${o.orderId}/pdf`} className={cn(btn.ink, 'w-full')}>
                 <Download aria-hidden className="size-5" />
