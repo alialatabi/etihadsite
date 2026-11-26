@@ -65,6 +65,13 @@ describe("aiRecordGeneration with the v2 columns", () => {
     expect(Object.keys(body(calls[0]))).not.toContain("instructions");
   });
 
+  it("explicit nulls (staffId / instructions) add no key either", async () => {
+    queue.push(empty());
+    await store().aiRecordGeneration({ ...GEN, staffId: null, instructions: null });
+    expect(Object.keys(body(calls[0]))).not.toContain("staff_id");
+    expect(Object.keys(body(calls[0]))).not.toContain("instructions");
+  });
+
   it("a staff row POSTs both columns", async () => {
     queue.push(empty());
     await store().aiRecordGeneration(STAFF_GEN);

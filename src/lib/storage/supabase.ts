@@ -166,8 +166,9 @@ function generationToRow(g: AiGenerationRecord) {
     model: g.model,
     upload_id: g.uploadId,
     order_id: g.orderId,
-    ...(g.instructions !== undefined ? { instructions: g.instructions } : {}),
-    ...(g.staffId !== undefined ? { staff_id: g.staffId } : {}),
+    // A null or absent value adds no key (the column defaults to null): a customer row never trips the pre-migration retry.
+    ...(g.instructions != null ? { instructions: g.instructions } : {}),
+    ...(g.staffId != null ? { staff_id: g.staffId } : {}),
   };
 }
 
