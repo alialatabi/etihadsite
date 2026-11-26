@@ -20,7 +20,7 @@ export function AiProgressView({ kind, elapsedMs, className }: { kind: ProgressK
   const stage = slow ? builder.ai.progress.slow : builder.ai.progress[kind][stageIndex];
   return (
     <div aria-live="off" className={cn('w-full max-w-sm space-y-2', className)}>
-      <p aria-live="polite" aria-atomic="true" className="text-sm font-medium">
+      <p aria-live="polite" aria-atomic="true" className="text-sm font-medium text-ink">
         {stage}
       </p>
       <div
@@ -29,14 +29,14 @@ export function AiProgressView({ kind, elapsedMs, className }: { kind: ProgressK
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.floor(percent)}
-        className="flex h-2 w-full justify-start overflow-hidden rounded-full bg-muted"
+        className="flex h-3 w-full justify-start overflow-hidden rounded-[2px] border border-ink/25 bg-news"
       >
         <div
-          className="h-full shrink-0 rounded-full bg-brand transition-[width] duration-500 ease-linear motion-reduce:transition-none"
+          className="h-full shrink-0 rounded-[2px] bg-brand transition-[width] duration-500 ease-linear motion-reduce:transition-none"
           style={{ width: `${percent}%` }}
         />
       </div>
-      {kind === 'image' && <p className="text-xs text-muted-foreground">{builder.ai.progress.wait}</p>}
+      {kind === 'image' && <p className="text-[14px] leading-[1.4] text-ink-muted">{builder.ai.progress.wait}</p>}
     </div>
   );
 }
