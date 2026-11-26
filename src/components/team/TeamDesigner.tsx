@@ -327,7 +327,7 @@ function TeamSession({
                 type="button"
                 disabled={ai.block !== null || remaining === 0}
                 onClick={() => void ai.review()}
-                className={ctaCls('md')}
+                className={ai.result && resultShown(ai.phase, true) ? btnCls('outline') : ctaCls('md')}
               >
                 {ai.briefing ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Sparkles className="size-5" aria-hidden />}
                 {builder.ai.generate}
