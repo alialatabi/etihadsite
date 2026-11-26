@@ -63,6 +63,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
   // `ready` (from the server: switch, key, secret) only sets the start; a route's answer can still turn it off.
   const [off, setOff] = useState(!ready || host.settings.ai?.enabled === false);
   const [briefing, setBriefing] = useState(false);
+  // When the running brief / image request started (ms), null while none runs. Set in the click handlers (never in render), so a remounted AiProgress keeps its place.
+  const [busySince, setBusySince] = useState<number | null>(null);
   const [refs, setRefs] = useState<AiRef[]>([]);
   // The last reference pick left files out (wrong type, too big, over 5).
   const [refRejected, setRefRejected] = useState(false);
@@ -124,12 +126,14 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     if (busy.current || !shape || !spec || generateBlock({ shape, size: spec, sizeOk, idea, unavailable: off, busy: false })) return;
     busy.current = true;
     setBriefing(true);
+    setBusySince(Date.now());
     setError(undefined);
     const my = ++token.current;
     const res = await postBrief({ idea: idea.trim(), shape, widthUm: spec.widthUm, heightUm: spec.heightUm }, endpoints.brief);
     busy.current = false;
     if (my !== token.current) return;
     setBriefing(false);
+    setBusySince(null);
     if (!res.ok) {
       fail(res.error);
       setPhase('idle');
@@ -202,6 +206,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     const my = ++token.current;
     setError(undefined);
     setPhase('generating');
+    setBusySince(Date.now());
     host.startAi();
     host.showDesignStep();
     const madeFor = { shape, widthUm: spec.widthUm, heightUm: spec.heightUm };
@@ -213,6 +218,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     }
     if (typeof refIds === 'string') {
       busy.current = false;
+      setBusySince(null);
       fail(refIds);
       setPhase('error');
       return;
@@ -234,6 +240,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     );
     busy.current = false;
     if (my !== token.current) return;
+    setBusySince(null);
     if (!res.ok) {
       fail(res.error);
       setPhase('error');
@@ -328,6 +335,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     off,
     /** The brief request is running. */
     briefing,
+    /** When the running request started (ms since epoch); null while none runs. */
+    busySince,
     /** Why «ولّد التصميم» is disabled (null: it may run). */
     block,
     /** The Arabic design instructions in the review box (editable). */

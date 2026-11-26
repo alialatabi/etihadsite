@@ -23,4 +23,6 @@ export const team = {
   savedNote: 'كل تصميم ينحفظ بمعرض التصاميم بالإدارة.',
   /** {n} = the daily limit. */
   limitReached: 'خلصت محاولاتك لليوم ({n}). ارجع باچر.',
+  /** The session ended (logged out, account disabled, password reset): the routes answer 'unauthorized'. */
+  sessionEnded: 'طلعت من الحساب. سجّل دخول مرة لخ.',
 } as const;

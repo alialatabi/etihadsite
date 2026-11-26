@@ -1106,7 +1106,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "team" 1`] = `
   "download": "نزّل التصميم PNG",
   "newDesign": "تصميم جديد",
   "savedNote": "كل تصميم ينحفظ بمعرض التصاميم بالإدارة.",
-  "limitReached": "خلصت محاولاتك لليوم ({n}). ارجع باچر."
+  "limitReached": "خلصت محاولاتك لليوم ({n}). ارجع باچر.",
+  "sessionEnded": "طلعت من الحساب. سجّل دخول مرة لخ."
 }"
 `;
 
@@ -1114,13 +1115,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "team" 2`] = `
 {
   "arrays": 0,
   "booleans": 0,
-  "chars": 304,
+  "chars": 337,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 2,
-  "sha256OfRawJson": "17e2853a9922eed99044c9eb50ada74e92445a3de071e7de83efb09855998c43",
-  "strings": 16,
+  "sha256OfRawJson": "75b7507f148fbce0f05402c434b7b514c7bb7ce74daba0de093b345c31d01eae",
+  "strings": 17,
 }
 `;
 

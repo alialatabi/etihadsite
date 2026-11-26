@@ -1,0 +1,109 @@
+'use client';
+
+import { useRef } from 'react';
+import { Circle, Shapes, Square } from 'lucide-react';
+import { builder, team } from '@/content/ar';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
+import type { Corners, Shape } from '@/lib/types';
+import { nextRadioIndex, radioTabIndex } from '@/components/builder/radio-nav';
+
+// A design made here is always drawn by the site, so the custom shape needs no «PNG شفاف» advice.
+const OPTIONS: { id: Shape; Icon: typeof Circle; label: string; hint: string }[] = [
+  { id: 'circle', Icon: Circle, label: builder.shape.circle, hint: builder.shape.circleHint },
+  { id: 'rect', Icon: Square, label: builder.shape.rect, hint: builder.shape.rectHint },
+  { id: 'custom', Icon: Shapes, label: builder.shape.custom, hint: builder.shape.customHintAi },
+];
+
+/** The shape (and, for a rectangle, the corners) picker of the staff page: the same look and keyboard pattern as the customer's ShapeStep. */
+export function TeamShape({
+  shape,
+  onShape,
+  corners,
+  onCorners,
+}: {
+  shape: Shape | null;
+  onShape: (s: Shape) => void;
+  corners: Corners;
+  onCorners: (c: Corners) => void;
+}) {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = OPTIONS.findIndex((o) => o.id === shape);
+  // Radio-group keyboard pattern: one Tab stop, the arrow keys move the choice (and the focus) between the options.
+  const onKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>) => {
+    const from = buttons.current.findIndex((el) => el === document.activeElement);
+    const to = nextRadioIndex(ev.key, from < 0 ? Math.max(selectedIndex, 0) : from, OPTIONS.length);
+    if (to === null) return;
+    ev.preventDefault();
+    onShape(OPTIONS[to].id);
+    buttons.current[to]?.focus();
+  };
+  return (
+    <div className="space-y-5">
+      <div role="radiogroup" aria-label={team.shape} onKeyDown={onKeyDown} className="grid gap-3 sm:grid-cols-3">
+        {OPTIONS.map(({ id, Icon, label, hint }, i) => {
+          const selected = shape === id;
+          return (
+            <button
+              key={id}
+              ref={(el) => {
+                buttons.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              tabIndex={radioTabIndex(i, selectedIndex)}
+              onClick={() => onShape(id)}
+              className={cn(
+                'flex min-h-11 items-center gap-4 rounded-2xl border-2 bg-card p-4 text-start outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 sm:flex-col sm:items-start sm:gap-3',
+                selected ? 'border-brand bg-brand/5' : 'border-border hover:border-foreground/30',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex size-14 shrink-0 items-center justify-center rounded-xl',
+                  selected ? 'bg-brand text-brand-foreground' : 'bg-muted text-foreground',
+                )}
+              >
+                <Icon className="size-7" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold">{label}</span>
+                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{hint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {shape === 'rect' && (
+        <fieldset className="rounded-2xl border bg-card p-4">
+          <legend className="px-1 text-sm font-medium">{builder.shape.corners}</legend>
+          <RadioGroup value={corners} onValueChange={(v) => onCorners(v as Corners)} className="mt-1 gap-3 sm:grid-cols-2">
+            {(
+              [
+                ['rounded', builder.shape.rounded, builder.shape.roundedHint],
+                ['sharp', builder.shape.sharp, builder.shape.sharpHint],
+              ] as const
+            ).map(([id, label, hint]) => (
+              <label
+                key={id}
+                htmlFor={`team-corners-${id}`}
+                className={cn(
+                  'flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3',
+                  corners === id ? 'border-brand bg-brand/5' : 'border-border',
+                )}
+              >
+                <RadioGroupItem id={`team-corners-${id}`} value={id} className="mt-1" />
+                <span>
+                  <span className="block text-sm font-medium">{label}</span>
+                  <span className="block text-xs text-muted-foreground">{hint}</span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+        </fieldset>
+      )}
+    </div>
+  );
+}
