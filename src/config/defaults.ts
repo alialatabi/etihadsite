@@ -88,6 +88,12 @@ export const DISPLAY_NO_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
  */
 export const KEEP_DESIGNS_FROM = '2026-11-21T00:00:00+03:00';
 
+/**
+ * Designs no order used (AI designs and plain uploads) are deleted this many days after they were
+ * made (owner 2026-11-26: «التصاميم الي ما ينطلب طلبها تنحذف بعد اسبوع»). Designs an order used are kept.
+ */
+export const UNORDERED_DESIGN_DAYS = 7;
+
 /** Each retention purge only looks at items created in [cutoff − this many days, cutoff). */
 export const PURGE_WINDOW_DAYS = 30;
 

@@ -779,8 +779,27 @@ export interface StorageAdapter {
   aiRecordGeneration?(rec: AiGenerationRecord): Promise<void>;
   /** Sets orderId on the generation whose uploadId matches; no match = no-op. */
   aiMarkOrdered?(uploadId: string, orderId: string): Promise<void>;
-  /** Newest first; `total` counts every row matching the filter. */
-  aiListGenerations?(q: { limit: number; offset: number; ipKey?: string }): Promise<{ rows: AiGenerationRecord[]; total: number }>;
+  /** Newest first; `total` counts every row matching the filter (see AiGenerationFilter; no filter = every row). */
+  aiListGenerations?(q: { limit: number; offset: number } & AiGenerationFilter): Promise<{ rows: AiGenerationRecord[]; total: number }>;
+  /** The generation whose uploadId is this one, or null. An invalid id is null without a network call. */
+  aiGetGeneration?(uploadId: string): Promise<AiGenerationRecord | null>;
+  /** Deletes the gallery row with this generation id and returns it (null when none). Never touches files. */
+  aiDeleteGeneration?(id: string): Promise<AiGenerationRecord | null>;
+  /** The id of an order whose design is this upload (files.designPath or one of files.designPaths), or null. */
+  orderUsingUpload?(uploadId: string): Promise<string | null>;
+  /**
+   * 7-day rule for designs (owner 2026-11-26). Every generation with orderId null created before `cutoff`
+   * (NO lower bound) is removed: its upload (.bin + .json) and then its row. Before deleting, the orders that
+   * could use it are checked (designPath / designPaths); a generation an order does use is NOT deleted but
+   * healed (orderId set to that order). Returns the removed paths and `ai_generation:<id>` rows (or what
+   * would be when dryRun; a dry run never heals either).
+   */
+  aiPurgeUnordered?(cutoff: Date, dryRun: boolean): Promise<string[]>;
+  /**
+   * 7-day rule for plain uploads (owner 2026-11-26): an upload created in [cutoff − PURGE_WINDOW_DAYS, cutoff)
+   * that no order and no remaining generation uses is removed (.bin + .json). Returns the removed paths.
+   */
+  purgeUnusedUploads?(cutoff: Date, dryRun: boolean): Promise<string[]>;
   /** Usage rows with day ≥ sinceDay (YYYY-MM-DD); only rows of `kind` when given. */
   aiUsage?(sinceDay: string, kind?: AiKind): Promise<AiUsageRow[]>;
   /** Throws on an empty ipKey ('' is the site-only row and must never be blocked). */
@@ -807,6 +826,30 @@ export interface StorageAdapter {
  */
 export type AiKind = 'image' | 'brief' | 'staff_image' | 'staff_brief';
 export type AiReserveResult = 'ok' | 'ip_limit' | 'site_limit' | 'blocked';
+
+/**
+ * Filters of the admin designs gallery (all optional, combined with AND). Adapters escape every value;
+ * nothing here is trusted.
+ */
+export interface AiGenerationFilter {
+  ipKey?: string;
+  /** true = only designs an order used (orderId set); false = only those no order used. */
+  ordered?: boolean;
+  /** 'customer' = staffId null/absent; 'staff' = any staff account; { staffId } = that account only. */
+  maker?: 'customer' | 'staff' | { staffId: string };
+  shape?: Shape;
+  /** createdAt ≥ since (ISO 8601). */
+  since?: string;
+  /** createdAt < until (ISO 8601). */
+  until?: string;
+  /**
+   * Rows whose idea or instructions contain `text` (case-insensitive substring; `lines` is jsonb and
+   * PostgREST cannot substring-match it, so it is not searched in either adapter),
+   * OR whose orderId is one of `orderIds` (the page finds those from the customer name / phone /
+   * order number). Empty text and no orderIds = no rows.
+   */
+  search?: { text: string; orderIds: string[] };
+}
 
 export interface AiGenerationRecord {
   id: string;
