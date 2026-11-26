@@ -273,15 +273,16 @@ describe("generate: translation time budget", () => {
     expect(spy).toHaveBeenCalledWith(AI_OPENAI_TIMEOUT_MS);
   });
 
-  it("a slow start shortens the translation but leaves the image 24 s", async () => {
+  it("a slow start shortens the translation to 10 s and leaves the image 20 s", async () => {
     stubOpenAi(handler);
     const spy = vi.spyOn(AbortSignal, "timeout");
-    // Translation at 60 s: min(15 s, 120 - 60 - 20 - 20 = 20 s) = 15 s. Image at 76 s: 120 - 76 - 20 = 24 s.
-    const times = [0, 0, 60_000, 76_000];
-    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 76_000);
+    // Translation at 70 s: min(15 s, 120 - 70 - 20 - 20 = 10 s) = 10 s. Image at 80 s: 120 - 80 - 20 = 20 s.
+    const times = [0, 0, 70_000, 80_000];
+    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 80_000);
     expect(out.body.ok).toBe(true);
-    expect(spy).toHaveBeenCalledWith(15_000);
-    expect(spy).toHaveBeenCalledWith(24_000);
+    expect(spy).toHaveBeenCalledWith(10_000);
+    expect(spy).toHaveBeenCalledWith(20_000);
+    expect(spy).not.toHaveBeenCalledWith(15_000);
   });
 
   it("with under 5 s for the translation nothing is called and the use is given back", async () => {
