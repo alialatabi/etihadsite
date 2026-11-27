@@ -476,6 +476,20 @@ export class SupabaseStorage implements StorageAdapter {
     return rows.map((r) => r.record);
   }
 
+  /**
+   * Every order with from <= created_at < to, oldest first, all pages (the 1000-row cap does not apply).
+   * The orderId tie-break keeps the offset paging stable when two orders share a created_at.
+   */
+  async listOrdersBetween(fromIso: string, toIso: string): Promise<OrderRecord[]> {
+    const from = new Date(fromIso);
+    const to = new Date(toIso);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) throw new Error('[supabase] listOrdersBetween: invalid date');
+    const q = `created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}`;
+    return this.selectAllPaged<OrderRecord>(`/rest/v1/orders?select=record&${q}&order=created_at.asc,order_id.asc`, {
+      map: (r) => r.record as OrderRecord,
+    });
+  }
+
   /** Atomic merge in Postgres (rpc patch_order: record = record || patch). */
   async updateOrder(orderId: string, patch: Partial<Pick<OrderRecord, 'status' | 'notified'>>) {
     if (!ID_RE.test(orderId)) return null;

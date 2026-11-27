@@ -212,6 +212,17 @@ export class LocalStorage implements StorageAdapter {
       .sort((a, b) => cmp(b.createdAt, a.createdAt));
   }
 
+  async listOrdersBetween(fromIso: string, toIso: string): Promise<OrderRecord[]> {
+    const from = Date.parse(fromIso);
+    const to = Date.parse(toIso);
+    if (Number.isNaN(from) || Number.isNaN(to)) throw new Error("[storage] listOrdersBetween: invalid date");
+    const inRange = (await this.listOrders()).filter((o) => {
+      const t = Date.parse(o.createdAt);
+      return t >= from && t < to;
+    });
+    return inRange.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || cmp(a.orderId, b.orderId));
+  }
+
   async updateOrder(
     orderId: string,
     patch: Partial<Pick<OrderRecord, "status" | "notified">>,

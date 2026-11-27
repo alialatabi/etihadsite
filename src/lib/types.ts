@@ -386,6 +386,24 @@ export interface ShopSettings {
   maxUploadBytes: number;
   retentionDays: number;
   ai: AiSettings;
+  /**
+   * Weekly accounting (admin «الحسابات»). OPTIONAL and not in DEFAULT_SETTINGS: absent until the owner
+   * enters the first cost. CONFIDENTIAL: toPublicSettings removes it before anything reaches a browser.
+   */
+  accounting?: AccountingSettings;
+}
+
+/** What one A4 sheet costs the shop to print, from `from` on (an append-only history). */
+export interface SheetCostEntry {
+  /** ISO 8601 UTC: when this cost starts to apply (the moment the owner saved it). */
+  from: string;
+  paperIqd: number;
+  plasticIqd: number;
+}
+
+export interface AccountingSettings {
+  /** Oldest first is not required; the latest `from` <= the order time wins (see src/lib/accounting/costs.ts). */
+  sheetCosts: SheetCostEntry[];
 }
 
 /* ────────────────────────────── Pricing ────────────────────────────────── */
@@ -718,6 +736,11 @@ export interface StorageAdapter {
   getOrder(orderId: string): Promise<OrderRecord | null>;
   /** Newest first. */
   listOrders(): Promise<OrderRecord[]>;
+  /**
+   * Every order with fromIso <= createdAt < toIso (ISO 8601 UTC), OLDEST first, ALL pages (no 1000 cap).
+   * Used by the weekly accounts page.
+   */
+  listOrdersBetween(fromIso: string, toIso: string): Promise<OrderRecord[]>;
   updateOrder(orderId: string, patch: Partial<Pick<OrderRecord, 'status' | 'notified'>>): Promise<OrderRecord | null>;
 
   /** Returns defaults merged with whatever the owner saved. */
