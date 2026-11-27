@@ -184,3 +184,60 @@ describe("POST /api/orders: best-effort writes run together with the Telegram no
     expect(logCalls().some((c) => c[0] === "[orders] notify threw")).toBe(true);
   });
 });
+
+describe("POST /api/orders: settings and the idempotency lookup start together", () => {
+  it("both reads are in flight before either is answered", async () => {
+    const storage = getStorage();
+    const settings = deferred<Awaited<ReturnType<typeof storage.getSettings>>>();
+    const existing = deferred<null>();
+    const calls: string[] = [];
+    vi.spyOn(storage, "getSettings").mockImplementation(() => {
+      calls.push("settings");
+      return settings.promise;
+    });
+    vi.spyOn(storage, "getOrder").mockImplementation(() => {
+      calls.push("getOrder");
+      return existing.promise;
+    });
+    const pending = call();
+    await vi.waitFor(() => expect(calls).toEqual(["settings", "getOrder"]));
+    settings.resolve({ ...DEFAULT_SETTINGS, whatsapp: "9647709999999", pricesPublished: true });
+    existing.resolve(null);
+    expect((await pending).status).toBe(200);
+    // The first lookup started right after settings, before settings had answered.
+    expect(calls.slice(0, 2)).toEqual(["settings", "getOrder"]);
+  });
+
+  it("when both fail, the settings error is the one logged and reported (old precedence)", async () => {
+    const storage = getStorage();
+    vi.spyOn(storage, "getSettings").mockRejectedValue(new Error("GOLDEN storage down (getSettings)"));
+    vi.spyOn(storage, "getOrder").mockRejectedValue(new Error("storage down (getOrder)"));
+    const res = await call();
+    expect(res.status).toBe(500);
+    expect(((await res.json()) as OrderResponse).ok).toBe(false);
+    const failed = logCalls().filter((c) => c[0] === "[orders] failed");
+    expect(failed).toHaveLength(1);
+    expect(String(failed[0][1])).toContain("storage down (getSettings)");
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect((reportError.mock.calls[0][0] as Error).message).toBe("GOLDEN storage down (getSettings)");
+  });
+
+  it("a getOrder failure alone is still server_error, and a settings failure alone too", async () => {
+    const storage = getStorage();
+    vi.spyOn(storage, "getOrder").mockRejectedValueOnce(new Error("storage down (getOrder)"));
+    const a = await call();
+    expect(a.status).toBe(500);
+    expect(String(logCalls().find((c) => c[0] === "[orders] failed")![1])).toContain("storage down (getOrder)");
+    vi.spyOn(storage, "getSettings").mockRejectedValueOnce(new Error("storage down (getSettings)"));
+    const b = await call();
+    expect(b.status).toBe(500);
+  });
+
+  it("a replay answers from the stored order without redoing the work", async () => {
+    expect((await call()).status).toBe(200);
+    notifyShop.mockClear();
+    const again = await call();
+    expect(again.status).toBe(200);
+    expect(notifyShop).not.toHaveBeenCalled();
+  });
+});

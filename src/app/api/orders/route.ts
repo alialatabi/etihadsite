@@ -540,12 +540,17 @@ export async function POST(request: Request): Promise<Response> {
     // Multi-design orders are switched off (MULTI_DESIGN_ENABLED): refuse them like any other bad request.
     if (req.designs && !MULTI_DESIGN_ENABLED) return send(fail("invalid_request"));
 
-    const settings = await getSettings();
+    // Both reads start together but are awaited in the old order (settings first), so the error
+    // that wins is unchanged; the swallowing catch keeps the second one from going unhandled.
+    const settingsP = getSettings();
+    const existingP = getStorage().getOrder(req.orderId);
+    existingP.catch(() => {});
+    const settings = await settingsP;
 
     // Idempotency: the same orderId returns the same result without redoing work, but only to a
     // request for the same upload (a retry resends the whole body). Another upload for a known
     // orderId is not a replay: same answer as any other bad request.
-    const existing = await getStorage().getOrder(req.orderId);
+    const existing = await existingP;
     if (existing)
       return send(
         existing.files.designPath === uploadPath(req.uploadId) &&
