@@ -1,6 +1,7 @@
 'use client';
 
 import { sendTrack } from '@/lib/analytics/client';
+import { trackMetaStep } from '@/lib/meta/pixel.client';
 import { MULTI_DESIGN_ENABLED } from '@/config/defaults';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -127,6 +128,7 @@ function useTrackStepOnce(stepName: StepId): void {
       sessionStorage.setItem(key, '1');
     } catch {}
     sendTrack({ type: 'step', step: stepName, path: window.location.pathname });
+    trackMetaStep(stepName);
   }, [stepName]);
 }
 

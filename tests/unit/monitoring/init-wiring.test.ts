@@ -85,6 +85,15 @@ describe('server init (src/sentry.server.config.ts)', () => {
     expect(JSON.stringify(initOptions().beforeSend(ev))).not.toContain('OAkeyQ9w8e7r6t5y4u3i');
   });
 
+  it('blanks the Meta Conversions API token wherever it appears', async () => {
+    const META_TOKEN = 'EAAMetaTokenQ9w8e7r6t5y4u3iZZ';
+    vi.stubEnv('META_CAPI_TOKEN', META_TOKEN);
+    await import('../../../src/sentry.server.config');
+    const ev = dirtyEvent();
+    ev.exception.values[0].value = `graph said access_token ${META_TOKEN} is invalid`;
+    expect(JSON.stringify(initOptions().beforeSend(ev))).not.toContain('MetaTokenQ9w8e7r6t5y4u3i');
+  });
+
   it('drops the session integrations from the defaults', async () => {
     await import('../../../src/sentry.server.config');
     const o = initOptions();

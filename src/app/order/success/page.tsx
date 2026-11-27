@@ -12,6 +12,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { SummaryCard } from '@/components/builder/SummaryCard';
 import { loadSuccess, type OrderOk } from '@/components/builder/logic';
 import { markOrderNoteSeen, shouldShowOrderNote } from '@/components/builder/order-note';
+import { trackMetaPurchase } from '@/lib/meta/pixel.client';
 import { cn } from '@/lib/utils';
 
 export default function OrderSuccessPage() {
@@ -29,6 +30,7 @@ export default function OrderSuccessPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage is client-only
     setRes(stored);
     setNoteOpen(shouldShowOrderNote(stored.displayNo));
+    trackMetaPurchase(stored.orderId, stored.summary.totalIqd);
   }, [router]);
 
   if (!res) return null;

@@ -8,6 +8,7 @@ import { normaliseArtwork } from "@/lib/design/normalise.server";
 import { computeLayout, computeMultiLayout, layoutParamsFor } from "@/lib/layout";
 import { reportError } from "@/lib/monitoring/report";
 import { makeTextScrubber } from "@/lib/monitoring/scrub";
+import { sendMetaPurchase } from "@/lib/meta/capi";
 import { notifyShop } from "@/lib/notify";
 import { buildMultiOrderRecord, buildOrderRecord, summaryOf, type MultiDesignInput } from "@/lib/order-record";
 import { orderRequestSchema } from "@/lib/order-schema";
@@ -334,6 +335,8 @@ async function completeOrder(
       ...(req.designs ? { designs: req.designs.length } : {}),
     },
   });
+  // Meta Conversions API copy of the purchase: queued for after the answer, a no-op until configured.
+  sendMetaPurchase(request, record, price.totalIqd);
 
   let notified: OrderRecord["notified"] = { telegram: "failed" };
   try {

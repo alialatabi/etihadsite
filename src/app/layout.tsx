@@ -5,6 +5,7 @@ import { Header } from '@/components/shell/Header';
 import { Footer } from '@/components/shell/Footer';
 import { InstallPrompt } from '@/components/shell/InstallPrompt';
 import { Tracker } from '@/components/shell/Tracker';
+import { MetaPixel } from '@/components/shell/MetaPixel';
 import { getSettings } from '@/lib/settings';
 import { common, pages } from '@/content/ar';
 import './globals.css';
@@ -54,6 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Footer settings={settings} />
           <InstallPrompt shopName={settings.shopName} />
           <Tracker />
+          <MetaPixel />
         </DirectionProvider>
       </body>
     </html>

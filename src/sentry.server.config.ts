@@ -22,6 +22,7 @@ if (dsn) {
       process.env.TELEGRAM_BOT_TOKEN,
       process.env.TURNSTILE_SECRET_KEY,
       process.env.OPENAI_API_KEY,
+      process.env.META_CAPI_TOKEN,
     ],
   });
   Sentry.init({
