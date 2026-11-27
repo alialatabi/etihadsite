@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { whatsappHref } from '@/components/shell/whatsapp';
 import type { ShopSettings } from '@/lib/types';
 import { MobilePreview, PreviewPanel } from './PreviewPanels';
+import { RestoreSkeleton } from './RestoreSkeleton';
 import { Stepper } from './Stepper';
 import { DesignStep } from './steps/DesignStep';
 import { DetailsStep } from './steps/DetailsStep';
@@ -131,7 +132,8 @@ export function Builder({ settings, aiReady = true }: { settings: ShopSettings; 
   return (
     <div id="builder">{/* #builder links land below the sticky header: html scroll-padding-top (globals.css) */}
       <div className="mx-auto max-w-6xl px-4 pb-28 pt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
-        <div className={cn('min-w-0 space-y-6', b.restoring && 'invisible')} aria-busy={b.restoring || undefined}>
+        <div className={cn('min-w-0 space-y-6', b.restoring && 'invisible relative')} aria-busy={b.restoring || undefined}>
+          {b.restoring && <RestoreSkeleton />}
           <Stepper b={b} />
 
           {showStrip && <MobilePreview b={b} />}

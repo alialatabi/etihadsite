@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { btn, field } from '@/components/admin/kit';
 import { admin, order } from '@/content/ar';
@@ -27,9 +27,9 @@ export function StatusForm({ orderId, status }: { orderId: string; status: Order
           ))}
         </SelectContent>
       </Select>
-      <Button type="submit" disabled={value === status} className={cn(btn.primary, 'w-full')}>
+      <PendingSubmit shadcn disabled={value === status} className={cn(btn.primary, 'w-full')}>
         {admin.orders.changeStatus}
-      </Button>
+      </PendingSubmit>
     </form>
   );
 }

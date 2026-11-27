@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ImageOff } from 'lucide-react';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { AdminPageHeader, EmptyState, InfoStrip, Panel, Pill, StatTile, btn, segment } from '@/components/admin/kit';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { ORDERS_LIST_CAP, UNORDERED_DESIGN_DAYS } from '@/config/defaults';
 import { admin, common } from '@/content/ar';
 import { count } from '@/lib/plural';
@@ -161,9 +162,9 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
                   <form action={blockIpAction}>
                     <input type="hidden" name="ipKey" value={a.ipKey} />
                     <input type="hidden" name="ip" value={a.ip} />
-                    <button type="submit" className={btn.danger}>
+                    <PendingSubmit className={btn.danger}>
                       {d.block}
-                    </button>
+                    </PendingSubmit>
                   </form>
                 </div>
               </li>
@@ -185,9 +186,9 @@ export default async function DesignsPage({ searchParams }: { searchParams: Sear
                   </Link>
                   <form action={unblockIpAction}>
                     <input type="hidden" name="ipKey" value={b.ipKey} />
-                    <button type="submit" className={btn.outline}>
+                    <PendingSubmit className={btn.outline}>
                       {d.unblock}
-                    </button>
+                    </PendingSubmit>
                   </form>
                 </div>
               </li>
