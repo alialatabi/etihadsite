@@ -42,6 +42,7 @@ type FakeAdapter = StorageAdapter & {
   deleteFile: ReturnType<typeof vi.fn>;
   readFile: ReturnType<typeof vi.fn>;
   readUpload: ReturnType<typeof vi.fn>;
+  getSettings: ReturnType<typeof vi.fn>;
 };
 
 function makeFake(settings: Partial<ShopSettings> = {}): FakeAdapter {
@@ -471,5 +472,58 @@ describe("POST /api/upload/direct/commit", () => {
     const res = await commit(commitReq({ uploadId: ID }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+  });
+});
+
+describe("POST /api/upload/direct/commit: the settings read starts before the download", () => {
+  it("getSettings is called while readFile is still pending", async () => {
+    const f = makeFake();
+    const png = fx("padded-400x400.png");
+    let release!: (b: Uint8Array) => void;
+    const download = new Promise<Uint8Array>((r) => (release = r));
+    f.readFile.mockImplementation(() => download);
+    fake = f;
+    const pending = commit(commitReq({ uploadId: ID }));
+    await vi.waitFor(() => expect(f.readFile).toHaveBeenCalledTimes(1));
+    expect(f.getSettings).toHaveBeenCalledTimes(1);
+    release(png);
+    const res = await pending;
+    expect(res.status).toBe(200);
+    expect(f.getSettings).toHaveBeenCalledTimes(1);
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("a missing .bin is still 400 corrupt when the settings read fails (no unhandled rejection)", async () => {
+    const f = makeFake();
+    f.getSettings.mockRejectedValue(new Error("storage down (getSettings)"));
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.getSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed download answers 500 server_error and leaves no unhandled rejection from the settings read", async () => {
+    const f = makeFake();
+    f.getSettings.mockRejectedValue(new Error("storage down (getSettings)"));
+    f.readFile.mockRejectedValue(new Error("storage down (readFile)"));
+    fake = f;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, error: "server_error" });
+    expect(String(errors.mock.calls[0]?.[1])).toContain("readFile");
+  });
+
+  it("with the bytes present, a settings failure is still 500 server_error and nothing is written", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    f.getSettings.mockRejectedValue(new Error("storage down (getSettings)"));
+    fake = f;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(500);
+    expect(f.saveUploadMeta).not.toHaveBeenCalled();
+    expect(f.deleteFile).not.toHaveBeenCalled();
   });
 });

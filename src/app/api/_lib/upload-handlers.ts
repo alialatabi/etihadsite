@@ -108,9 +108,13 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
       return uploadOk(uploadId, kind, existing.bytes.byteLength);
     }
 
+    // The settings read does not depend on the download: start it first. A missing file still answers
+    // "corrupt" (a settings outage must not change that), so the early return leaves its error unread.
+    const settingsP = getSettings();
+    settingsP.catch(() => {});
     const bytes = await storage.readFile(uploadPath(uploadId));
     if (!bytes) return uploadFail("corrupt");
-    const settings = await getSettings();
+    const settings = await settingsP;
     const reject = async (error: UploadError) => {
       await storage.deleteFile(uploadPath(uploadId)).catch(() => {});
       return uploadFail(error);
