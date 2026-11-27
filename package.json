@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage --testTimeout=20000",
     "lint:rtl": "node scripts/check-rtl.mjs",
     "budget": "node scripts/check-bundle-budget.mjs",
+    "perf:lab": "node scripts/perf-lab.mjs",
     "check": "pnpm typecheck && pnpm test && pnpm lint && pnpm lint:rtl",
     "e2e": "playwright test",
     "purge:orders": "tsx scripts/purge-orders.ts",

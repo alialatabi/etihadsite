@@ -422,6 +422,21 @@ React `cache()` only memoises inside a server render, so under vitest `getSettin
 4. Add tests for both adapters (`tests/unit/server/storage*.test.ts`, `supabase-storage.test.ts`).
 5. Apply the migration to the Supabase project before deploying the code that needs it.
 
+**Check the first-load JavaScript budget** (after `pnpm build`)
+
+1. `pnpm build && pnpm budget`. `scripts/check-bundle-budget.mjs` reads `.next/diagnostics/route-bundle-stats.json` and compares each route's `firstLoadUncompressedJsBytes` with `scripts/bundle-budget.json` (KiB: the value at the time + 5 %, rounded up). It prints route, current and budget and exits 1 when a route is over.
+2. It also exits 1, never passing silently, when the stats file or the field is missing (that file is an undocumented Next internal and can change on a Next upgrade; fix the script then), when a route has no budget, or when a budgeted route is gone. It is not part of `pnpm check`, because that does not build.
+3. After a growth the owner accepted (or a new route): `pnpm budget --update` rewrites `bundle-budget.json` from the current build. Review the diff of that file like any other change.
+4. It measures only the JS that Next lists for the route. A third-party script that is loaded at run time (the Meta pixel's `fbevents.js`) is not in it.
+
+**Measure on throttled mobile** (`pnpm perf:lab`, manual, not part of any gate)
+
+1. `pnpm build`, then `pnpm perf:lab --serve --label before --runs 5`. `--serve` starts `next start` on the `--base` port (default `http://localhost:3217`) with a generated throwaway env: random admin password, session secret and staff key, its own data folder, `STORAGE=local`, no Telegram, OpenAI pointed at a dead port. The Meta Conversions API token, the Sentry DSN, Supabase, Turnstile and the cron secret are set to empty strings, so a `.env.local` on your machine cannot make the lab's server send anything (`next start` loads `.env.local` only for variables that are not already defined, and an empty string counts as defined).
+2. Change the code, `pnpm build`, run it again with `--label after`, and compare `perf-lab-out/summary-before.md` with `summary-after.md`. The folder is git-ignored; it is not under `test-results/` because `playwright test` wipes that folder. Also written: `results-<label>.json` and `network-<label>.json`.
+3. It drives Chromium (the installed `@playwright/test`) with slow 4G (150 ms, 1.6/0.75 Mbps, CPU 4x) and 3G (300 ms, 0.75/0.25 Mbps, CPU 6x) profiles at 390x844, and reports medians of `--runs` cold loads plus one warm load per page (TTFB, FCP, LCP, CLS, TBT, bytes by type), the builder upload-to-preview time, and duplicate requests. It reports only: lab timings are noisy, so nothing passes or fails on a number.
+4. Safety: `/api/track`, `/api/log`, `/monitoring`, `/sentry-tunnel`, `connect.facebook.net` and `facebook.com/tr` are aborted in the browser, so a run writes no analytics, logs or Sentry events and pings no one, even against the live site; a blocked request that still gets a response fails the run. A non-localhost `--base` is measured with page loads only (`--serve`, `--seed`, builder and network flows are refused). Admin and staff pages are measured only with `--serve`, or when you set `PERF_ADMIN_PASSWORD` / `STAFF_PAGE_KEY` for a server you started yourself.
+5. Blind spots: a local server is not the live region plus Supabase and the server runs with no Meta pixel id (a build made with one still ships the pixel in the page; the browser aborts it), so server/database latency and the pixel's cost are not in the numbers; measure live TTFB separately. The builder flow clicks buttons by their Arabic text (`T` in the script); a unit test fails if one of those strings changes in `src/content/ar`.
+
 **Accessibility conventions of the builder** (`tests/unit/components/a11y-markup.test.ts` pins them)
 
 - Live regions (`role="status"`) are always mounted and empty when idle (`DesignStep` loading, `DetailsStep` `#submit-status`); they name a phase and never carry a percent. The visible progress block is not a live region and the progress bar is named by `#submit-status` (`aria-labelledby`).
