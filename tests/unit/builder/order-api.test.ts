@@ -15,7 +15,16 @@ class FakeXhr {
   responseType = '';
   status = 0;
   responseText = '';
-  upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+  upload: {
+    onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null;
+    onload: (() => void) | null;
+  } = { onprogress: null, onload: null };
+  aborted = 0;
+  onabort: (() => void) | null = null;
+  abort() {
+    this.aborted++;
+    this.onabort?.(); // the real one fires `abort` synchronously
+  }
   onerror: (() => void) | null = null;
   ontimeout: (() => void) | null = null;
   onload: (() => void) | null = null;
@@ -42,7 +51,12 @@ const fetchMock = vi.fn<typeof fetch>();
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 const notJson = (status: number) => new Response('<html>bad gateway</html>', { status });
 const png = (bytes = 'abc') => new File([bytes], 'a.png', { type: 'image/png' });
-const JSON_POST = (body: string) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body });
+const JSON_POST = (body: string) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body,
+  signal: expect.any(AbortSignal),
+});
 
 beforeEach(() => {
   FakeXhr.sent = [];
@@ -84,6 +98,61 @@ describe('postOrder', () => {
   it('lets a network failure through unchanged', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(postOrder(body)).rejects.toThrow(new TypeError('Failed to fetch'));
+  });
+});
+
+describe('postJson header deadline (75 s)', () => {
+  const body = { orderId: 'id-1' } as unknown as OrderRequest;
+  /** A fetch that never answers but, like the real one, rejects when its signal aborts. */
+  const stalledFetch = () =>
+    fetchMock.mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('rejects with timeout when no answer arrives within 75 s, not before', async () => {
+    stalledFetch();
+    const p = postOrder(body);
+    const seen = p.then(
+      () => 'resolved',
+      (e: Error) => e.message,
+    );
+    await vi.advanceTimersByTimeAsync(74_999);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await seen).toBe('timeout');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the timer once the headers arrive: a slow body read is never cut', async () => {
+    let signal: AbortSignal | undefined;
+    fetchMock.mockImplementation(async (_url, init) => {
+      signal = init?.signal ?? undefined;
+      return json({ ok: false, error: 'low_dpi', message: 'm' }, 422);
+    });
+    const p = postOrder(body);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await p).toEqual({ ok: false, error: 'low_dpi', message: 'm' });
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(200_000);
+    expect(signal?.aborted).toBe(false);
+  });
+
+  it('upload start and commit use the same deadline', async () => {
+    stalledFetch();
+    const p = uploadWithProgress(png(), vi.fn());
+    const seen = p.then(
+      () => 'resolved',
+      (e: Error) => e.message,
+    );
+    await vi.advanceTimersByTimeAsync(75_000);
+    expect(await seen).toBe('timeout');
+    expect(FakeXhr.sent).toHaveLength(0);
   });
 });
 
@@ -167,6 +236,112 @@ describe('uploadWithProgress', () => {
     fetchMock.mockResolvedValueOnce(notJson(500));
     await expect(uploadWithProgress(png(), vi.fn())).rejects.toThrow(new Error('bad_upload_start_500'));
     expect(FakeXhr.sent).toHaveLength(0);
+  });
+
+  describe('upload watchdog', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      fetchMock.mockResolvedValue(json({ ok: true, mode: 'server' }));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    /** Start the upload and wait until the XHR is sent (the start call is a fake-timer-safe microtask chain). */
+    async function begin(onProgress = vi.fn()) {
+      const outcome: string[] = [];
+      uploadWithProgress(png(), onProgress).then(
+        (r) => outcome.push(`ok:${JSON.stringify(r)}`),
+        (e: Error) => outcome.push(`err:${e.message}`),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      return { xhr: FakeXhr.sent[0], outcome };
+    }
+    const progress = (xhr: FakeXhr, loaded: number, total = 1_000_000) => xhr.upload.onprogress?.({ lengthComputable: true, loaded, total });
+
+    it('(a) a stalled upload rejects with timeout after 60 s without progress, and aborts the request', async () => {
+      const { xhr, outcome } = await begin();
+      progress(xhr, 10);
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(outcome).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toEqual(['err:timeout']);
+      expect(xhr.aborted).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('(a) an upload that never reports any progress is cut 60 s after send', async () => {
+      const { outcome } = await begin();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(outcome).toEqual(['err:timeout']);
+    });
+
+    it('(b) a slow but steadily progressing upload is never cut, even over 5 minutes', async () => {
+      const { xhr, outcome } = await begin();
+      for (let i = 1; i <= 30; i++) {
+        await vi.advanceTimersByTimeAsync(10_000); // 300 s in total, a tick every 10 s
+        progress(xhr, i * 30_000);
+      }
+      expect(outcome).toEqual([]);
+      expect(xhr.aborted).toBe(0);
+      xhr.upload.onload?.();
+      xhr.answer(200, JSON.stringify({ ok: true, uploadId: 'u1', kind: 'png', bytes: 3 }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(outcome).toEqual(['ok:{"ok":true,"uploadId":"u1","kind":"png","bytes":3}']);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('(c) once all bytes are sent the answer must come within 45 s', async () => {
+      const { xhr, outcome } = await begin();
+      progress(xhr, 1_000_000);
+      await vi.advanceTimersByTimeAsync(50_000); // would be inside the 60 s stall window
+      xhr.upload.onload?.();
+      await vi.advanceTimersByTimeAsync(44_999);
+      expect(outcome).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toEqual(['err:timeout']);
+      expect(xhr.aborted).toBe(1);
+    });
+
+    it('(c) an answer inside the response window wins and stops the timer', async () => {
+      const { xhr, outcome } = await begin();
+      xhr.upload.onload?.();
+      await vi.advanceTimersByTimeAsync(44_000);
+      xhr.answer(200, JSON.stringify({ ok: true, uploadId: 'u1', kind: 'png', bytes: 3 }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(outcome).toHaveLength(1);
+      expect(xhr.aborted).toBe(0);
+    });
+
+    it('(d) settles exactly once: a late load, error or abort after the timeout changes nothing', async () => {
+      const { xhr, outcome } = await begin();
+      await vi.advanceTimersByTimeAsync(60_000);
+      xhr.answer(200, JSON.stringify({ ok: true, uploadId: 'u1', kind: 'png', bytes: 3 }));
+      await vi.advanceTimersByTimeAsync(0);
+      xhr.onerror?.();
+      await vi.advanceTimersByTimeAsync(0);
+      xhr.onabort?.();
+      xhr.ontimeout?.();
+      expect(outcome).toEqual(['err:timeout']);
+    });
+
+    it('(d) a network error clears the timers and a later abort does not settle again', async () => {
+      const { xhr, outcome } = await begin();
+      xhr.onerror?.();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(vi.getTimerCount()).toBe(0);
+      xhr.onabort?.();
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect(outcome).toEqual(['err:network']);
+    });
+
+    it('an abort from outside rejects with network and clears the timers', async () => {
+      const { xhr, outcome } = await begin();
+      xhr.abort();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(outcome).toEqual(['err:network']);
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 
   it('rejects with network / timeout when the XHR fails', async () => {
