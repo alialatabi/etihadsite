@@ -1,0 +1,22 @@
+{
+  "unit": "KiB",
+  "headroomPercent": 5,
+  "routes": {
+    "/": 1037,
+    "/_not-found": 677,
+    "/admin": 711,
+    "/admin/accounts": 706,
+    "/admin/customers": 723,
+    "/admin/designs": 784,
+    "/admin/login": 711,
+    "/admin/orders/[orderId]": 861,
+    "/admin/settings": 732,
+    "/admin/staff": 711,
+    "/admin/stats": 692,
+    "/how-it-works": 677,
+    "/order/success": 816,
+    "/staff-sheets": 1391,
+    "/team": 812,
+    "/team/login": 695
+  }
+}
