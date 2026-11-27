@@ -304,6 +304,7 @@ export async function buildStaffFile(
     const prepared = await prepareOriginalArtwork(card.design, spec);
     if (!prepared.ok) {
       // prepareOriginalArtwork (like prepareArtwork) turns every throw (canvas too big, toBlob, memory) into 'corrupt'; this design already decoded on this page.
+      // The one exception: a failed load of the pdf-lib chunk throws out of it on purpose and lands in the catch below ('build').
       if (prepared.error === 'corrupt') {
         reportClientError(new Error('staff prepare failed: corrupt'), {
           where: 'staff.prepare',

@@ -106,6 +106,7 @@ function xhrSend(
     };
     /** (Re)start the countdown; when it runs out the request is given up on. */
     const arm = (ms: number) => {
+      if (settled) return;
       clear();
       timer = setTimeout(() => {
         settle(() => reject(new Error('timeout')));
