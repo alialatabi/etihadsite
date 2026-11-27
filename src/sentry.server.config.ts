@@ -32,11 +32,13 @@ if (dsn) {
     // `tracesSampleRate` stays unset on purpose: 0 would still create (unsampled) spans.
     // Errors only: the release-health session pings are switched off (ProcessSession, and the per-request
     // sessions of the Http integration, which @sentry/nextjs itself re-adds the same way with
-    // disableIncomingRequestSpans). The tunnel answers /monitoring.
+    // disableIncomingRequestSpans). The tunnel allowlist (this DSN) is registered here, but `intercept: false`
+    // keeps the SDK from answering /monitoring itself: it would read the request body with no deadline.
+    // The route files (src/app/monitoring, src/app/sentry-tunnel) answer it through src/lib/monitoring/tunnel.ts.
     integrations: (defaults) => [
       ...defaults.filter((i) => i.name !== 'ProcessSession' && i.name !== 'Http'),
       Sentry.httpIntegration({ disableIncomingRequestSpans: true, sessions: false }),
-      Sentry.serveTunnelIntegration({ path: SENTRY_TUNNEL_PATH }),
+      Sentry.serveTunnelIntegration({ path: SENTRY_TUNNEL_PATH, intercept: false }),
     ],
     beforeSend: (event) => scrubEvent(event),
     beforeBreadcrumb: (breadcrumb) => scrubBreadcrumb(breadcrumb),

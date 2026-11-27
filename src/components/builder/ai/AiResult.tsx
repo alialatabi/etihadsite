@@ -11,7 +11,8 @@ import { uploadLimitMb } from '@/lib/upload-limit';
 import { cn } from '@/lib/utils';
 import { acceptedAiLines } from '../logic';
 import type { BuilderApi } from '../useBuilder';
-import { aiErrorMessage, canRetryAi, maxWidthAtSize, resultAcceptedSpec, resultDpiStatus, resultShown, textWarning } from './ai-logic';
+import { aiErrorMessage, canRetryAi, isAiLimitError, maxWidthAtSize, resultAcceptedSpec, resultDpiStatus, resultShown, textWarning } from './ai-logic';
+import { AiLimitNotice } from './AiLimitNotice';
 import { AiProgress } from './AiProgress';
 import { TextWarningNote } from './TextWarningNote';
 import type { AiDesignApi } from './useAiDesign';
@@ -91,7 +92,11 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
   const canRetry = canRetryAi({ off: ai.off, remainingToday: ai.remainingToday, phase: ai.phase, error: ai.error });
   // Only a failure of the try just made is shown (after «عدّل الفكرة» an old message would sit on a good design).
   const acceptedLines = acceptedAiLines({ mode: b.mode, aiLines: b.aiLines ?? null, aiFileId: b.aiFileId ?? null, fileId: b.fileId ?? null });
-  const errorBox = ai.phase === 'error' && ai.error ? <ErrorBox>{aiErrorMessage(ai.error)}</ErrorBox> : null;
+  // The daily limit: the notice also offers WhatsApp, so the customer can go on with the shop.
+  const errorBox =
+    ai.phase === 'error' && ai.error ? (
+      isAiLimitError(ai.error) ? <AiLimitNotice whatsapp={b.settings.whatsapp} idea={b.idea} /> : <ErrorBox>{aiErrorMessage(ai.error)}</ErrorBox>
+    ) : null;
 
   const editIdea = (
     <Button type="button" variant="outline" className={btnCls('outline')} onClick={ai.editIdea}>

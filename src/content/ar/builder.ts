@@ -89,8 +89,13 @@ export const builder = {
     shrinkWarning: 'صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع',
     unavailable: 'التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.',
     aspect: 'للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.',
+    /**
+     * The customer's way on when the daily AI limit is reached (ip_limit / site_limit): a WhatsApp link to the shop.
+     * `text` starts the pre-filled message; the customer's idea is appended after a space (see aiLimitWhatsappText).
+     */
+    limitWhatsapp: { button: 'كمّل على الواتساب', text: 'هلا، جربت أصمم ستيكر بالموقع وخلصت محاولاتي. فكرتي:' },
     errors: {
-      ip_limit: 'خلصت محاولاتك لليوم. ارجع باچر أو ارفع تصميم جاهز.',
+      ip_limit: 'خلصت محاولات التصميم لليوم. راسلنا على الواتساب ونكمّل وياك التصميم، أو ارفع تصميم جاهز.',
       site_limit: 'التصميم بالموقع وصل حده اليوم. ارجع باچر أو ارفع تصميم جاهز.',
       blocked: 'التصميم بالموقع مو متوفر إلك. تكدر ترفع تصميم جاهز.',
       text_too_long: 'الكتابة كثيرة على هذا القياس.',

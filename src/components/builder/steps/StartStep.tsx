@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AI_IDEA_MAX_CHARS, AI_MAX_REFS } from '@/lib/ai/config';
+import { AiLimitNotice } from '../ai/AiLimitNotice';
 import { AiProgress } from '../ai/AiProgress';
-import { REF_ACCEPT, aiErrorMessage, showViewResult } from '../ai/ai-logic';
+import { REF_ACCEPT, aiErrorMessage, isAiLimitError, showViewResult } from '../ai/ai-logic';
 import { TextReview } from '../ai/TextReview';
 import type { AiDesignApi } from '../ai/useAiDesign';
 import type { BuilderApi } from '../useBuilder';
@@ -50,9 +51,14 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
       )}
 
       {ai.off ? (
-        <p role="status" className="rounded-[2px] bg-news px-4 py-3 text-sm text-ink-soft">
-          {builder.ai.unavailable}
-        </p>
+        // The site's daily limit offers WhatsApp; 'blocked', 'unavailable' and the feature being off keep the plain notice.
+        ai.error === 'site_limit' ? (
+          <AiLimitNotice whatsapp={b.settings.whatsapp} idea={b.idea} />
+        ) : (
+          <p role="status" className="rounded-[2px] bg-news px-4 py-3 text-sm text-ink-soft">
+            {builder.ai.unavailable}
+          </p>
+        )
       ) : (
         <section aria-labelledby="start-idea" className="space-y-4">
           <div className="space-y-2">
@@ -138,12 +144,15 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
             </p>
           )}
 
-          {showBriefError && (
-            <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>{aiErrorMessage(ai.error!)}</span>
-            </p>
-          )}
+          {showBriefError &&
+            (isAiLimitError(ai.error!) ? (
+              <AiLimitNotice whatsapp={b.settings.whatsapp} idea={b.idea} />
+            ) : (
+              <p role="alert" className="flex items-start gap-2 rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-brand-ink">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{aiErrorMessage(ai.error!)}</span>
+              </p>
+            ))}
 
           {ai.phase !== 'reviewing' && (
             <>

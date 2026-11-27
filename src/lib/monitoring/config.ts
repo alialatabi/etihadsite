@@ -5,7 +5,8 @@
 
 /**
  * Same-origin path the browser sends events to, so ad-blockers do not drop them. The server answers
- * it (serveTunnelIntegration) and forwards only the event body to Sentry. Not matched by src/proxy.ts
+ * it (the route files src/app/monitoring and src/app/sentry-tunnel, behind a deadline wrapper;
+ * serveTunnelIntegration only registers the allowed DSN, with `intercept: false`) and forwards only the event body to Sentry. Not matched by src/proxy.ts
  * (robots.ts does not list it: it is golden-pinned, and crawlers only GET, which gets 405).
  */
 export const SENTRY_TUNNEL_PATH = '/monitoring';

@@ -94,6 +94,13 @@ describe('server init (src/sentry.server.config.ts)', () => {
     expect(JSON.stringify(initOptions().beforeSend(ev))).not.toContain('MetaTokenQ9w8e7r6t5y4u3i');
   });
 
+  it('registers the tunnel allowlist without letting the SDK answer /monitoring (intercept: false)', async () => {
+    await import('../../../src/sentry.server.config');
+    const o = initOptions();
+    o.integrations([]);
+    expect(serveTunnelIntegration).toHaveBeenCalledWith({ path: '/monitoring', intercept: false });
+  });
+
   it('drops the session integrations from the defaults', async () => {
     await import('../../../src/sentry.server.config');
     const o = initOptions();

@@ -44,6 +44,30 @@ export function isAiOffError(code: AiErrorCode): boolean {
   return code === 'unavailable' || code === 'site_limit' || code === 'blocked';
 }
 
+/** Errors that mean the daily AI limit is reached (this customer's or the site's): the notice offers WhatsApp. */
+export function isAiLimitError(code: AiErrorCode): boolean {
+  return code === 'ip_limit' || code === 'site_limit';
+}
+
+/** Most characters of the customer's idea carried into the WhatsApp message (keeps the link short). */
+export const AI_LIMIT_IDEA_MAX = 300;
+
+/** A lone surrogate becomes U+FFFD (a restored draft can hold one); valid pairs stay. No lookbehind, for older browsers. */
+function wellFormed(text: string): string {
+  return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, (m) => (m.length === 2 ? m : '\uFFFD'));
+}
+
+/**
+ * The WhatsApp message of the limit notice: the shop's prefill, then the idea (trimmed, lone surrogates replaced
+ * by U+FFFD, cut at AI_LIMIT_IDEA_MAX code points so no emoji is split into a lone surrogate). An empty idea
+ * leaves the prefill alone.
+ */
+export function aiLimitWhatsappText(idea: string): string {
+  const prefill = builder.ai.limitWhatsapp.text;
+  const cut = Array.from(wellFormed(idea.trim())).slice(0, AI_LIMIT_IDEA_MAX).join('');
+  return cut ? `${prefill} ${cut}` : prefill;
+}
+
 /**
  * Arabic copy for an error code. 'rate_limited' comes from the brief route (also its answer to a blocked IP),
  * so it reads as "not available now, upload your own design". Unknown codes read as 'failed'.
