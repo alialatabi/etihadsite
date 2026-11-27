@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Panel, btn, field } from '@/components/admin/kit';
 import { SectionTitle, StickerMark } from '@/components/collage';
-import { Button } from '@/components/ui/button';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { admin, common } from '@/content/ar';
@@ -30,9 +30,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               {error === 'rate' ? admin.login.rateLimited : admin.login.error}
             </p>
           ) : null}
-          <Button type="submit" className={`${btn.primary} w-full`}>
+          <PendingSubmit shadcn className={`${btn.primary} w-full`}>
             {admin.login.submit}
-          </Button>
+          </PendingSubmit>
         </form>
       </Panel>
     </div>
