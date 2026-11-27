@@ -298,27 +298,35 @@ async function completeOrder(
       return successFor(stored, settings);
   }
 
-  // An AI design (src/lib/ai/service.ts) is marked as ordered: best effort, never fails the order.
-  try {
-    await storage.aiMarkOrdered?.(req.uploadId, record.orderId);
-  } catch {
-    // Codes only: a storage error could echo the generation row (idea text, IP).
-    reportError(new Error("AI generation mark-ordered failed"), {
-      where: "orders.aiMarkOrdered",
-      route: "/api/orders",
-      tags: { orderId: record.orderId },
-    });
-  }
+  // Meta Conversions API copy of the purchase: queued for after the answer, a no-op until configured.
+  sendMetaPurchase(request, record, price.totalIqd);
 
+  // The best-effort writes and the Telegram notify do not depend on each other, so they run together
+  // (each keeps its own catch). updateOrder needs the notify result and stays after them.
+  // An AI design (src/lib/ai/service.ts) is marked as ordered: best effort, never fails the order.
+  const markP = (async () => {
+    try {
+      await storage.aiMarkOrdered?.(req.uploadId, record.orderId);
+    } catch {
+      // Codes only: a storage error could echo the generation row (idea text, IP).
+      reportError(new Error("AI generation mark-ordered failed"), {
+        where: "orders.aiMarkOrdered",
+        route: "/api/orders",
+        tags: { orderId: record.orderId },
+      });
+    }
+  })();
   // Customer list + analytics: best effort, must never fail the order.
-  try {
-    await storage.upsertCustomerFromOrder(record);
-  } catch (e) {
-    // A fixed message and a short code only: the error text can carry a PostgREST row (phone).
-    console.error(`[orders] customer upsert failed (${errorCode(e)})`);
-    reportError(e, { where: "orders.customerUpsert", route: "/api/orders", tags: { orderId: record.orderId } });
-  }
-  await trackServer(request, {
+  const upsertP = (async () => {
+    try {
+      await storage.upsertCustomerFromOrder(record);
+    } catch (e) {
+      // A fixed message and a short code only: the error text can carry a PostgREST row (phone).
+      console.error(`[orders] customer upsert failed (${errorCode(e)})`);
+      reportError(e, { where: "orders.customerUpsert", route: "/api/orders", tags: { orderId: record.orderId } });
+    }
+  })();
+  const trackP = trackServer(request, {
     type: "order",
     meta: {
       material: price.material,
@@ -335,25 +343,25 @@ async function completeOrder(
       ...(req.designs ? { designs: req.designs.length } : {}),
     },
   });
-  // Meta Conversions API copy of the purchase: queued for after the answer, a no-op until configured.
-  sendMetaPurchase(request, record, price.totalIqd);
-
-  let notified: OrderRecord["notified"] = { telegram: "failed" };
-  try {
-    const result = await notifyShop(record, pdfBytes, fileName, settings);
-    notified = { telegram: result.telegram };
-    if (result.error) {
-      console.error("[orders] notify failed:", result.error);
-      reportError(new Error(`Order notification failed: ${result.error}`), {
-        where: "orders.notify",
-        route: "/api/orders",
-        tags: { orderId: record.orderId },
-      });
+  const notifyP = (async (): Promise<OrderRecord["notified"]> => {
+    try {
+      const result = await notifyShop(record, pdfBytes, fileName, settings);
+      if (result.error) {
+        console.error("[orders] notify failed:", result.error);
+        reportError(new Error(`Order notification failed: ${result.error}`), {
+          where: "orders.notify",
+          route: "/api/orders",
+          tags: { orderId: record.orderId },
+        });
+      }
+      return { telegram: result.telegram };
+    } catch (e) {
+      console.error("[orders] notify threw", logText(e));
+      reportError(e, { where: "orders.notify", route: "/api/orders", tags: { orderId: record.orderId } });
+      return { telegram: "failed" };
     }
-  } catch (e) {
-    console.error("[orders] notify threw", logText(e));
-    reportError(e, { where: "orders.notify", route: "/api/orders", tags: { orderId: record.orderId } });
-  }
+  })();
+  const [, , , notified] = await Promise.all([markP, upsertP, trackP, notifyP]);
   // Best effort like the steps above: the order is saved and the shop was told, so a failed write of
   // the notify state must not turn into server_error.
   let updated: OrderRecord = { ...record, notified };
@@ -532,12 +540,20 @@ export async function POST(request: Request): Promise<Response> {
     // Multi-design orders are switched off (MULTI_DESIGN_ENABLED): refuse them like any other bad request.
     if (req.designs && !MULTI_DESIGN_ENABLED) return send(fail("invalid_request"));
 
-    const settings = await getSettings();
+    // Both reads start together but are awaited in the old order (settings first), so the error
+    // that wins is unchanged. The lookup runs inside an async function so a synchronous throw
+    // from getStorage() (a misconfigured STORAGE=supabase) becomes a rejection instead of
+    // escaping while settingsP has no handler yet; the swallowing catch keeps the lookup from
+    // going unhandled when settingsP throws first and it is never awaited.
+    const settingsP = getSettings();
+    const existingP = (async () => getStorage().getOrder(req.orderId))();
+    existingP.catch(() => {});
+    const settings = await settingsP;
 
     // Idempotency: the same orderId returns the same result without redoing work, but only to a
     // request for the same upload (a retry resends the whole body). Another upload for a known
     // orderId is not a replay: same answer as any other bad request.
-    const existing = await getStorage().getOrder(req.orderId);
+    const existing = await existingP;
     if (existing)
       return send(
         existing.files.designPath === uploadPath(req.uploadId) &&
