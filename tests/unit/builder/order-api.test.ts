@@ -42,7 +42,12 @@ const fetchMock = vi.fn<typeof fetch>();
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 const notJson = (status: number) => new Response('<html>bad gateway</html>', { status });
 const png = (bytes = 'abc') => new File([bytes], 'a.png', { type: 'image/png' });
-const JSON_POST = (body: string) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body });
+const JSON_POST = (body: string) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body,
+  signal: expect.any(AbortSignal),
+});
 
 beforeEach(() => {
   FakeXhr.sent = [];
@@ -84,6 +89,61 @@ describe('postOrder', () => {
   it('lets a network failure through unchanged', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(postOrder(body)).rejects.toThrow(new TypeError('Failed to fetch'));
+  });
+});
+
+describe('postJson header deadline (75 s)', () => {
+  const body = { orderId: 'id-1' } as unknown as OrderRequest;
+  /** A fetch that never answers but, like the real one, rejects when its signal aborts. */
+  const stalledFetch = () =>
+    fetchMock.mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('rejects with timeout when no answer arrives within 75 s, not before', async () => {
+    stalledFetch();
+    const p = postOrder(body);
+    const seen = p.then(
+      () => 'resolved',
+      (e: Error) => e.message,
+    );
+    await vi.advanceTimersByTimeAsync(74_999);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await seen).toBe('timeout');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the timer once the headers arrive: a slow body read is never cut', async () => {
+    let signal: AbortSignal | undefined;
+    fetchMock.mockImplementation(async (_url, init) => {
+      signal = init?.signal ?? undefined;
+      return json({ ok: false, error: 'low_dpi', message: 'm' }, 422);
+    });
+    const p = postOrder(body);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await p).toEqual({ ok: false, error: 'low_dpi', message: 'm' });
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(200_000);
+    expect(signal?.aborted).toBe(false);
+  });
+
+  it('upload start and commit use the same deadline', async () => {
+    stalledFetch();
+    const p = uploadWithProgress(png(), vi.fn());
+    const seen = p.then(
+      () => 'resolved',
+      (e: Error) => e.message,
+    );
+    await vi.advanceTimersByTimeAsync(75_000);
+    expect(await seen).toBe('timeout');
+    expect(FakeXhr.sent).toHaveLength(0);
   });
 });
 

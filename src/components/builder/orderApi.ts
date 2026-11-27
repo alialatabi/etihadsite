@@ -1,13 +1,21 @@
 import { order } from '@/content/ar';
+import { fetchWithDeadline } from '@/lib/fetch-deadline';
 import type { DirectUploadStart, OrderRequest, OrderResponse, UploadResponse } from '@/lib/types';
 
-/** POST a JSON body and parse the JSON answer; a non-JSON answer throws `<badTag>_<status>`. */
+/** How long a JSON POST may wait for the server's answer (headers); the routes' own cap is 60 s. */
+export const POST_DEADLINE_MS = 75_000;
+
+/** POST a JSON body and parse the JSON answer; a non-JSON answer throws `<badTag>_<status>`; no answer within 75 s throws `timeout`. */
 async function postJson<T>(url: string, body: unknown, badTag: string): Promise<T> {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const r = await fetchWithDeadline(
+    url,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    POST_DEADLINE_MS,
+  );
   try {
     return (await r.json()) as T;
   } catch {
