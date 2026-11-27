@@ -74,9 +74,9 @@ pnpm purge:orders
 رابطها `/staff/<المفتاح>` والمفتاح هو قيمة `STAFF_PAGE_KEY` (24 حرف أو أكثر). أي واحد عنده الرابط يفتحها، فلا تنشره. الموظف يرفع كذا تصميم (PNG أو JPG أو PDF)، يكتب القياس لكل تصميم، ويضغط «نزّل ملفات PDF» فينزل ملف PDF لكل تصميم (صفحة A4 وحدة بكل ملف)، فيه النقاط السودة وجاهز للطباعة والقص. إذا المتصفح سأل عن تنزيل أكثر من ملف اختار «سماح»، وكل تصميم بعد عنده زر تنزيل خاص بيه. الملفات تبقى بجهاز الموظف وما تنرفع للسيرفر. اطبع الملف بحجم 100% (Actual size). لتغيير الرابط غيّر `STAFF_PAGE_KEY` على Vercel وأعد النشر.
 
 ### الموقع على الإنترنت
-- الرابط: **https://etihad-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
+- الرابط: **https://softy-print.vercel.app** (مشروع Vercel اسمه `etihad-print`).
 - الطلبات والملفات والإعدادات محفوظة بـ **Supabase** (مشروع `etihad`)، مو على الحاسبة.
-- لوحة التحكم: `https://etihad-print.vercel.app/admin` بكلمة السر الخاصة بالموقع المنشور (غير كلمة السر المحلية).
+- لوحة التحكم: `https://softy-print.vercel.app/admin` بكلمة السر الخاصة بالموقع المنشور (غير كلمة السر المحلية).
 - كل يوم تنحذف تلقائياً ملفات الطباعة PDF الأقدم من 30 يوم. الطلبات وتصاميمها (المرفوعة والمولّدة) وقائمة الزبائن تبقى.
 - للنشر من جديد بعد أي تعديل: `vercel deploy --prod`.
 - باقي: باقة **Vercel Pro** للاستخدام التجاري، و `ORDER_TRANSPORT=telegram` حتى توصلك الطلبات على تيليگرام.
@@ -156,7 +156,7 @@ A4 21 × 29.7 cm, 3 mm margin, 4 cutter dots (stickers keep 3 mm away from them)
 The icons (`src/app/{favicon.ico,icon.png,apple-icon.png}` and `public/icon-*.png`) are committed files derived from `public/brand/softy-mark.png`. No script generates them: to change the logo, replace those files by hand. The Open Graph image (`src/app/opengraph-image.tsx`) reads `public/brand/softy-logo.png` and adds Latin text, so it needs no Arabic font at build time. `metadataBase` is not set in the root layout, so the sitemap URLs are relative paths.
 
 ### Deployment
-Live at https://etihad-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`, and (after the AI designer ships) `OPENAI_API_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
+Live at https://softy-print.vercel.app (Vercel project `etihad-print`, region `bom1` next to the Supabase project `etihad` in ap-south-1). Production env: `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, `ORDER_TRANSPORT=console`, `TRUST_PROXY=1`, `STAFF_PAGE_KEY`, and (after the AI designer ships) `OPENAI_API_KEY`. Redeploy with `vercel deploy --prod`. `.vercelignore` keeps `data/`, `.env*` and test output out of uploads.
 
 **Before deploying the WhatsApp-offers opt-in:** apply `supabase/migrations/20261122000000_marketing_opt_in.sql` on the production Supabase project FIRST. The new code falls back to the old `upsert_customer` when the migration is missing (customers are still recorded), but then nobody's opt-in is stored and those customers would have to opt in again. The migration is additive (two columns and a new function `upsert_customer_v2`; the old function stays).
 
