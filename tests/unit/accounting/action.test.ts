@@ -68,6 +68,12 @@ describe('saveSheetCostAction', () => {
     expect(store.saved[0].pricing).toEqual(DEFAULT_SETTINGS.pricing);
   });
 
+  it('keeps the viewed week in the redirect (saved and error), and ignores a bad week', async () => {
+    expect(await run({ paperCost: '300', plasticCost: '500', week: '2026-11-14' })).toBe('/admin/accounts?week=2026-11-14&saved=1');
+    expect(await run({ paperCost: '300', plasticCost: '500', week: '2026-11-14' })).toBe('/admin/accounts?week=2026-11-14&error=unchanged');
+    expect(await run({ paperCost: '350', plasticCost: '500', week: '2026-11-15' })).toBe('/admin/accounts?saved=1');
+  });
+
   it('a second, different entry is appended after the first', async () => {
     await run({ paperCost: '300', plasticCost: '500' });
     await run({ paperCost: '350', plasticCost: '500' });

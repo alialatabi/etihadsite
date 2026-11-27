@@ -158,9 +158,9 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
               <TableCell className={td}>
                 <StatusPill status={r.status} />
               </TableCell>
-              <TableCell className={td}>{common.materials[r.material]}</TableCell>
+              <TableCell className={td}>{r.material === null ? admin.orders.missing : common.materials[r.material]}</TableCell>
               <TableCell className={tdNum}>
-                <Ltr>{r.sheets}</Ltr>
+                {r.sheets === null ? admin.orders.missing : <Ltr>{r.sheets}</Ltr>}
               </TableCell>
               <TableCell className={tdNum}>
                 <Ltr>{r.stickers}</Ltr>
@@ -265,15 +265,15 @@ export function HistoryTable({
 }
 
 /** The form that sets a new cost per A4 sheet, the cost in force and the history of changes. */
-export function CostPanel({ entries, error }: { entries: SheetCostEntry[]; error: string | null }) {
+export function CostPanel({ entries, weekKey }: { entries: SheetCostEntry[]; weekKey: string }) {
   const c = accounts.costForm;
   const inForce = currentCost(entries);
   const history = [...entries].sort((a, b) => Date.parse(b.from) - Date.parse(a.from));
-  const message = error && error in c.errors ? c.errors[error as keyof typeof c.errors] : null;
   return (
     <Panel title={c.title} description={c.description}>
       <div className="flex flex-col gap-5">
         <form action={saveSheetCostAction} className="flex flex-col gap-4">
+          <input type="hidden" name="week" value={weekKey} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="paperCost" className={field.label}>
@@ -306,11 +306,6 @@ export function CostPanel({ entries, error }: { entries: SheetCostEntry[]; error
               />
             </div>
           </div>
-          {message ? (
-            <p role="alert" className={field.error}>
-              {message}
-            </p>
-          ) : null}
           <ul className="flex flex-col gap-1">
             {c.explain.map((t) => (
               <li key={t} className={field.hint}>

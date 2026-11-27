@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bucketByWeek, changePercent, computeWeek } from '@/lib/accounting/compute';
-import type { SheetCostEntry } from '@/lib/types';
+import type { OrderRecord, SheetCostEntry } from '@/lib/types';
+import { weekCsv } from '@/lib/accounting/csv';
 import { makeOrder } from './fixtures';
 
 const COSTS: SheetCostEntry[] = [{ from: '2026-11-01T00:00:00.000Z', paperIqd: 300, plasticIqd: 500 }];
@@ -117,5 +118,48 @@ describe('bucketByWeek', () => {
     const m = bucketByWeek([a, b]);
     expect(m.get('2026-11-21')).toEqual([a]);
     expect(m.get('2026-11-28')).toEqual([b]);
+  });
+});
+
+describe('computeWeek with an order saved in the old price format', () => {
+  // Before per-sheet pricing: no material, no sheets, no subtotal.
+  const legacy = (id: string) => {
+    const o = makeOrder({ id, createdAt: SAT, sheets: 3 });
+    (o as unknown as { price: unknown }).price = { offerPriceIqd: 25000, deliveryFeeIqd: 5000, totalIqd: 30000, totalStickers: 160, perStickerIqd: 156 };
+    return o as OrderRecord;
+  };
+  const good = makeOrder({ id: 'g1', createdAt: SUN, material: 'paper', sheets: 10, unitBase: 1000 });
+
+  it('does not throw, counts the order, and keeps it out of every money figure', () => {
+    const w = computeWeek([legacy('l1'), good], COSTS);
+    expect(w.ordersCount).toBe(2);
+    expect(w.unpricedCount).toBe(1);
+    expect(w.stickers).toBe(160 + 540);
+    expect(w.sheets.total).toBe(10);
+    expect(w.sheets.paper).toBe(10);
+    expect(w.salesIqd).toBe(15000);
+    expect(w.sheetSalesIqd).toBe(10000);
+    expect(w.costIqd).toBe(3000);
+    expect(w.profitIqd).toBe(7000);
+    const row = w.rows.find((r) => r.orderId === 'l1')!;
+    expect(row).toMatchObject({ material: null, sheets: null, stickers: 160, salesIqd: null, costIqd: null, profitIqd: null });
+    expect(w.byMaterial.reduce((n, m) => n + m.orders, 0)).toBe(1);
+    expect(Number.isNaN(w.salesIqd + (w.costIqd ?? 0))).toBe(false);
+  });
+
+  it('a record with no price block at all does not throw either', () => {
+    const o = makeOrder({ id: 'l2', createdAt: SAT });
+    delete (o as unknown as { price?: unknown }).price;
+    const w = computeWeek([o], COSTS);
+    expect(w.ordersCount).toBe(1);
+    expect(w.unpricedCount).toBe(1);
+    expect(w.salesIqd).toBe(0);
+  });
+
+  it('the CSV export renders it without throwing', () => {
+    const csv = weekCsv(computeWeek([legacy('l3'), good], COSTS));
+    expect(csv).toContain('EP-l3');
+    expect(csv).not.toContain('NaN');
+    expect(csv).not.toContain('undefined');
   });
 });

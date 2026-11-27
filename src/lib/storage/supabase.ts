@@ -486,6 +486,8 @@ export class SupabaseStorage implements StorageAdapter {
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) throw new Error('[supabase] listOrdersBetween: invalid date');
     const q = `created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}`;
     return this.selectAllPaged<OrderRecord>(`/rest/v1/orders?select=record&${q}&order=created_at.asc,order_id.asc`, {
+      // A silently short read would undercount every figure, so only an empty page ends it (see selectAllPaged).
+      untilEmpty: true,
       map: (r) => r.record as OrderRecord,
     });
   }

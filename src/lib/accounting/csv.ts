@@ -49,7 +49,7 @@ export function weekCsv(week: WeekFigures): string {
         r.displayNo,
         csvDate(r.createdAt),
         order.status[r.status],
-        common.materials[r.material],
+        r.material === null ? null : common.materials[r.material],
         r.sheets,
         r.stickers,
         r.salesIqd,

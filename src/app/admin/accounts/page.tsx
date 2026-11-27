@@ -34,7 +34,9 @@ export default async function AccountsPage({
   const entries = settings.accounting?.sheetCosts ?? [];
   const view = await loadAccountsView(getStorage(), entries, weekKey, now);
   const { week, previous } = view;
-  const costForm = <CostPanel entries={entries} error={first(sp.error) ?? null} />;
+  const costForm = <CostPanel entries={entries} weekKey={weekKey} />;
+  const errorCode = first(sp.error);
+  const errorMessage = errorCode && Object.hasOwn(A.costForm.errors, errorCode) ? A.costForm.errors[errorCode as keyof typeof A.costForm.errors] : null;
   const prevHref = `/admin/accounts?week=${addWeeks(weekKey, -1)}`;
   const nextKey = addWeeks(weekKey, 1);
   const nextHref = nextKey === view.currentWeekKey ? '/admin/accounts' : `/admin/accounts?week=${nextKey}`;
@@ -80,6 +82,12 @@ export default async function AccountsPage({
         </p>
       ) : null}
 
+      {errorMessage ? (
+        <p role="alert" className="rounded-[2px] border border-[#b91c1c]/30 bg-white px-4 py-3 text-[15px] font-bold text-[#b91c1c]">
+          {errorMessage}
+        </p>
+      ) : null}
+
       {week.costMissing ? (
         <>
           <div role="alert" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint px-4 py-3 text-brand-ink">
@@ -97,15 +105,18 @@ export default async function AccountsPage({
         <Kpi label={A.kpi.cost}>
           <Amount v={week.costIqd} />
         </Kpi>
-        <Kpi label={A.kpi.profit} hint={week.profitIqd === null ? A.profitNeedsCost : A.kpi.profitHint} tone="ink">
-          {week.profitIqd === null ? (
-            admin.orders.missing
-          ) : (
-            <MarkerCircle animate={false}>
-              <Amount v={week.profitIqd} />
-            </MarkerCircle>
-          )}
-        </Kpi>
+        {/* Full width on phones and a single line, so the marker loop never wraps around a 7-digit amount. */}
+        <div className="col-span-2 min-w-0 md:col-span-1">
+          <Kpi label={A.kpi.profit} hint={week.profitIqd === null ? A.profitNeedsCost : A.kpi.profitHint} tone="ink">
+            {week.profitIqd === null ? (
+              admin.orders.missing
+            ) : (
+              <MarkerCircle animate={false} className="whitespace-nowrap">
+                <Amount v={week.profitIqd} />
+              </MarkerCircle>
+            )}
+          </Kpi>
+        </div>
         <Kpi label={A.kpi.orders}>
           <Ltr>{week.ordersCount}</Ltr>
         </Kpi>

@@ -40,7 +40,7 @@ export const accounts = {
     cancelled: 'ملغية',
     cancelledHint: 'مو محسوبة',
     unpriced: 'بلا سعر',
-    unpricedHint: 'مو داخلة بالمبالغ، بس محسوبة بالأوراق والطلبات',
+    unpricedHint: 'مو داخلة بالمبالغ (طلب بلا سعر أو بصيغة قديمة)، بس محسوبة بالطلبات',
     byStatus: 'الطلبات حسب الحالة',
   },
   vsLast: {

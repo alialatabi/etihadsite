@@ -7,9 +7,13 @@
  *   price yet: it counts in orders, sheets and stickers, but NEVER in any money figure (null is not 0).
  * - Cost = sheets x the cost per sheet of its material (costAt). Delivery fees are not in the profit:
  *   profit = what the sheets sold for (price.subtotalIqd) - cost; delivery is its own line.
+ * - An order saved in an older price format (no material and/or no sheets) is read through orderPriceView and
+ *   treated like an unpriced one: it counts in orders (and in the sheet / material / sticker figures for what it
+ *   does have) but in no money figure, because its cost cannot be worked out. Nothing here throws on it.
  * - No cost entered at all: costMissing, and cost / profit / margin are null (never profit = sales).
  */
-import type { Material, OrderRecord, OrderStatus, SheetCostEntry } from '@/lib/types';
+import { orderPriceView } from '@/lib/order-price-view';
+import type { Material, OrderRecord, OrderStatus, PriceBreakdown, SheetCostEntry } from '@/lib/types';
 import { costAt } from './costs';
 import { dayIndex, weekKeyOf } from './week';
 
@@ -20,8 +24,9 @@ export interface OrderRow {
   displayNo: string;
   createdAt: string;
   status: OrderStatus;
-  material: Material;
-  sheets: number;
+  /** Null on an order saved in an older price format. */
+  material: Material | null;
+  sheets: number | null;
   stickers: number;
   /** False for a cancelled order: its money is null and it is in no total. */
   counted: boolean;
@@ -111,15 +116,18 @@ export function computeWeek(orders: readonly OrderRecord[], sheetCosts: readonly
   const rows: OrderRow[] = [];
 
   for (const o of orders) {
-    const p = o.price;
+    const p = orderPriceView(o);
+    const raw = (o as { price?: Partial<PriceBreakdown> }).price;
+    const orderSheets = p.sheets;
+    const orderStickers = p.totalStickers ?? 0;
     const base: Pick<OrderRow, 'orderId' | 'displayNo' | 'createdAt' | 'status' | 'material' | 'sheets' | 'stickers'> = {
       orderId: o.orderId,
       displayNo: o.displayNo,
       createdAt: o.createdAt,
       status: o.status,
       material: p.material,
-      sheets: p.sheets,
-      stickers: p.totalStickers,
+      sheets: orderSheets,
+      stickers: orderStickers,
     };
     if (o.status === 'cancelled') {
       cancelledCount++;
@@ -128,28 +136,35 @@ export function computeWeek(orders: readonly OrderRecord[], sheetCosts: readonly
     }
     ordersCount++;
     if (o.status === 'new' || o.status === 'printing' || o.status === 'done') byStatus[o.status]++;
-    sheets.total += p.sheets;
-    sheets[p.material] += p.sheets;
-    stickers += p.totalStickers;
-    const m = mat.get(p.material)!;
-    m.orders++;
-    m.sheets += p.sheets;
-    m.stickers += p.totalStickers;
+    if (orderSheets !== null) {
+      sheets.total += orderSheets;
+      if (p.material !== null) sheets[p.material] += orderSheets;
+    }
+    stickers += orderStickers;
+    const m = p.material === null ? undefined : mat.get(p.material);
+    if (m) {
+      m.orders++;
+      m.sheets += orderSheets ?? 0;
+      m.stickers += orderStickers;
+    }
     const d = days[dayIndex(o.createdAt)];
     d.orders++;
-    d.sheets += p.sheets;
-    d.stickers += p.totalStickers;
+    d.sheets += orderSheets ?? 0;
+    d.stickers += orderStickers;
 
-    if (p.totalIqd === null) {
+    // No price yet, or a record too old to work out its cost: in the counts above, in no money figure.
+    if (p.totalIqd === null || p.material === null || orderSheets === null || !m) {
       unpricedCount++;
       rows.push({ ...base, counted: true, salesIqd: null, costIqd: null, profitIqd: null });
       continue;
     }
-    const subtotal = p.subtotalIqd ?? p.totalIqd - p.deliveryFeeIqd;
+    const delivery = p.deliveryFeeIqd ?? 0;
+    const subtotal = p.subtotalIqd ?? p.totalIqd - delivery;
     salesIqd += p.totalIqd;
     sheetSalesIqd += subtotal;
-    deliveryIqd += p.deliveryFeeIqd;
-    if (p.unitBaseIqd !== null && p.unitPriceIqd !== null) discountIqd += (p.unitBaseIqd - p.unitPriceIqd) * p.sheets;
+    deliveryIqd += delivery;
+    const unitBase = raw?.unitBaseIqd ?? null;
+    if (unitBase !== null && p.unitPriceIqd !== null) discountIqd += (unitBase - p.unitPriceIqd) * orderSheets;
     m.salesIqd += p.totalIqd;
     m.sheetSalesIqd += subtotal;
     d.salesIqd += p.totalIqd;
@@ -159,7 +174,7 @@ export function computeWeek(orders: readonly OrderRecord[], sheetCosts: readonly
     if (!costMissing) {
       const perSheet = costAt(sheetCosts, o.createdAt, p.material);
       if (perSheet !== null) {
-        costIqd = p.sheets * perSheet;
+        costIqd = orderSheets * perSheet;
         profitIqd = subtotal - costIqd;
         costSum += costIqd;
         m.costIqd = (m.costIqd ?? 0) + costIqd;
