@@ -1,6 +1,7 @@
 /** Adding a sheet-cost entry to the settings. Pure (the action does the session check, the read and the save). */
 import { MAX_SHEET_COST_ENTRIES, shopSettingsSchema } from '@/lib/storage/settings-schema';
 import type { ShopSettings } from '@/lib/types';
+import { normaliseDigits } from '@/lib/parse/digits';
 import { currentCost } from './costs';
 
 export type SheetCostError = 'invalid' | 'unchanged' | 'tooMany' | 'failed';
@@ -11,7 +12,7 @@ const MAX_IQD = 100_000_000;
 /** A whole-dinar amount typed in the form, or NaN. */
 export function parseIqd(value: FormDataEntryValue | null): number {
   if (typeof value !== 'string') return NaN;
-  const v = value.trim().replace(/[,\s]/g, '');
+  const v = normaliseDigits(value.trim()).replace(/[,،٬\s]/g, '');
   if (!/^\d{1,9}$/.test(v)) return NaN;
   return Number(v);
 }

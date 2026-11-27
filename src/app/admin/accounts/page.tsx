@@ -70,7 +70,7 @@ export default async function AccountsPage({
       />
 
       <div className="flex flex-col gap-2">
-        <p className="text-[18px] font-bold leading-normal text-ink">
+        <p className="text-[18px] font-bold leading-normal text-ink [&_bdi]:whitespace-nowrap">
           {fillLtr(A.weekLabel, { from: weekKey, to: weekEndKey(weekKey) })}
         </p>
         <InfoStrip>{A.weekNote}</InfoStrip>

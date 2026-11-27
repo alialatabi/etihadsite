@@ -121,6 +121,8 @@ describe('parseIqd', () => {
     expect(parseIqd('1500')).toBe(1500);
     expect(parseIqd(' 1,500 ')).toBe(1500);
     expect(parseIqd('0')).toBe(0);
+    expect(parseIqd('١٥٠٠')).toBe(1500);
+    expect(parseIqd('۲٬۵۰۰')).toBe(2500);
     for (const bad of ['', 'abc', '-5', '1.5', '1e3', '1234567890', null]) expect(parseIqd(bad)).toBeNaN();
   });
 });
