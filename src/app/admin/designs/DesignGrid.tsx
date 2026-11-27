@@ -54,7 +54,7 @@ export function DesignGrid({
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- admin-only, auth-guarded route; next/image would re-fetch it unauthenticated */}
             <img
-              src={`/api/admin/designs/${g.uploadId}/image`}
+              src={`/api/admin/designs/${g.uploadId}/image?thumb=1`}
               alt=""
               loading="lazy"
               className="aspect-square w-full rounded-[2px] bg-news object-contain"
