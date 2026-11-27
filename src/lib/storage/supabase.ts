@@ -34,6 +34,7 @@ import type {
   StaffAccountRecord,
   StorageAdapter,
   StoredFileMeta,
+  UploadInfoProbe,
 } from '@/lib/types';
 import { ID_RE, designPathsOf, metaPathForDesign, pdfPath, uploadMetaPath, uploadPath } from './paths';
 import { generationFilterQuery, resolveGenerationFilter } from './generation-filter';
@@ -365,13 +366,13 @@ export class SupabaseStorage implements StorageAdapter {
    * that is not JSON, no size) is "unknown" and gives null: the caller then asks readUpload, which decides
    * (and throws on a real outage, exactly as before uploadInfo existed). Only a thrown network error propagates.
    */
-  async uploadInfo(uploadId: string) {
+  async uploadInfo(uploadId: string, probe?: UploadInfoProbe) {
     if (!ID_RE.test(uploadId)) return null;
     const metaRes = await this.req(`/storage/v1/object/authenticated/${BUCKET}/${safePath(uploadMetaPath(uploadId))}`, {
       anyStatus: true,
       timeoutMs: OBJECT_TIMEOUT_MS,
     });
-    if (!metaRes.ok) return this.uploadInfoUnknown(uploadId, 'meta', metaRes);
+    if (!metaRes.ok) return this.uploadInfoUnknown(uploadId, 'meta', metaRes, probe);
     let meta: StoredFileMeta;
     try {
       meta = JSON.parse(Buffer.from(await metaRes.arrayBuffer()).toString('utf8')) as StoredFileMeta;
@@ -389,8 +390,11 @@ export class SupabaseStorage implements StorageAdapter {
   }
 
   /** A non-2xx answer of uploadInfo: null. A clean "not found" is the normal case; anything else is also reported (status only). */
-  private async uploadInfoUnknown(uploadId: string, call: 'meta' | 'info', res: Response): Promise<null> {
-    if (!(await isNotFound(res))) {
+  private async uploadInfoUnknown(uploadId: string, call: 'meta' | 'info', res: Response, probe?: UploadInfoProbe): Promise<null> {
+    if (await isNotFound(res)) {
+      // A clean "not found" of the META is proof for the caller: readUpload would GET the same object and find nothing.
+      if (call === 'meta' && probe) probe.missing = true;
+    } else {
       reportError(new Error(`[supabase] uploadInfo ${call} -> ${res.status}`), { where: 'storage.uploadInfo', tags: { uploadId }, level: 'warning' });
     }
     return null;

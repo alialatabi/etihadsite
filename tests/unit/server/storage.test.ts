@@ -95,6 +95,25 @@ describe("LocalStorage", () => {
     expect(await s.uploadInfo("upload-id-2")).toBeNull(); // meta without bytes: the same null as readUpload
   });
 
+  it("uploadInfo's probe says missing only when the meta is absent (not for a purged .bin, a bad meta or a good upload)", async () => {
+    const s = new LocalStorage(tmp());
+    const meta = { mime: "image/png", originalName: "a.png", bytes: 3, createdAt: new Date().toISOString() };
+    const absent: { missing?: boolean } = {};
+    expect(await s.uploadInfo("missing-id-1", absent)).toBeNull();
+    expect(absent.missing).toBe(true);
+    const good: { missing?: boolean } = {};
+    await s.saveUpload("upload-id-3", new Uint8Array([1, 2, 3]), meta);
+    expect(await s.uploadInfo("upload-id-3", good)).toEqual({ meta, size: 3 });
+    expect(good.missing).toBeUndefined();
+    await s.deleteFile("uploads/upload-id-3.bin");
+    const purged: { missing?: boolean } = {};
+    expect(await s.uploadInfo("upload-id-3", purged)).toBeNull();
+    expect(purged.missing).toBeUndefined();
+    const bad: { missing?: boolean } = {};
+    expect(await s.uploadInfo("../etc/passwd", bad)).toBeNull();
+    expect(bad.missing).toBeUndefined();
+  });
+
   it("stores orders and lists newest first, updates status", async () => {
     const s = new LocalStorage(tmp());
     expect(await s.listOrders()).toEqual([]);

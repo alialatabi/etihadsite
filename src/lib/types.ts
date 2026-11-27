@@ -722,6 +722,17 @@ export interface StoredFileMeta {
   createdAt: string;
 }
 
+/**
+ * Optional out-parameter of StorageAdapter.uploadInfo(): the adapter sets `missing` to true when the answer
+ * null is a PROVEN absence, meaning the meta object is cleanly not found (readUpload() would read that same
+ * object and give null too), so the commit step skips that second read. Left unset for every other null (a
+ * .bin that is gone, a meta that is not JSON, a 5xx or any other answer): readUpload() decides, as before.
+ * An adapter or a test double that ignores it keeps the old behaviour.
+ */
+export interface UploadInfoProbe {
+  missing?: boolean;
+}
+
 export interface StorageAdapter {
   /** Save a customer upload under `uploadId`. Returns the storage path. */
   saveUpload(uploadId: string, bytes: Uint8Array, meta: StoredFileMeta): Promise<string>;
@@ -771,8 +782,9 @@ export interface StorageAdapter {
    * storage's answer was not a clean success (unknown): a null is NOT proof that the upload is
    * missing, so the commit step asks readUpload() before treating it as missing (the AI reference
    * pre-check treats it as an invalid reference, which costs nothing). Only a thrown network error propagates. Lets the commit step answer a retry cheaply.
+   * The one exception: a caller that passes a `probe` gets `probe.missing = true` when the meta is cleanly absent.
    */
-  uploadInfo?(uploadId: string): Promise<{ meta: StoredFileMeta; size: number } | null>;
+  uploadInfo?(uploadId: string, probe?: UploadInfoProbe): Promise<{ meta: StoredFileMeta; size: number } | null>;
   /** Optional: short-lived signed download URL for an admin download. */
   signedDownloadUrl?(path: string, downloadName: string, expiresInSec?: number): Promise<string | null>;
 

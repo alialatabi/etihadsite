@@ -16,7 +16,7 @@ import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 import { ID_RE, uploadPath } from "@/lib/storage/paths";
-import type { DirectUploadStart, UploadError } from "@/lib/types";
+import type { DirectUploadStart, UploadError, UploadInfoProbe } from "@/lib/types";
 
 /** Records one hit against the caller's allowance (per IP for customers, per account for staff). */
 export type UploadGate = () => { ok: boolean; retryAfterSec: number };
@@ -106,8 +106,11 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
     if (!storage.createDirectUpload) return uploadFail("corrupt");
     // Already committed (retry after a network blip): answer from the stored meta. The meta is only
     // written after the bytes passed every check, and uploadInfo() does not download the file (up to 15 MB).
+    // The probe says when the null means "the meta is cleanly absent" (a fresh upload): readUpload would only GET that
+    // same meta again, so it is skipped. An adapter that does not fill the probe keeps the old behaviour.
+    const probe: UploadInfoProbe = {};
     if (storage.uploadInfo) {
-      const info = await storage.uploadInfo(uploadId);
+      const info = await storage.uploadInfo(uploadId, probe);
       if (info) {
         const kind = kindForMime(info.meta.mime);
         if (!kind) return uploadFail("unsupported_type");
@@ -115,7 +118,7 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
       }
     }
     // No adapter info, or a null from it (missing, or not a clean answer, which is not proof): readUpload decides.
-    const existing = await storage.readUpload(uploadId);
+    const existing = probe.missing ? null : await storage.readUpload(uploadId);
     if (existing) {
       const kind = sniffKind(existing.bytes);
       if (!kind) return uploadFail("unsupported_type");

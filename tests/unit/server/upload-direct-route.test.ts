@@ -544,6 +544,44 @@ describe("POST /api/upload/direct/commit: the analytics event is queued with aft
   });
 });
 
+describe("POST /api/upload/direct/commit: a proven-missing meta skips the second read", () => {
+  it("probe.missing set by uploadInfo: readUpload is not asked, the fresh path commits the bytes", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    (f as StorageAdapter).uploadInfo = vi.fn(async (_id: string, probe?: { missing?: boolean }) => {
+      if (probe) probe.missing = true;
+      return null;
+    });
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(f.readUpload).not.toHaveBeenCalled();
+    expect(f.saveUploadMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it("probe.missing set and no .bin: still 400 corrupt, readUpload not asked", async () => {
+    const f = makeFake();
+    (f as StorageAdapter).uploadInfo = vi.fn(async (_id: string, probe?: { missing?: boolean }) => {
+      if (probe) probe.missing = true;
+      return null;
+    });
+    fake = f;
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+    expect(f.readUpload).not.toHaveBeenCalled();
+  });
+
+  it("an adapter that leaves the probe alone keeps the old path: readUpload is asked", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    (f as StorageAdapter).uploadInfo = vi.fn(async () => null);
+    fake = f;
+    expect((await commit(commitReq({ uploadId: ID }))).status).toBe(200);
+    expect(f.readUpload).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("POST /api/upload/direct/commit: the settings read starts before the download", () => {
   it("getSettings is called while readFile is still pending", async () => {
     const f = makeFake();
