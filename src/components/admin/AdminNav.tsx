@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Ltr } from '@/components/Ltr';
@@ -10,6 +10,18 @@ import { accounts } from '@/content/ar/accounts';
 type Item = { href: string; label: string; match: (path: string) => boolean; badge?: number };
 
 const under = (prefix: string) => (path: string) => path === prefix || path.startsWith(`${prefix}/`);
+
+/**
+ * Pending cue for a nav pill: while its navigation is in flight, a faint pulse over the pill.
+ * Absolutely positioned and text-less, so nothing shifts; `motion-safe:` keeps reduced-motion users still.
+ * Must sit inside the pill's <Link> (useLinkStatus reads that link).
+ */
+export function NavPending() {
+  const { pending } = useLinkStatus();
+  return pending ? (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[2px] bg-current/15 motion-safe:animate-pulse" />
+  ) : null;
+}
 
 /**
  * Admin top-bar navigation (client island: needs the current path for the active pill).
@@ -43,7 +55,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={
-                  'inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper ' +
+                  'relative inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-[2px] px-4 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper ' +
                   (active ? 'bg-paper font-bold text-ink' : 'font-medium text-paper/85 hover:bg-ink-hover')
                 }
               >
@@ -53,6 +65,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
                     <Ltr>{item.badge}</Ltr>
                   </span>
                 ) : null}
+                <NavPending />
               </Link>
             </li>
           );
