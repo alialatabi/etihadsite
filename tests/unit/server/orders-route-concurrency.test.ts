@@ -241,3 +241,41 @@ describe("POST /api/orders: settings and the idempotency lookup start together",
     expect(notifyShop).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/orders: a misconfigured storage backend leaves no unhandled rejection", () => {
+  const KEYS = ["STORAGE", "SUPABASE_URL", "SUPABASE_SECRET_KEY"] as const;
+  const saved: Record<string, string | undefined> = {};
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => {
+    unhandled.push(reason);
+  };
+
+  beforeEach(() => {
+    for (const k of KEYS) saved[k] = process.env[k];
+    unhandled.length = 0;
+    process.on("unhandledRejection", onUnhandled);
+  });
+  afterEach(() => {
+    process.off("unhandledRejection", onUnhandled);
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  it("STORAGE=supabase without URL or key: one 500, one log line, zero unhandled rejections", async () => {
+    process.env.STORAGE = "supabase";
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SECRET_KEY;
+    const res = await call();
+    expect(res.status).toBe(500);
+    expect(((await res.json()) as OrderResponse).ok).toBe(false);
+    // 'unhandledRejection' fires after the microtask queue drains; give it room.
+    await new Promise((r) => setTimeout(r, 50));
+    const failed = logCalls().filter((c) => c[0] === "[orders] failed");
+    expect(failed).toHaveLength(1);
+    expect(String(failed[0][1])).toContain("STORAGE=supabase needs");
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(unhandled).toEqual([]);
+  });
+});

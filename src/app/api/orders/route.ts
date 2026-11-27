@@ -541,9 +541,12 @@ export async function POST(request: Request): Promise<Response> {
     if (req.designs && !MULTI_DESIGN_ENABLED) return send(fail("invalid_request"));
 
     // Both reads start together but are awaited in the old order (settings first), so the error
-    // that wins is unchanged; the swallowing catch keeps the second one from going unhandled.
+    // that wins is unchanged. The lookup runs inside an async function so a synchronous throw
+    // from getStorage() (a misconfigured STORAGE=supabase) becomes a rejection instead of
+    // escaping while settingsP has no handler yet; the swallowing catch keeps the lookup from
+    // going unhandled when settingsP throws first and it is never awaited.
     const settingsP = getSettings();
-    const existingP = getStorage().getOrder(req.orderId);
+    const existingP = (async () => getStorage().getOrder(req.orderId))();
     existingP.catch(() => {});
     const settings = await settingsP;
 
