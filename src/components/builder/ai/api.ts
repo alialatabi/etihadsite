@@ -6,6 +6,7 @@
  */
 import { AI_INSTRUCTIONS_MAX_CHARS } from '@/lib/ai/config';
 import { capUnits } from '@/lib/ai/sanitize';
+import { fetchWithDeadline } from '@/lib/fetch-deadline';
 import type { UploadRoutes } from '../orderApi';
 import type {
   BriefError,
@@ -39,13 +40,21 @@ export type GenerateResponse =
   | Extract<ServerGenerateResponse, { ok: true }>
   | { ok: false; error: GenerateError | ClientError };
 
-async function post<T extends { ok: boolean }>(url: string, body: unknown): Promise<T | { ok: false; error: ClientError }> {
+/** Header deadlines: the routes' maxDuration (brief 60 s, generate 120 s) plus a margin, so the server has finished or been killed first. */
+export const BRIEF_DEADLINE_MS = 75_000;
+export const GENERATE_DEADLINE_MS = 150_000;
+
+async function post<T extends { ok: boolean }>(url: string, body: unknown, deadlineMs: number): Promise<T | { ok: false; error: ClientError }> {
   try {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const r = await fetchWithDeadline(
+      url,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      deadlineMs,
+    );
     const json = (await r.json()) as unknown;
     if (json && typeof json === 'object' && typeof (json as { ok?: unknown }).ok === 'boolean') return json as T;
     return { ok: false, error: 'network' };
@@ -65,11 +74,11 @@ export interface AiEndpoints {
 export const DEFAULT_AI_ENDPOINTS: AiEndpoints = { brief: '/api/design/brief', generate: '/api/design/generate' };
 
 export function postBrief(body: BriefRequest, url: string = DEFAULT_AI_ENDPOINTS.brief): Promise<BriefResponse> {
-  return post<BriefResponse>(url, body);
+  return post<BriefResponse>(url, body, BRIEF_DEADLINE_MS);
 }
 
 export function postGenerate(body: GenerateRequest, url: string = DEFAULT_AI_ENDPOINTS.generate): Promise<GenerateResponse> {
-  return post<GenerateResponse>(url, body);
+  return post<GenerateResponse>(url, body, GENERATE_DEADLINE_MS);
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
