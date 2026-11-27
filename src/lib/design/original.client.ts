@@ -13,7 +13,7 @@
  *    crop is needed, an `eXIf` turn is present, it is animated (acTL), it has a wide-gamut iCCP profile (judged by its name), or the image is too big for pdf-lib's in-memory decode.
  *  - Anything else falls back to the canvas path with a dpi high enough that nothing is downscaled and JPEG quality 1.
  */
-import { PDFDocument } from 'pdf-lib';
+import type { PDFDocument } from 'pdf-lib';
 import { PRINT_DPI } from '@/lib/print-dpi';
 import { effectiveDpi as dpiOf, umToInch } from '@/lib/units';
 import type { DesignSource, NormalisedArtwork, StickerSpec } from '@/lib/types';
@@ -31,10 +31,22 @@ function noDownscaleDpi(pxW: number, pxH: number, spec: StickerSpec): number {
   return Math.max(PRINT_DPI, Math.ceil(need) + 1);
 }
 
+/**
+ * pdf-lib (~430 KB) is loaded on demand so it stays out of the staff page's first load. It was
+ * guaranteed to be loaded before, so a failed chunk fetch must NOT be treated like "this file cannot
+ * be embedded": that would quietly print a re-encoded RGB JPEG instead of the original CMYK bytes.
+ * The load therefore happens outside the try/catch below and its rejection reaches the caller
+ * (`buildStaffFile` / `buildReceiptFile`), which report it and show the usual build error.
+ */
+async function loadPdfDocument(): Promise<typeof PDFDocument> {
+  return (await import('pdf-lib')).PDFDocument;
+}
+
 export async function prepareOriginalArtwork(source: DesignSource, spec: StickerSpec): Promise<PrepareOutcome> {
   if (source.kind === 'pdf') return prepareArtwork(source, spec, PRINT_DPI);
+  const pdfDocument = source.kind === 'jpeg' ? await loadPdfDocument() : null; // only a JPEG's embed check needs it
   try {
-    const direct = await originalBytes(source, spec);
+    const direct = await originalBytes(source, spec, pdfDocument);
     if (direct) return direct;
   } catch {
     // unreadable header or file: the canvas path below decides (and reports 'corrupt' when it must)
@@ -48,9 +60,9 @@ export async function prepareOriginalArtwork(source: DesignSource, spec: Sticker
  * canvas path instead of failing the whole download later. (An animated PNG is rejected by its
  * `acTL` chunk, so the PNG decode is not paid twice.)
  */
-async function pdfLibEmbedsJpeg(bytes: Uint8Array): Promise<boolean> {
+async function pdfLibEmbedsJpeg(pdfDocument: typeof PDFDocument, bytes: Uint8Array): Promise<boolean> {
   try {
-    await (await PDFDocument.create()).embedJpg(bytes);
+    await (await pdfDocument.create()).embedJpg(bytes);
     return true;
   } catch {
     return false;
@@ -58,7 +70,7 @@ async function pdfLibEmbedsJpeg(bytes: Uint8Array): Promise<boolean> {
 }
 
 /** The original file as the artwork, or null when its bytes cannot be embedded as they are. */
-async function originalBytes(source: DesignSource, spec: StickerSpec): Promise<PrepareOutcome | null> {
+async function originalBytes(source: DesignSource, spec: StickerSpec, pdfDocument: typeof PDFDocument | null): Promise<PrepareOutcome | null> {
   if (spec.shape === 'custom') {
     // A custom shape is cropped to the alpha box (canvas path), unless that box is the whole PNG.
     if (source.kind !== 'png') return null;
@@ -78,7 +90,7 @@ async function originalBytes(source: DesignSource, spec: StickerSpec): Promise<P
     const orientedW = swap ? info.height : info.width;
     const orientedH = swap ? info.width : info.height;
     if (orientedW !== source.pxWidth || orientedH !== source.pxHeight) return null;
-    if (!(await pdfLibEmbedsJpeg(bytes))) return null;
+    if (!pdfDocument || !(await pdfLibEmbedsJpeg(pdfDocument, bytes))) return null;
     const dpi = dpiOf(widthPixelsFor(spec.shape, orientedW, orientedH), spec.widthUm);
     return ok(
       {

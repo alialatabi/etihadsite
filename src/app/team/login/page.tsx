@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Panel, btn, field } from '@/components/admin/kit';
 import { SectionTitle, StickerMark } from '@/components/collage';
-import { Button } from '@/components/ui/button';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { common, team } from '@/content/ar';
@@ -44,9 +44,9 @@ export default async function TeamLoginPage({ searchParams }: { searchParams: Pr
               {errorText(error)}
             </p>
           ) : null}
-          <Button type="submit" className={`${btn.primary} w-full`}>
+          <PendingSubmit shadcn className={`${btn.primary} w-full`}>
             {team.login.submit}
-          </Button>
+          </PendingSubmit>
         </form>
       </Panel>
     </div>

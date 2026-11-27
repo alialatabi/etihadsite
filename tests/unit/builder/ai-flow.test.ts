@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   acceptedAiLines,
@@ -29,6 +29,7 @@ import {
 } from '@/components/builder/ai/ai-logic';
 import { DEFAULT_SETTINGS } from '@/config/defaults';
 import { postBrief, postGenerate } from '@/components/builder/ai/api';
+import { uploadWithProgress } from '@/components/builder/orderApi';
 import { submitOrderFlow, type AttemptContext, type FlowDeps, type SubmitInput } from '@/components/builder/submitFlow';
 import { builder } from '@/content/ar';
 import { safeLayout } from '@/components/builder/safe';
@@ -383,6 +384,70 @@ describe('api fetchers', () => {
     await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ nope: 1 }), { status: 200 })));
     await expect(postBrief({} as never)).resolves.toEqual({ ok: false, error: 'network' });
+  });
+
+  describe('header deadlines', () => {
+    /** A fetch that never answers but rejects when its signal aborts, like the real one. */
+    const stalled = () =>
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_res, rej) => {
+            init?.signal?.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError')));
+          }),
+      );
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('brief: no answer headers within 75 s becomes {ok:false,error:network}', async () => {
+      vi.stubGlobal('fetch', stalled());
+      let out: unknown;
+      void postBrief({} as never).then((r) => (out = r));
+      await vi.advanceTimersByTimeAsync(74_999);
+      expect(out).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(out).toEqual({ ok: false, error: 'network' });
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('generate: the deadline is 150 s', async () => {
+      vi.stubGlobal('fetch', stalled());
+      let out: unknown;
+      void postGenerate({} as never).then((r) => (out = r));
+      await vi.advanceTimersByTimeAsync(149_999);
+      expect(out).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(out).toEqual({ ok: false, error: 'network' });
+    });
+
+    it('once the headers are in, a slow body read is not cut', async () => {
+      let signal: AbortSignal | undefined;
+      const answer = { ok: true, lines: [], fixes: [], visualDescription: 'x', briefToken: 'a'.repeat(64) };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_url: string, init?: RequestInit) => {
+          signal = init?.signal ?? undefined;
+          return new Response(JSON.stringify(answer), { status: 200 });
+        }),
+      );
+      const p = postBrief({} as never);
+      await vi.advanceTimersByTimeAsync(0);
+      await expect(p).resolves.toEqual(answer);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(300_000);
+      expect(signal?.aborted).toBe(false);
+    });
+
+    it('a reference upload whose start call stalls ends as an error that useAiDesign maps to network (uploadRefs catch)', async () => {
+      vi.stubGlobal('fetch', stalled());
+      let out: unknown;
+      void uploadWithProgress(new File(['abc'], 'a.png', { type: 'image/png' }), () => {}).then(
+        () => (out = 'resolved'),
+        (e: Error) => (out = e.message),
+      );
+      await vi.advanceTimersByTimeAsync(75_000);
+      // uploadRefs wraps this call in try/catch and answers 'network' for any rejection
+      expect(out).toBe('timeout');
+    });
   });
 });
 

@@ -5,6 +5,7 @@
  */
 import "server-only";
 import { nanoid } from "nanoid";
+import { after } from "next/server";
 import { z } from "zod";
 import { BodyTooLarge, declaredLength, readCapped } from "./body";
 import { checkUploadBytes } from "./image-header";
@@ -15,7 +16,7 @@ import { reportError } from "@/lib/monitoring/report";
 import { getSettings } from "@/lib/settings";
 import { getStorage } from "@/lib/storage";
 import { ID_RE, uploadPath } from "@/lib/storage/paths";
-import type { DirectUploadStart, UploadError } from "@/lib/types";
+import type { DirectUploadStart, UploadError, UploadInfoProbe } from "@/lib/types";
 
 /** Records one hit against the caller's allowance (per IP for customers, per account for staff). */
 export type UploadGate = () => { ok: boolean; retryAfterSec: number };
@@ -29,6 +30,19 @@ export interface UploadRouteOpts {
 
 const tag = (route: string) => route.replace(/^\/api\//, "");
 const limited = (rl: { retryAfterSec: number }) => uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
+
+/**
+ * The "upload" analytics event, queued for after the answer (`after()`) so the customer does not wait for
+ * the events write. Outside a request (a script, a test) after() throws: then the write is awaited, as before.
+ */
+async function trackUpload(request: Request, kind: string): Promise<void> {
+  const t = () => trackServer(request, { type: "upload", meta: { kind } });
+  try {
+    after(t);
+  } catch {
+    await t();
+  }
+}
 
 const startSchema = z.object({
   size: z.number().int().positive(),
@@ -92,8 +106,11 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
     if (!storage.createDirectUpload) return uploadFail("corrupt");
     // Already committed (retry after a network blip): answer from the stored meta. The meta is only
     // written after the bytes passed every check, and uploadInfo() does not download the file (up to 15 MB).
+    // The probe says when the null means "the meta is cleanly absent" (a fresh upload): readUpload would only GET that
+    // same meta again, so it is skipped. An adapter that does not fill the probe keeps the old behaviour.
+    const probe: UploadInfoProbe = {};
     if (storage.uploadInfo) {
-      const info = await storage.uploadInfo(uploadId);
+      const info = await storage.uploadInfo(uploadId, probe);
       if (info) {
         const kind = kindForMime(info.meta.mime);
         if (!kind) return uploadFail("unsupported_type");
@@ -101,7 +118,7 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
       }
     }
     // No adapter info, or a null from it (missing, or not a clean answer, which is not proof): readUpload decides.
-    const existing = await storage.readUpload(uploadId);
+    const existing = probe.missing ? null : await storage.readUpload(uploadId);
     if (existing) {
       const kind = sniffKind(existing.bytes);
       if (!kind) return uploadFail("unsupported_type");
@@ -126,7 +143,7 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
     // The meta marks the bytes as checked (readUpload needs both files).
     if (storage.saveUploadMeta) await storage.saveUploadMeta(uploadId, meta);
     else await storage.saveUpload(uploadId, bytes, meta);
-    if (track) await trackServer(request, { type: "upload", meta: { kind } });
+    if (track) await trackUpload(request, kind);
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error(`[${tag(route)}] failed`, e);
@@ -176,7 +193,7 @@ export async function handleUploadServer(request: Request, { gate, route, track 
     const uploadId = nanoid();
     await getStorage().saveUpload(uploadId, bytes, uploadMetaFor(kind, file.name, bytes.byteLength));
 
-    if (track) await trackServer(request, { type: "upload", meta: { kind } });
+    if (track) await trackUpload(request, kind);
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error(`[${tag(route)}] failed`, e);

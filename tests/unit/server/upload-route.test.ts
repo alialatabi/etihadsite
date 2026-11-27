@@ -1,10 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/config/defaults";
 import type { UploadResponse } from "@/lib/types";
 import { pngWithDeclaredSize } from "../png-header";
 import { setupEnv } from "./helpers";
+
+/** Default = the real after() (throws outside a request, like a script); a test swaps it to queue callbacks. */
+let afterImpl: ((cb: () => unknown) => void) | null = null;
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: (cb: () => unknown) => (afterImpl ?? actual.after)(cb as never) };
+});
 
 import { POST } from "@/app/api/upload/route";
 import { getStorage } from "@/lib/storage";
@@ -44,6 +51,35 @@ const json = async (r: Response) => (await r.json()) as UploadResponse;
 
 beforeEach(() => {
   setupEnv();
+});
+
+afterEach(() => {
+  afterImpl = null;
+  vi.restoreAllMocks();
+});
+
+describe("POST /api/upload: the analytics event is queued with after()", () => {
+  it("inside a request the event is written when after() fires, not before the answer", async () => {
+    const recordEvent = vi.spyOn(getStorage(), "recordEvent");
+    const queued: Array<() => unknown> = [];
+    afterImpl = (cb) => void queued.push(cb);
+    const res = await upload(fx("padded-400x400.png"));
+    expect(res.status).toBe(200);
+    expect(queued).toHaveLength(1);
+    expect(recordEvent).not.toHaveBeenCalled();
+    await queued[0]();
+    expect(recordEvent).toHaveBeenCalledTimes(1);
+    expect(recordEvent.mock.calls[0][0]).toMatchObject({ type: "upload", meta: { kind: "png" } });
+  });
+
+  it("outside a request (after() throws) the event is awaited before the answer, as before", async () => {
+    const recordEvent = vi.spyOn(getStorage(), "recordEvent");
+    afterImpl = () => {
+      throw new Error("after() outside a request scope");
+    };
+    expect((await upload(fx("padded-400x400.png"))).status).toBe(200);
+    expect(recordEvent).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("POST /api/upload", () => {

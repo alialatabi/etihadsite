@@ -1,13 +1,26 @@
 import { order } from '@/content/ar';
+import { fetchWithDeadline } from '@/lib/fetch-deadline';
 import type { DirectUploadStart, OrderRequest, OrderResponse, UploadResponse } from '@/lib/types';
 
-/** POST a JSON body and parse the JSON answer; a non-JSON answer throws `<badTag>_<status>`. */
+/** How long a JSON POST may wait for the server's answer (headers); the routes' own cap is 60 s. */
+export const POST_DEADLINE_MS = 75_000;
+
+/** A direct upload that sends no progress for this long is dead; a slow but moving upload is never cut. */
+const UPLOAD_STALL_MS = 60_000;
+/** After the last byte left, how long the receiver may take to acknowledge. */
+const UPLOAD_RESPONSE_MS = 45_000;
+
+/** POST a JSON body and parse the JSON answer; a non-JSON answer throws `<badTag>_<status>`; no answer within 75 s throws `timeout`. */
 async function postJson<T>(url: string, body: unknown, badTag: string): Promise<T> {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const r = await fetchWithDeadline(
+    url,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    POST_DEADLINE_MS,
+  );
   try {
     return (await r.json()) as T;
   } catch {
@@ -78,26 +91,53 @@ function xhrSend(
 ): Promise<UploadResponse | void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const clear = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+    };
+    /** Run the outcome exactly once and stop the watchdog. */
+    const settle = (outcome: () => void) => {
+      if (settled) return;
+      settled = true;
+      clear();
+      outcome();
+    };
+    /** (Re)start the countdown; when it runs out the request is given up on. */
+    const arm = (ms: number) => {
+      if (settled) return;
+      clear();
+      timer = setTimeout(() => {
+        settle(() => reject(new Error('timeout')));
+        xhr.abort();
+      }, ms);
+    };
     xhr.open(method, url);
     xhr.responseType = 'text';
     if (body instanceof File) xhr.setRequestHeader('content-type', 'application/octet-stream');
     xhr.upload.onprogress = (e) => {
+      arm(UPLOAD_STALL_MS);
       if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
     };
-    xhr.onerror = () => reject(new Error('network'));
-    xhr.ontimeout = () => reject(new Error('timeout'));
-    xhr.onload = () => {
-      if (!parseJson) {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`direct_upload_${xhr.status}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(xhr.responseText) as UploadResponse);
-      } catch {
-        reject(new Error(`bad_upload_response_${xhr.status}`));
-      }
-    };
+    xhr.upload.onload = () => arm(UPLOAD_RESPONSE_MS);
+    xhr.onerror = () => settle(() => reject(new Error('network')));
+    xhr.onabort = () => settle(() => reject(new Error('network')));
+    xhr.ontimeout = () => settle(() => reject(new Error('timeout')));
+    xhr.onload = () =>
+      settle(() => {
+        if (!parseJson) {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`direct_upload_${xhr.status}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadResponse);
+        } catch {
+          reject(new Error(`bad_upload_response_${xhr.status}`));
+        }
+      });
+    arm(UPLOAD_STALL_MS);
     xhr.send(body);
   });
 }

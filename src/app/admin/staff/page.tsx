@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Ltr } from '@/components/Ltr';
 import { fillLtr } from '@/components/fill-ltr';
 import { AdminPageHeader, EmptyState, InfoStrip, Panel, Pill, btn, field } from '@/components/admin/kit';
-import { Button } from '@/components/ui/button';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { admin } from '@/content/ar';
@@ -117,9 +117,9 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                 />
               </div>
               <div className="sm:col-span-3">
-                <Button type="submit" className={btn.primary}>
+                <PendingSubmit shadcn className={btn.primary}>
                   {s.add}
-                </Button>
+                </PendingSubmit>
               </div>
             </form>
           </Panel>
@@ -143,9 +143,9 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                       <form action={setStaffActiveAction}>
                         <input type="hidden" name="id" value={a.id} />
                         <input type="hidden" name="active" value={a.active ? 'false' : 'true'} />
-                        <button type="submit" className={a.active ? btn.danger : btn.outline}>
+                        <PendingSubmit className={a.active ? btn.danger : btn.outline}>
                           {a.active ? s.disable : s.enable}
-                        </button>
+                        </PendingSubmit>
                       </form>
                       <form action={resetStaffPasswordAction} className="flex flex-wrap items-end gap-2">
                         <input type="hidden" name="id" value={a.id} />
@@ -164,9 +164,9 @@ export default async function StaffAccountsPage({ searchParams }: { searchParams
                             className={`${field.input} w-56`}
                           />
                         </div>
-                        <button type="submit" className={btn.outline}>
+                        <PendingSubmit className={btn.outline}>
                           {s.resetPassword}
-                        </button>
+                        </PendingSubmit>
                       </form>
                     </div>
                   </Panel>

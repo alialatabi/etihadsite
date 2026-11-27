@@ -44,6 +44,9 @@ next-env.d.ts
 # local storage (orders, uploads, settings)
 /data/
 
+# perf lab output (scripts/perf-lab.mjs); outside test-results/ because `playwright test` wipes that folder
+/perf-lab-out/
+
 # playwright
 /test-results/
 /playwright-report/

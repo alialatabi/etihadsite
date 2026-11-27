@@ -27,6 +27,7 @@ import type {
   StaffAccountRecord,
   StorageAdapter,
   StoredFileMeta,
+  UploadInfoProbe,
 } from "../types";
 import {
   ID_RE,
@@ -137,10 +138,14 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  async uploadInfo(uploadId: string) {
+  async uploadInfo(uploadId: string, probe?: UploadInfoProbe) {
     if (!ID_RE.test(uploadId)) return null;
     const metaRaw = await this.readOptional(uploadMetaPath(uploadId));
-    if (!metaRaw) return null;
+    if (!metaRaw) {
+      // The meta is absent: readUpload would find nothing either (see UploadInfoProbe).
+      if (probe) probe.missing = true;
+      return null;
+    }
     let size: number;
     try {
       size = (await fs.stat(this.resolveSafe(uploadPath(uploadId)))).size;

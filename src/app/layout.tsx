@@ -12,7 +12,7 @@ import './globals.css';
 
 /** Root layout: the RTL html/body shell with the site font, header, footer, install prompt and visit tracker around every page. */
 const fontSans = IBM_Plex_Sans_Arabic({
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '700'],
   subsets: ['arabic', 'latin'],
   variable: '--font-sans',
   display: 'swap',

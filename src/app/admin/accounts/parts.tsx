@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Panel, StatusPill, TableFrame, btn, field, tableCls } from '@/components/admin/kit';
+import { PendingSubmit } from '@/components/admin/PendingSubmit';
 import { Ltr } from '@/components/Ltr';
 import { Money } from '@/components/Money';
 import { Input } from '@/components/ui/input';
@@ -314,9 +315,9 @@ export function CostPanel({ entries, weekKey }: { entries: SheetCostEntry[]; wee
             ))}
           </ul>
           <div>
-            <button type="submit" className={btn.primary}>
+            <PendingSubmit className={btn.primary}>
               {c.submit}
-            </button>
+            </PendingSubmit>
           </div>
         </form>
 
