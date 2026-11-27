@@ -1,10 +1,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCK_CDP_URLS,
   BLOCK_RE,
   T,
+  assertPortFree,
   installBlocking,
   isLocalBase,
   leaked,
@@ -179,5 +182,25 @@ describe('UI strings used by the builder flow', () => {
     for (const [key, value] of Object.entries(T)) {
       expect(text.includes(`'${value}'`) || text.includes(`"${value}"`), `${key}: ${value}`).toBe(true);
     }
+  });
+});
+
+describe('assertPortFree (never measure or write into another server)', () => {
+  it('refuses a port a server already listens on, and accepts it once freed', async () => {
+    const srv = createServer((_req, res) => res.end('<html>OTHER SERVER</html>'));
+    await new Promise<void>((r) => srv.listen(0, r));
+    const { port } = srv.address() as AddressInfo;
+    await expect(assertPortFree(port)).rejects.toThrow(/already in use/);
+    await expect(assertPortFree(String(port))).rejects.toThrow(/already in use/);
+    await new Promise<void>((r) => srv.close(() => r()));
+    await expect(assertPortFree(port)).resolves.toBeUndefined();
+  });
+
+  it('refuses a server bound only to 127.0.0.1', async () => {
+    const srv = createServer((_req, res) => res.end('x'));
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const { port } = srv.address() as AddressInfo;
+    await expect(assertPortFree(port)).rejects.toThrow(/already in use/);
+    await new Promise<void>((r) => srv.close(() => r()));
   });
 });

@@ -32,6 +32,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -500,11 +501,34 @@ const analyticsLines = (dataDir) => {
   }
 };
 
+/**
+ * Rejects when something already listens on `port` (any interface). `next start` exits 1 on a busy port, but the
+ * readiness poll would meanwhile be answered by that other server, so the lab would measure (and, with --seed or the
+ * builder run, write orders and uploads into) the wrong server. Probe before spawning.
+ */
+export async function assertPortFree(port) {
+  const tryListen = (host) =>
+    new Promise((resolve, reject) => {
+      const srv = net.createServer();
+      srv.once('error', reject);
+      srv.listen({ port: Number(port), host, exclusive: true }, () => srv.close(() => resolve()));
+    });
+  for (const host of [undefined, '127.0.0.1']) {
+    try {
+      await tryListen(host);
+    } catch (e) {
+      if (e && (e.code === 'EADDRINUSE' || e.code === 'EACCES')) throw new Error(`Port ${port} is already in use: refusing to start \`next start\` (the lab would measure and write into that other server). Pick a free port with --base http://localhost:<port>.`);
+      /* other errors (e.g. no IPv6) are not "busy" */
+    }
+  }
+}
+
 /** Starts `next start` on the base port with a throwaway env. Resolves with { stop() } once the home page answers. */
 async function startServer(settings, dataDir) {
   if (!fs.existsSync(path.join(REPO, '.next', 'BUILD_ID'))) throw new Error('No production build found: run `pnpm build` first.');
   const env = throwawayEnv(dataDir);
   const port = new URL(settings.base).port || '80';
+  await assertPortFree(port);
   const child = spawn(process.execPath, [path.join(REPO, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', port], { cwd: REPO, env: { ...process.env, ...env }, stdio: 'ignore' });
   let exited = false;
   child.on('exit', () => { exited = true; });
@@ -517,7 +541,12 @@ async function startServer(settings, dataDir) {
     if (exited) throw new Error('`next start` exited early (is the port already in use?).');
     try {
       const res = await fetch(settings.base + '/', { redirect: 'manual' });
-      if (res.status < 500) return { stop, env };
+      if (res.status < 500) {
+        // Tie readiness to OUR child: if it lost a port race it exits right after boot, so give it a moment before trusting the answer.
+        await new Promise((r) => setTimeout(r, 750));
+        if (exited) throw new Error('`next start` exited early (is the port already in use?).');
+        return { stop, env };
+      }
     } catch {
       /* not up yet */
     }
