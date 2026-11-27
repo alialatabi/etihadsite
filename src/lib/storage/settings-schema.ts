@@ -32,6 +32,19 @@ export const pricingSchema = z
   })
   .refine((p) => p.minSheets <= p.maxSheets, 'minSheets must be ≤ maxSheets');
 
+/** Most sheet-cost changes kept (every change is history that past weeks depend on). */
+export const MAX_SHEET_COST_ENTRIES = 500;
+
+export const sheetCostEntrySchema = z.object({
+  from: z.iso.datetime(),
+  paperIqd: int(0, 100_000_000),
+  plasticIqd: int(0, 100_000_000),
+});
+
+export const accountingSchema = z.object({
+  sheetCosts: z.array(sheetCostEntrySchema).max(MAX_SHEET_COST_ENTRIES),
+});
+
 export const shopSettingsSchema = z.object({
   shopName: z.string().min(1).max(80),
   tagline: z.string().max(160),
@@ -74,6 +87,8 @@ export const shopSettingsSchema = z.object({
     perIpDailyLimit: int(1, AI_PER_IP_MAX),
     siteDailyLimit: int(1, AI_SITE_MAX),
   }),
+  // Absent until the owner enters the first sheet cost; never in DEFAULT_SETTINGS.
+  accounting: accountingSchema.optional(),
 });
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

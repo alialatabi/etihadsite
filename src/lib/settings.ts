@@ -19,13 +19,17 @@ import type { ShopSettings } from '@/lib/types';
 /**
  * The copy of the settings that may be handed to a client component (it is serialised into the
  * page for every visitor). Same type, same keys: values the browser never needs are blanked
- * (the Telegram chat id that receives orders, the AI anti-abuse limits, and the per-sheet
- * prices while pricesPublished is false: the builder never shows them then). Pages that hand
+ * (the Telegram chat id that receives orders, the AI anti-abuse limits, and the per-sheet prices
+ * while pricesPublished is false: the builder never shows them then). The shop's sheet costs
+ * (`accounting`) are confidential and removed entirely. Pages that hand
  * `settings` to a 'use client' component pass it through here; server components and the
  * admin may use the full object.
  */
 export function toPublicSettings(settings: ShopSettings): ShopSettings {
-  const { pricing } = settings;
+  // The shop's own costs are confidential: removed, not blanked.
+  const rest: ShopSettings = { ...settings };
+  delete rest.accounting;
+  const { pricing } = rest;
   const publicPricing = settings.pricesPublished
     ? pricing
     : {
@@ -36,7 +40,7 @@ export function toPublicSettings(settings: ShopSettings): ShopSettings {
         },
       };
   return {
-    ...settings,
+    ...rest,
     pricing: publicPricing,
     telegramChatId: '',
     ai: { ...settings.ai, perIpDailyLimit: 0, siteDailyLimit: 0 },

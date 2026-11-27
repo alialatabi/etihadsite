@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Ltr } from '@/components/Ltr';
 import { admin } from '@/content/ar';
+import { accounts } from '@/content/ar/accounts';
 
 type Item = { href: string; label: string; match: (path: string) => boolean; badge?: number };
 
@@ -25,6 +26,7 @@ export function AdminNav({ designAlerts = 0, className }: { designAlerts?: numbe
   const items: Item[] = [
     { href: '/admin', label: admin.nav.orders, match: (p) => p === '/admin' || under('/admin/orders')(p) },
     { href: '/admin/stats', label: admin.nav.stats, match: under('/admin/stats') },
+    { href: '/admin/accounts', label: accounts.nav, match: under('/admin/accounts') },
     { href: '/admin/customers', label: admin.nav.customers, match: under('/admin/customers') },
     { href: '/admin/designs', label: admin.nav.designs, match: under('/admin/designs'), badge: designAlerts },
     { href: '/admin/staff', label: admin.staff.nav, match: under('/admin/staff') },
