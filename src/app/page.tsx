@@ -6,7 +6,9 @@ import { aiReady } from '@/lib/ai/ready';
 import { getSettings, toPublicSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
-export const dynamic = 'force-dynamic';
+// ISR: prerendered, regenerated hourly and on an admin save (revalidatePath('/', 'layout') in admin/actions.ts); force-static makes cookies()/headers() read empty, so never read them here.
+export const dynamic = 'force-static';
+export const revalidate = 3600;
 
 const flow = builder.hero.flow;
 

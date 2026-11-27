@@ -14,7 +14,9 @@ import { fillLtr } from '@/components/fill-ltr';
 import { cn } from '@/lib/utils';
 import { SheetIllustration } from './SheetIllustration';
 
-export const dynamic = 'force-dynamic';
+// ISR: prerendered, regenerated hourly and on an admin save (revalidatePath('/', 'layout') in admin/actions.ts); force-static makes cookies()/headers() read empty, so never read them here.
+export const dynamic = 'force-static';
+export const revalidate = 3600;
 
 const t = pages.howItWorks;
 
