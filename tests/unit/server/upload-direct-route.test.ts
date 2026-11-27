@@ -24,6 +24,13 @@ vi.mock("@/lib/storage", async (importOriginal) => {
   return { getStorage: () => fake ?? actual.getStorage() };
 });
 
+/** Default = the real after() (which throws outside a request, like a script); tests swap it to queue callbacks. */
+let afterImpl: ((cb: () => unknown) => void) | null = null;
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: (cb: () => unknown) => (afterImpl ?? actual.after)(cb as never) };
+});
+
 import { POST as start } from "@/app/api/upload/direct/route";
 import { POST as commit } from "@/app/api/upload/direct/commit/route";
 
@@ -104,6 +111,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fake = null;
+  afterImpl = null;
   vi.restoreAllMocks();
 });
 
@@ -472,6 +480,67 @@ describe("POST /api/upload/direct/commit", () => {
     const res = await commit(commitReq({ uploadId: ID }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ ok: false, error: "corrupt" });
+  });
+});
+
+describe("POST /api/upload/direct/commit: the analytics event is queued with after()", () => {
+  const withEvents = (f: FakeAdapter) => {
+    const recordEvent = vi.fn<(e: unknown) => Promise<void>>(async () => {});
+    (f as unknown as { recordEvent: typeof recordEvent }).recordEvent = recordEvent;
+    return recordEvent;
+  };
+
+  it("inside a request the answer does not wait for the events write; the write runs when after() fires", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    const recordEvent = withEvents(f);
+    fake = f;
+    const queued: Array<() => unknown> = [];
+    afterImpl = (cb) => void queued.push(cb);
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(queued).toHaveLength(1);
+    expect(recordEvent).not.toHaveBeenCalled();
+    await queued[0]();
+    expect(recordEvent).toHaveBeenCalledTimes(1);
+    expect(recordEvent.mock.calls[0][0]).toMatchObject({ type: "upload", meta: { kind: "png" } });
+  });
+
+  it("outside a request (after() throws) the write is awaited before the answer, as before", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    const recordEvent = withEvents(f);
+    fake = f;
+    afterImpl = () => {
+      throw new Error("after() outside a request scope");
+    };
+    const res = await commit(commitReq({ uploadId: ID }));
+    expect(res.status).toBe(200);
+    expect(recordEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failing events write never changes the answer (trackServer swallows it)", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, fx("padded-400x400.png"));
+    const recordEvent = withEvents(f);
+    recordEvent.mockRejectedValue(new Error("events down"));
+    fake = f;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    afterImpl = () => {
+      throw new Error("after() outside a request scope");
+    };
+    expect((await commit(commitReq({ uploadId: ID }))).status).toBe(200);
+  });
+
+  it("nothing is queued when the commit is rejected", async () => {
+    const f = makeFake();
+    f.files.set(`uploads/${ID}.bin`, new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0, 0]));
+    withEvents(f);
+    fake = f;
+    const queued: Array<() => unknown> = [];
+    afterImpl = (cb) => void queued.push(cb);
+    expect((await commit(commitReq({ uploadId: ID }))).status).toBe(415);
+    expect(queued).toHaveLength(0);
   });
 });
 

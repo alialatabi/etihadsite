@@ -52,7 +52,7 @@ export function geoFrom(request: Request): Pick<AnalyticsEvent, 'city' | 'region
   return out;
 }
 
-/** Builds and stores an event. Never throws. Await it (it is quick) so serverless does not cut it off. */
+/** Builds and stores an event. Never throws. Await it (it is quick), or queue it with `after()`, so serverless does not cut it off. */
 export async function trackServer(
   request: Request,
   partial: Pick<AnalyticsEvent, 'type'> & Partial<AnalyticsEvent>,

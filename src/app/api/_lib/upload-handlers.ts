@@ -5,6 +5,7 @@
  */
 import "server-only";
 import { nanoid } from "nanoid";
+import { after } from "next/server";
 import { z } from "zod";
 import { BodyTooLarge, declaredLength, readCapped } from "./body";
 import { checkUploadBytes } from "./image-header";
@@ -29,6 +30,19 @@ export interface UploadRouteOpts {
 
 const tag = (route: string) => route.replace(/^\/api\//, "");
 const limited = (rl: { retryAfterSec: number }) => uploadFail("rate_limited", { "Retry-After": String(rl.retryAfterSec) });
+
+/**
+ * The "upload" analytics event, queued for after the answer (`after()`) so the customer does not wait for
+ * the events write. Outside a request (a script, a test) after() throws: then the write is awaited, as before.
+ */
+async function trackUpload(request: Request, kind: string): Promise<void> {
+  const t = () => trackServer(request, { type: "upload", meta: { kind } });
+  try {
+    after(t);
+  } catch {
+    await t();
+  }
+}
 
 const startSchema = z.object({
   size: z.number().int().positive(),
@@ -130,7 +144,7 @@ export async function handleUploadCommit(request: Request, { gate, route, track 
     // The meta marks the bytes as checked (readUpload needs both files).
     if (storage.saveUploadMeta) await storage.saveUploadMeta(uploadId, meta);
     else await storage.saveUpload(uploadId, bytes, meta);
-    if (track) await trackServer(request, { type: "upload", meta: { kind } });
+    if (track) await trackUpload(request, kind);
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error(`[${tag(route)}] failed`, e);
@@ -180,7 +194,7 @@ export async function handleUploadServer(request: Request, { gate, route, track 
     const uploadId = nanoid();
     await getStorage().saveUpload(uploadId, bytes, uploadMetaFor(kind, file.name, bytes.byteLength));
 
-    if (track) await trackServer(request, { type: "upload", meta: { kind } });
+    if (track) await trackUpload(request, kind);
     return uploadOk(uploadId, kind, bytes.byteLength);
   } catch (e) {
     console.error(`[${tag(route)}] failed`, e);
