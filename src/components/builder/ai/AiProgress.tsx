@@ -15,8 +15,19 @@ import { progressAt, startProgressClock, type ProgressKind } from './progress-lo
  * polite region. The stage text is its own polite region (StartStep and the staff page have no outer one); its
  * text node changes only when the stage string changes, so each stage is announced once.
  */
-export function AiProgressView({ kind, elapsedMs, className }: { kind: ProgressKind; elapsedMs: number; className?: string }) {
-  const { percent, stageIndex, slow } = progressAt(elapsedMs, kind);
+export function AiProgressView({
+  kind,
+  elapsedMs,
+  extendSteps = 0,
+  className,
+}: {
+  kind: ProgressKind;
+  elapsedMs: number;
+  /** Extension calls of a long rectangle (expectedExtendSteps): the estimate then expects a longer wait. */
+  extendSteps?: number;
+  className?: string;
+}) {
+  const { percent, stageIndex, slow } = progressAt(elapsedMs, kind, extendSteps);
   const stage = slow ? builder.ai.progress.slow : builder.ai.progress[kind][stageIndex];
   return (
     <div aria-live="off" className={cn('w-full max-w-sm space-y-2', className)}>
@@ -36,15 +47,29 @@ export function AiProgressView({ kind, elapsedMs, className }: { kind: ProgressK
           style={{ width: `${percent}%` }}
         />
       </div>
-      {kind === 'image' && <p className="text-[14px] leading-[1.4] text-ink-muted">{builder.ai.progress.wait}</p>}
+      {kind === 'image' && (
+        <p className="text-[14px] leading-[1.4] text-ink-muted">
+          {extendSteps > 0 ? builder.ai.progress.waitLong : builder.ai.progress.wait}
+        </p>
+      )}
     </div>
   );
 }
 
 /** Ticks from `startedAt` (default: when it mounts), starting with one tick at once; the timers stop on unmount. */
-export function AiProgress({ kind, startedAt, className }: { kind: ProgressKind; startedAt?: number; className?: string }) {
+export function AiProgress({
+  kind,
+  startedAt,
+  extendSteps,
+  className,
+}: {
+  kind: ProgressKind;
+  startedAt?: number;
+  extendSteps?: number;
+  className?: string;
+}) {
   // Starts from the clock, not 0: a remounted bar paints its real place on the first frame. It only mounts on the client, after a click.
   const [elapsedMs, setElapsedMs] = useState(() => (startedAt === undefined ? 0 : Math.max(0, Date.now() - startedAt)));
   useEffect(() => startProgressClock(startedAt ?? Date.now(), setElapsedMs), [startedAt]);
-  return <AiProgressView kind={kind} elapsedMs={elapsedMs} className={className} />;
+  return <AiProgressView kind={kind} elapsedMs={elapsedMs} extendSteps={extendSteps} className={className} />;
 }

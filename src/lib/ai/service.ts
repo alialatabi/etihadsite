@@ -47,6 +47,7 @@ import {
   AI_IDEA_MAX_CHARS,
   AI_INSTRUCTIONS_MAX_CHARS,
   AI_AFTER_OPENAI_SAFETY_MS,
+  AI_EXTEND_FINISH_RESERVE_MS,
   AI_IMAGE_MODEL,
   AI_LINE_MAX_CHARS,
   AI_MAX_ASPECT,
@@ -62,8 +63,9 @@ import {
 } from './config';
 import { translateInstructions } from './instructions';
 import { aiIpKey, aiLimitAddress } from './ip';
-import { extendToAspect, normaliseGenerated, prepareRef } from './normalise';
-import { generateImage, type ImageRef } from './openai';
+import { normaliseGenerated, prepareRef } from './normalise';
+import { extendImage, generateImage, type ImageRef } from './openai';
+import { fitLongPng, outpaintToAspect, type OutpaintResult } from './outpaint';
 import { aiReady, aiSetup, secretReady, type AiStorage } from './ready';
 import { buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
@@ -217,6 +219,15 @@ export const generateRequestSchema = z
 
 function report(where: string, what: string, tags: Record<string, string | number> = {}, level: 'warning' | 'error' = 'error'): void {
   reportError(new Error(`ai ${what}`), { where, tags, level });
+}
+
+/**
+ * Which way a long rectangle was finished, only when the model did not paint all of it (a short reason code: no customer text,
+ * no response body). The customer still gets the design: the blur-filled ends are not a failure.
+ */
+function reportOutpaint(out: OutpaintResult): void {
+  if (out.path === 'ai') return;
+  report('ai.generate', 'long sticker blur-filled', { path: out.path, reason: out.reasons.join(','), calls: out.calls, stepsOk: out.stepsOk }, 'warning');
 }
 
 /** The daily limits an actor works under: per usage key (IP or staff account) and for the whole site, per kind. */
@@ -400,6 +411,16 @@ export function openAiTimeoutMs(elapsedMs: number): number | null {
   const budget = AI_ROUTE_MAX_DURATION_MS - Math.max(0, elapsedMs) - AI_AFTER_OPENAI_SAFETY_MS;
   if (budget < AI_MIN_OPENAI_BUDGET_MS) return null;
   return Math.min(AI_OPENAI_TIMEOUT_MS, budget);
+}
+
+/**
+ * Milliseconds the outpainting (extension calls) may still use, given the time already spent in this request: the
+ * route's `maxDuration` less `elapsedMs` less AI_AFTER_OPENAI_SAFETY_MS (the save and the answer) less
+ * AI_EXTEND_FINISH_RESERVE_MS (joining, blur-filling and encoding a long picture). The outpainting never starts a call
+ * that cannot finish inside it.
+ */
+export function extendTimeLeftMs(elapsedMs: number): number {
+  return AI_ROUTE_MAX_DURATION_MS - Math.max(0, elapsedMs) - AI_AFTER_OPENAI_SAFETY_MS - AI_EXTEND_FINISH_RESERVE_MS;
 }
 
 /** Shortest translation call worth starting. */
@@ -603,12 +624,24 @@ export async function runGenerate(
     }
 
     let norm: Awaited<ReturnType<typeof normaliseGenerated>>;
+    let extended = false;
     try {
       norm = await normaliseGenerated(result.png, req.shape);
-      // A rectangle longer than the model's ratio was drawn at AI_MAX_ASPECT : 1: extend it to the real ratio.
+      // A rectangle longer than the model's ratio was drawn at AI_MAX_ASPECT : 1: paint the two short ends with extension
+      // calls (outpainting). Any failure there is blur-filled inside; extension calls are not extra uses (one generation = one use).
       if (req.shape === 'rect') {
         const aspect = Math.max(req.widthUm, req.heightUm) / Math.min(req.widthUm, req.heightUm);
-        if (aspect > AI_MAX_ASPECT) norm = await extendToAspect(norm.png, aspect);
+        if (aspect > AI_MAX_ASPECT) {
+          const out = await outpaintToAspect(norm.png, {
+            portrait: req.heightUm > req.widthUm,
+            aspect,
+            extend: (r) => extendImage(cfg, r),
+            timeLeftMs: () => extendTimeLeftMs(clock() - started),
+          });
+          norm = { png: out.png, pxWidth: out.pxWidth, pxHeight: out.pxHeight };
+          extended = true;
+          reportOutpaint(out);
+        }
       }
     } catch {
       report('ai.generate', 'normalise failed', { shape: req.shape });
@@ -623,12 +656,16 @@ export async function runGenerate(
       return failure('refused');
     }
 
-    const png = await fitPngBudget(norm.png);
-    if (!png) {
+    // A long outpainted picture is scaled down to fit when it must be (see fitLongPng); every other design as before.
+    const fitted = extended
+      ? await fitLongPng(norm.png, norm, AI_PNG_MAX_BYTES)
+      : await fitPngBudget(norm.png).then((p) => (p ? { png: p, pxWidth: norm.pxWidth, pxHeight: norm.pxHeight } : null));
+    if (!fitted) {
       report('ai.generate', 'png too large', { shape: req.shape, bytes: norm.png.byteLength });
       await giveBack();
       return failure('failed');
     }
+    const png = fitted.png;
 
     const uploadId = nanoid();
     await storage.saveUpload(uploadId, png, {
@@ -637,7 +674,7 @@ export async function runGenerate(
       bytes: png.byteLength,
       createdAt: new Date().toISOString(),
     });
-    stored = { uploadId, png, pxWidth: norm.pxWidth, pxHeight: norm.pxHeight };
+    stored = { uploadId, png, pxWidth: fitted.pxWidth, pxHeight: fitted.pxHeight };
   } catch {
     report('ai.generate', 'unexpected failure', { shape: req.shape });
     await giveBack();

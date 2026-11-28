@@ -116,7 +116,7 @@ function AiResultBody({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
       <div className="paper-card flex min-h-64 flex-col items-center justify-center gap-4 p-6 text-center">
         <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden />
         <p className="text-base font-medium text-ink">{builder.ai.generating}</p>
-        <AiProgress kind="image" startedAt={ai.busySince ?? undefined} />
+        <AiProgress kind="image" startedAt={ai.busySince ?? undefined} extendSteps={ai.extendSteps} />
       </div>
     );
   }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { builder } from '@/content/ar';
 import {
   PROGRESS_CAP,
+  PROGRESS_EXTEND_STEP_MS,
   PROGRESS_STAGE_COUNT,
   PROGRESS_STAGE_STARTS_MS,
   PROGRESS_TICK_MS,
@@ -11,8 +12,8 @@ import {
 } from '@/components/builder/ai/progress-logic';
 
 const KINDS: ProgressKind[] = ['brief', 'image'];
-/** The routes allow 60 s (brief) and 120 s (generate). */
-const RANGE_MS: Record<ProgressKind, number> = { brief: 60_000, image: 120_000 };
+/** The routes allow 60 s (brief) and 300 s (generate: a long sticker is painted in several calls). */
+const RANGE_MS: Record<ProgressKind, number> = { brief: 60_000, image: 300_000 };
 
 describe('progressAt', () => {
   it('starts at 0 on the first stage, not slow', () => {
@@ -101,6 +102,35 @@ describe('progressAt', () => {
   it('pins the cap and the tick', () => {
     expect(PROGRESS_CAP).toBe(95);
     expect(PROGRESS_TICK_MS).toBe(500);
+  });
+});
+
+describe('progressAt with extension calls (a long rectangle)', () => {
+  it('the default and 0 steps are the plain curve', () => {
+    for (const t of [0, 5_000, 30_000, 70_000, 200_000]) {
+      expect(progressAt(t, 'image', 0)).toEqual(progressAt(t, 'image'));
+    }
+  });
+
+  it('expects a longer wait: the bar is slower, each step delays the later stages and the slow text', () => {
+    const plain = progressAt(30_000, 'image').percent;
+    const long = progressAt(30_000, 'image', 3).percent;
+    expect(long).toBeLessThan(plain - 10);
+    expect(long).toBeGreaterThan(0);
+    const extra = 3 * PROGRESS_EXTEND_STEP_MS;
+    expect(progressAt(PROGRESS_STAGE_STARTS_MS.image[1], 'image', 3).stageIndex).toBe(1);
+    expect(progressAt(PROGRESS_STAGE_STARTS_MS.image[2] + extra - 1, 'image', 3).stageIndex).toBe(1);
+    expect(progressAt(PROGRESS_STAGE_STARTS_MS.image[2] + extra, 'image', 3).stageIndex).toBe(2);
+    expect(progressAt(69_999 + 2 * extra, 'image', 3).slow).toBe(false);
+    expect(progressAt(70_000 + 2 * extra, 'image', 3).slow).toBe(true);
+  });
+
+  it('still never reaches the cap and only changes the image kind', () => {
+    for (const steps of [1, 6, 12]) {
+      expect(progressAt(Infinity, 'image', steps).percent).toBeLessThan(95);
+      expect(progressAt(300_000, 'image', steps).percent).toBeLessThan(95);
+    }
+    expect(progressAt(10_000, 'brief', 6)).toEqual(progressAt(10_000, 'brief'));
   });
 });
 

@@ -23,6 +23,9 @@ type Gen =
   | { ok: true; uploadId: string; png: string; pxWidth: number; pxHeight: number; remainingToday: number | null }
   | { ok: false; error: string };
 
+const reportError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/monitoring/report", () => ({ reportError }));
+
 let ipSeq = 0;
 const nextIp = () => `10.2.${Math.floor(ipSeq / 250)}.${(ipSeq++ % 250) + 1}`;
 
@@ -63,6 +66,7 @@ async function imageUsage(): Promise<number> {
 
 let png: Uint8Array;
 beforeEach(async () => {
+  reportError.mockReset();
   setupEnv();
   vi.stubEnv("OPENAI_API_KEY", "sk-test-generate");
   vi.stubEnv("OPENAI_BASE_URL", OPENAI_BASE);
@@ -350,10 +354,10 @@ describe("POST /api/design/generate", () => {
     expect((await read(await call(body()))).ok).toBe(true);
     expect(timeouts).toEqual([AI_OPENAI_TIMEOUT_MS]);
 
-    // 75 s already gone (slow references): 110 − 75 − 10 = 25 s are left for OpenAI.
+    // 255 s already gone (slow references): 300 − 255 − 20 = 25 s are left for OpenAI.
     timeouts.length = 0;
     const t0 = Date.now();
-    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 75_000);
+    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 255_000);
     expect((await read(await call(body()))).ok).toBe(true);
     expect(timeouts).toEqual([25_000]);
   });
@@ -361,7 +365,7 @@ describe("POST /api/design/generate", () => {
   it("generate answers failed BEFORE reserving when less than 20 s would be left for OpenAI", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const t0 = Date.now();
-    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 81_000);
+    vi.spyOn(Date, "now").mockReturnValueOnce(t0).mockReturnValue(t0 + 261_000);
     const res = await call(body());
     expect(res.status).toBe(502);
     expect(await read(res)).toEqual({ ok: false, error: "failed" });
@@ -459,21 +463,171 @@ describe("POST /api/design/generate", () => {
     expect(await imageUsage()).toBe(0);
   });
 
-  it("generate accepts a rect beyond 3:1: asks OpenAI for 3:1, then extends the pixels to the real ratio", async () => {
-    const calls = stubOpenAi(() => imageResponse(png));
-    const out = await read(await call(body({ shape: "rect", widthUm: 100000, heightUm: 30000, lines: [] })));
-    if (!out.ok) throw new Error(out.error);
-    expect(calls).toHaveLength(1);
-    const sent = calls[0].body as { size: string; background: string; prompt: string };
-    expect(sent.size).toBe("1424x480");
-    expect(sent.background).toBe("opaque");
-    expect(sent.prompt).toContain("extended on its two short ends");
-    // The fixture png is 64 px tall: the width follows the sticker's real ratio (100 x 30 mm), the height is unchanged.
-    expect(out.pxHeight).toBe(64);
-    expect(out.pxWidth).toBe(Math.round((64 * 100000) / 30000));
-    const meta = await sharp(Buffer.from(out.png, "base64")).metadata();
-    expect([meta.width, meta.height]).toEqual([out.pxWidth, out.pxHeight]);
-    expect(meta.hasAlpha).toBe(false);
+  describe("a rect longer than 3:1 is painted by extension calls (outpainting)", () => {
+    let wide: Uint8Array;
+    beforeEach(async () => {
+      // What the model returns at 3:1; the same picture answers every extension call.
+      wide = await opaquePng(1424, 480);
+    });
+    const rectBody = (over: Record<string, unknown> = {}) => body({ shape: "rect", lines: [], ...over });
+    const editsOf = <T extends { path: string }>(calls: T[]) => calls.filter((c) => c.path === "/images/edits");
+
+    it("3.33:1 (100 x 30 mm): one drawing at 3:1 plus one extension call per end, exact ratio", async () => {
+      const calls = stubOpenAi(() => imageResponse(wide));
+      const out = await read(await call(rectBody({ widthUm: 100000, heightUm: 30000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect(calls.map((c) => c.path)).toEqual(["/images/generations", "/images/edits", "/images/edits"]);
+      const sent = calls[0].body as { size: string; background: string; prompt: string };
+      expect(sent.size).toBe("1424x480");
+      expect(sent.background).toBe("opaque");
+      expect(sent.prompt).toContain("only the middle part of the sticker");
+      expect(sent.prompt).toContain("the whole sticker is one continuous picture");
+      expect(out.pxHeight).toBe(480);
+      expect(out.pxWidth).toBe(Math.round((480 * 100000) / 30000));
+      const meta = await sharp(Buffer.from(out.png, "base64")).metadata();
+      expect([meta.width, meta.height]).toEqual([out.pxWidth, out.pxHeight]);
+      expect(meta.hasAlpha).toBe(false);
+    });
+
+    it("7:1: exactly 1 generation + 2 extension calls, one image[] each (the canvas), no mask, one use", async () => {
+      const calls = stubOpenAi(() => imageResponse(wide));
+      const out = await read(await call(rectBody({ widthUm: 280000, heightUm: 40000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect(calls.map((c) => c.path)).toEqual(["/images/generations", "/images/edits", "/images/edits"]);
+      for (const c of editsOf(calls)) {
+        const entries = c.body as [string, string][];
+        expect(entries.filter(([k]) => k === "image[]")).toEqual([["image[]", "file:canvas.png:image/png"]]);
+        expect(entries.some(([k]) => k === "mask")).toBe(false);
+        expect(entries.find(([k]) => k === "size")?.[1]).toBe("1424x480");
+        expect(entries.find(([k]) => k === "model")?.[1]).toBe(AI_IMAGE_MODEL);
+        expect(entries.find(([k]) => k === "prompt")?.[1]).toContain("The transparent area on the");
+        expect(entries.find(([k]) => k === "prompt")?.[1]).toContain("Do not add any text");
+      }
+      expect([out.pxWidth, out.pxHeight]).toEqual([3360, 480]);
+      expect(out.remainingToday).toBe(DEFAULT_SETTINGS.ai.perIpDailyLimit - 1);
+      // The extension calls are not extra uses: one generation = one use.
+      expect(await imageUsage()).toBe(1);
+      const { rows } = await getStorage().aiListGenerations!({ limit: 10, offset: 0 });
+      expect(rows).toHaveLength(1);
+      const stored = await getStorage().readUpload(out.uploadId);
+      expect(Buffer.from(stored!.bytes).toString("base64")).toBe(out.png);
+    });
+
+    it("portrait 7:1 asks for 480x1424 and answers 480 x 3360", async () => {
+      const tall = await opaquePng(480, 1424);
+      const calls = stubOpenAi(() => imageResponse(tall));
+      const out = await read(await call(rectBody({ widthUm: 40000, heightUm: 280000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect((calls[0].body as { size: string }).size).toBe("480x1424");
+      expect(editsOf(calls)).toHaveLength(2);
+      for (const c of editsOf(calls)) expect((c.body as [string, string][]).find(([k]) => k === "size")?.[1]).toBe("480x1424");
+      expect([out.pxWidth, out.pxHeight]).toEqual([480, 3360]);
+    });
+
+    it("never sends the customer's reference images on an extension call", async () => {
+      await saveRef("ref-long-0000001", await opaquePng(40, 40));
+      const calls = stubOpenAi(() => imageResponse(wide));
+      const out = await read(await call(rectBody({ widthUm: 280000, heightUm: 40000, refUploadIds: ["ref-long-0000001"] })));
+      expect(out.ok).toBe(true);
+      expect(calls.map((c) => c.path)).toEqual(["/images/edits", "/images/edits", "/images/edits"]);
+      const firstImages = (calls[0].body as [string, string][]).filter(([k]) => k === "image[]");
+      expect(firstImages).toHaveLength(1);
+      expect(firstImages[0][1]).toContain("ref-1.");
+      for (const c of calls.slice(1)) {
+        const imgs = (c.body as [string, string][]).filter(([k]) => k === "image[]");
+        expect(imgs).toEqual([["image[]", "file:canvas.png:image/png"]]);
+        expect(c.text).not.toContain("ref-1.");
+        expect(c.text).not.toContain("reference images");
+      }
+    });
+
+    it("a ratio of 3:1 or less makes zero extension calls", async () => {
+      for (const [w, h] of [
+        [150000, 50000],
+        [100000, 50000],
+        [50000, 150000],
+      ]) {
+        const calls = stubOpenAi(() => imageResponse(png));
+        const out = await read(await call(rectBody({ widthUm: w, heightUm: h })));
+        expect(out.ok).toBe(true);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].path).toBe("/images/generations");
+        expect(calls[0].text).not.toContain("only the middle part");
+        if (out.ok) expect([out.pxWidth, out.pxHeight]).toEqual([64, 64]); // untouched: the picture is as the model drew it
+      }
+    });
+
+    it("every extension call refused (moderation): the design is still delivered, blur-filled, the use kept", async () => {
+      let n = 0;
+      const calls = stubOpenAi(() =>
+        n++ === 0 ? imageResponse(wide) : jsonResponse({ error: { code: "moderation_blocked", message: "x" } }, 400),
+      );
+      const out = await read(await call(rectBody({ widthUm: 280000, heightUm: 40000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect(calls).toHaveLength(3);
+      expect([out.pxWidth, out.pxHeight]).toEqual([3360, 480]);
+      expect(await imageUsage()).toBe(1);
+      expect(out.remainingToday).toBe(DEFAULT_SETTINGS.ai.perIpDailyLimit - 1);
+      // Which path happened is reported once, as a warning with short codes only: never the idea, the lines or a response body.
+      const reports = reportError.mock.calls.filter(([, ctx]) => (ctx as { where?: string }).where === "ai.generate");
+      expect(reports).toHaveLength(1);
+      const [err, ctx] = reports[0] as [Error, { where: string; level: string; tags: Record<string, unknown> }];
+      expect(ctx).toMatchObject({ where: "ai.generate", level: "warning", tags: { path: "blur", reason: "refused", calls: 2, stepsOk: 0 } });
+      const serialised = JSON.stringify([err.message, ctx]);
+      expect(serialised).not.toContain("ستيكر");
+      expect(serialised).not.toContain("أهلاً");
+      expect(serialised).not.toContain("moderation");
+    });
+
+    it("a fully painted 7:1 reports nothing", async () => {
+      stubOpenAi(() => imageResponse(wide));
+      const out = await read(await call(rectBody({ widthUm: 280000, heightUm: 40000 })));
+      expect(out.ok).toBe(true);
+      expect(reportError.mock.calls.filter(([, ctx]) => (ctx as { where?: string }).where === "ai.generate")).toHaveLength(0);
+    });
+
+    it("extension calls failing with a server error: still delivered at the exact size", async () => {
+      let n = 0;
+      stubOpenAi(() => (n++ === 0 ? imageResponse(wide) : jsonResponse({ error: { code: "server_error" } }, 500)));
+      const out = await read(await call(rectBody({ widthUm: 140000, heightUm: 10000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect([out.pxWidth, out.pxHeight]).toEqual([6720, 480]);
+      expect(await imageUsage()).toBe(1);
+    });
+
+    it("the cap: the longest builder size (291 x 5 mm, 58:1) makes 1 + 12 calls at most", async () => {
+      const calls = stubOpenAi(() => imageResponse(wide));
+      const out = await read(await call(rectBody({ widthUm: 291000, heightUm: 5000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect(calls).toHaveLength(13);
+      expect(out.pxHeight).toBe(480);
+      expect(out.pxWidth).toBeGreaterThan(13_000);
+      expect(await imageUsage()).toBe(1);
+    });
+
+    it("no time left for the extension: no extension call is sent, the ends are blur-filled", async () => {
+      const calls = stubOpenAi(() => imageResponse(wide));
+      let n = 0;
+      // started, the check before reserving and the one before the image call see no time spent; the extension then sees 256 s (over its 245 s).
+      const clock = () => (n++ < 3 ? 0 : 256_000);
+      const req = new Request("http://localhost/api/design/generate", { method: "POST", headers: { "x-forwarded-for": nextIp() } });
+      const out = await runGenerate(req, rectBody({ widthUm: 280000, heightUm: 40000 }), clock);
+      if (!out.body.ok) throw new Error(out.body.error);
+      expect(calls.map((c) => c.path)).toEqual(["/images/generations"]);
+      expect([out.body.pxWidth, out.body.pxHeight]).toEqual([3360, 480]);
+    });
+
+    it("a long outpainted picture too big for the answer is scaled down, not failed", async () => {
+      // Noisy art does not compress; the extension returns noise so the joined picture exceeds the 3.2 MB answer budget.
+      const noise = randomBytes(1424 * 480 * 3);
+      const noisy = new Uint8Array(await sharp(noise, { raw: { width: 1424, height: 480, channels: 3 } }).png().toBuffer());
+      stubOpenAi(() => imageResponse(noisy));
+      const out = await read(await call(rectBody({ widthUm: 280000, heightUm: 40000 })));
+      if (!out.ok) throw new Error(out.error);
+      expect(Buffer.from(out.png, "base64").byteLength).toBeLessThanOrEqual(3_200_000);
+      expect(out.pxWidth / out.pxHeight).toBeGreaterThan(6.5);
+      expect(out.pxWidth / out.pxHeight).toBeLessThan(7.5);
+    });
   });
 
   it("generate rejects malformed bodies", async () => {
@@ -665,10 +819,10 @@ describe("generate: time budget", () => {
 
   it("does not call OpenAI and gives the use back when too little time is left", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
-    // started = 0; the reading before the reservation still says 0, the one just before the image call says 90 s:
-    // 120 - 90 - 20 = 10 s < 20 s, so the use that was reserved is given back.
-    const times = [0, 0, 90_000];
-    const out = await runGenerate(req(), body(), () => times.shift() ?? 90_000);
+    // started = 0; the reading before the reservation still says 0, the one just before the image call says 270 s:
+    // 300 - 270 - 20 = 10 s < 20 s, so the use that was reserved is given back.
+    const times = [0, 0, 270_000];
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 270_000);
     expect(out.body).toEqual({ ok: false, error: "failed" });
     expect(calls).toHaveLength(0);
     expect(await imageUsage()).toBe(0);
@@ -677,8 +831,8 @@ describe("generate: time budget", () => {
   it("limits the OpenAI call to what is left of the route's time", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    const times = [0, 0, 75_000]; // 120 s - 75 s - 20 s safety = 25 s
-    const out = await runGenerate(req(), body(), () => times.shift() ?? 75_000);
+    const times = [0, 0, 255_000]; // 300 s - 255 s - 20 s safety = 25 s
+    const out = await runGenerate(req(), body(), () => times.shift() ?? 255_000);
     expect(out.body.ok).toBe(true);
     expect(calls).toHaveLength(1);
     expect(spy).toHaveBeenCalledWith(25_000);
@@ -687,8 +841,8 @@ describe("generate: time budget", () => {
   it("counts the time spent before runGenerate (the body read) from the route's start", async () => {
     stubOpenAi(() => imageResponse(png));
     const spy = vi.spyOn(AbortSignal, "timeout");
-    // The route started at 0; the body read took 70 s, so runGenerate begins at 70 s: 120 - 70 - 20 = 30 s.
-    expect((await runGenerate(req(), body(), () => 70_000, 0)).body.ok).toBe(true);
+    // The route started at 0; the body read took 250 s, so runGenerate begins at 250 s: 300 - 250 - 20 = 30 s.
+    expect((await runGenerate(req(), body(), () => 250_000, 0)).body.ok).toBe(true);
     expect(spy).toHaveBeenCalledWith(30_000);
   });
 

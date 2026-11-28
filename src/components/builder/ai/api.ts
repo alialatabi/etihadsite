@@ -40,9 +40,9 @@ export type GenerateResponse =
   | Extract<ServerGenerateResponse, { ok: true }>
   | { ok: false; error: GenerateError | ClientError };
 
-/** Header deadlines: the routes' maxDuration (brief 60 s, generate 120 s) plus a margin, so the server has finished or been killed first. */
+/** Header deadlines: the routes' maxDuration (brief 60 s, generate 300 s: a long sticker is painted in several calls) plus a margin, so the server has finished or been killed first. */
 export const BRIEF_DEADLINE_MS = 75_000;
-export const GENERATE_DEADLINE_MS = 150_000;
+export const GENERATE_DEADLINE_MS = 330_000;
 
 async function post<T extends { ok: boolean }>(url: string, body: unknown, deadlineMs: number): Promise<T | { ok: false; error: ClientError }> {
   try {

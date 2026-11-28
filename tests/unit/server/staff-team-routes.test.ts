@@ -69,7 +69,7 @@ beforeEach(() => {
 describe("/api/team/design/*", () => {
   it("keeps the literal maxDuration of the customer routes", () => {
     expect(briefMax).toBe(60);
-    expect(generateMax).toBe(120);
+    expect(generateMax).toBe(300);
   });
 
   it.each(ROUTES)("%s answers 401 without a session and never runs the AI", async (_n, route, path) => {

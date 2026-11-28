@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildExtendPrompt,
   buildImagePrompt,
   imageRequestSize,
   sanitizeLine,
@@ -142,8 +143,12 @@ describe('buildImagePrompt, rectangles longer than 3:1', () => {
     const long = buildImagePrompt({ ...rect, widthUm: 280_000, heightUm: 50_000 });
     expect(long).toContain('Final printed size: 28.0 cm × 5.0 cm.');
     expect(long).toContain('left and right edges');
-    expect(long).toContain('repeating the pixels');
-    expect(long).toContain('plain and continuous');
+    // The picture is continued by the model, not by repeating edge pixels: text and the main subject stay in the middle.
+    expect(long).toContain('the whole sticker is one continuous picture');
+    expect(long).toContain('Put all text and the main subject inside the canvas, well away from those two edges');
+    expect(long).toContain('the background and decorations may run off those two edges');
+    expect(long).not.toContain('repeating');
+    expect(long).not.toContain('plain and continuous');
   });
   it('says top and bottom for a portrait sticker', () => {
     const long = buildImagePrompt({ ...rect, widthUm: 50_000, heightUm: 280_000 });
@@ -156,8 +161,35 @@ describe('buildImagePrompt, rectangles longer than 3:1', () => {
       buildImagePrompt({ ...rect, widthUm: 90_000, heightUm: 60_000 }),
       buildImagePrompt({ ...base, shape: 'custom', widthUm: 280_000, heightUm: 10_000 }),
     ]) {
-      expect(p).not.toContain('extended on its two short ends');
+      expect(p).not.toContain('only the middle part of the sticker');
     }
+  });
+});
+
+describe('buildImagePrompt, ratio of 3:1 or less is unchanged', () => {
+  it('has no middle-part sentence at exactly 3:1, below it, or portrait 3:1', () => {
+    const rect: TemplateInput = { ...base, shape: 'rect', corners: 'sharp' };
+    for (const [w, h] of [[150_000, 50_000], [50_000, 150_000], [100_000, 100_000], [90_000, 60_000]]) {
+      const p = buildImagePrompt({ ...rect, widthUm: w, heightUm: h });
+      expect(p).not.toContain('middle part');
+      expect(p).not.toContain('continued');
+    }
+  });
+});
+
+describe('buildExtendPrompt', () => {
+  it('landscape: names the visible end and the empty side, asks for no text', () => {
+    expect(buildExtendPrompt(false, 'end')).toBe(
+      'This is the left end of a long horizontal sticker banner. The transparent area on the right is empty and must be painted. Continue the existing background, colours and decorations seamlessly into the empty area so the whole canvas is one continuous picture; any object cut by the edge of the visible part should be completed naturally. Keep the visible part unchanged. Do not add any text, letters or numbers.',
+    );
+    expect(buildExtendPrompt(false, 'start')).toContain('This is the right end of a long horizontal sticker banner. The transparent area on the left is empty');
+  });
+  it('portrait: top and bottom, vertical', () => {
+    expect(buildExtendPrompt(true, 'start')).toContain('This is the bottom end of a long vertical sticker banner. The transparent area on the top is empty');
+    expect(buildExtendPrompt(true, 'end')).toContain('This is the top end of a long vertical sticker banner. The transparent area on the bottom is empty');
+  });
+  it('carries no customer text slot', () => {
+    for (const portrait of [false, true]) for (const side of ['start', 'end'] as const) expect(buildExtendPrompt(portrait, side)).not.toMatch(/«|»|\{/);
   });
 });
 

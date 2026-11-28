@@ -7,6 +7,7 @@ import { uploadWithProgress } from '../orderApi';
 import type { BuilderApi } from '../useBuilder';
 import type { Shape } from '@/lib/types';
 import { addRefs, aiBusy, isAiOffError, pngFileFromBase64, maxWidthAtSize, printableLines, textWarning as textWarningFor, typedLine, uploadErrorCode, type AiErrorCode, type AiPhase } from './ai-logic';
+import { expectedExtendSteps } from '@/lib/ai/outpaint-plan';
 import { DEFAULT_AI_ENDPOINTS, capInstructions, instructionsFields, isInstructionsEdited, postBrief, postGenerate, type AiEndpoints } from './api';
 
 export type { AiPhase };
@@ -66,6 +67,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
   const [briefing, setBriefing] = useState(false);
   // When the running brief / image request started (ms), null while none runs. Set in the click handlers (never in render), so a remounted AiProgress keeps its place.
   const [busySince, setBusySince] = useState<number | null>(null);
+  // The extension calls of the running image request (a long rectangle is painted in several calls), fixed at click time like busySince: the progress bar expects a longer wait.
+  const [extendSteps, setExtendSteps] = useState(0);
   const [refs, setRefs] = useState<AiRef[]>([]);
   // The last reference pick left files out (wrong type, too big, over 5).
   const [refRejected, setRefRejected] = useState(false);
@@ -208,6 +211,7 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     setError(undefined);
     setPhase('generating');
     setBusySince(Date.now());
+    setExtendSteps(expectedExtendSteps(shape, spec.widthUm, spec.heightUm));
     host.startAi();
     host.showDesignStep();
     const madeFor = { shape, widthUm: spec.widthUm, heightUm: spec.heightUm };
@@ -338,6 +342,8 @@ export function useAiDesign(host: AiHost, ready = true, endpoints: AiEndpoints =
     briefing,
     /** When the running request started (ms since epoch); null while none runs. */
     busySince,
+    /** Extension calls planned for the running image request (0 for everything but a rectangle longer than 3:1): scales the progress estimate. */
+    extendSteps,
     /** Why «ولّد التصميم» is disabled (null: it may run). */
     block,
     /** The Arabic design instructions in the review box (editable). */
