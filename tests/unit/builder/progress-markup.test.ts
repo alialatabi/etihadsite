@@ -38,6 +38,26 @@ describe('AiProgressView', () => {
     expect(politeText(render(AiProgressView, { kind: 'image', elapsedMs: 70_000 }))).toBe(builder.ai.progress.slow);
   });
 
+  it('waitLong replaces wait only for an image with extendSteps > 0', () => {
+    const long = render(AiProgressView, { kind: 'image', elapsedMs: 30_000, extendSteps: 2 });
+    expect(long).toContain(builder.ai.progress.waitLong);
+    expect(long).not.toContain(builder.ai.progress.wait);
+    for (const extendSteps of [undefined, 0]) {
+      const normal = render(AiProgressView, { kind: 'image', elapsedMs: 30_000, extendSteps });
+      expect(normal).toContain(builder.ai.progress.wait);
+      expect(normal).not.toContain(builder.ai.progress.waitLong);
+    }
+    const brief = render(AiProgressView, { kind: 'brief', elapsedMs: 0, extendSteps: 2 });
+    expect(brief).not.toContain(builder.ai.progress.wait);
+    expect(brief).not.toContain(builder.ai.progress.waitLong);
+  });
+
+  it('the timer wrapper passes extendSteps through to the wait line', () => {
+    const long = render(AiProgress, { kind: 'image', extendSteps: 1 });
+    expect(long).toContain(builder.ai.progress.waitLong);
+    expect(render(AiProgress, { kind: 'image' })).toContain(builder.ai.progress.wait);
+  });
+
   it('brief at 0: first stage, empty bar, no «can take a minute» line', () => {
     const html = render(AiProgressView, { kind: 'brief', elapsedMs: 0 });
     expect(politeText(html)).toBe(builder.ai.progress.brief[0]);

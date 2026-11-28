@@ -530,7 +530,8 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
         "نجهّزه للطباعة…"
       ],
       "slow": "ياخذ وقت أكثر من العادة، خليك بالصفحة…",
-      "wait": "ممكن ياخذ لحد دقيقة، لا تسكّر الصفحة."
+      "wait": "ممكن ياخذ لحد دقيقة، لا تسكّر الصفحة.",
+      "waitLong": "التصميم الطويل ممكن ياخذ لحد دقيقتين، لا تسكّر الصفحة."
     },
     "printedText": "الكتابة:",
     "resultAlt": "التصميم المقترح",
@@ -724,13 +725,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 3,
   "booleans": 0,
-  "chars": 5149,
+  "chars": 5203,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 24,
-  "sha256OfRawJson": "6c2e34a344f754b77ad438bce0c256450037abf2dfccbe29399911262692e4e1",
-  "strings": 216,
+  "sha256OfRawJson": "b09b9c84d47257c4885bb211b64c5c182d7a19491de39f4e94aef70c3df5ee61",
+  "strings": 217,
 }
 `;
 

@@ -47,7 +47,11 @@ export function AiProgressView({
           style={{ width: `${percent}%` }}
         />
       </div>
-      {kind === 'image' && <p className="text-[14px] leading-[1.4] text-ink-muted">{builder.ai.progress.wait}</p>}
+      {kind === 'image' && (
+        <p className="text-[14px] leading-[1.4] text-ink-muted">
+          {extendSteps > 0 ? builder.ai.progress.waitLong : builder.ai.progress.wait}
+        </p>
+      )}
     </div>
   );
 }
