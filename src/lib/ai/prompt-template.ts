@@ -44,10 +44,10 @@ export function buildImagePrompt(input: TemplateInput): string {
   parts.push(shapeRule(shape, corners));
   parts.push(`Final printed size: ${cm(widthUm)} cm × ${cm(heightUm)} cm.`);
   if (shape === 'rect' && aspectOf(widthUm, heightUm) > AI_MAX_ASPECT) {
-    // The canvas is drawn at AI_MAX_ASPECT : 1; the server then extends it along the long axis (extendToAspect).
+    // The canvas is drawn at AI_MAX_ASPECT : 1; the server then paints the two short ends with more extension calls (outpaint.ts).
     const ends = widthUm >= heightUm ? 'left and right' : 'top and bottom';
     parts.push(
-      `The canvas you draw is only the middle part of the sticker, which is longer than the canvas. After you finish, the canvas will be extended on its two short ends (the ${ends} edges) by repeating the pixels along those edges. So the background must be plain and continuous at those two edges, and all text and important artwork must stay well away from them.`,
+      `The canvas you draw is only the middle part of the sticker, which is longer than the canvas. After you finish, the picture will be continued on the two short ends of the canvas (the ${ends} edges), so that the whole sticker is one continuous picture. Put all text and the main subject inside the canvas, well away from those two edges; the background and decorations may run off those two edges.`,
     );
   }
   parts.push(
@@ -93,7 +93,7 @@ const aspectOf = (widthUm: number, heightUm: number): number =>
 /**
  * Image size to request (multiples of 16, enough pixels) and whether the background is transparent.
  * A rectangle longer than AI_MAX_ASPECT : 1 is requested at AI_MAX_ASPECT : 1 (the model refuses more);
- * the service extends the result to the real ratio afterwards (extendToAspect).
+ * the service extends the result to the real ratio afterwards (outpaint.ts).
  */
 export function imageRequestSize(
   shape: Shape,
@@ -110,4 +110,15 @@ export function imageRequestSize(
   }
   const size = widthUm >= heightUm ? `${l}x${s}` : `${s}x${l}`;
   return { size, background: 'opaque' };
+}
+
+/**
+ * Prompt of one outpainting step (see outpaint.ts). The canvas holds the end of the picture that touches the empty
+ * part: `emptyAt` is where the transparent (empty) part lies, 'start' = left (landscape) / top (portrait), 'end' = the
+ * other one. No customer text goes in: the steps only continue the picture.
+ */
+export function buildExtendPrompt(portrait: boolean, emptyAt: 'start' | 'end'): string {
+  const empty = portrait ? (emptyAt === 'start' ? 'top' : 'bottom') : emptyAt === 'start' ? 'left' : 'right';
+  const visible = portrait ? (emptyAt === 'start' ? 'bottom' : 'top') : emptyAt === 'start' ? 'right' : 'left';
+  return `This is the ${visible} end of a long ${portrait ? 'vertical' : 'horizontal'} sticker banner. The transparent area on the ${empty} is empty and must be painted. Continue the existing background, colours and decorations seamlessly into the empty area so the whole canvas is one continuous picture; any object cut by the edge of the visible part should be completed naturally. Keep the visible part unchanged. Do not add any text, letters or numbers.`;
 }

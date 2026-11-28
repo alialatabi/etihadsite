@@ -407,11 +407,11 @@ describe('api fetchers', () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('generate: the deadline is 150 s', async () => {
+    it('generate: the deadline is 330 s (the route runs up to 300 s: a long sticker is painted in several calls)', async () => {
       vi.stubGlobal('fetch', stalled());
       let out: unknown;
       void postGenerate({} as never).then((r) => (out = r));
-      await vi.advanceTimersByTimeAsync(149_999);
+      await vi.advanceTimersByTimeAsync(329_999);
       expect(out).toBeUndefined();
       await vi.advanceTimersByTimeAsync(1);
       expect(out).toEqual({ ok: false, error: 'network' });

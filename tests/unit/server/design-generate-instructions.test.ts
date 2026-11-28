@@ -276,9 +276,9 @@ describe("generate: translation time budget", () => {
   it("a slow start shortens the translation to 10 s and leaves the image 20 s", async () => {
     stubOpenAi(handler);
     const spy = vi.spyOn(AbortSignal, "timeout");
-    // Translation at 70 s: min(15 s, 120 - 70 - 20 - 20 = 10 s) = 10 s. Image at 80 s: 120 - 80 - 20 = 20 s.
-    const times = [0, 0, 70_000, 80_000];
-    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 80_000);
+    // Translation at 250 s: min(15 s, 300 - 250 - 20 - 20 = 10 s) = 10 s. Image at 260 s: 300 - 260 - 20 = 20 s.
+    const times = [0, 0, 250_000, 260_000];
+    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 260_000);
     expect(out.body.ok).toBe(true);
     expect(spy).toHaveBeenCalledWith(10_000);
     expect(spy).toHaveBeenCalledWith(20_000);
@@ -287,8 +287,8 @@ describe("generate: translation time budget", () => {
 
   it("with under 5 s for the translation nothing is called and the use is given back", async () => {
     const calls = stubOpenAi(handler);
-    const times = [0, 0, 75_001];
-    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 75_001);
+    const times = [0, 0, 255_001];
+    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 255_001);
     expect(out.body).toEqual({ ok: false, error: "failed" });
     expect(calls).toHaveLength(0);
     expect(await imageUsage()).toBe(0);
@@ -296,8 +296,8 @@ describe("generate: translation time budget", () => {
 
   it("a translation that eats the image budget gives the use back before the image call", async () => {
     const calls = stubOpenAi(handler);
-    const times = [0, 0, 70_000, 90_000];
-    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 90_000);
+    const times = [0, 0, 250_000, 270_000];
+    const out = await runGenerate(req(), body({ instructions: I }), () => times.shift() ?? 270_000);
     expect(out.body).toEqual({ ok: false, error: "failed" });
     expect(calls.map((c) => c.path)).toEqual(["/responses"]);
     expect(await imageUsage()).toBe(0);

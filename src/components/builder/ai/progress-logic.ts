@@ -36,6 +36,12 @@ export const PROGRESS_STAGE_STARTS_MS: Record<ProgressKind, readonly number[]> =
 /** From this elapsed time on, the stage text gives way to builder.ai.progress.slow. */
 export const PROGRESS_SLOW_AFTER_MS: Record<ProgressKind, number> = { brief: 15_000, image: 70_000 };
 
+/**
+ * A long rectangle is painted in extra calls (src/lib/ai/outpaint-plan.ts): per call of the longer end (the two ends run
+ * side by side) about this much more waiting. It stretches the curve and delays the last stages and the "slow" text.
+ */
+export const PROGRESS_EXTEND_STEP_MS = 10_000;
+
 /** Number of stage texts, taken from the copy (never hard-coded). */
 export const PROGRESS_STAGE_COUNT: Record<ProgressKind, number> = {
   brief: builder.ai.progress.brief.length,
@@ -54,13 +60,18 @@ export interface ProgressState {
   slow: boolean;
 }
 
-/** Estimated progress after `elapsedMs` of waiting. Negative / NaN → 0; Infinity stays under the cap. */
-export function progressAt(elapsedMs: number, kind: ProgressKind): ProgressState {
+/**
+ * Estimated progress after `elapsedMs` of waiting. Negative / NaN → 0; Infinity stays under the cap.
+ * `extendSteps`: the extension calls of a long rectangle (expectedExtendSteps), image kind only; the default 0 is the
+ * plain single-call curve. The stages from the third on start later, and the "slow" text comes later, by that much waiting.
+ */
+export function progressAt(elapsedMs: number, kind: ProgressKind, extendSteps: number = 0): ProgressState {
   const t = elapsedMs > 0 ? elapsedMs : 0; // NaN > 0 is false
-  const percent = Math.min(PROGRESS_CAP * -Math.expm1(-t / PROGRESS_TAU_MS[kind]), MAX_PERCENT);
+  const extra = kind === 'image' && extendSteps > 0 ? extendSteps * PROGRESS_EXTEND_STEP_MS : 0;
+  const percent = Math.min(PROGRESS_CAP * -Math.expm1(-t / (PROGRESS_TAU_MS[kind] + extra)), MAX_PERCENT);
   const starts = PROGRESS_STAGE_STARTS_MS[kind];
   let stageIndex = 0;
-  for (let i = 1; i < starts.length; i++) if (t >= starts[i]) stageIndex = i;
+  for (let i = 1; i < starts.length; i++) if (t >= starts[i] + (i >= 2 ? extra : 0)) stageIndex = i;
   stageIndex = Math.min(stageIndex, PROGRESS_STAGE_COUNT[kind] - 1);
-  return { percent, stageIndex, slow: t >= PROGRESS_SLOW_AFTER_MS[kind] };
+  return { percent, stageIndex, slow: t >= PROGRESS_SLOW_AFTER_MS[kind] + 2 * extra };
 }

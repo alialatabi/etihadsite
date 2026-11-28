@@ -14,7 +14,7 @@ import 'server-only';
  * message plus the endpoint, the HTTP status and a whitelisted error code only.
  */
 import { reportError } from '@/lib/monitoring/report';
-import { AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from './config';
+import { AI_EXTEND_TIMEOUT_MS, AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from './config';
 
 export interface OpenAiConfig {
   apiKey: string;
@@ -170,17 +170,47 @@ export async function generateImage(
     for (const [k, v] of Object.entries(fields)) form.append(k, String(v));
     result = await postOpenAi(cfg, 'images/edits', form, timeoutMs);
   }
-  if (!result.ok) return result;
+  return pngOf(result, req.refs.length ? 'images/edits' : 'images/generations');
+}
 
+/** The PNG bytes of an images answer, or the failure (a report carries the endpoint only, never the body). */
+function pngOf(result: OpenAiResult, endpoint: string): { ok: true; png: Uint8Array } | { ok: false; reason: AiFailure } {
+  if (!result.ok) return result;
   const b64 = (result.json as { data?: { b64_json?: unknown }[] } | null)?.data?.[0]?.b64_json;
   if (typeof b64 !== 'string' || b64.length === 0) {
-    report(req.refs.length ? 'images/edits' : 'images/generations', 'no image in response');
+    report(endpoint, 'no image in response');
     return { ok: false, reason: 'error' };
   }
   const png = new Uint8Array(Buffer.from(b64, 'base64'));
   if (png.length === 0) {
-    report(req.refs.length ? 'images/edits' : 'images/generations', 'empty image');
+    report(endpoint, 'empty image');
     return { ok: false, reason: 'error' };
   }
   return { ok: true, png };
+}
+
+/**
+ * Outpainting step (src/lib/ai/outpaint.ts): /images/edits with ONE image, a canvas whose unpainted part is fully
+ * transparent (the model paints it; no mask part: it is not documented for multipart and gave the same quality).
+ * There is deliberately no `refs` parameter: a customer's reference images never go with an extension call.
+ * `timeoutMs`: the caller's remaining budget; never raised above AI_EXTEND_TIMEOUT_MS.
+ */
+export async function extendImage(
+  cfg: OpenAiConfig,
+  req: { prompt: string; size: string; canvas: Uint8Array; timeoutMs?: number },
+): Promise<{ ok: true; png: Uint8Array } | { ok: false; reason: AiFailure }> {
+  const form = new FormData();
+  form.append('image[]', toBlob({ bytes: req.canvas, mime: 'image/png' }), 'canvas.png');
+  const fields = {
+    model: AI_IMAGE_MODEL,
+    prompt: req.prompt,
+    size: req.size,
+    quality: 'high',
+    n: 1,
+    background: 'opaque',
+    output_format: 'png',
+  } as const;
+  for (const [k, v] of Object.entries(fields)) form.append(k, String(v));
+  const timeoutMs = Math.max(1, Math.min(AI_EXTEND_TIMEOUT_MS, req.timeoutMs ?? AI_EXTEND_TIMEOUT_MS));
+  return pngOf(await postOpenAi(cfg, 'images/edits', form, timeoutMs), 'images/edits');
 }

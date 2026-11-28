@@ -7,8 +7,8 @@ vi.mock('@/lib/monitoring/report', () => ({
   },
 }));
 
-import { generateImage, openAiConfig, type OpenAiConfig } from '@/lib/ai/openai';
-import { AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from '@/lib/ai/config';
+import { extendImage, generateImage, openAiConfig, type OpenAiConfig } from '@/lib/ai/openai';
+import { AI_EXTEND_TIMEOUT_MS, AI_IMAGE_MODEL, AI_OPENAI_TIMEOUT_MS } from '@/lib/ai/config';
 
 const KEY = 'sk-test-SECRET';
 const cfg: OpenAiConfig = { apiKey: KEY, baseUrl: 'https://api.test/v1' };
@@ -200,6 +200,66 @@ describe('generateImage', () => {
     const everything = [...results, ...reported.flat(), ...logged.flat()].map(dump).join('\n');
     expect(everything).not.toContain(KEY);
     expect(everything).not.toContain('SECRET');
+  });
+});
+
+describe('extendImage (outpainting step)', () => {
+  const canvas = new Uint8Array([9, 8, 7, 6]);
+  const req = { prompt: 'continue it', size: '1424x480', canvas };
+
+  it('posts ONE image[] (the canvas) to /images/edits, no mask, opaque, high quality, png', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    expect(await extendImage(cfg, req)).toEqual({ ok: true, png: PNG });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.test/v1/images/edits');
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${KEY}`);
+    const form = init.body as FormData;
+    const images = form.getAll('image[]') as File[];
+    expect(images).toHaveLength(1);
+    expect(images[0].type).toBe('image/png');
+    expect(images[0].name).toBe('canvas.png');
+    expect(new Uint8Array(await images[0].arrayBuffer())).toEqual(canvas);
+    expect(form.has('mask')).toBe(false);
+    expect(form.get('model')).toBe(AI_IMAGE_MODEL);
+    expect(form.get('prompt')).toBe('continue it');
+    expect(form.get('size')).toBe('1424x480');
+    expect(form.get('quality')).toBe('high');
+    expect(form.get('n')).toBe('1');
+    expect(form.get('background')).toBe('opaque');
+    expect(form.get('output_format')).toBe('png');
+    // Nothing but the canvas and these fields: no reference image can ride along.
+    expect([...form.keys()].sort()).toEqual(['background', 'image[]', 'model', 'n', 'output_format', 'prompt', 'quality', 'size']);
+  });
+
+  it('uses the given timeout and never a larger one than AI_EXTEND_TIMEOUT_MS', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(okBody));
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    await extendImage(cfg, { ...req, timeoutMs: 9_000 });
+    await extendImage(cfg, { ...req, timeoutMs: AI_EXTEND_TIMEOUT_MS * 3 });
+    await extendImage(cfg, req);
+    expect(spy.mock.calls.map((c) => c[0])).toEqual([9_000, AI_EXTEND_TIMEOUT_MS, AI_EXTEND_TIMEOUT_MS]);
+  });
+
+  it('maps the same failures: moderation → refused, abort → timeout, 500 → error, no image → error', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: 'moderation_blocked', message: 'x' } }, 400));
+    expect(await extendImage(cfg, req)).toEqual({ ok: false, reason: 'refused' });
+    fetchMock.mockRejectedValueOnce(new DOMException('timed out', 'TimeoutError'));
+    expect(await extendImage(cfg, req)).toEqual({ ok: false, reason: 'timeout' });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: 'server_error' } }, 500));
+    expect(await extendImage(cfg, req)).toEqual({ ok: false, reason: 'error' });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [{}] }));
+    expect(await extendImage(cfg, req)).toEqual({ ok: false, reason: 'error' });
+  });
+
+  it('never puts the key or a response body into a report', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: { code: 'invalid_api_key', message: `Incorrect API key provided: ${KEY}.` } }, 401),
+    );
+    await extendImage(cfg, req);
+    fetchMock.mockRejectedValueOnce(new TypeError(`fetch failed for Bearer ${KEY}`));
+    await extendImage(cfg, req);
+    expect(reported.length).toBe(2);
+    expect(JSON.stringify(reported, (_k, v) => (v instanceof Error ? `${v.name} ${v.message}` : v))).not.toContain('SECRET');
   });
 });
 
