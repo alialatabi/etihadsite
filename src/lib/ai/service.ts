@@ -49,6 +49,7 @@ import {
   AI_AFTER_OPENAI_SAFETY_MS,
   AI_IMAGE_MODEL,
   AI_LINE_MAX_CHARS,
+  AI_MAX_ASPECT,
   AI_MAX_LINES,
   AI_MAX_REFS,
   AI_MIN_OPENAI_BUDGET_MS,
@@ -61,10 +62,10 @@ import {
 } from './config';
 import { translateInstructions } from './instructions';
 import { aiIpKey, aiLimitAddress } from './ip';
-import { normaliseGenerated, prepareRef } from './normalise';
+import { extendToAspect, normaliseGenerated, prepareRef } from './normalise';
 import { generateImage, type ImageRef } from './openai';
 import { aiReady, aiSetup, secretReady, type AiStorage } from './ready';
-import { aiAspectOk, buildImagePrompt, imageRequestSize } from './prompt-template';
+import { buildImagePrompt, imageRequestSize } from './prompt-template';
 // The review box cleans the lines with the same function (browser-safe module).
 import { capUnits, cleanLine } from './sanitize';
 
@@ -459,7 +460,6 @@ export async function runGenerate(
 
   // Checked on the exact string received, before any clean-up.
   if (!briefTokenOk(req.visualDescription, req.briefToken)) return failure('invalid_request');
-  if (!aiAspectOk(req.shape, req.widthUm, req.heightUm)) return failure('invalid_request');
 
   const settings = await getSettings();
   const setup = aiSetup(settings);
@@ -605,6 +605,11 @@ export async function runGenerate(
     let norm: Awaited<ReturnType<typeof normaliseGenerated>>;
     try {
       norm = await normaliseGenerated(result.png, req.shape);
+      // A rectangle longer than the model's ratio was drawn at AI_MAX_ASPECT : 1: extend it to the real ratio.
+      if (req.shape === 'rect') {
+        const aspect = Math.max(req.widthUm, req.heightUm) / Math.min(req.widthUm, req.heightUm);
+        if (aspect > AI_MAX_ASPECT) norm = await extendToAspect(norm.png, aspect);
+      }
     } catch {
       report('ai.generate', 'normalise failed', { shape: req.shape });
       await giveBack();

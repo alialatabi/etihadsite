@@ -203,11 +203,6 @@ function TeamSession({
                 </p>
               )}
             </div>
-            {ai.block === 'aspect' && !ai.off && (
-              <p role="status" className="rounded-[2px] border border-ink/20 bg-news-light p-3 text-sm text-ink">
-                {builder.ai.aspect}
-              </p>
-            )}
           </section>
         )}
 

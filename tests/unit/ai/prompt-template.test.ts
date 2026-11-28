@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aiAspectOk,
   buildImagePrompt,
   imageRequestSize,
   sanitizeLine,
@@ -137,6 +136,31 @@ describe('buildImagePrompt', () => {
   });
 });
 
+describe('buildImagePrompt, rectangles longer than 3:1', () => {
+  const rect: TemplateInput = { ...base, shape: 'rect', corners: 'sharp' };
+  it('adds the extension sentence (left and right) only above 3:1', () => {
+    const long = buildImagePrompt({ ...rect, widthUm: 280_000, heightUm: 50_000 });
+    expect(long).toContain('Final printed size: 28.0 cm × 5.0 cm.');
+    expect(long).toContain('left and right edges');
+    expect(long).toContain('repeating the pixels');
+    expect(long).toContain('plain and continuous');
+  });
+  it('says top and bottom for a portrait sticker', () => {
+    const long = buildImagePrompt({ ...rect, widthUm: 50_000, heightUm: 280_000 });
+    expect(long).toContain('top and bottom edges');
+    expect(long).not.toContain('left and right edges');
+  });
+  it('is not added at 3:1 or less, nor for other shapes', () => {
+    for (const p of [
+      buildImagePrompt({ ...rect, widthUm: 150_000, heightUm: 50_000 }),
+      buildImagePrompt({ ...rect, widthUm: 90_000, heightUm: 60_000 }),
+      buildImagePrompt({ ...base, shape: 'custom', widthUm: 280_000, heightUm: 10_000 }),
+    ]) {
+      expect(p).not.toContain('extended on its two short ends');
+    }
+  });
+});
+
 describe('imageRequestSize', () => {
   it('rect 90000×60000 → 1024x688 opaque', () => {
     expect(imageRequestSize('rect', 90_000, 60_000)).toEqual({ size: '1024x688', background: 'opaque' });
@@ -162,24 +186,15 @@ describe('imageRequestSize', () => {
       expect(Math.max(a, b) / Math.min(a, b)).toBeLessThanOrEqual(3);
     }
   });
+  it('a rect longer than 3:1 is requested at 3:1 (clamped), either orientation', () => {
+    expect(imageRequestSize('rect', 140_000, 20_000)).toEqual({ size: '1424x480', background: 'opaque' });
+    expect(imageRequestSize('rect', 20_000, 140_000)).toEqual({ size: '480x1424', background: 'opaque' });
+    expect(imageRequestSize('rect', 280_000, 10_000)).toEqual({ size: '1424x480', background: 'opaque' });
+    expect(imageRequestSize('rect', 150_000, 49_000).size).toBe(imageRequestSize('rect', 150_000, 50_000).size);
+  });
   it('circle and custom → 1024x1024 transparent', () => {
     expect(imageRequestSize('circle', 50_000, 50_000)).toEqual({ size: '1024x1024', background: 'transparent' });
     expect(imageRequestSize('custom', 70_000, 40_000)).toEqual({ size: '1024x1024', background: 'transparent' });
-  });
-});
-
-describe('aiAspectOk', () => {
-  it('rect 160000×50000 → false', () => {
-    expect(aiAspectOk('rect', 160_000, 50_000)).toBe(false);
-  });
-  it('rect 3:1 is ok, either orientation', () => {
-    expect(aiAspectOk('rect', 150_000, 50_000)).toBe(true);
-    expect(aiAspectOk('rect', 50_000, 150_000)).toBe(true);
-    expect(aiAspectOk('rect', 50_000, 160_000)).toBe(false);
-  });
-  it('other shapes are always ok', () => {
-    expect(aiAspectOk('circle', 200_000, 10_000)).toBe(true);
-    expect(aiAspectOk('custom', 200_000, 10_000)).toBe(true);
   });
 });
 

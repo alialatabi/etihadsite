@@ -64,7 +64,30 @@ describe('usableBoxUm', () => {
     expect(b.h).toBeCloseTo(32_200, 6);
   });
 
+  it('rect longer than 3:1 is measured at the 3:1 canvas the model draws', () => {
+    expect(usableBoxUm('rect', 200_000, 20_000)).toEqual({ w: 54_000, h: 18_000 });
+    expect(usableBoxUm('rect', 20_000, 200_000)).toEqual({ w: 18_000, h: 54_000 });
+    expect(usableBoxUm('rect', 60_000, 20_000)).toEqual({ w: 54_000, h: 18_000 });
+  });
+
   it('custom uses 80 % box', () => {
     expect(usableBoxUm('custom', 50_000, 40_000)).toEqual({ w: 40_000, h: 32_000 });
+  });
+});
+
+describe('textCapacity on a rect longer than 3:1', () => {
+  it('20 x 2 cm with one 60-character line does not fit', () => {
+    const r = textCapacity(['ا'.repeat(60)], 'rect', 200_000, 20_000);
+    expect(r.ok).toBe(false);
+  });
+
+  it('28 x 3 cm with two 40-character lines does not fit', () => {
+    const r = textCapacity(['ا'.repeat(40), 'ب'.repeat(40)], 'rect', 280_000, 30_000);
+    expect(r.ok).toBe(false);
+    expect(r.rowsNeeded).toBeGreaterThan(r.rowsAllowed);
+  });
+
+  it('a rect up to 3:1 is unchanged', () => {
+    expect(textCapacity(['ا'.repeat(10)], 'rect', 90_000, 30_000).ok).toBe(true);
   });
 });

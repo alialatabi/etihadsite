@@ -88,7 +88,6 @@ export const builder = {
     viewResult: 'شوف التصميم',
     shrinkWarning: 'صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع',
     unavailable: 'التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.',
-    aspect: 'للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.',
     /**
      * The customer's way on when the daily AI limit is reached (ip_limit / site_limit): a WhatsApp link to the shop.
      * `text` starts the pre-filled message; the customer's idea is appended after a space (see aiLimitWhatsappText).

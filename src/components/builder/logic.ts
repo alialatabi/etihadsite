@@ -8,7 +8,7 @@ import { widthPixelsFor } from '@/lib/design/pixels';
 import { normaliseDigits } from '@/lib/parse/digits';
 import { normalisePhone } from '@/lib/parse/phone';
 import { activeTier, maxStickers, minStickers, sortedTiers, totalBeforeDiscountIqd } from '@/lib/pricing';
-import { AI_IDEA_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_ASPECT, AI_MAX_LINES } from '@/lib/ai/config';
+import { AI_IDEA_MAX_CHARS, AI_LINE_MAX_CHARS, AI_MAX_LINES } from '@/lib/ai/config';
 import { BUILDER_STEPS, MATERIALS } from '@/lib/types';
 import type {
   BuilderStep,
@@ -315,17 +315,9 @@ export function shapeStepOk(p: { shape: Shape | null; mode: BuilderMode; sizeOk:
   return p.shape !== null && (p.mode === 'upload' || p.sizeOk);
 }
 
-/** Browser twin of the server's aiAspectOk (prompt-template.ts is server-only): rectangles up to AI_MAX_ASPECT : 1. */
-export function aiRatioOk(shape: Shape, widthUm: number, heightUm: number): boolean {
-  if (shape !== 'rect') return true;
-  const long = Math.max(widthUm, heightUm);
-  const short = Math.min(widthUm, heightUm);
-  return short > 0 && long / short <= AI_MAX_ASPECT;
-}
+export type GenerateBlock = 'shape' | 'size' | 'idea' | 'unavailable' | 'busy';
 
-export type GenerateBlock = 'shape' | 'size' | 'aspect' | 'idea' | 'unavailable' | 'busy';
-
-/** Why «ولّد التصميم» is disabled, or null when it may run. 'aspect' shows builder.ai.aspect. */
+/** Why «ولّد التصميم» is disabled, or null when it may run. */
 export function generateBlock(p: {
   shape: Shape | null;
   size: { widthUm: number; heightUm: number } | null;
@@ -337,7 +329,6 @@ export function generateBlock(p: {
   if (p.unavailable) return 'unavailable';
   if (!p.shape) return 'shape';
   if (!p.size || !p.sizeOk) return 'size';
-  if (!aiRatioOk(p.shape, p.size.widthUm, p.size.heightUm)) return 'aspect';
   if (!p.idea.trim()) return 'idea';
   if (p.busy) return 'busy';
   return null;

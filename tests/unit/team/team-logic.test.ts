@@ -71,10 +71,10 @@ describe('teamSizeState', () => {
     expect(text).toMatch(/\d/);
   });
 
-  it('a 10 x 3 cm rectangle fits the sheet but the AI blocks it on the 3:1 ratio', () => {
+  it('a 10 x 3 cm rectangle fits the sheet and the AI may generate it (no ratio limit)', () => {
     const s = teamSizeState('rect', 'rounded', '10', '3', layout);
     expect(s.sizeOk).toBe(true);
-    expect(generateBlock({ shape: 'rect', size: s.size, sizeOk: s.sizeOk, idea: 'x', unavailable: false, busy: false })).toBe('aspect');
+    expect(generateBlock({ shape: 'rect', size: s.size, sizeOk: s.sizeOk, idea: 'x', unavailable: false, busy: false })).toBeNull();
   });
 });
 

@@ -549,7 +549,6 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 1`] = `
     "viewResult": "شوف التصميم",
     "shrinkWarning": "صغّرت الستيكر عن قياس التصميم — الكتابة ممكن تصغر وما تبين بالطبع",
     "unavailable": "التصميم بالموقع مو متوفر هسه. تكدر ترفع تصميمك الجاهز.",
-    "aspect": "للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.",
     "limitWhatsapp": {
       "button": "كمّل على الواتساب",
       "text": "هلا، جربت أصمم ستيكر بالموقع وخلصت محاولاتي. فكرتي:"
@@ -725,13 +724,13 @@ exports[`golden: Arabic copy (@/content/ar) > export "builder" 2`] = `
 {
   "arrays": 3,
   "booleans": 0,
-  "chars": 5198,
+  "chars": 5149,
   "functions": 0,
   "nulls": 0,
   "numbers": 0,
   "objects": 24,
-  "sha256OfRawJson": "4e27203372f0fffdc65b1eff539c8da45fcb73613be30c6462302aaf7d44da2d",
-  "strings": 217,
+  "sha256OfRawJson": "6c2e34a344f754b77ad438bce0c256450037abf2dfccbe29399911262692e4e1",
+  "strings": 216,
 }
 `;
 
