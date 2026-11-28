@@ -56,13 +56,11 @@ describe('generateBlock', () => {
     expect(generateBlock(base)).toBeNull();
   });
 
-  it('rect wider than 3:1 shows builder.ai.aspect and disables generate', () => {
-    expect(generateBlock({ ...base, size: { widthUm: 91_000, heightUm: 30_000 } })).toBe('aspect');
-    expect(generateBlock({ ...base, size: { widthUm: 30_000, heightUm: 91_000 } })).toBe('aspect');
-    expect(generateBlock({ ...base, size: { widthUm: 90_000, heightUm: 30_000 } })).toBeNull();
-    // Circles and custom shapes have no ratio limit.
+  it('has no ratio limit: a rect longer than 3:1 may generate', () => {
+    expect(generateBlock({ ...base, size: { widthUm: 91_000, heightUm: 30_000 } })).toBeNull();
+    expect(generateBlock({ ...base, size: { widthUm: 30_000, heightUm: 91_000 } })).toBeNull();
+    expect(generateBlock({ ...base, size: { widthUm: 280_000, heightUm: 10_000 } })).toBeNull();
     expect(generateBlock({ ...base, shape: 'custom', size: { widthUm: 91_000, heightUm: 30_000 } })).toBeNull();
-    expect(builder.ai.aspect).toBe('للتصميم بالموقع، الطول ما يزيد على 3 أضعاف العرض.');
   });
 
   it('needs a shape, a valid size, an idea, and the feature on', () => {

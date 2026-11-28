@@ -19,7 +19,10 @@ export const AI_AFTER_OPENAI_SAFETY_MS = 20_000;
 /** Below this much usable budget the image call is not started (the use is given back). */
 export const AI_MIN_OPENAI_BUDGET_MS = 20_000;
 export const AI_MIN_PIXELS = 655_360;
+/** The longest ratio (long side : short side) the image model draws (OpenAI accepts 1:3 to 3:1); a longer rectangle is drawn at this ratio, then extended along its long axis. */
 export const AI_MAX_ASPECT = 3;
+/** Longest side (px) of an extended long rectangle; the same ceiling as an upload (MAX_SIDE_PX). The builder's own sizes never reach it. */
+export const AI_MAX_EXTENDED_SIDE = 60_000;
 export const AI_REF_LONG_SIDE = 1024;
 /** Longest design-instructions text (UTF-16 units) the generate route accepts. */
 export const AI_INSTRUCTIONS_MAX_CHARS = 600;

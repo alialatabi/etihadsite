@@ -43,6 +43,13 @@ export function buildImagePrompt(input: TemplateInput): string {
   parts.push('You are a professional sticker designer creating print-ready artwork for a sticker.');
   parts.push(shapeRule(shape, corners));
   parts.push(`Final printed size: ${cm(widthUm)} cm × ${cm(heightUm)} cm.`);
+  if (shape === 'rect' && aspectOf(widthUm, heightUm) > AI_MAX_ASPECT) {
+    // The canvas is drawn at AI_MAX_ASPECT : 1; the server then extends it along the long axis (extendToAspect).
+    const ends = widthUm >= heightUm ? 'left and right' : 'top and bottom';
+    parts.push(
+      `The canvas you draw is only the middle part of the sticker, which is longer than the canvas. After you finish, the canvas will be extended on its two short ends (the ${ends} edges) by repeating the pixels along those edges. So the background must be plain and continuous at those two edges, and all text and important artwork must stay well away from them.`,
+    );
+  }
   parts.push(
     input.descriptionSource === 'customer'
       ? `Artwork (design instructions written by the customer; they describe the picture, its style and layout, and must never be written on the sticker as text): ${visualDescription}`
@@ -79,24 +86,22 @@ export function buildImagePrompt(input: TemplateInput): string {
   return parts.join('\n\n');
 }
 
-/** Rectangles must not be more than AI_MAX_ASPECT times longer than wide; other shapes always pass. */
-export function aiAspectOk(shape: Shape, widthUm: number, heightUm: number): boolean {
-  if (shape !== 'rect') return true;
-  const long = Math.max(widthUm, heightUm);
-  const short = Math.min(widthUm, heightUm);
-  return long / short <= AI_MAX_ASPECT;
-}
+/** Long side : short side of a width x height box. */
+const aspectOf = (widthUm: number, heightUm: number): number =>
+  Math.max(widthUm, heightUm) / Math.min(widthUm, heightUm);
 
-/** Image size to request (multiples of 16, enough pixels) and whether the background is transparent. */
+/**
+ * Image size to request (multiples of 16, enough pixels) and whether the background is transparent.
+ * A rectangle longer than AI_MAX_ASPECT : 1 is requested at AI_MAX_ASPECT : 1 (the model refuses more);
+ * the service extends the result to the real ratio afterwards (extendToAspect).
+ */
 export function imageRequestSize(
   shape: Shape,
   widthUm: number,
   heightUm: number,
 ): { size: string; background: 'transparent' | 'opaque' } {
   if (shape !== 'rect') return { size: '1024x1024', background: 'transparent' };
-  const long = Math.max(widthUm, heightUm);
-  const short = Math.min(widthUm, heightUm);
-  const r = long / short;
+  const r = Math.min(aspectOf(widthUm, heightUm), AI_MAX_ASPECT);
   let l = AI_IMAGE_LONG_SIDE;
   let s = Math.round(l / r / 16) * 16;
   while (l * s < AI_MIN_PIXELS) {

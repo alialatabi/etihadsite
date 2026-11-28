@@ -42,11 +42,6 @@ export function StartStep({ b, ai }: { b: BuilderApi; ai: AiDesignApi }) {
             {builder.size.title}
           </h3>
           <SizeFields b={b} />
-          {ai.block === 'aspect' && !ai.off && (
-            <p role="status" className="rounded-[2px] border border-brand-ink/30 bg-brand-tint p-3 text-sm text-ink">
-              {builder.ai.aspect}
-            </p>
-          )}
         </section>
       )}
 

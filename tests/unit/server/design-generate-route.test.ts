@@ -459,9 +459,25 @@ describe("POST /api/design/generate", () => {
     expect(await imageUsage()).toBe(0);
   });
 
-  it("generate rejects a rect beyond 3:1 and malformed bodies", async () => {
+  it("generate accepts a rect beyond 3:1: asks OpenAI for 3:1, then extends the pixels to the real ratio", async () => {
     const calls = stubOpenAi(() => imageResponse(png));
-    expect(await read(await call(body({ shape: "rect", widthUm: 100000, heightUm: 30000, lines: [] })))).toEqual({ ok: false, error: "invalid_request" });
+    const out = await read(await call(body({ shape: "rect", widthUm: 100000, heightUm: 30000, lines: [] })));
+    if (!out.ok) throw new Error(out.error);
+    expect(calls).toHaveLength(1);
+    const sent = calls[0].body as { size: string; background: string; prompt: string };
+    expect(sent.size).toBe("1424x480");
+    expect(sent.background).toBe("opaque");
+    expect(sent.prompt).toContain("extended on its two short ends");
+    // The fixture png is 64 px tall: the width follows the sticker's real ratio (100 x 30 mm), the height is unchanged.
+    expect(out.pxHeight).toBe(64);
+    expect(out.pxWidth).toBe(Math.round((64 * 100000) / 30000));
+    const meta = await sharp(Buffer.from(out.png, "base64")).metadata();
+    expect([meta.width, meta.height]).toEqual([out.pxWidth, out.pxHeight]);
+    expect(meta.hasAlpha).toBe(false);
+  });
+
+  it("generate rejects malformed bodies", async () => {
+    const calls = stubOpenAi(() => imageResponse(png));
     for (const bad of [
       body({ idea: "" }),
       body({ idea: "ا".repeat(1001) }),

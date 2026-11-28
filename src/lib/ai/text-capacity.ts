@@ -4,6 +4,7 @@
  * Units are integer micrometres.
  */
 import type { Shape } from '../types';
+import { AI_MAX_ASPECT } from './config';
 
 /** 12 pt in micrometres. */
 export const PT12_EM_UM = 4233;
@@ -23,14 +24,22 @@ export interface TextCapacity {
   minSizeUm: number | null;
 }
 
-/** The box (µm) inside the sticker that text may use. */
+/**
+ * The box (µm) inside the sticker that text may use. A rectangle longer than AI_MAX_ASPECT : 1 is drawn by the
+ * model on an AI_MAX_ASPECT : 1 canvas (the two short ends are only extended afterwards), so its long side is
+ * measured at that canvas, not at the full sticker.
+ */
 export function usableBoxUm(shape: Shape, widthUm: number, heightUm: number): { w: number; h: number } {
   if (shape === 'circle') {
     const d = Math.min(widthUm, heightUm);
     const side = 0.7 * d * 0.92;
     return { w: side, h: side };
   }
-  if (shape === 'rect') return { w: 0.9 * widthUm, h: 0.9 * heightUm };
+  if (shape === 'rect') {
+    const w = Math.min(widthUm, AI_MAX_ASPECT * heightUm);
+    const h = Math.min(heightUm, AI_MAX_ASPECT * widthUm);
+    return { w: 0.9 * w, h: 0.9 * h };
+  }
   return { w: 0.8 * widthUm, h: 0.8 * heightUm };
 }
 
